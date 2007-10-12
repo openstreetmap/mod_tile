@@ -15,13 +15,13 @@
 #include "gen_tile.h"
 #include "protocol.h"
 
-#define QUEUE_MAX (10)
-#define MAX_CONNECTIONS (10)
+#define QUEUE_MAX (32)
+#define MAX_CONNECTIONS (256)
 
 #define MAX(a,b)   ((a) > (b) ? (a) : (b))
 
 #define FD_INVALID (-1)
-#define REQ_LIMIT (10)
+#define REQ_LIMIT (32)
 #define DIRTY_LIMIT (1000 * 1000)
 #define NUM_THREADS (4)
 
