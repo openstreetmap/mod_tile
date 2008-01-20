@@ -49,9 +49,11 @@ module AP_MODULE_DECLARE_DATA tile_module;
 // IMG_PATH must have blank.png etc.
 #define WWW_ROOT "/var/www/html"
 #define IMG_PATH "/img"
-// TILE_PATH must have tile z directory z(0..18)/x/y.png
+// TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
 #define TILE_PATH "/osm_tiles2"
-//#define TILE_PATH "/tile"
+// With directory hashing enabled we rewrite the path so that tiles are really stored here instead
+#define DIRECTORY_HASH
+#define HASH_PATH "/direct"
 // MAX_LOAD_OLD: if tile is out of date, don't re-render it if past this load threshold (users gets old tile)
 #define MAX_LOAD_OLD 5
 // MAX_LOAD_OLD: if tile is missing, don't render it if past this load threshold (user gets 404 error)
@@ -69,7 +71,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #define PLANET_TIMESTAMP "/tmp/planet-import-complete"
 
 // Timeout before giving for a tile to be rendered
-#define REQUEST_TIMEOUT (3)
+#define REQUEST_TIMEOUT (5)
 #define FD_INVALID (-1)
 
 
@@ -92,7 +94,8 @@ static int error_message(request_rec *r, const char *format, ...)
     len = vasprintf(&msg, format, ap);
 
     if (msg) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", msg);
+        //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", msg);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "%s", msg);
         r->content_type = "text/plain";
         if (!r->header_only)
             ap_rputs(msg, r);
@@ -136,7 +139,8 @@ int request_tile(request_rec *r, int x, int y, int z, const char *filename, int 
     //struct pollfd fds[1];
     static int fd = FD_INVALID;
     int ret = 0;
-
+    int retry = 1;
+ 
     if (fd == FD_INVALID) {
         fd = socket_init(r);
 
@@ -144,7 +148,7 @@ int request_tile(request_rec *r, int x, int y, int z, const char *filename, int 
             //fprintf(stderr, "Failed to connect to renderer\n");
             return 0;
         } else {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Connected to renderer");
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Connected to renderer");
         }
     }
 
@@ -158,16 +162,22 @@ int request_tile(request_rec *r, int x, int y, int z, const char *filename, int 
     strcpy(cmd.path, filename);
 
     //fprintf(stderr, "Requesting tile(%d,%d,%d)\n", z,x,y);
-    ret = send(fd, &cmd, sizeof(cmd), 0);
-    if (ret != sizeof(cmd)) {
-        if (errno == EPIPE) {
-            close(fd);
-            fd = FD_INVALID;
-        }
+    do {
+        ret = send(fd, &cmd, sizeof(cmd), 0);
 
-        //perror("send error");
-        return 0;
-    }
+        if (ret == sizeof(cmd))
+            break;
+
+        if (errno != EPIPE)
+            return 0;
+ 
+         close(fd);
+         fd = socket_init(r);
+         if (fd == FD_INVALID)
+             return 0;
+         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Reconnected to renderer");
+    } while (retry--);
+
     if (!dirtyOnly) {
         struct timeval tv = { REQUEST_TIMEOUT, 0 };
         fd_set rx;
@@ -278,14 +288,20 @@ static apr_status_t expires_filter(ap_filter_t *f, apr_bucket_brigade *b)
     return ap_pass_brigade(f->next, b);
 }
 
-static int serve_blank(request_rec *r)
+
+static int serve_tile(request_rec *r, const char *rel_path)
 {
-    // Redirect request to blank tile
+    // Redirect request to the tile
     r->method = apr_pstrdup(r->pool, "GET");
     r->method_number = M_GET;
     apr_table_unset(r->headers_in, "Content-Length");
-    ap_internal_redirect_handler(IMG_PATH "/blank-000000.png", r);
+    ap_internal_redirect_handler(rel_path, r);
     return OK;
+}
+
+static int serve_blank(request_rec *r)
+{
+    return serve_tile(r, IMG_PATH "/blank-000000.png");
 }
 
 int get_load_avg(request_rec *r)
@@ -316,7 +332,7 @@ static int tile_dirty(request_rec *r, int x, int y, int z, const char *path)
 
 
 
-static int get_tile(request_rec *r, int x, int y, int z, const char *path)
+static int get_tile(request_rec *r, int x, int y, int z, const char *abs_path, const char *rel_path)
 {
     int avg = get_load_avg(r);
     enum tileState state;
@@ -326,39 +342,31 @@ static int get_tile(request_rec *r, int x, int y, int z, const char *path)
         return error_message(r, "error: Load above MAX_LOAD_ANY threshold %d > %d", avg, MAX_LOAD_ANY);
     }
 
-    state = tile_state(r, path);
-
-    // Note: We rely on the default Apache handler to return the files from the filesystem
-    // hence we return DECLINED in order to return the tile to the client
-    // or OK if we want to send something else.
+    state = tile_state(r, abs_path);
 
     switch (state) {
         case tileCurrent:
-            return DECLINED;
+            return serve_tile(r, rel_path);
             break;
         case tileOld:
             if (avg > MAX_LOAD_OLD) {
                // Too much load to render it now, mark dirty but return old tile
-               tile_dirty(r, x, y, z, path);
-               return DECLINED;
+               tile_dirty(r, x, y, z, abs_path);
+               return serve_tile(r, rel_path);
             }
             break;
         case tileMissing:
             if (avg > MAX_LOAD_MISSING) {
-               tile_dirty(r, x, y, z, path);
+               tile_dirty(r, x, y, z, abs_path);
                return error_message(r, "error: File missing and load above MAX_LOAD_MISSING threshold %d > %d", avg, MAX_LOAD_MISSING);
             }
             break;
     }
 
-    if (request_tile(r, x,y,z,path, 0)) {
-        // Need to make apache try accessing this tile again (since it may have been missing)
-        // TODO: Instead of redirect, maybe we can update fileinfo for new tile, but is this sufficient?
-        apr_table_unset(r->headers_in, "Content-Length");
-        ap_internal_redirect_handler(r->uri, r);
-        return OK;
-    }
-    return error_message(r, "rendering failed for %s", path);
+    if (request_tile(r, x,y,z,abs_path, 0))
+        return serve_tile(r, rel_path);
+
+    return error_message(r, "rendering failed for %s", rel_path);
 }
 
 static int tile_status(request_rec *r, int x, int y, int z, const char *path)
@@ -390,13 +398,38 @@ static int tile_status(request_rec *r, int x, int y, int z, const char *path)
     return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s", old ? "due to be rendered" : "clean", MtimeStr, AtimeStr);
 }
 
+static const char *xyz_to_path(char *path, size_t len, int x, int y, int z)
+{
+#ifdef DIRECTORY_HASH
+    // Directory hashing is optimised for z18 max (2^18 tiles split into 2 levels of 2^9)
+    //snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d/%03d/%03d/%03d/%03d.png", z,
+    //                 x/512 x%512, y/512, y%512);
+
+    // We attempt to cluseter the tiles so that a 16x16 square of tiles will be in a single directory
+    // Hash stores our 40 bit result of mixing the 20 bits of the x & y co-ordinates
+    // 4 bits of x & y are used per byte of output
+    unsigned char i, hash[5];
+
+    for (i=0; i<5; i++) {
+        hash[i] = ((x & 0x0f) << 4) | (y & 0x0f);
+        x >>= 4;
+        y >>= 4;
+    }
+    snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.png", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+#else
+    snprintf(path, PATH_MAX, WWW_ROOT TILE_PATH "/%d/%d/%d.png", z, x, y);
+#endif
+    return path + strlen(WWW_ROOT);
+}
+
 
 static int tile_handler(request_rec *r)
 {
     int x, y, z, n, limit;
     char option[11];
     int oob;
-    char path[PATH_MAX];
+    char abs_path[PATH_MAX];
+    const char *rel_path;
 
     option[0] = '\0';
 
@@ -413,10 +446,10 @@ static int tile_handler(request_rec *r)
         return DECLINED;
     }
 
-    // Generate the tile filename.
-    // This may differ from r->filename in some cases (e.g. if a parent directory is missing)
-    snprintf(path, PATH_MAX, WWW_ROOT TILE_PATH "/%d/%d/%d.png", z, x, y);
-
+    // Generate the tile filename
+    rel_path = xyz_to_path(abs_path, sizeof(abs_path), x, y, z);
+    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "abs_path(%s), rel_path(%s)", abs_path, rel_path);
+    
     // Validate tile co-ordinates
     oob = (z < 0 || z > MAX_ZOOM);
     if (!oob) {
@@ -427,16 +460,16 @@ static int tile_handler(request_rec *r)
 
     if (n == 3) {
         ap_add_output_filter("MOD_TILE", NULL, r, r->connection);
-        return oob ? serve_blank(r) : get_tile(r, x, y, z, path);
+        return oob ? serve_blank(r) : get_tile(r, x, y, z, abs_path, rel_path);
     }
 
     if (n == 4) {
         if (oob)
             return error_message(r, "The tile co-ordinates that you specified are invalid");
         if (!strcmp(option, "status"))
-            return tile_status(r, x, y, z, path);
+            return tile_status(r, x, y, z, abs_path);
         if (!strcmp(option, "dirty"))
-            return tile_dirty(r, x, y, z, path);
+            return tile_dirty(r, x, y, z, abs_path);
         return error_message(r, "Unknown option");
     }
     return DECLINED;

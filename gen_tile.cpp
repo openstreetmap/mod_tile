@@ -18,6 +18,10 @@
 #include "gen_tile.h"
 #include "protocol.h"
 
+
+#undef USE_RENDER_OFFSET
+
+
 using namespace mapnik;
 
 #define DEG_TO_RAD (M_PIl/180)
@@ -27,7 +31,7 @@ static const int minZoom = 0;
 static const int maxZoom = 18;
 static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-jb-merc.xml";
 
-
+#if 0
 static void postProcess(const char *path)
 {
     // Convert the 32bit RGBA image to one with indexed colours
@@ -53,7 +57,7 @@ static void postProcess(const char *path)
         std::cerr << "Caught exception: " << error_.what() << std::endl;
     }
 }
-
+#endif
 
 
 static double minmax(double a, double b, double c)
@@ -154,11 +158,16 @@ static enum protoCmd render(Map &m, Image32 &buf, int x, int y, int z, const cha
     bbox.width(bbox.width() * 2);
     bbox.height(bbox.height() * 2);
     m.zoomToBox(bbox);
-
+#ifdef USE_RENDER_OFFSET
     agg_renderer<Image32> ren(m,buf, 128,128);
     ren.apply();
-    buf.saveToFile(filename,"png");
-
+    buf.saveToFile(filename,"png256");
+#else
+    agg_renderer<Image32> ren(m,buf);
+    ren.apply();
+    image_view<ImageData32> vw(128,128,256,256, buf.data());
+    save_to_file(filename,"png256", vw);
+#endif
     return cmdDone; // OK
 }
 
@@ -177,7 +186,11 @@ void render_init(void)
 void *render_thread(__attribute__((unused)) void *unused)
 {
     Map m(2 * 256, 2 * 256);
+#ifdef USE_RENDER_OFFSET
     Image32 buf(256, 256);
+#else
+    Image32 buf(512, 512);
+#endif
 
     load_map(m,mapfile);
 
@@ -189,7 +202,7 @@ void *render_thread(__attribute__((unused)) void *unused)
             //pthread_mutex_lock(&map_lock);
             ret = render(m, buf, req->x, req->y, req->z, req->path);
             //pthread_mutex_unlock(&map_lock);
-            postProcess(req->path);
+            //postProcess(req->path);
             send_response(item, ret);
             delete_request(item);
         } else

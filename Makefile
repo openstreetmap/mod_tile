@@ -25,13 +25,13 @@ clean:
 RENDER_CPPFLAGS += -g -O2 -Wall
 RENDER_CPPFLAGS += -I/usr/local/include/mapnik
 RENDER_CPPFLAGS += $(shell pkg-config --cflags freetype2)
-RENDER_CPPFLAGS += $(shell Magick++-config --cxxflags --cppflags)
+#RENDER_CPPFLAGS += $(shell Magick++-config --cxxflags --cppflags)
 RENDER_CPPFLAGS += $(shell pkg-config --cflags libagg)
 
 RENDER_LDFLAGS += -g
 RENDER_LDFLAGS += -lmapnik -L/usr/local/lib64
 RENDER_LDFLAGS += $(shell pkg-config --libs freetype2)
-RENDER_LDFLAGS += $(shell Magick++-config --ldflags --libs)
+#RENDER_LDFLAGS += $(shell Magick++-config --ldflags --libs)
 RENDER_LDFLAGS += $(shell pkg-config --libs libagg)
 
 renderd: daemon.c gen_tile.cpp

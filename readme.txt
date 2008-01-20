@@ -31,10 +31,17 @@ and background requests (updating tiles which have expired)
 
 Tile serving
 ============
-Tiles are served from the filesystem using Apache from 
-/var/www/html/osm_tiles2/[Z]/[X]/[Y].png
+To avoid problems with directories becoming too large the
+files are stored in a different layout to that presented
+by the web server. The tiles are now stored under
+/var/www/html/direct/[Z]/nnn/nnn/nnn/nnn/nnn.png
 
-where X,Y,Z are the standard OSM tile co-ordinates.
+Where nnn is derived from a combination of the X and Y
+OSM tile co-ordinates.
+
+Apache serves the files as if they were present
+under "/osm_tiles2/Z/X/Y.png" wiht the path being
+converted automatically.
 
 An Apache module called mod_tile enhances the regular
 Apache file serving mechanisms to provide:
@@ -45,6 +52,8 @@ cache expiry headers
 
 2) When tiles have expired it requests the rendering
 daemon to render (or re-render) the tile.
+
+3) Remapping of the file path to the hashed layout
 
 There is an attempt to make the mod_tile code aware of
 the load on the server so that it backs off the rendering
@@ -72,7 +81,9 @@ LoadModule tile_module modules/mod_tile.so
 
 --------------
 
-Create the directory /var/www/html/osm_tiles2/
+Create the directories:
+ /var/www/html/osm_tiles2/
+ /var/www/html/direct/
 
 Run the rendering daemon 'renderd'
 
@@ -92,8 +103,11 @@ The render daemon should have produce a message like:
 Got incoming connection, fd 7, number 1
 Render z(0), x(0), y(0), path(/var/www/html/osm_tiles2/0/0/0.png)
 
-After a few seconds you should see a tile of the world
-in your browser window.
+The disk should start thrashing as Mapnik tries to pull
+in data for the first time. After a few seconds you'll
+probably see a 404 error. Wait for the disk activity to
+cease and then reload the tile. With a bit of luck you
+should see a tile of the world in your browser window.
 
 To get a complete slippy map you should install a copy
 of the OpenLayers based OSM slippy map and point this to
@@ -130,6 +144,10 @@ Unfortunately if you reduce the block size to 1 or 2kB then this also
 has a significant impact on the maximum file system size and number of
 inodes available.
 
+
+**  Note: The issues below have been worked around in the current
+code by using the hashed directory path. 
+
 The simple z/x/y.png filesystem layout means that at high zoom levels
 there can be large numbers of files in a single directory
  
@@ -137,3 +155,4 @@ there can be large numbers of files in a single directory
 
 If ext2/3 is being used then you really need to have directory indexing
 enabled.
+
