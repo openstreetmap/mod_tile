@@ -7,7 +7,6 @@
 #include <mapnik/load_map.hpp>
 #include <mapnik/image_util.hpp>
 
-#include <Magick++.h>
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
