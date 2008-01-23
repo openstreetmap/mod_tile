@@ -11,7 +11,9 @@ struct item {
     struct item *next;
     struct item *prev;
     struct protocol req;
+    int mx, my;
     int fd;
+    struct item *duplicates;
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);
