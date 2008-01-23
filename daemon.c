@@ -14,68 +14,11 @@
 
 #include "gen_tile.h"
 #include "protocol.h"
-
-#define QUEUE_MAX (32)
-#define MAX_CONNECTIONS (256)
-
-#define MAX(a,b)   ((a) > (b) ? (a) : (b))
-
-#define FD_INVALID (-1)
-#define REQ_LIMIT (32)
-#define DIRTY_LIMIT (1000 * 1000)
-#define NUM_THREADS (4)
+#include "render_config.h"
+#include "dir_utils.h"
 
 static pthread_t render_threads[NUM_THREADS];
 static struct sigaction sigPipeAction;
-
-
-void pipe_handler(__attribute__((unused)) int sigNum)
-{
-    // Needed in case the client closes the connection
-    // before we send a response.
-    // FIXME: is fprintf really safe in signal handler?
-    //fprintf(stderr, "Caught SIGPIPE\n");
-}
-
-// Build parent directories for the specified file name
-// Note: the part following the trailing / is ignored
-// e.g. mkdirp("/a/b/foo.png") == shell mkdir -p /a/b
-static int mkdirp(const char *path) {
-    struct stat s;
-    char tmp[PATH_MAX];
-    char *p;
-
-    strncpy(tmp, path, sizeof(tmp));
-
-    // Look for parent directory
-    p = strrchr(tmp, '/');
-    if (!p)
-        return 0;
-
-    *p = '\0';
-
-    if (!stat(tmp, &s))
-        return !S_ISDIR(s.st_mode);
-    *p = '/';
-    // Walk up the path making sure each element is a directory
-    p = tmp;
-    if (!*p)
-        return 0;
-    p++; // Ignore leading /
-    while (*p) {
-        if (*p == '/') {
-            *p = '\0';
-            if (!stat(tmp, &s)) {
-                if (!S_ISDIR(s.st_mode))
-                    return 1;
-            } else if (mkdir(tmp, 0777))
-                return 1;
-            *p = '/';
-        }
-        p++;
-    }
-    return 0;
-}
 
 static struct item reqHead, dirtyHead, renderHead;
 static int reqNum, dirtyNum;
@@ -109,51 +52,39 @@ struct item *fetch_request(void)
     return item;
 }
 
-void delete_request(struct item *item)
-{
-    pthread_mutex_lock(&qLock);
-
-    item->next->prev = item->prev;
-    item->prev->next = item->next;
-
-    pthread_mutex_unlock(&qLock);
-    free(item); 
-}
-
 void clear_requests(int fd)
 {
-    struct item *item;
+    struct item *item, *dupes;
 
     pthread_mutex_lock(&qLock);
     item = reqHead.next;
     while (item != &reqHead) {
         if (item->fd == fd)
             item->fd = FD_INVALID;
+
+        dupes = item->duplicates;
+        while (dupes) {
+            if (dupes->fd == fd)
+                dupes->fd = FD_INVALID;
+            dupes = dupes->duplicates;
+        }
         item = item->next;
     }
+
     item = renderHead.next;
     while (item != &renderHead) {
         if (item->fd == fd)
             item->fd = FD_INVALID;
+
+        dupes = item->duplicates;
+        while (dupes) {
+            if (dupes->fd == fd)
+                dupes->fd = FD_INVALID;
+            dupes = dupes->duplicates;
+        }
         item = item->next;
     }
-    pthread_mutex_unlock(&qLock);
-}
 
-void send_response(struct item *item, enum protoCmd rsp)
-{
-    struct protocol *req = &item->req;
-    int ret;
-
-    pthread_mutex_lock(&qLock);
-
-    if ((item->fd != FD_INVALID) && (req->cmd == cmdRender)) {
-        req->cmd = rsp;
-        //fprintf(stderr, "Sending message %d to %d\n", rsp, item->fd);
-        ret = send(item->fd, req, sizeof(*req), 0);
-        if (ret != sizeof(*req))
-            perror("send error during send_done");
-    }
     pthread_mutex_unlock(&qLock);
 }
 
@@ -169,45 +100,83 @@ static inline const char *cmdStr(enum protoCmd c)
     }
 }
 
-int pending(struct item *test)
+void send_response(struct item *item, enum protoCmd rsp)
+{
+    struct protocol *req = &item->req;
+    int ret;
+
+    pthread_mutex_lock(&qLock);
+    item->next->prev = item->prev;
+    item->prev->next = item->next;
+    pthread_mutex_unlock(&qLock);
+
+    while (item) {
+        struct item *prev = item;
+        req = &item->req;
+        if ((item->fd != FD_INVALID) && (req->cmd == cmdRender)) {
+            req->cmd = rsp;
+            //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
+            ret = send(item->fd, req, sizeof(*req), 0);
+            if (ret != sizeof(*req))
+                perror("send error during send_done");
+        }
+        item = item->duplicates;
+        free(prev);
+    }
+}
+
+
+enum protoCmd pending(struct item *test)
 {
     // check all queues and render list to see if this request already queued
+    // If so, add this new request as a duplicate
     // call with qLock held
     struct item *item;
 
-    item = reqHead.next;
-    while (item != &reqHead) {
-        if ((item->req.x == test->req.x) && (item->req.y == test->req.y) && (item->req.z == test->req.z))
-            return 1;
-        item = item->next;
-    }
-    item = dirtyHead.next;
-    while (item != &dirtyHead) {
-        if ((item->req.x == test->req.x) && (item->req.y == test->req.y) && (item->req.z == test->req.z))
-            return 1;
-        item = item->next;
-    }
     item = renderHead.next;
     while (item != &renderHead) {
-        if ((item->req.x == test->req.x) && (item->req.y == test->req.y) && (item->req.z == test->req.z))
-            return 1;
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z)) {
+            // Add new test item in the list of duplicates
+            test->duplicates = item->duplicates;
+            item->duplicates = test;
+            return cmdIgnore;
+        }
         item = item->next;
     }
 
-    return 0;
+    item = reqHead.next;
+    while (item != &reqHead) {
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z)) {
+            // Add new test item in the list of duplicates
+            test->duplicates = item->duplicates;
+            item->duplicates = test;
+            return cmdIgnore;
+        }
+        item = item->next;
+    }
+
+    item = dirtyHead.next;
+    while (item != &dirtyHead) {
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z))
+            return cmdNotDone;
+        item = item->next;
+    }
+
+    return cmdRender;
 }
 
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
     struct item *list = NULL, *item;
+    enum protoCmd pend;
 
     if (req->ver != 1) {
         fprintf(stderr, "Bad protocol version %d\n", req->ver);
         return cmdIgnore;
     }
 
-    fprintf(stderr, "%s z(%d), x(%d), y(%d), path(%s)\n",
-            cmdStr(req->cmd), req->z, req->x, req->y, req->path);
+    //fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d), path(%s)\n",
+    //        cmdStr(req->cmd), fd, req->z, req->x, req->y, req->path);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
         return cmdIgnore;
@@ -220,24 +189,47 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
             fprintf(stderr, "malloc failed\n");
             return cmdNotDone;
     }
+
     item->req = *req;
+    item->duplicates = NULL;
+    item->fd = (req->cmd == cmdRender) ? fd : FD_INVALID;
+
+#ifdef METATILE
+    /* Round down request co-ordinates to the neareast N (should be a power of 2)
+     * Note: request path is no longer consistent but this will be recalculated
+     * when the metatile is being rendered.
+     */
+    item->mx = item->req.x & ~(METATILE-1);
+    item->my = item->req.y & ~(METATILE-1);
+#else
+    item->mx = item->req.x;
+    item->my = item->req.y;
+#endif
 
     pthread_mutex_lock(&qLock);
 
-    if (pending(item)) {
+    // Check for a matching request in the current rendering or dirty queues
+    pend = pending(item);
+    if (pend == cmdNotDone) {
+        // We found a match in the dirty queue, can not wait for it
         pthread_mutex_unlock(&qLock);
         free(item);
-        return cmdNotDone; // No way to wait on a pending tile
+        return cmdNotDone;
+    }
+    if (pend == cmdIgnore) {
+        // Found a match in render queue, item added as duplicate
+        pthread_mutex_unlock(&qLock);
+        return cmdIgnore;
     }
 
+    // New request, add it to render or dirty queue
     if ((req->cmd == cmdRender) && (reqNum < REQ_LIMIT)) {
         list = &reqHead;
         reqNum++;
-        item->fd  = fd;
     } else if (dirtyNum < DIRTY_LIMIT) {
         list = &dirtyHead;
         dirtyNum++;
-        item->fd  = FD_INVALID; // No response after render
+        item->fd = FD_INVALID; // No response after render
     }
 
     if (list) {

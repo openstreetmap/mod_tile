@@ -17,9 +17,8 @@
 
 #include "gen_tile.h"
 #include "protocol.h"
-
-
-#undef USE_RENDER_OFFSET
+#include "render_config.h"
+#include "dir_utils.h"
 
 
 using namespace mapnik;
@@ -27,37 +26,23 @@ using namespace mapnik;
 #define DEG_TO_RAD (M_PIl/180)
 #define RAD_TO_DEG (180/M_PIl)
 
+#ifdef METATILE
+#define RENDER_SIZE (256 * (METATILE + 1))
+#else
+#define RENDER_SIZE (512)
+#endif
+
+pthread_mutex_t map_lock;
+
+
 static const int minZoom = 0;
 static const int maxZoom = 18;
-static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-jb-merc.xml";
+//static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-jb-merc.xml";
+static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-local-fast-sphere.xml";
+//static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-local-fast.xml";
 
-#if 0
-static void postProcess(const char *path)
-{
-    // Convert the 32bit RGBA image to one with indexed colours
-    // TODO: Ideally this would work on the Mapnik Image32 instead of requiring the intermediate image
-    // Or have a post-process thread with queueing
-
-    char tmp[PATH_MAX];
-    Magick::Image image;
-    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
-
-    try {
-        image.read(path);
-
-        image.matte(0);
-        image.quantizeDither(0);
-        image.quantizeColors(255);
-        image.quantize();
-        image.modulusDepth(8);
-        image.write(tmp);
-        rename(tmp, path);
-    }
-    catch( Magick::Exception &error_ ) {
-        std::cerr << "Caught exception: " << error_.what() << std::endl;
-    }
-}
-#endif
+//static projection prj("+proj=merc +datum=WGS84 +k=1.0 +units=m +over +no_defs");
+static projection prj("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over");
 
 
 static double minmax(double a, double b, double c)
@@ -139,10 +124,67 @@ static void load_fonts(const char *font_dir, int recurse)
 }
 
 static GoogleProjection gprj(maxZoom+1);
-static projection prj("+proj=merc +datum=WGS84");
 
-static enum protoCmd render(Map &m, Image32 &buf, int x, int y, int z, const char *filename)
+#ifdef METATILE
+static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
 {
+    int render_size = 256 * (size + 1);
+    double p0x = x * 256;
+    double p0y = (y + size) * 256;
+    double p1x = (x + size) * 256;
+    double p1y = y * 256;
+
+    //std::cout << "META TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
+
+    // FIXME: Without a lock around the projection and rendering we seem
+    // to get corrupted tiles. The current evidence is pointing towards
+    // a problem with libproj
+    pthread_mutex_lock(&map_lock);
+
+    gprj.fromPixelToLL(p0x, p0y, z);
+    gprj.fromPixelToLL(p1x, p1y, z);
+
+    prj.forward(p0x, p0y);
+    prj.forward(p1x, p1y);
+
+    Envelope<double> bbox(p0x, p0y, p1x,p1y);
+    bbox.height(bbox.height() * (size+1.0)/size);
+    bbox.width(bbox.width() * (size+1.0)/size);
+    m.resize(render_size, render_size);
+    m.zoomToBox(bbox);
+    //m.zoom(size+1);
+
+    Image32 buf(render_size, render_size);
+    agg_renderer<Image32> ren(m,buf);
+    ren.apply();
+
+    pthread_mutex_unlock(&map_lock);
+
+    // Split the meta tile into an NxN grid of tiles
+    unsigned int xx, yy;
+    for (yy = 0; yy < size; yy++) {
+        for (xx = 0; xx < size; xx++) {
+            int yoff = 128 + yy * 256;
+            int xoff = 128 + xx * 256;
+            image_view<ImageData32> vw(xoff, yoff, 256, 256, buf.data());
+
+            char filename[PATH_MAX];
+            char tmp[PATH_MAX];
+            xyz_to_path(filename, sizeof(filename), x+xx, y+yy, z);
+            mkdirp(filename);
+            snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
+            //std::cout << "Render " << z << " " << x << "(" << xx << ") " << y << "(" << yy << ") " << filename << "\n";
+            save_to_file(tmp,"png256", vw);
+            rename(tmp, filename);
+        }
+    }
+    std::cout << "DONE TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
+    return cmdDone; // OK
+}
+#else
+static enum protoCmd render(Map &m, int x, int y, int z, const char *filename)
+{
+
     double p0x = x * 256.0;
     double p0y = (y + 1) * 256.0;
     double p1x = (x + 1) * 256.0;
@@ -158,20 +200,19 @@ static enum protoCmd render(Map &m, Image32 &buf, int x, int y, int z, const cha
     bbox.width(bbox.width() * 2);
     bbox.height(bbox.height() * 2);
     m.zoomToBox(bbox);
-#ifdef USE_RENDER_OFFSET
-    agg_renderer<Image32> ren(m,buf, 128,128);
-    ren.apply();
-    buf.saveToFile(filename,"png256");
-#else
+
+    Image32 buf(RENDER_SIZE, RENDER_SIZE);
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
+
     image_view<ImageData32> vw(128,128,256,256, buf.data());
     save_to_file(filename,"png256", vw);
-#endif
+
+
     return cmdDone; // OK
 }
+#endif
 
-pthread_mutex_t map_lock;
 
 void render_init(void)
 {
@@ -185,26 +226,28 @@ void render_init(void)
 
 void *render_thread(__attribute__((unused)) void *unused)
 {
-    Map m(2 * 256, 2 * 256);
-#ifdef USE_RENDER_OFFSET
-    Image32 buf(256, 256);
-#else
-    Image32 buf(512, 512);
-#endif
+    Map m(RENDER_SIZE, RENDER_SIZE);
 
+    pthread_mutex_lock(&map_lock);
     load_map(m,mapfile);
+    pthread_mutex_unlock(&map_lock);
 
     while (1) {
         enum protoCmd ret;
         struct item *item = fetch_request();
         if (item) {
             struct protocol *req = &item->req;
-            //pthread_mutex_lock(&map_lock);
-            ret = render(m, buf, req->x, req->y, req->z, req->path);
-            //pthread_mutex_unlock(&map_lock);
-            //postProcess(req->path);
+#ifdef METATILE
+            // At very low zoom the whole world may be smaller than METATILE
+            unsigned int size = MIN(METATILE, 1 << req->z);
+    //pthread_mutex_lock(&map_lock);
+            ret = render(m, item->mx, item->my, req->z, size);
+    //pthread_mutex_unlock(&map_lock);
+
+#else
+            ret = render(m, req->x, req->y, req->z, req->path);
+#endif
             send_response(item, ret);
-            delete_request(item);
         } else
             sleep(1); // TODO: Use an event to indicate there are new requests
     }

@@ -8,6 +8,7 @@ top_builddir = ${top_dir}
 include ${top_builddir}/build/special.mk
 
 CXX := g++
+CXXFLAGS += -Wall
 
 APXS      = apxs
 APACHECTL = apachectl
@@ -16,7 +17,7 @@ EXTRA_CFLAGS = -I$(builddir)
 EXTRA_CPPFLAGS += -g -O2 -Wall
 EXTRA_LDFLAGS += $(shell pkg-config --libs libagg)
 
-all: local-shared-build renderd
+all: local-shared-build renderd speedtest render_list
 
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
@@ -34,9 +35,12 @@ RENDER_LDFLAGS += $(shell pkg-config --libs freetype2)
 #RENDER_LDFLAGS += $(shell Magick++-config --ldflags --libs)
 RENDER_LDFLAGS += $(shell pkg-config --libs libagg)
 
-renderd: daemon.c gen_tile.cpp
+renderd: daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h
 	$(CXX) -o $@ $^ $(RENDER_LDFLAGS) $(RENDER_CPPFLAGS)
 
+speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
+
+render_list: render_config.h protocol.h dir_utils.c dir_utils.h
 
 MYSQL_CFLAGS += -g -O2 -Wall
 MYSQL_CFLAGS += $(shell mysql_config --cflags)
