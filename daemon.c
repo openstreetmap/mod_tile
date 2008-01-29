@@ -165,6 +165,26 @@ enum protoCmd pending(struct item *test)
     return cmdRender;
 }
 
+int check_xyz(int x, int y, int z)
+{
+    int oob, limit;
+
+    // Validate tile co-ordinates
+    oob = (z < 0 || z > MAX_ZOOM);
+    if (!oob) {
+         // valid x/y for tiles are 0 ... 2^zoom-1
+        limit = (1 << z) - 1;
+        oob =  (x < 0 || x > limit || y < 0 || y > limit);
+    }
+
+    if (oob)
+        fprintf(stderr, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
+
+    return oob;
+}
+
+
+
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
     struct item *list = NULL, *item;
@@ -180,6 +200,9 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
         return cmdIgnore;
+
+    if (check_xyz(req->x, req->y, req->z))
+        return cmdNotDone;
 
     if (mkdirp(req->path))
         return cmdNotDone;
