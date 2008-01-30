@@ -173,7 +173,7 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
             mkdirp(filename);
             snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
             //std::cout << "Render " << z << " " << x << "(" << xx << ") " << y << "(" << yy << ") " << filename << "\n";
-            save_to_file(tmp,"png256", vw);
+            save_to_file(vw, tmp,"png256");
             rename(tmp, filename);
         }
     }
