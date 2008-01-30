@@ -331,6 +331,9 @@ static int get_tile(request_rec *r, int x, int y, int z, const char *abs_path, c
     if (request_tile(r, x,y,z,abs_path, 0))
         return serve_tile(r, rel_path);
 
+    if (state == tileOld)
+        return serve_tile(r, rel_path);
+
     return error_message(r, "rendering failed for %s", rel_path);
 }
 
@@ -406,6 +409,19 @@ static int tile_handler(request_rec *r)
 
     /* URI = .../<z>/<x>/<y>.png[/option] */
     n = sscanf(r->uri, TILE_PATH "/%d/%d/%d.png/%10s", &z, &x, &y, option);
+    /* The original rewrite config matched anything that ended with 3 numbers */
+    //if (n < 3)
+    //        n = sscanf(r->uri, TILE_PATH "%*[^0-9]%d/%d/%d.png/%10s", &z, &x, &y, option);
+#if 0
+    if (n < 3)
+            n = sscanf(r->uri, TILE_PATH "//%d/%d/%d.png/%10s", &z, &x, &y, option);
+    if (n < 3)
+            n = sscanf(r->uri, TILE_PATH "/%*[^/]/%d/%d/%d.png/%10s", &z, &x, &y, option);
+    if (n < 3)
+            n = sscanf(r->uri, TILE_PATH "/%*[^/]//%d/%d/%d.png/%10s", &z, &x, &y, option);
+    if (n < 3)
+            n = sscanf(r->uri, TILE_PATH "/%*[^/]/%*[^/]/%d/%d/%d.png/%10s", &z, &x, &y, option);
+#endif
     if (n < 3) {
         //return error_message(r, "unable to process: %s", r->path_info);
         return DECLINED;
@@ -414,6 +430,7 @@ static int tile_handler(request_rec *r)
     // Generate the tile filename
     rel_path = xyz_to_path(abs_path, sizeof(abs_path), x, y, z);
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "abs_path(%s), rel_path(%s)", abs_path, rel_path);
+    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "z(%d) x(%d) y(%d)", z, x, y);
 
     // Validate tile co-ordinates
     oob = (z < 0 || z > MAX_ZOOM);
