@@ -75,9 +75,9 @@ const char *xyz_to_path(char *path, size_t len, int x, int y, int z)
         x >>= 4;
         y >>= 4;
     }
-    snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.png", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    snprintf(path, len, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.png", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
 #else
-    snprintf(path, PATH_MAX, WWW_ROOT TILE_PATH "/%d/%d/%d.png", z, x, y);
+    snprintf(path, len, WWW_ROOT TILE_PATH "/%d/%d/%d.png", z, x, y);
 #endif
     return path + strlen(WWW_ROOT);
 }
