@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 
     while(!feof(stdin)) {
         struct stat s;
-        int n = fscanf(stdin, "%d %d %d %*s %*s", &x, &y, &z);
+        int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
 
         if (n != 3) {
             // Discard input line
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
             // fprintf(stderr, "bad line %d: %s", num_all, tmp);
             continue;
         }
-//        printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
+        printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
         num_all++;
         xyz_to_path(name, sizeof(name), x, y, z);
