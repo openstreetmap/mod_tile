@@ -195,8 +195,8 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         return cmdIgnore;
     }
 
-    //fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d), path(%s)\n",
-    //        cmdStr(req->cmd), fd, req->z, req->x, req->y, req->path);
+    fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d), path(%s)\n",
+            cmdStr(req->cmd), fd, req->z, req->x, req->y, req->path);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
         return cmdIgnore;
@@ -371,7 +371,7 @@ int main(void)
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
-        fprintf(stderr, "failed to create unix sozket\n");
+        fprintf(stderr, "failed to create unix socket\n");
         exit(2);
     }
 
