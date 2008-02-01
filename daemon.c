@@ -301,14 +301,14 @@ void process_loop(int listen_fd)
                 incoming = accept(listen_fd, (struct sockaddr *) &in_addr, &in_addrlen);
                 if (incoming < 0) {
                     perror("accept()");
-                    break;
-                }
-                if (num_connections == MAX_CONNECTIONS) {
-                    fprintf(stderr, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
-                    close(incoming);
                 } else {
-                    connections[num_connections++] = incoming;
-                    fprintf(stderr, "Got incoming connection, fd %d, number %d\n", incoming, num_connections);
+                    if (num_connections == MAX_CONNECTIONS) {
+                        fprintf(stderr, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
+                        close(incoming);
+                    } else {
+                        connections[num_connections++] = incoming;
+                        fprintf(stderr, "Got incoming connection, fd %d, number %d\n", incoming, num_connections);
+                    }
                 }
             }
             for (i=0; num && (i<num_connections); i++) {
