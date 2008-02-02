@@ -13,6 +13,8 @@
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "gen_tile.h"
 #include "protocol.h"
@@ -25,6 +27,10 @@
 static int minZoom = 0;
 static int maxZoom = 18;
 static int verbose = 0;
+static int num_render = 0, num_all = 0;
+static time_t planetTime;
+static struct timeval start, end;
+
 
 void display_rate(struct timeval start, struct timeval end, int num) 
 {
@@ -53,12 +59,12 @@ static time_t getPlanetTime(void)
 
     last_check = now;
     if (stat(PLANET_TIMESTAMP, &buf)) {
-        fprintf(stderr, "Planet timestamp file " PLANET_TIMESTAMP " is missing");
+        printf("Planet timestamp file " PLANET_TIMESTAMP " is missing");
         // Make something up
         planet_timestamp = now - 3 * 24 * 60 * 60;
     } else {
         if (buf.st_mtime != planet_timestamp) {
-            fprintf(stderr, "Planet file updated at %s", ctime(&buf.st_mtime));
+            printf("Planet file updated at %s", ctime(&buf.st_mtime));
             planet_timestamp = buf.st_mtime;
         }
     }
@@ -94,9 +100,75 @@ int process_loop(int fd, int x, int y, int z)
     }
         //printf("Got response\n");
 
+    if (rsp.cmd != cmdDone) {
+        printf("rendering failed, pausing\n");
+        sleep(10);
+    }
+
     if (!ret)
         perror("Socket send error");
     return ret;
+}
+
+void process(int fd, const char *name)
+{
+    struct stat s;
+    int x, y, z;
+
+    if (path_to_xyz(name, &x, &y, &z))
+        return;
+
+    num_all++;
+
+    if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
+         // missing or old, render it
+        printf("Requesting x(%d) y(%d) z(%d)\n", x, y, z);
+        process_loop(fd, x, y, z);
+        num_render++;
+        if (!(num_render % 10)) {
+            gettimeofday(&end, NULL);
+            printf("\n");
+            printf("Meta tiles rendered: ");
+            display_rate(start, end, num_render);
+            printf("Total tiles rendered: ");
+            display_rate(start, end, num_render * METATILE * METATILE);
+            printf("Total tiles handled from input: ");
+            display_rate(start, end, num_all);
+        }
+    }
+}
+
+static void descend(int fd, const char *search)
+{
+    DIR *tiles = opendir(search);
+    struct dirent *entry;
+    char path[PATH_MAX];
+
+    if (!tiles) {
+        fprintf(stderr, "Unable to open directory: %s\n", search);
+        return;
+    }
+
+    while ((entry = readdir(tiles))) {
+        struct stat b;
+        char *p;
+
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            continue;
+        snprintf(path, sizeof(path), "%s/%s", search, entry->d_name);
+        if (stat(path, &b))
+            continue;
+        if (S_ISDIR(b.st_mode)) {
+            descend(fd, path);
+            continue;
+        }
+        p = strrchr(path, '.');
+        if (p && !strcmp(p, ".png")) {
+                //printf("Found tile %s\n", path);
+            process(fd, path);
+        }
+    }
+    closedir(tiles);
 }
 
 
@@ -105,13 +177,7 @@ int main(int argc, char **argv)
     const char *spath = RENDER_SOCKET;
     int fd;
     struct sockaddr_un addr;
-    int ret=0;
-    int x, y, z;
-    char name[PATH_MAX];
-    struct timeval start, end;
-    int num_render = 0, num_all = 0;
-    time_t planetTime = getPlanetTime();
-    int c;
+    int z, c;
 
     while (1) {
         int option_index = 0;
@@ -146,16 +212,9 @@ int main(int argc, char **argv)
                 verbose=1;
                 break;
             case 'h':
-                fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
-                fprintf(stderr, "\tX    Y    Z\n");
-                fprintf(stderr, "e.g.\n");
-                fprintf(stderr, "\t0    0    1\n");
-                fprintf(stderr, "\t0    1    1\n");
-                fprintf(stderr, "\t1    0    1\n");
-                fprintf(stderr, "\t1    1    1\n");
-                fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-                fprintf(stderr, "\t-z|--min-zoom\tFilter input to only render tiles greater or equal this zoom level (default 0)\n");
-                fprintf(stderr, "\t-Z|--max-zoom\tFilter input to only render tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
+                fprintf(stderr, "\t-z|--min-zoom\tonly render tiles greater or equal this zoom level (default 0)\n");
+                fprintf(stderr, "\t-Z|--max-zoom\tonly render tiles less than or equal to this zoom level (default 18)\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -168,7 +227,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    fprintf(stderr, "Rendering client\n");
+    fprintf(stderr, "Rendering old tiles\n");
+
+    planetTime = getPlanetTime();
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
@@ -188,44 +249,12 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    while(!feof(stdin)) {
-        struct stat s;
-        int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
-
-        if (n != 3) {
-            // Discard input line
-            char tmp[1024];
-            char *r = fgets(tmp, sizeof(tmp), stdin);
-            if (!r)
-                continue;
-            // fprintf(stderr, "bad line %d: %s", num_all, tmp);
-            continue;
-        }
-
-        if (z < minZoom || z > maxZoom)
-            continue;
-
-        printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
-
-        num_all++;
-        xyz_to_path(name, sizeof(name), x, y, z);
-
-        if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
-            // missing or old, render it
-            ret = process_loop(fd, x, y, z);
-            num_render++;
-            if (!(num_render % 10)) {
-                gettimeofday(&end, NULL);
-                printf("\n");
-                printf("Meta tiles rendered: ");
-                display_rate(start, end, num_render);
-                printf("Total tiles rendered: ");
-                display_rate(start, end, num_render * METATILE * METATILE);
-                printf("Total tiles handled from input: ");
-                display_rate(start, end, num_all);
-            }
-        }
+    for (z=minZoom; z<=maxZoom; z++) {
+        char path[PATH_MAX];
+        snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d", z);
+        descend(fd, path);
     }
+
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");
     printf("Meta tiles rendered: ");
@@ -236,5 +265,5 @@ int main(int argc, char **argv)
     display_rate(start, end, num_all);
 
     close(fd);
-    return ret;
+    return 0;
 }
