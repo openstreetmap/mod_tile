@@ -20,6 +20,9 @@ int mkdirp(const char *path);
  */
 const char *xyz_to_path(char *path, size_t len, int x, int y, int z);
 
+int check_xyz(int x, int y, int z);
+int path_to_xyz(const char *path, int *px, int *py, int *pz);
+
 #ifdef __cplusplus
   }
 #endif

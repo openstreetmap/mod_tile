@@ -17,11 +17,11 @@ EXTRA_CFLAGS = -I$(builddir)
 EXTRA_CPPFLAGS += -g -O2 -Wall
 EXTRA_LDFLAGS += $(shell pkg-config --libs libagg)
 
-all: local-shared-build renderd speedtest render_list
+all: local-shared-build renderd speedtest render_list render_old
 
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
-	rm -f renderd
+	rm -f renderd render_list speedtest render_old
 
 RENDER_CPPFLAGS += -g -O2 -Wall
 RENDER_CPPFLAGS += -I/usr/local/include/mapnik
@@ -41,6 +41,8 @@ renderd: daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.
 speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
 
 render_list: render_config.h protocol.h dir_utils.c dir_utils.h
+
+render_old: render_config.h protocol.h dir_utils.c dir_utils.h
 
 MYSQL_CFLAGS += -g -O2 -Wall
 MYSQL_CFLAGS += $(shell mysql_config --cflags)
