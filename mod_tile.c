@@ -291,7 +291,7 @@ int get_load_avg(request_rec *r)
 static int tile_dirty(request_rec *r, int x, int y, int z, const char *path)
 {
     request_tile(r, x,y,z,path, 1);
-    return OK;
+    return error_message(r, "Rendering request submitted");
 }
 
 
@@ -351,7 +351,7 @@ static int tile_status(request_rec *r, int x, int y, int z, const char *path)
         return error_message(r, "Unable to find a tile at %s", path);
 
     now = time(NULL);
-    old = (buf.st_mtime < now - MAX_AGE);
+    old = (buf.st_mtime < getPlanetTime(r));
 
     MtimeStr[0] = '\0';
     ctime_r(&buf.st_mtime, MtimeStr);
@@ -363,7 +363,8 @@ static int tile_status(request_rec *r, int x, int y, int z, const char *path)
     if ((p = strrchr(AtimeStr, '\n')))
         *p = '\0';
 
-    return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s", old ? "due to be rendered" : "clean", MtimeStr, AtimeStr);
+    //return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s", old ? "due to be rendered" : "clean", MtimeStr, AtimeStr);
+    return error_message(r, "Tile is %s. Last rendered at %s", old ? "due to be rendered" : "clean", MtimeStr);
 }
 
 static const char *xyz_to_path(char *path, size_t len, int x, int y, int z)
@@ -406,6 +407,12 @@ static int tile_handler(request_rec *r)
 
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "handler(%s), uri(%s), filename(%s), path_info(%s)",
     //              r->handler, r->uri, r->filename, r->path_info);
+
+    if (!strncmp(r->uri, HASH_PATH, strlen(HASH_PATH))) {
+        // Add cache expiry headers on the hashed tiles
+        ap_add_output_filter("MOD_TILE", NULL, r, r->connection);
+        return DECLINED;
+    }
 
     /* URI = .../<z>/<x>/<y>.png[/option] */
     n = sscanf(r->uri, TILE_PATH "/%d/%d/%d.png/%10s", &z, &x, &y, option);

@@ -18,9 +18,6 @@
 #define MAX_LOAD_MISSING 10
 // MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
 #define MAX_LOAD_ANY 100
-// Maximum tile age in seconds
-// TODO: this mechanism should really be a hard cutoff on planet update time.
-#define MAX_AGE (48 * 60 * 60)
 
 // Typical interval between planet imports, used as basis for tile expiry times
 #define PLANET_INTERVAL (7 * 24 * 60 * 60)
