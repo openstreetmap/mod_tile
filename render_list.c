@@ -36,6 +36,30 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
+static time_t getPlanetTime(void)
+{
+    static time_t last_check;
+    static time_t planet_timestamp;
+    time_t now = time(NULL);
+    struct stat buf;
+
+    // Only check for updates periodically
+    if (now < last_check + 300)
+        return planet_timestamp;
+
+    last_check = now;
+    if (stat(PLANET_TIMESTAMP, &buf)) {
+        fprintf(stderr, "Planet timestamp file " PLANET_TIMESTAMP " is missing");
+        // Make something up
+        planet_timestamp = now - 3 * 24 * 60 * 60;
+    } else {
+        if (buf.st_mtime != planet_timestamp) {
+            fprintf(stderr, "Planet file updated at %s", ctime(&buf.st_mtime));
+            planet_timestamp = buf.st_mtime;
+        }
+    }
+    return planet_timestamp;
+}
 
 int process_loop(int fd, int x, int y, int z)
 {
@@ -82,6 +106,7 @@ int main(int argc, char **argv)
     char name[PATH_MAX];
     struct timeval start, end;
     int num_render = 0, num_all = 0;
+    time_t planetTime = getPlanetTime();
 
     fprintf(stderr, "Rendering client\n");
 
@@ -121,9 +146,8 @@ int main(int argc, char **argv)
         num_all++;
         xyz_to_path(name, sizeof(name), x, y, z);
 
-        if (stat(name, &s) < 0) {
-            // Assume error is that file doesn't exist
-            // so render it
+        if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
+            // missing or old, render it
             ret = process_loop(fd, x, y, z);
             num_render++;
             if (!(num_render % 10)) {
