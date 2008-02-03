@@ -71,6 +71,26 @@ static time_t getPlanetTime(void)
     return planet_timestamp;
 }
 
+int get_load_avg(void)
+{
+    FILE *loadavg = fopen("/proc/loadavg", "r");
+    int avg = 1000;
+
+    if (!loadavg) {
+        fprintf(stderr, "failed to read /proc/loadavg");
+        return 1000;
+    }
+    if (fscanf(loadavg, "%d", &avg) != 1) {
+        fprintf(stderr, "failed to parse /proc/loadavg");
+        fclose(loadavg);
+        return 1000;
+    }
+    fclose(loadavg);
+
+    return avg;
+}
+
+
 int process_loop(int fd, int x, int y, int z)
 {
     struct protocol cmd, rsp;
@@ -138,6 +158,17 @@ void process(int fd, const char *name)
     }
 }
 
+static void check_load(void)
+{
+    int avg = get_load_avg();
+
+    while (avg >= MAX_LOAD_OLD) {
+        printf("Load average %d, sleeping\n", avg);
+        sleep(5);
+        avg = get_load_avg();
+    }
+}
+
 static void descend(int fd, const char *search)
 {
     DIR *tiles = opendir(search);
@@ -152,6 +183,8 @@ static void descend(int fd, const char *search)
     while ((entry = readdir(tiles))) {
         struct stat b;
         char *p;
+
+        check_load();
 
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
