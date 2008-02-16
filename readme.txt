@@ -75,10 +75,6 @@ e.g.
 
 LoadModule tile_module modules/mod_tile.so
 
-<Directory /var/www/html/osm_tiles2/>
-  SetHandler tile
-</Directory>
-
 --------------
 
 Create the directories:
@@ -156,3 +152,16 @@ there can be large numbers of files in a single directory
 If ext2/3 is being used then you really need to have directory indexing
 enabled.
 
+New ".meta" tile storage
+========================
+The latest code stores each metatile in a single .meta file instead of
+lots of small .png files. This is a more efficient use of disk space
+and inodes. For example, many sea tiles are 103 bytes long. In the old
+scheme a meta tile of blank sea tiles would take 64 inodes of 4kB each,
+a total of 256kB. In the new scheme it needs a single file of about 7kB.
+
+The utility convert_meta can be used to convert a tree of .png files to
+.meta (or back again).
+
+mod_tile has been reworked to integrate more closely with Apache and
+deliver tiles from the .meta files.
