@@ -519,7 +519,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
     ap_hook_handler(tile_handler_serve, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_dirty, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_status, NULL, NULL, APR_HOOK_MIDDLE);
-    ap_hook_translate_name(tile_translate, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_translate_name(tile_translate, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
 
