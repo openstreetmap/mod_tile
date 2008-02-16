@@ -13,8 +13,10 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <utime.h>
 #include <fcntl.h>
 #include <assert.h>
+
 
 #include "store.h"
 #include "render_config.h"
@@ -149,6 +151,7 @@ void process_meta(int x, int y, int z)
     char *buf;
     struct meta_layout *m;
     char meta_path[PATH_MAX];
+    struct stat s;
 
     buf = (char *)malloc(buf_len);
     if (!buf)
@@ -214,6 +217,16 @@ void process_meta(int x, int y, int z)
     free(buf);
     printf("Produced .meta: %s\n", meta_path);
 
+    // Reset meta timestamp to match one of the original tiles
+    xyz_to_path(meta_path, sizeof(meta_path), x, y, z);
+    if (stat(meta_path, &s) == 0) {
+        struct utimbuf b;
+        b.actime = s.st_atime;
+        b.modtime = s.st_mtime;
+        xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
+        utime(meta_path, &b);
+    }
+
     // Remove raw .png's
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
@@ -278,6 +291,7 @@ void process_unpack(const char *name)
     int ox, oy, limit;
     const int buf_len = 1024 * 1024;
     char *buf;
+    struct stat s;
 
     // path_to_xyz is valid for meta tile names as well
     if (path_to_xyz(name, &x, &y, &z))
@@ -286,6 +300,7 @@ void process_unpack(const char *name)
     buf = (char *)malloc(buf_len);
     if (!buf)
         return;
+
 
     limit = (1 << z);
     limit = MIN(limit, METATILE);
@@ -300,6 +315,20 @@ void process_unpack(const char *name)
                 write_tile(x + ox, y + oy, z, buf, len);
         }
     }
+
+    // Grab timestamp of the meta file and update tile timestamps
+    if (stat(name, &s) == 0) {
+        struct utimbuf b;
+        b.actime = s.st_atime;
+        b.modtime = s.st_mtime;
+        for (ox=0; ox < limit; ox++) {
+            for (oy=0; oy < limit; oy++) {
+                xyz_to_path(meta_path, sizeof(meta_path), x+ox, y+oy, z);
+                utime(meta_path, &b);
+            }
+        }
+    }
+
     // Remove the .meta file
     xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
     if (unlink(meta_path)<0)
