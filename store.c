@@ -151,6 +151,7 @@ void process_meta(int x, int y, int z)
     char *buf;
     struct meta_layout *m;
     char meta_path[PATH_MAX];
+    char tmp[PATH_MAX];
     struct stat s;
 
     buf = (char *)malloc(buf_len);
@@ -192,7 +193,9 @@ void process_meta(int x, int y, int z)
     m->z = z;
 
     xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
-    fd = open(meta_path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+    snprintf(tmp, sizeof(tmp), "%s.tmp.%d", meta_path, getpid());
+
+    fd = open(tmp, O_WRONLY | O_TRUNC | O_CREAT, 0666);
     if (fd < 0) {
         fprintf(stderr, "Error creating file: %s\n", meta_path);
         free(buf);
@@ -215,7 +218,6 @@ void process_meta(int x, int y, int z)
     }
     close(fd);
     free(buf);
-    printf("Produced .meta: %s\n", meta_path);
 
     // Reset meta timestamp to match one of the original tiles
     xyz_to_path(meta_path, sizeof(meta_path), x, y, z);
@@ -224,8 +226,10 @@ void process_meta(int x, int y, int z)
         b.actime = s.st_atime;
         b.modtime = s.st_mtime;
         xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
-        utime(meta_path, &b);
+        utime(tmp, &b);
     }
+    rename(tmp, meta_path);
+    printf("Produced .meta: %s\n", meta_path);
 
     // Remove raw .png's
     for (ox=0; ox < limit; ox++) {
