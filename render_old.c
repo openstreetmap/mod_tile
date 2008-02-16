@@ -106,7 +106,7 @@ int process_loop(int fd, int x, int y, int z)
     cmd.y = y;
     //strcpy(cmd.path, "/tmp/foo.png");
 
-        //printf("Sending request\n");
+    //printf("Sending request\n");
     ret = send(fd, &cmd, sizeof(cmd), 0);
     if (ret != sizeof(cmd)) {
         perror("send error");
@@ -196,8 +196,8 @@ static void descend(int fd, const char *search)
             continue;
         }
         p = strrchr(path, '.');
-        if (p && !strcmp(p, ".png")) {
-                //printf("Found tile %s\n", path);
+        if (p && !strcmp(p, ".meta")) {
+            //printf("Found tile %s\n", path);
             process(fd, path);
         }
     }

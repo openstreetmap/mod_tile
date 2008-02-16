@@ -17,11 +17,11 @@ EXTRA_CFLAGS = -I$(builddir)
 EXTRA_CPPFLAGS += -g -O2 -Wall
 EXTRA_LDFLAGS += $(shell pkg-config --libs libagg)
 
-all: local-shared-build renderd speedtest render_list render_old
+all: local-shared-build renderd speedtest render_list render_old convert_meta
 
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
-	rm -f renderd render_list speedtest render_old
+	rm -f renderd render_list speedtest render_old convert_meta
 
 RENDER_CPPFLAGS += -g -O2 -Wall
 RENDER_CPPFLAGS += -I/usr/local/include/mapnik
@@ -35,7 +35,7 @@ RENDER_LDFLAGS += $(shell pkg-config --libs freetype2)
 #RENDER_LDFLAGS += $(shell Magick++-config --ldflags --libs)
 RENDER_LDFLAGS += $(shell pkg-config --libs libagg)
 
-renderd: daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h
+renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h store.h
 	$(CXX) -o $@ $^ $(RENDER_LDFLAGS) $(RENDER_CPPFLAGS)
 
 speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
@@ -43,6 +43,8 @@ speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
 render_list: render_config.h protocol.h dir_utils.c dir_utils.h
 
 render_old: render_config.h protocol.h dir_utils.c dir_utils.h
+
+convert_meta: render_config.h protocol.h dir_utils.c dir_utils.h store.c
 
 MYSQL_CFLAGS += -g -O2 -Wall
 MYSQL_CFLAGS += $(shell mysql_config --cflags)

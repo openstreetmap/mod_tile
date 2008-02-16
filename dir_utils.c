@@ -101,7 +101,7 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
 {
     int i, n, hash[5], x, y, z;
 
-    n = sscanf(path, WWW_ROOT HASH_PATH "/%d/%d/%d/%d/%d/%d.png", pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
+    n = sscanf(path, WWW_ROOT HASH_PATH "/%d/%d/%d/%d/%d/%d", pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
     if (n != 6) {
         fprintf(stderr, "Failed to parse tile path: %s\n", path);
         return 1;
@@ -122,4 +122,25 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
         *py = y;
         return check_xyz(x, y, z);
     }
+}
+
+// Returns the path to the meta-tile and the offset within the meta-tile
+int xyz_to_meta(char *path, size_t len, int x, int y, int z)
+{
+    unsigned char i, hash[5], offset, mask;
+
+    // Each meta tile winds up in its own file, with several in each leaf directory
+    // the .meta tile name is beasd on the sub-tile at (0,0)
+    mask = METATILE - 1;
+    offset = (x & mask) * METATILE + (y & mask);
+    x &= ~mask;
+    y &= ~mask;
+
+    for (i=0; i<5; i++) {
+        hash[i] = ((x & 0x0f) << 4) | (y & 0x0f);
+        x >>= 4;
+        y >>= 4;
+    }
+    snprintf(path, len, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.meta", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    return offset;
 }

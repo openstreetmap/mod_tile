@@ -18,7 +18,7 @@
 #include "protocol.h"
 #include "render_config.h"
 #include "dir_utils.h"
-
+#include "store.h"
 
 using namespace mapnik;
 
@@ -241,6 +241,7 @@ void *render_thread(__attribute__((unused)) void *unused)
             unsigned int size = MIN(METATILE, 1 << req->z);
     //pthread_mutex_lock(&map_lock);
             ret = render(m, item->mx, item->my, req->z, size);
+            process_meta(item->mx, item->my, req->z);
     //pthread_mutex_unlock(&map_lock);
 
 #else

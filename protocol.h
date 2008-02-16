@@ -27,7 +27,6 @@ struct protocol {
     int x;
     int y;
     int z;
-    char path[TILE_PATH_MAX]; // FIXME: this is a really bad idea since it allows wrties to arbitrrary stuff
 };
 
 #ifdef __cplusplus

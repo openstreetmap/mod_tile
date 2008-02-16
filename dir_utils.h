@@ -23,6 +23,12 @@ const char *xyz_to_path(char *path, size_t len, int x, int y, int z);
 int check_xyz(int x, int y, int z);
 int path_to_xyz(const char *path, int *px, int *py, int *pz);
 
+/* New meta-tile storage functions */
+
+/* Returns the path to the meta-tile and the offset within the meta-tile */
+int xyz_to_meta(char *path, size_t len, int x, int y, int z);
+
+
 #ifdef __cplusplus
   }
 #endif

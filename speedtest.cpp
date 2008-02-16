@@ -219,7 +219,7 @@ int main(int argc, char **argv)
         for (x=xmin; x<=xmax; x++) {
             for (y=ymin; y<=ymax; y++) {
                 struct stat s;
-                xyz_to_path(name, sizeof(name), x, y, z);
+                xyz_to_meta(name, sizeof(name), x, y, z);
                 if (stat(name, &s) < 0) {
                 // File doesn't exist
                     ret = process_loop(fd, x, y, z);

@@ -176,16 +176,13 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         return cmdIgnore;
     }
 
-    fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d), path(%s)\n",
-            cmdStr(req->cmd), fd, req->z, req->x, req->y, req->path);
+    fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d)\n",
+            cmdStr(req->cmd), fd, req->z, req->x, req->y);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
         return cmdIgnore;
 
     if (check_xyz(req->x, req->y, req->z))
-        return cmdNotDone;
-
-    if (mkdirp(req->path))
         return cmdNotDone;
 
     item = (struct item *)malloc(sizeof(*item));
