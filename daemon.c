@@ -23,6 +23,7 @@ static struct sigaction sigPipeAction;
 static struct item reqHead, dirtyHead, renderHead;
 static int reqNum, dirtyNum;
 static pthread_mutex_t qLock;
+static pthread_cond_t qCond;
 
 struct item *fetch_request(void)
 {
@@ -30,6 +31,9 @@ struct item *fetch_request(void)
 
     pthread_mutex_lock(&qLock);
 
+    while (reqNum == 0 && dirtyNum == 0) {
+        pthread_cond_wait(&qCond, &qLock);
+    }
     if (reqNum) {
         item = reqHead.next;
         reqNum--;
@@ -238,6 +242,8 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         item->prev = list->prev;
         item->prev->next = item;
         list->prev = item;
+
+        pthread_cond_signal(&qCond);
     } else
         free(item);
 
@@ -343,6 +349,7 @@ int main(void)
     fprintf(stderr, "Rendering daemon\n");
 
     pthread_mutex_init(&qLock, NULL);
+    pthread_cond_init(&qCond, NULL);
     reqHead.next = reqHead.prev = &reqHead;
     dirtyHead.next = dirtyHead.prev = &dirtyHead;
     renderHead.next = renderHead.prev = &renderHead;
