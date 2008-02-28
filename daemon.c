@@ -213,6 +213,13 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     pthread_mutex_lock(&qLock);
 
+    if (dirtyNum == DIRTY_LIMIT) {
+        // The queue is severely backlogged. Drop request
+        pthread_mutex_unlock(&qLock);
+        free(item);
+        return cmdNotDone;
+    }
+
     // Check for a matching request in the current rendering or dirty queues
     pend = pending(item);
     if (pend == cmdNotDone) {
@@ -307,16 +314,12 @@ void process_loop(int listen_fd)
                     if (ret == sizeof(cmd)) {
                         enum protoCmd rsp = rx_request(&cmd, fd);
 
-                        switch(rsp) {
-                            case cmdNotDone:
-                                cmd.cmd = rsp;
-                                fprintf(stderr, "Sending NotDone response(%d)\n", rsp);
-                                ret = send(fd, &cmd, sizeof(cmd), 0);
-                                if (ret != sizeof(cmd))
-                                    perror("response send error");
-                                break;
-                            default:
-                                break;
+                        if ((cmd.cmd == cmdRender) && (rsp == cmdNotDone)) {
+                            cmd.cmd = rsp;
+                            fprintf(stderr, "Sending NotDone response(%d)\n", rsp);
+                            ret = send(fd, &cmd, sizeof(cmd), 0);
+                            if (ret != sizeof(cmd))
+                                perror("response send error");
                         }
                     } else if (!ret) {
                         int j;
