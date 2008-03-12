@@ -436,8 +436,10 @@ static int tile_translate(request_rec *r)
         oob =  (x < 0 || x > limit || y < 0 || y > limit);
     }
 
-    if (oob)
+    if (oob) {
+        sleep(CLIENT_PENALTY);
         return HTTP_NOT_FOUND;
+    }
 
 #if 1
     // Generate the tile filename
@@ -485,8 +487,10 @@ static int tile_handler_serve(request_rec *r)
         oob =  (x < 0 || x > limit || y < 0 || y > limit);
     }
 
-    if (oob)
+    if (oob) {
+        sleep(CLIENT_PENALTY);
         return HTTP_NOT_FOUND;
+    }
 
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "serve handler(%s), uri(%s), filename(%s), path_info(%s)",
     //              r->handler, r->uri, r->filename, r->path_info);
