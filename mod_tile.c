@@ -99,12 +99,26 @@ int socket_init(request_rec *r)
     return fd;
 }
 
+static pthread_key_t key;
+static pthread_once_t key_once = PTHREAD_ONCE_INIT;
+
+static void pfd_free(int *pfd)
+{
+    if (*pfd != FD_INVALID)
+        close(*pfd);
+    free(pfd);
+}
+
+static void make_key(void)
+{
+    (void) pthread_key_create(&key, pfd_free);
+}
+
 
 int request_tile(request_rec *r, int dirtyOnly)
 {
     struct protocol cmd;
-    //struct pollfd fds[1];
-    static int fd = FD_INVALID;
+    int *pfd;
     int ret = 0;
     int retry = 1;
     int x, y, z, n, limit, oob;
@@ -127,10 +141,19 @@ int request_tile(request_rec *r, int dirtyOnly)
     if (oob)
         return 0;
 
-    if (fd == FD_INVALID) {
-        fd = socket_init(r);
+    (void) pthread_once(&key_once, make_key);
+    if ((pfd = pthread_getspecific(key)) == NULL) {
+        pfd = malloc(sizeof(*pfd));
+        if (!pfd)
+            return 0;
+        *pfd = FD_INVALID;
+        (void) pthread_setspecific(key, pfd);
+    }
 
-        if (fd == FD_INVALID) {
+    if (*pfd == FD_INVALID) {
+        *pfd = socket_init(r);
+
+        if (*pfd == FD_INVALID) {
             //fprintf(stderr, "Failed to connect to renderer\n");
             return 0;
         } else {
@@ -148,7 +171,7 @@ int request_tile(request_rec *r, int dirtyOnly)
 
     //fprintf(stderr, "Requesting tile(%d,%d,%d)\n", z,x,y);
     do {
-        ret = send(fd, &cmd, sizeof(cmd), 0);
+        ret = send(*pfd, &cmd, sizeof(cmd), 0);
 
         if (ret == sizeof(cmd))
             break;
@@ -156,9 +179,9 @@ int request_tile(request_rec *r, int dirtyOnly)
         if (errno != EPIPE)
             return 0;
  
-         close(fd);
-         fd = socket_init(r);
-         if (fd == FD_INVALID)
+         close(*pfd);
+         *pfd = socket_init(r);
+         if (*pfd == FD_INVALID)
              return 0;
          ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Reconnected to renderer");
     } while (retry--);
@@ -170,15 +193,15 @@ int request_tile(request_rec *r, int dirtyOnly)
 
         while (1) {
             FD_ZERO(&rx);
-            FD_SET(fd, &rx);
-            s = select(fd+1, &rx, NULL, NULL, &tv);
+            FD_SET(*pfd, &rx);
+            s = select((*pfd)+1, &rx, NULL, NULL, &tv);
             if (s == 1) {
                 bzero(&cmd, sizeof(cmd));
-                ret = recv(fd, &cmd, sizeof(cmd), 0);
+                ret = recv(*pfd, &cmd, sizeof(cmd), 0);
                 if (ret != sizeof(cmd)) {
                     if (errno == EPIPE) {
-                        close(fd);
-                        fd = FD_INVALID;
+                        close(*pfd);
+                        *pfd = FD_INVALID;
                     }
                     //perror("recv error");
                     break;
@@ -194,8 +217,8 @@ int request_tile(request_rec *r, int dirtyOnly)
                 break;
             } else {
                 if (errno == EPIPE) {
-                    close(fd);
-                    fd = FD_INVALID;
+                    close(*pfd);
+                    *pfd = FD_INVALID;
                     break;
                 }
             }
@@ -204,6 +227,9 @@ int request_tile(request_rec *r, int dirtyOnly)
     return 0;
 }
 
+pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
+
+
 static int getPlanetTime(request_rec *r)
 {
     static time_t last_check;
@@ -211,9 +237,12 @@ static int getPlanetTime(request_rec *r)
     time_t now = time(NULL);
     struct stat buf;
 
+    pthread_mutex_lock(&planet_lock);
     // Only check for updates periodically
-    if (now < last_check + 300)
+    if (now < last_check + 300) {
+        pthread_mutex_unlock(&planet_lock);
         return planet_timestamp;
+    }
 
     last_check = now;
     if (stat(PLANET_TIMESTAMP, &buf)) {
@@ -226,6 +255,7 @@ static int getPlanetTime(request_rec *r)
             planet_timestamp = buf.st_mtime;
         }
     }
+    pthread_mutex_unlock(&planet_lock);
     return planet_timestamp;
 }
 
