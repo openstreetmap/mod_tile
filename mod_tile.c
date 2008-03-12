@@ -102,8 +102,10 @@ int socket_init(request_rec *r)
 static pthread_key_t key;
 static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
-static void pfd_free(int *pfd)
+static void pfd_free(void *ptr)
 {
+    int *pfd = ptr;
+
     if (*pfd != FD_INVALID)
         close(*pfd);
     free(pfd);
