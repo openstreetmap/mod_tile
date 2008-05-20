@@ -9,6 +9,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <math.h>
+#include <limits.h>
 
 #include "gen_tile.h"
 #include "protocol.h"

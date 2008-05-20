@@ -13,6 +13,7 @@
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
+#include <limits.h>
 
 #include "gen_tile.h"
 #include "protocol.h"
