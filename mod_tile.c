@@ -500,7 +500,7 @@ static int tile_handler_serve(request_rec *r)
 {
     int x, y, z, n, limit, oob;
     char *buf;
-    size_t len;
+    int len;
     const int tile_max = 1024 * 1024;
 
     if(strcmp(r->handler, "tile_serve"))
