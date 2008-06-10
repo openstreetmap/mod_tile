@@ -40,10 +40,14 @@ int mkdirp(const char *path) {
         if (*p == '/') {
             *p = '\0';
             if (!stat(tmp, &s)) {
-                if (!S_ISDIR(s.st_mode))
+                if (!S_ISDIR(s.st_mode)) {
+                    fprintf(stderr, "Error, is not a directory: %s\n", tmp);
                     return 1;
-            } else if (mkdir(tmp, 0777))
-                return 1;
+                }
+            } else if (mkdir(tmp, 0777)) {
+                    perror(tmp);
+                    return 1;
+                }
             *p = '/';
         }
         p++;
