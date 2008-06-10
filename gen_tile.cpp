@@ -170,11 +170,15 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
             char filename[PATH_MAX];
             char tmp[PATH_MAX];
             xyz_to_path(filename, sizeof(filename), x+xx, y+yy, z);
-            mkdirp(filename);
+            if (mkdirp(filename))
+                return cmdNotDone;
             snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
             //std::cout << "Render " << z << " " << x << "(" << xx << ") " << y << "(" << yy << ") " << filename << "\n";
             save_to_file(vw, tmp,"png256");
-            rename(tmp, filename);
+            if (rename(tmp, filename)) {
+                perror(tmp);
+                return cmdNotDone;
+            }
         }
     }
     std::cout << "DONE TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
@@ -241,7 +245,8 @@ void *render_thread(__attribute__((unused)) void *unused)
             unsigned int size = MIN(METATILE, 1 << req->z);
     //pthread_mutex_lock(&map_lock);
             ret = render(m, item->mx, item->my, req->z, size);
-            process_meta(item->mx, item->my, req->z);
+            if (ret == cmdDone)
+                process_meta(item->mx, item->my, req->z);
     //pthread_mutex_unlock(&map_lock);
 
 #else
