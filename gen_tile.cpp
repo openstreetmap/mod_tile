@@ -31,7 +31,6 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
-pthread_mutex_t map_lock;
 
 
 static const int minZoom = 0;
@@ -131,11 +130,6 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
 
     //std::cout << "META TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
 
-    // FIXME: Without a lock around the projection and rendering we seem
-    // to get corrupted tiles. The current evidence is pointing towards
-    // a problem with libproj
-    pthread_mutex_lock(&map_lock);
-
     gprj.fromPixelToLL(p0x, p0y, z);
     gprj.fromPixelToLL(p1x, p1y, z);
 
@@ -153,7 +147,6 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
 
-    pthread_mutex_unlock(&map_lock);
 
     // Split the meta tile into an NxN grid of tiles
     unsigned int xx, yy;
@@ -228,7 +221,6 @@ void render_init(void)
     // TODO: Make these module options
     datasource_cache::instance()->register_datasources(MAPNIK_PLUGINS);
     load_fonts(FONT_DIR, FONT_RECURSE);
-    pthread_mutex_init(&map_lock, NULL);
 }
 
 
@@ -236,9 +228,7 @@ void *render_thread(__attribute__((unused)) void *unused)
 {
     Map m(RENDER_SIZE, RENDER_SIZE);
 
-    pthread_mutex_lock(&map_lock);
     load_map(m,OSM_XML);
-    pthread_mutex_unlock(&map_lock);
 
     while (1) {
         enum protoCmd ret;
@@ -248,12 +238,9 @@ void *render_thread(__attribute__((unused)) void *unused)
 #ifdef METATILE
             // At very low zoom the whole world may be smaller than METATILE
             unsigned int size = MIN(METATILE, 1 << req->z);
-    //pthread_mutex_lock(&map_lock);
             ret = render(m, item->mx, item->my, req->z, size);
             if (ret == cmdDone)
                 process_meta(item->mx, item->my, req->z);
-    //pthread_mutex_unlock(&map_lock);
-
 #else
             ret = render(m, req->x, req->y, req->z);
 #endif
