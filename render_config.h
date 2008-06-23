@@ -19,7 +19,7 @@
 // MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
 #define MAX_LOAD_ANY 100
 
-// Location of oxm.xml file
+// Location of osm.xml file
 #define OSM_XML "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm.xml"
 
 // Mapnik input plugins (will need to adjust for 32 bit libs)
