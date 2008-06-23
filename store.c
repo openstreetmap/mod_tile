@@ -22,6 +22,7 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
+#ifdef METATILE
 int read_from_meta(int x, int y, int z, char *buf, size_t sz)
 {
     char path[PATH_MAX];
@@ -97,6 +98,7 @@ int read_from_meta(int x, int y, int z, char *buf, size_t sz)
     close(fd);
     return pos;
 }
+#endif
 
 int read_from_file(int x, int y, int z, char *buf, size_t sz)
 {
@@ -132,16 +134,17 @@ int read_from_file(int x, int y, int z, char *buf, size_t sz)
 
 int tile_read(int x, int y, int z, char *buf, int sz)
 {
+#ifdef METATILE
     int r;
 
     r = read_from_meta(x, y, z, buf, sz);
     if (r >= 0)
         return r;
-
+#endif
     return read_from_file(x, y, z, buf, sz);
 }
 
-
+#ifdef METATILE
 void process_meta(int x, int y, int z)
 {
     int fd;
@@ -338,4 +341,4 @@ void process_unpack(const char *name)
     if (unlink(meta_path)<0)
         perror(meta_path);
 }
-
+#endif
