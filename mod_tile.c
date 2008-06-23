@@ -278,7 +278,7 @@ static enum tileState tile_state_once(request_rec *r)
 static enum tileState tile_state(request_rec *r)
 {
     enum tileState state = tile_state_once(r);
-
+#ifdef METATILE
     if (state == tileMissing) {
         // Try fallback to plain .png
         char path[PATH_MAX];
@@ -298,6 +298,7 @@ static enum tileState tile_state(request_rec *r)
             }
         }
     }
+#endif
     return state;
 }
 
@@ -473,14 +474,16 @@ static int tile_translate(request_rec *r)
         return HTTP_NOT_FOUND;
     }
 
-#if 1
+
     // Generate the tile filename
+#ifdef METATILE
     xyz_to_meta(abs_path, sizeof(abs_path), x, y, z);
+#else
+    xyz_to_path(abs_path, sizeof(abs_path), x, y, z);
+#endif
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "abs_path(%s), rel_path(%s)", abs_path, rel_path);
     r->filename = apr_pstrdup(r->pool, abs_path);
-#else
-    //r->filename = apr_psprintf(r->pool, "tile:%d/%d/%d",z,x,y);
-#endif
+
     if (n == 4) {
         if (!strcmp(option, "status"))
             r->handler = "tile_status";

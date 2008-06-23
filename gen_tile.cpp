@@ -36,13 +36,9 @@ pthread_mutex_t map_lock;
 
 static const int minZoom = 0;
 static const int maxZoom = 18;
-//static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-jb-merc.xml";
-static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-local-fast-sphere.xml";
-//static const char *mapfile = "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm-local-fast.xml";
 
-//static projection prj("+proj=merc +datum=WGS84 +k=1.0 +units=m +over +no_defs");
+// The map projection must match the one in the osm.xml file
 static projection prj("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over");
-
 
 static double minmax(double a, double b, double c)
 {
@@ -185,9 +181,10 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
     return cmdDone; // OK
 }
 #else
-static enum protoCmd render(Map &m, int x, int y, int z, const char *filename)
+static enum protoCmd render(Map &m, int x, int y, int z)
 {
-
+    char filename[PATH_MAX];
+    char tmp[PATH_MAX];
     double p0x = x * 256.0;
     double p0y = (y + 1) * 256.0;
     double p1x = (x + 1) * 256.0;
@@ -208,9 +205,18 @@ static enum protoCmd render(Map &m, int x, int y, int z, const char *filename)
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
 
-    image_view<ImageData32> vw(128,128,256,256, buf.data());
-    save_to_file(filename,"png256", vw);
+    xyz_to_path(filename, sizeof(filename), x, y, z);
+    if (mkdirp(filename))
+        return cmdNotDone;
+    snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
 
+    image_view<ImageData32> vw(128,128,256,256, buf.data());
+    //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
+    save_to_file(vw, tmp,"png256");
+    if (rename(tmp, filename)) {
+        perror(tmp);
+        return cmdNotDone;
+    }
 
     return cmdDone; // OK
 }
@@ -220,9 +226,8 @@ static enum protoCmd render(Map &m, int x, int y, int z, const char *filename)
 void render_init(void)
 {
     // TODO: Make these module options
-    datasource_cache::instance()->register_datasources("/usr/local/lib64/mapnik/input");
-    //load_fonts("/usr/share/fonts", 1);
-    load_fonts("/usr/local/lib64/mapnik/fonts", 0);
+    datasource_cache::instance()->register_datasources(MAPNIK_PLUGINS);
+    load_fonts(FONT_DIR, FONT_RECURSE);
     pthread_mutex_init(&map_lock, NULL);
 }
 
@@ -232,7 +237,7 @@ void *render_thread(__attribute__((unused)) void *unused)
     Map m(RENDER_SIZE, RENDER_SIZE);
 
     pthread_mutex_lock(&map_lock);
-    load_map(m,mapfile);
+    load_map(m,OSM_XML);
     pthread_mutex_unlock(&map_lock);
 
     while (1) {
@@ -250,7 +255,7 @@ void *render_thread(__attribute__((unused)) void *unused)
     //pthread_mutex_unlock(&map_lock);
 
 #else
-            ret = render(m, req->x, req->y, req->z, req->path);
+            ret = render(m, req->x, req->y, req->z);
 #endif
             send_response(item, ret);
         } else

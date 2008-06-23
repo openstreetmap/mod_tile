@@ -7,6 +7,7 @@
   extern "C" {
 #endif
 
+#include "render_config.h"
 
 /* Build parent directories for the specified file name
  * Note: the part following the trailing / is ignored
@@ -23,11 +24,11 @@ const char *xyz_to_path(char *path, size_t len, int x, int y, int z);
 int check_xyz(int x, int y, int z);
 int path_to_xyz(const char *path, int *px, int *py, int *pz);
 
+#ifdef METATILE
 /* New meta-tile storage functions */
-
 /* Returns the path to the meta-tile and the offset within the meta-tile */
 int xyz_to_meta(char *path, size_t len, int x, int y, int z);
-
+#endif
 
 #ifdef __cplusplus
   }

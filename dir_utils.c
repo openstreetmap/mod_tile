@@ -128,6 +128,7 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
     }
 }
 
+#ifdef METATILE
 // Returns the path to the meta-tile and the offset within the meta-tile
 int xyz_to_meta(char *path, size_t len, int x, int y, int z)
 {
@@ -148,3 +149,4 @@ int xyz_to_meta(char *path, size_t len, int x, int y, int z)
     snprintf(path, len, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.meta", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
     return offset;
 }
+#endif

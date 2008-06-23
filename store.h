@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
-
+#include "render_config.h"
 int tile_read(int x, int y, int z, char *buf, int sz);
 
 #define META_MAGIC "META"
@@ -28,13 +28,13 @@ struct meta_layout {
 
 
 int read_from_file(int x, int y, int z, char *buf, size_t sz);
-int read_from_meta(int x, int y, int z, char *buf, size_t sz);
 
+#ifdef METATILE
+int read_from_meta(int x, int y, int z, char *buf, size_t sz);
 void process_meta(int x, int y, int z);
 void process_pack(const char *name);
 void process_unpack(const char *name);
-
-
+#endif
 
 #ifdef __cplusplus
 }

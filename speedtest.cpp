@@ -16,6 +16,15 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
+#ifndef METATILE
+#warning("Speed test not implemented for non-metatile mode. Feel free to submit fix")
+int main(int argc, char **argv)
+{
+    fprintf(stderr, "Speed test not implemented for non-metatile mode. Feel free to submit fix!\n");
+    return -1;
+}
+#else
+
 #define DEG_TO_RAD (M_PIl/180)
 #define RAD_TO_DEG (180/M_PIl)
 
@@ -240,3 +249,4 @@ int main(int argc, char **argv)
     close(fd);
     return ret;
 }
+#endif
