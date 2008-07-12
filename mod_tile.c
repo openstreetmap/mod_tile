@@ -180,7 +180,7 @@ int request_tile(request_rec *r, int dirtyOnly)
 
         if (errno != EPIPE)
             return 0;
- 
+
          close(*pfd);
          *pfd = socket_init(r);
          if (*pfd == FD_INVALID)
@@ -229,32 +229,32 @@ int request_tile(request_rec *r, int dirtyOnly)
     return 0;
 }
 
-pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-static int getPlanetTime(request_rec *r)
+static apr_time_t getPlanetTime(request_rec *r)
 {
-    static time_t last_check;
-    static time_t planet_timestamp;
-    time_t now = time(NULL);
-    struct stat buf;
+    static apr_time_t last_check;
+    static apr_time_t planet_timestamp;
+    static pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
+    apr_time_t now = r->request_time;
+    struct apr_finfo_t s;
 
     pthread_mutex_lock(&planet_lock);
     // Only check for updates periodically
-    if (now < last_check + 300) {
+    if (now < last_check + apr_time_from_sec(300)) {
         pthread_mutex_unlock(&planet_lock);
         return planet_timestamp;
     }
 
     last_check = now;
-    if (stat(PLANET_TIMESTAMP, &buf)) {
+    if (apr_stat(&s, PLANET_TIMESTAMP, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Planet timestamp file " PLANET_TIMESTAMP " is missing");
         // Make something up
-        planet_timestamp = now - 3 * 24 * 60 * 60;
+        planet_timestamp = now - apr_time_from_sec(3 * 24 * 60 * 60);
     } else {
-        if (buf.st_mtime != planet_timestamp) {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Planet file updated at %s", ctime(&buf.st_mtime));
-            planet_timestamp = buf.st_mtime;
+        if (s.mtime != planet_timestamp) {
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Planet file updated");
+            planet_timestamp = s.mtime;
         }
     }
     pthread_mutex_unlock(&planet_lock);
@@ -263,13 +263,16 @@ static int getPlanetTime(request_rec *r)
 
 static enum tileState tile_state_once(request_rec *r)
 {
-    // FIXME: Apache already has most, if not all, this info recorded in r->fileinfo, use this instead!
-    struct stat buf;
+    apr_status_t rv;
+    apr_finfo_t *finfo = &r->finfo;
 
-    if (stat(r->filename, &buf))
-        return tileMissing; 
+    if (!(finfo->valid & APR_FINFO_MTIME)) {
+        rv = apr_stat(finfo, r->filename, APR_FINFO_MIN, r->pool);
+        if (rv != APR_SUCCESS)
+            return tileMissing;
+    }
 
-    if (buf.st_mtime < getPlanetTime(r))
+    if (finfo->mtime < getPlanetTime(r))
         return tileOld;
 
     return tileCurrent;
@@ -280,7 +283,7 @@ static enum tileState tile_state(request_rec *r)
     enum tileState state = tile_state_once(r);
 #ifdef METATILE
     if (state == tileMissing) {
-        // Try fallback to plain .png
+        // Try fallback to plain PNG
         char path[PATH_MAX];
         int x, y, z, n;
         /* URI = .../<z>/<x>/<y>.png[/option] */
@@ -316,7 +319,7 @@ static void add_expiry(request_rec *r)
 
     // current tiles will expire after next planet dump is due
     // or after 1 hour if the planet dump is late or tile is due for re-render
-    nextPlanet = (state == tileCurrent) ? apr_time_from_sec(getPlanetTime(r) + PLANET_INTERVAL) : 0;
+    nextPlanet = (state == tileCurrent) ? (getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL)) : 0;
     holdoff = r->request_time + apr_time_from_sec(60 * 60);
     expires = MAX(holdoff, nextPlanet);
 
@@ -326,16 +329,6 @@ static void add_expiry(request_rec *r)
     timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
     apr_rfc822_date(timestr, expires);
     apr_table_setn(t, "Expires", timestr);
-}
-
-static apr_status_t expires_filter(ap_filter_t *f, apr_bucket_brigade *b)
-{
-    request_rec *r = f->r;
-
-    add_expiry(r);
-
-    ap_remove_output_filter(f);
-    return ap_pass_brigade(f->next, b);
 }
 
 
@@ -355,11 +348,8 @@ static int tile_handler_dirty(request_rec *r)
     if(strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "handler(%s), uri(%s), filename(%s), path_info(%s)",
-    //              r->handler, r->uri, r->filename, r->path_info);
-
     request_tile(r, 1);
-    return error_message(r, "Tile submitted for rendering");
+    return error_message(r, "Tile submitted for rendering\n");
 }
 
 
@@ -369,7 +359,14 @@ static int tile_storage_hook(request_rec *r)
     int avg;
     enum tileState state;
 
-    if (!r->handler || strcmp(r->handler, "tile_serve"))
+    if (!r->handler)
+        return DECLINED;
+
+    // Any status request is OK
+    if (!strcmp(r->handler, "tile_status"))
+        return OK;
+
+    if (strcmp(r->handler, "tile_serve") && strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
     avg = get_load_avg(r);
@@ -394,8 +391,11 @@ static int tile_storage_hook(request_rec *r)
             break;
     }
 
-    if (request_tile(r, 0))
+    if (request_tile(r, 0)) {
+        // Need to update fileinfo for new rendered tile
+        apr_stat(&r->finfo, r->filename, APR_FINFO_MIN, r->pool);
         return OK;
+    }
 
     if (state == tileOld)
         return OK;
@@ -405,38 +405,18 @@ static int tile_storage_hook(request_rec *r)
 
 static int tile_handler_status(request_rec *r)
 {
-    // FIXME: Apache already has most, if not all, this info recorded in r->fileinfo, use this instead!
-    struct stat buf;
-    time_t now;
-    int old;
-    char MtimeStr[32]; // At least 26 according to man ctime_r
-    char AtimeStr[32]; // At least 26 according to man ctime_r
-    char *p;
+    enum tileState state;
+    char time_str[APR_CTIME_LEN];
 
     if(strcmp(r->handler, "tile_status"))
         return DECLINED;
 
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "handler(%s), uri(%s), filename(%s), path_info(%s)",
-    //              r->handler, r->uri, r->filename, r->path_info);
+    state = tile_state(r);
+    if (state == tileMissing)
+        return error_message(r, "Unable to find a tile at %s\n", r->filename);
+    apr_ctime(time_str, r->finfo.mtime);
 
-    if (stat(r->filename, &buf))
-        return error_message(r, "Unable to find a tile at %s", r->filename);
-
-    now = time(NULL);
-    old = (buf.st_mtime < getPlanetTime(r));
-
-    MtimeStr[0] = '\0';
-    ctime_r(&buf.st_mtime, MtimeStr);
-    AtimeStr[0] = '\0';
-    ctime_r(&buf.st_atime, AtimeStr);
-
-    if ((p = strrchr(MtimeStr, '\n')))
-        *p = '\0';
-    if ((p = strrchr(AtimeStr, '\n')))
-        *p = '\0';
-
-    //return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s", old ? "due to be rendered" : "clean", MtimeStr, AtimeStr);
-    return error_message(r, "Tile is %s. Last rendered at %s", old ? "due to be rendered" : "clean", MtimeStr);
+    return error_message(r, "Tile is %s. Last rendered at %s\n", (state == tileOld) ? "due to be rendered" : "clean", time_str);
 }
 
 static int tile_translate(request_rec *r)
@@ -447,8 +427,6 @@ static int tile_translate(request_rec *r)
     char abs_path[PATH_MAX];
 
     option[0] = '\0';
-
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "translate uri(%s)", r->uri);
 
     /* URI = .../<z>/<x>/<y>.png[/option] */
     n = sscanf(r->uri, TILE_PATH "/%d/%d/%d.png/%10s", &z, &x, &y, option);
@@ -505,6 +483,7 @@ static int tile_handler_serve(request_rec *r)
     char *buf;
     int len;
     const int tile_max = 1024 * 1024;
+    apr_status_t errstatus;
 
     if(strcmp(r->handler, "tile_serve"))
         return DECLINED;
@@ -536,13 +515,20 @@ static int tile_handler_serve(request_rec *r)
 
     len = tile_read(x,y,z,buf, tile_max);
     if (len > 0) {
+        ap_update_mtime(r, r->finfo.mtime);
+        ap_set_last_modified(r);
+        ap_set_etag(r); // etag gets created from .meta file info (this causes the length not to match the png)
         ap_set_content_type(r, "image/png");
         ap_set_content_length(r, len);
         add_expiry(r);
-        ap_rwrite(buf, len, r);
-        free(buf);
-        //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "fulfilled via meta");
-        return OK;
+        if ((errstatus = ap_meets_conditions(r)) != OK) {
+            free(buf);
+            return errstatus;
+        } else {
+            ap_rwrite(buf, len, r);
+            free(buf);
+            return OK;
+        }
     }
     free(buf);
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "len = %d", len);
@@ -554,7 +540,6 @@ static int tile_handler_serve(request_rec *r)
 
 static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 {
-    ap_register_output_filter("MOD_TILE", expires_filter, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_serve, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_dirty, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_status, NULL, NULL, APR_HOOK_MIDDLE);
