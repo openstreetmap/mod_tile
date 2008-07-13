@@ -23,6 +23,7 @@
 #include "ap_mpm.h"
 #include "mod_core.h"
 #include "mod_cgi.h"
+#include "util_md5.h"
 
 module AP_MODULE_DECLARE_DATA tile_module;
 
@@ -31,7 +32,6 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <string.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -480,7 +480,7 @@ static int tile_translate(request_rec *r)
 static int tile_handler_serve(request_rec *r)
 {
     int x, y, z, n, limit, oob;
-    char *buf;
+    unsigned char *buf;
     int len;
     const int tile_max = 1024 * 1024;
     apr_status_t errstatus;
@@ -509,15 +509,26 @@ static int tile_handler_serve(request_rec *r)
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "serve handler(%s), uri(%s), filename(%s), path_info(%s)",
     //              r->handler, r->uri, r->filename, r->path_info);
 
+    // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
     if (!buf)
         return HTTP_INTERNAL_SERVER_ERROR;
 
-    len = tile_read(x,y,z,buf, tile_max);
+    len = tile_read(x, y, z, buf, tile_max);
     if (len > 0) {
+#if 0
+        // Set default Last-Modified and Etag headers
         ap_update_mtime(r, r->finfo.mtime);
         ap_set_last_modified(r);
-        ap_set_etag(r); // etag gets created from .meta file info (this causes the length not to match the png)
+        ap_set_etag(r);
+#else
+        // Use MD5 hash as only cache attribute.
+        // If a tile is re-rendered and produces the same output
+        // then we can continue to use the previous cached copy
+        char *md5 = ap_md5_binary(r->pool, buf, len);
+        apr_table_setn(r->headers_out, "ETag",
+                        apr_psprintf(r->pool, "\"%s\"", md5));
+#endif
         ap_set_content_type(r, "image/png");
         ap_set_content_length(r, len);
         add_expiry(r);
