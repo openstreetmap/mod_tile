@@ -317,11 +317,11 @@ static void add_expiry(request_rec *r)
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
     //              r->handler, r->uri, r->filename, r->path_info);
 
-    // current tiles will expire after next planet dump is due
-    // or after 1 hour if the planet dump is late or tile is due for re-render
-    nextPlanet = (state == tileCurrent) ? (getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL)) : 0;
-    holdoff = r->request_time + apr_time_from_sec(60 * 60);
-    expires = MAX(holdoff, nextPlanet);
+    // We estimate an expiry based on when the next planet dump is due
+    // A randomisation of up to 3 hours then added
+    nextPlanet = (state == tileCurrent) ? (getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL)) : r->request_time;
+    holdoff = apr_time_from_sec(3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
+    expires = nextPlanet + holdoff;
 
     apr_table_mergen(t, "Cache-Control",
                      apr_psprintf(r->pool, "max-age=%" APR_TIME_T_FMT,
