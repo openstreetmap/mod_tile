@@ -23,7 +23,7 @@
 #include "dir_utils.h"
 
 #ifdef METATILE
-int read_from_meta(int x, int y, int z, char *buf, size_t sz)
+int read_from_meta(int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -100,7 +100,7 @@ int read_from_meta(int x, int y, int z, char *buf, size_t sz)
 }
 #endif
 
-int read_from_file(int x, int y, int z, char *buf, size_t sz)
+int read_from_file(int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int fd;
@@ -132,7 +132,7 @@ int read_from_file(int x, int y, int z, char *buf, size_t sz)
     return pos;
 }
 
-int tile_read(int x, int y, int z, char *buf, int sz)
+int tile_read(int x, int y, int z, unsigned char *buf, int sz)
 {
 #ifdef METATILE
     int r;
@@ -151,13 +151,13 @@ void process_meta(int x, int y, int z)
     int ox, oy, limit;
     size_t offset, pos;
     const int buf_len = 10 * 1024 * 1024; // To store all tiles in this .meta
-    char *buf;
+    unsigned char *buf;
     struct meta_layout *m;
     char meta_path[PATH_MAX];
     char tmp[PATH_MAX];
     struct stat s;
 
-    buf = (char *)malloc(buf_len);
+    buf = (unsigned char *)malloc(buf_len);
     if (!buf)
         return;
 
@@ -261,7 +261,7 @@ void process_pack(const char *name)
         process_meta(x, y, z);
 }
 
-static void write_tile(int x, int y, int z, const char *buf, size_t sz)
+static void write_tile(int x, int y, int z, const unsigned char *buf, size_t sz)
 {
     int fd;
     char path[PATH_MAX];
@@ -297,14 +297,14 @@ void process_unpack(const char *name)
     int x, y, z;
     int ox, oy, limit;
     const int buf_len = 1024 * 1024;
-    char *buf;
+    unsigned char *buf;
     struct stat s;
 
     // path_to_xyz is valid for meta tile names as well
     if (path_to_xyz(name, &x, &y, &z))
         return;
 
-    buf = (char *)malloc(buf_len);
+    buf = (unsigned char *)malloc(buf_len);
     if (!buf)
         return;
 
