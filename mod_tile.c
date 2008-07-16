@@ -307,7 +307,7 @@ static enum tileState tile_state(request_rec *r)
 
 static void add_expiry(request_rec *r)
 {
-    apr_time_t expires, holdoff, nextPlanet;
+    apr_time_t expires, holdoff, planetTimestamp;
     apr_table_t *t = r->headers_out;
     enum tileState state = tile_state(r);
     char *timestr;
@@ -317,11 +317,12 @@ static void add_expiry(request_rec *r)
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
     //              r->handler, r->uri, r->filename, r->path_info);
 
-    // We estimate an expiry based on when the next planet dump is due
-    // A randomisation of up to 3 hours then added
-    nextPlanet = (state == tileCurrent) ? (getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL)) : r->request_time;
+    // We estimate an expiry based on when the next planet dump is (or was) due
+    // If we are past this time already then round up to request time
+    // Then add a randomisation of up to 3 hours
+    planetTimestamp = (state == tileCurrent) ? (getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL)) : getPlanetTime(r);
     holdoff = apr_time_from_sec(3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
-    expires = nextPlanet + holdoff;
+    expires = MAX(r->request_time, planetTimestamp) + holdoff;
 
     apr_table_mergen(t, "Cache-Control",
                      apr_psprintf(r->pool, "max-age=%" APR_TIME_T_FMT,
