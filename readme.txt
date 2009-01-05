@@ -1,14 +1,12 @@
 mod_tile
 ========
-
 A program to efficiently render and serve map tiles for
 www.openstreetmap.org map using Apache and Mapnik.
 
 Note: This program is very much still in development
 it has numerous hard coded paths and options which need
-to be made user configurable options. You will not
-be able to use this program without modifying these to
-fit your local environment.
+to be made user configurable options. You may need to 
+these to fit your local environment.
 
 Requirements
 ============
@@ -17,30 +15,46 @@ Mapnik renderer along with the OSM.xml file and map
 symbols, world_boundaries shapefiles. Apache with
 development headers for APR module development.
 
+Updating From Previous Version
+==============================
+The new version of mod_tile uses a slightly different
+directory heirarchy from the previous version.  In order
+to preserve the previously built tiles you will need to
+move them to:
+
+/var/lib/mod_tile/Default/[Z]/nnn/nnn/nnn/nnn/nnn.png
+
+You will also need to recongiure your http configuration
+to use the new apache directives and to create an 
+/etc/renderd.conf file. See the example renderd.conf and
+mod_tile.conf for details.
 
 Tile Rendering
 ==============
 The rendering is implemented in a multithreaded process
 called renderd which opens a unix socket and listens for
 requests to render tiles. It uses Mapnik to render tiles
-using the rendering rules defined in osm-jb-merc.xml.
+using the rendering rules defined in the configuration file
+/etc/renderd.conf
 
 The render daemon implements a queueing mechanism which
 can render foreground requests (for new tiles being viewed)
-and background requests (updating tiles which have expired)
+and background requests (updating tiles which have expired).
+The size of the queue and the number of threads is determined
+at compile time, see: render_config.h
 
 Tile serving
 ============
 To avoid problems with directories becoming too large the
 files are stored in a different layout to that presented
 by the web server. The tiles are now stored under
-/var/www/html/direct/[Z]/nnn/nnn/nnn/nnn/nnn.png
+/var/lib/mod_tile/[TileSetName]/[Z]/nnn/nnn/nnn/nnn/nnn.png
 
 Where nnn is derived from a combination of the X and Y
 OSM tile co-ordinates.
 
 Apache serves the files as if they were present
-under "/osm_tiles2/Z/X/Y.png" wiht the path being
+under "/osm_tiles2/Z/X/Y.png" with the path being
 converted automatically.
 
 An Apache module called mod_tile enhances the regular
@@ -69,22 +83,22 @@ apache module directory).
 
 Create a new apache config file to load the module,
 e.g.
+
 /etc/httpd/conf.d/mod_tile.conf
 
---------------
+See the sample mod_tile.conf for details
 
-LoadModule tile_module modules/mod_tile.so
+Edit /etc/renderd.conf to indicate the location of your
+mapnik style sheet and the uri you wish to use to access
+it.  You may configure up to 10 (by default) mapnik
+stylesheets - simply give each section a unique name and
+enter the uri and style sheet path.
 
---------------
-
-Create the directories:
- /var/www/html/osm_tiles2/
- /var/www/html/direct/
+Make sure the /var/lib/mod_tile directory is writeable by 
+the user running the renderd process and create a file an
+empty file planet-import-complete in this folder.
 
 Run the rendering daemon 'renderd'
-
-Make sure the osm_tiles2 directory is writeable by the
-user running the renderd process.
 
 Restart Aapche
 
@@ -97,13 +111,21 @@ http://localhost/osm_tiles2/0/0/0.png
 The render daemon should have produce a message like:
 
 Got incoming connection, fd 7, number 1
-Render z(0), x(0), y(0), path(/var/www/html/osm_tiles2/0/0/0.png)
+Render fd(7) xml(Default), z(0), x(0), y(0)
 
 The disk should start thrashing as Mapnik tries to pull
 in data for the first time. After a few seconds you'll
 probably see a 404 error. Wait for the disk activity to
 cease and then reload the tile. With a bit of luck you
 should see a tile of the world in your browser window.
+
+If this fails to happen check the http error log.  You can 
+increate the level of debuging using the LogLevel apache
+directive.  If no log messages are shown check that you
+are accessing the correct virtual host - the new version
+of mod_tile is only installed on a single host by default.
+To install on multiple hosts either use ServerAlias or
+use the LoadTileConfigFile in each virtual host.
 
 To get a complete slippy map you should install a copy
 of the OpenLayers based OSM slippy map and point this to

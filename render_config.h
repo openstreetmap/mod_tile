@@ -2,16 +2,18 @@
 #define RENDER_CONFIG_H
 
 #define MAX_ZOOM 18
+
 // MAX_SIZE is the biggest file which we will return to the user
 #define MAX_SIZE (1 * 1024 * 1024)
-// IMG_PATH must have blank.png etc.
-#define WWW_ROOT "/home/www/tile"
-#define IMG_PATH "/images"
-// TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
-#define TILE_PATH "/osm_tiles2"
+
 // With directory hashing enabled we rewrite the path so that tiles are really stored here instead
 #define DIRECTORY_HASH
-#define HASH_PATH "/direct"
+#define HASH_PATH "/var/lib/mod_tile"
+
+// TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
+// this is now only used if DIRECTORY_HASH is undefined
+//#define TILE_PATH "/var/www/html/osm_tiles2"
+
 // MAX_LOAD_OLD: if tile is out of date, don't re-render it if past this load threshold (users gets old tile)
 #define MAX_LOAD_OLD 5
 // MAX_LOAD_OLD: if tile is missing, don't render it if past this load threshold (user gets 404 error)
@@ -20,7 +22,11 @@
 #define MAX_LOAD_ANY 100
 
 // Location of osm.xml file
-#define OSM_XML "/home/jburgess/osm/svn.openstreetmap.org/applications/rendering/mapnik/osm.xml"
+#define RENDERD_CONFIG "/etc/renderd.conf"
+// The XML configuration used if one is not provided
+#define XMLCONFIG_DEFAULT "Default"
+// Maximum number of configurations that mod tile will allow
+#define XMLCONFIGS_MAX 10
 
 // Mapnik input plugins (will need to adjust for 32 bit libs)
 #define MAPNIK_PLUGINS "/usr/local/lib64/mapnik/input"
@@ -33,7 +39,7 @@
 #define PLANET_INTERVAL (7 * 24 * 60 * 60)
 
 // Planet import should touch this file when complete
-#define PLANET_TIMESTAMP "/tmp/planet-import-complete"
+#define PLANET_TIMESTAMP HASH_PATH "/planet-import-complete"
 
 // Timeout before giving for a tile to be rendered
 #define REQUEST_TIMEOUT (3)
@@ -50,6 +56,10 @@
 // Note: This should be a power of 2 (2, 4, 8, 16 ...)
 #define METATILE (8)
 //#undef METATILE
+
+//Fallback to standard tiles if meta tile doesn't exist
+//Legacy - not needed on new installs
+//#undef METATILEFALLBACK
 
 // Metatiles are much larger in size so we don't need big queues to handle large areas
 #ifdef METATILE

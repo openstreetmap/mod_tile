@@ -21,9 +21,10 @@
 #include "store.h"
 #include "render_config.h"
 #include "dir_utils.h"
+#include "protocol.h"
 
 #ifdef METATILE
-int read_from_meta(int x, int y, int z, unsigned char *buf, size_t sz)
+int read_from_meta(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -32,7 +33,7 @@ int read_from_meta(int x, int y, int z, unsigned char *buf, size_t sz)
     struct meta_layout *m = (struct meta_layout *)header;
     size_t file_offset, tile_size;
 
-    meta_offset = xyz_to_meta(path, sizeof(path), x, y, z);
+    meta_offset = xyz_to_meta(path, sizeof(path), xmlconfig, x, y, z);
 
     fd = open(path, O_RDONLY);
     if (fd < 0)
@@ -100,13 +101,13 @@ int read_from_meta(int x, int y, int z, unsigned char *buf, size_t sz)
 }
 #endif
 
-int read_from_file(int x, int y, int z, unsigned char *buf, size_t sz)
+int read_from_file(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int fd;
     size_t pos;
 
-    xyz_to_path(path, sizeof(path), x, y, z);
+    xyz_to_path(path, sizeof(path), xmlconfig, x, y, z);
 
     fd = open(path, O_RDONLY);
     if (fd < 0)
@@ -132,25 +133,25 @@ int read_from_file(int x, int y, int z, unsigned char *buf, size_t sz)
     return pos;
 }
 
-int tile_read(int x, int y, int z, unsigned char *buf, int sz)
+int tile_read(char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz)
 {
 #ifdef METATILE
     int r;
 
-    r = read_from_meta(x, y, z, buf, sz);
+    r = read_from_meta(xmlconfig, x, y, z, buf, sz);
     if (r >= 0)
         return r;
 #endif
-    return read_from_file(x, y, z, buf, sz);
+    return read_from_file(xmlconfig, x, y, z, buf, sz);
 }
 
 #ifdef METATILE
-void process_meta(int x, int y, int z)
+void process_meta(char *xmlconfig, int x, int y, int z)
 {
     int fd;
     int ox, oy, limit;
     size_t offset, pos;
-    const int buf_len = 10 * 1024 * 1024; // To store all tiles in this .meta
+    const int buf_len = 10 * MAX_SIZE; // To store all tiles in this .meta
     unsigned char *buf;
     struct meta_layout *m;
     char meta_path[PATH_MAX];
@@ -171,11 +172,11 @@ void process_meta(int x, int y, int z)
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
             //fprintf(stderr, "Process %d/%d/%d\n", num, ox, oy);
-            int len = read_from_file(x + ox, y + oy, z, buf + offset, buf_len - offset);
-            int mt = xyz_to_meta(meta_path, sizeof(meta_path), x + ox, y + oy, z);
+            int len = read_from_file(xmlconfig, x + ox, y + oy, z, buf + offset, buf_len - offset);
+            int mt = xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig, x + ox, y + oy, z);
             if (len <= 0) {
 #if 1
-                fprintf(stderr, "Problem reading sub tiles for metatile x(%d) y(%d) z(%d), got %d\n", x, y, z, len);
+                fprintf(stderr, "Problem reading sub tiles for metatile xml(%s) x(%d) y(%d) z(%d), got %d\n", xmlconfig, x, y, z, len);
                 free(buf);
                 return;
 #else
@@ -195,7 +196,7 @@ void process_meta(int x, int y, int z)
     m->y = y;
     m->z = z;
 
-    xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
+    xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig, x, y, z);
     snprintf(tmp, sizeof(tmp), "%s.tmp.%d", meta_path, getpid());
 
     fd = open(tmp, O_WRONLY | O_TRUNC | O_CREAT, 0666);
@@ -223,12 +224,12 @@ void process_meta(int x, int y, int z)
     free(buf);
 
     // Reset meta timestamp to match one of the original tiles
-    xyz_to_path(meta_path, sizeof(meta_path), x, y, z);
+    xyz_to_path(meta_path, sizeof(meta_path), xmlconfig, x, y, z);
     if (stat(meta_path, &s) == 0) {
         struct utimbuf b;
         b.actime = s.st_atime;
         b.modtime = s.st_mtime;
-        xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
+        xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig, x, y, z);
         utime(tmp, &b);
     }
     rename(tmp, meta_path);
@@ -237,7 +238,7 @@ void process_meta(int x, int y, int z)
     // Remove raw .png's
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
-            xyz_to_path(meta_path, sizeof(meta_path), x + ox, y + oy, z);
+            xyz_to_path(meta_path, sizeof(meta_path), xmlconfig, x + ox, y + oy, z);
             if (unlink(meta_path)<0)
                 perror(meta_path);
         }
@@ -247,27 +248,28 @@ void process_meta(int x, int y, int z)
 void process_pack(const char *name)
 {
     char meta_path[PATH_MAX];
+    char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
     int meta_offset;
 
-    if (path_to_xyz(name, &x, &y, &z))
+    if (path_to_xyz(name, xmlconfig, &x, &y, &z))
         return;
  
     // Launch the .meta creation for only 1 tile of the whole block
-    meta_offset = xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
+    meta_offset = xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig, x, y, z);
     //fprintf(stderr,"Requesting x(%d) y(%d) z(%d) - mo(%d)\n", x, y, z, meta_offset);
 
     if (meta_offset == 0)
-        process_meta(x, y, z);
+        process_meta(xmlconfig, x, y, z);
 }
 
-static void write_tile(int x, int y, int z, const unsigned char *buf, size_t sz)
+static void write_tile(char *xmlconfig, int x, int y, int z, const unsigned char *buf, size_t sz)
 {
     int fd;
     char path[PATH_MAX];
     size_t pos;
 
-    xyz_to_path(path, sizeof(path), x, y, z);
+    xyz_to_path(path, sizeof(path), xmlconfig, x, y, z);
     fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
     if (fd < 0) {
         fprintf(stderr, "Error creating file: %s\n", path);
@@ -294,6 +296,7 @@ static void write_tile(int x, int y, int z, const unsigned char *buf, size_t sz)
 void process_unpack(const char *name)
 {
     char meta_path[PATH_MAX];
+    char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
     int ox, oy, limit;
     const int buf_len = 1024 * 1024;
@@ -301,7 +304,7 @@ void process_unpack(const char *name)
     struct stat s;
 
     // path_to_xyz is valid for meta tile names as well
-    if (path_to_xyz(name, &x, &y, &z))
+    if (path_to_xyz(name, xmlconfig, &x, &y, &z))
         return;
 
     buf = (unsigned char *)malloc(buf_len);
@@ -314,12 +317,12 @@ void process_unpack(const char *name)
 
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
-            int len = read_from_meta(x + ox, y + oy, z, buf, buf_len);
+            int len = read_from_meta(xmlconfig, x + ox, y + oy, z, buf, buf_len);
 
             if (len <= 0)
                 fprintf(stderr, "Failed to get tile x(%d) y(%d) z(%d)\n", x + ox, y + oy, z);
             else
-                write_tile(x + ox, y + oy, z, buf, len);
+                write_tile(xmlconfig, x + ox, y + oy, z, buf, len);
         }
     }
 
@@ -330,14 +333,14 @@ void process_unpack(const char *name)
         b.modtime = s.st_mtime;
         for (ox=0; ox < limit; ox++) {
             for (oy=0; oy < limit; oy++) {
-                xyz_to_path(meta_path, sizeof(meta_path), x+ox, y+oy, z);
+                xyz_to_path(meta_path, sizeof(meta_path), xmlconfig, x+ox, y+oy, z);
                 utime(meta_path, &b);
             }
         }
     }
 
     // Remove the .meta file
-    xyz_to_meta(meta_path, sizeof(meta_path), x, y, z);
+    xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig, x, y, z);
     if (unlink(meta_path)<0)
         perror(meta_path);
 }

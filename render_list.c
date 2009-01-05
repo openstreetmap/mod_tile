@@ -218,7 +218,7 @@ int main(int argc, char **argv)
         printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
         num_all++;
-        xyz_to_path(name, sizeof(name), x, y, z);
+        xyz_to_path(name, sizeof(name), XMLCONFIG_DEFAULT, x, y, z);
 
         if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
             // missing or old, render it

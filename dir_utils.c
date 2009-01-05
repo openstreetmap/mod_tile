@@ -62,7 +62,7 @@ int mkdirp(const char *path) {
  * to work
  */
 
-const char *xyz_to_path(char *path, size_t len, int x, int y, int z)
+void xyz_to_path(char *path, size_t len, char * xmlconfig, int x, int y, int z)
 {
 #ifdef DIRECTORY_HASH
     // We attempt to cluseter the tiles so that a 16x16 square of tiles will be in a single directory
@@ -75,11 +75,11 @@ const char *xyz_to_path(char *path, size_t len, int x, int y, int z)
         x >>= 4;
         y >>= 4;
     }
-    snprintf(path, len, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.png", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    snprintf(path, len, HASH_PATH "/%s/%d/%u/%u/%u/%u/%u.png", xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
 #else
-    snprintf(path, len, WWW_ROOT TILE_PATH "/%d/%d/%d.png", z, x, y);
+    snprintf(path, len, TILE_PATH "/%s/%d/%d/%d.png", xmlconfig, z, x, y);
 #endif
-    return path + strlen(WWW_ROOT);
+    return;
 }
 
 int check_xyz(int x, int y, int z)
@@ -101,12 +101,12 @@ int check_xyz(int x, int y, int z)
 }
 
 
-int path_to_xyz(const char *path, int *px, int *py, int *pz)
+int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
 {
     int i, n, hash[5], x, y, z;
 
-    n = sscanf(path, WWW_ROOT HASH_PATH "/%d/%d/%d/%d/%d/%d", pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
-    if (n != 6) {
+    n = sscanf(path, HASH_PATH "/%40[^/]/%d/%d/%d/%d/%d/%d", xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
+    if (n != 7) {
         fprintf(stderr, "Failed to parse tile path: %s\n", path);
         return 1;
     } else {
@@ -130,7 +130,7 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
 
 #ifdef METATILE
 // Returns the path to the meta-tile and the offset within the meta-tile
-int xyz_to_meta(char *path, size_t len, int x, int y, int z)
+int xyz_to_meta(char *path, size_t len, char *xmlconfig, int x, int y, int z)
 {
     unsigned char i, hash[5], offset, mask;
 
@@ -146,7 +146,7 @@ int xyz_to_meta(char *path, size_t len, int x, int y, int z)
         x >>= 4;
         y >>= 4;
     }
-    snprintf(path, len, WWW_ROOT HASH_PATH "/%d/%u/%u/%u/%u/%u.meta", z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    snprintf(path, len, HASH_PATH "/%s/%d/%u/%u/%u/%u/%u.meta", xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
     return offset;
 }
 #endif

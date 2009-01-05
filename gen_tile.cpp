@@ -15,6 +15,7 @@
 #include <pthread.h>
 
 #include "gen_tile.h"
+#include "daemon.h"
 #include "protocol.h"
 #include "render_config.h"
 #include "dir_utils.h"
@@ -31,10 +32,14 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
-
-
 static const int minZoom = 0;
 static const int maxZoom = 18;
+
+typedef struct {
+    char xmlname[XMLCONFIG_MAX];
+    char xmlfile[PATH_MAX];
+    Map map;
+} xmlmapconfig;
 
 // The map projection must match the one in the osm.xml file
 static projection prj("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over");
@@ -120,7 +125,7 @@ static void load_fonts(const char *font_dir, int recurse)
 static GoogleProjection gprj(maxZoom+1);
 
 #ifdef METATILE
-static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
+static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z, unsigned int size)
 {
     int render_size = 256 * (size + 1);
     double p0x = x * 256;
@@ -158,23 +163,23 @@ static enum protoCmd render(Map &m, int x, int y, int z, unsigned int size)
 
             char filename[PATH_MAX];
             char tmp[PATH_MAX];
-            xyz_to_path(filename, sizeof(filename), x+xx, y+yy, z);
+            xyz_to_path(filename, sizeof(filename), xmlname, x+xx, y+yy, z);
             if (mkdirp(filename))
                 return cmdNotDone;
             snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
             //std::cout << "Render " << z << " " << x << "(" << xx << ") " << y << "(" << yy << ") " << filename << "\n";
-            save_to_file(vw, tmp,"png256");
+            save_to_file(vw, tmp, "png256");
             if (rename(tmp, filename)) {
                 perror(tmp);
                 return cmdNotDone;
             }
         }
     }
-    std::cout << "DONE TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
+    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
     return cmdDone; // OK
 }
 #else
-static enum protoCmd render(Map &m, int x, int y, int z)
+static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z)
 {
     char filename[PATH_MAX];
     char tmp[PATH_MAX];
@@ -198,7 +203,7 @@ static enum protoCmd render(Map &m, int x, int y, int z)
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
 
-    xyz_to_path(filename, sizeof(filename), x, y, z);
+    xyz_to_path(filename, sizeof(filename), xmlname, x, y, z);
     if (mkdirp(filename))
         return cmdNotDone;
     snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
@@ -223,12 +228,19 @@ void render_init(void)
     load_fonts(FONT_DIR, FONT_RECURSE);
 }
 
-
-void *render_thread(__attribute__((unused)) void *unused)
+void *render_thread(void * arg)
 {
-    Map m(RENDER_SIZE, RENDER_SIZE);
+    xmlconfigitem * parentxmlconfig = (xmlconfigitem *)arg;
+    xmlmapconfig maps[XMLCONFIGS_MAX];
+    int i,iMaxConfigs;
 
-    load_map(m,OSM_XML);
+    for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
+        if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) break;
+        strcpy(maps[iMaxConfigs].xmlname, parentxmlconfig[iMaxConfigs].xmlname);
+        strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
+        maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
+        load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+    }
 
     while (1) {
         enum protoCmd ret;
@@ -238,13 +250,21 @@ void *render_thread(__attribute__((unused)) void *unused)
 #ifdef METATILE
             // At very low zoom the whole world may be smaller than METATILE
             unsigned int size = MIN(METATILE, 1 << req->z);
-            ret = render(m, item->mx, item->my, req->z, size);
-            if (ret == cmdDone)
-                process_meta(item->mx, item->my, req->z);
+            for (i = 0; i < iMaxConfigs; ++i) {
+                if (!strcmp(maps[i].xmlname, req->xmlname)) {
+                    ret = render(maps[i].map, req->xmlname, item->mx, item->my, req->z, size);
+                    if (ret == cmdDone)
+                        process_meta(req->xmlname, item->mx, item->my, req->z);
 #else
-            ret = render(m, req->x, req->y, req->z);
+                    ret = render(maps[i].map, req->xmlname, req->x, req->y, req->z);
 #endif
-            send_response(item, ret);
+                    send_response(item, ret);
+                    break;
+               }
+            }
+            if (i == iMaxConfigs){
+                fprintf(stderr, "No map for: %s\n", req->xmlname);
+            }
         } else
             sleep(1); // TODO: Use an event to indicate there are new requests
     }
