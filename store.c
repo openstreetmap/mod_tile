@@ -24,7 +24,7 @@
 #include "protocol.h"
 
 #ifdef METATILE
-int read_from_meta(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
+int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -101,7 +101,7 @@ int read_from_meta(char *xmlconfig, int x, int y, int z, unsigned char *buf, siz
 }
 #endif
 
-int read_from_file(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
+int read_from_file(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
 {
     char path[PATH_MAX];
     int fd;
@@ -133,7 +133,7 @@ int read_from_file(char *xmlconfig, int x, int y, int z, unsigned char *buf, siz
     return pos;
 }
 
-int tile_read(char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz)
+int tile_read(const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz)
 {
 #ifdef METATILE
     int r;
@@ -146,7 +146,7 @@ int tile_read(char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz)
 }
 
 #ifdef METATILE
-void process_meta(char *xmlconfig, int x, int y, int z)
+void process_meta(const char *xmlconfig, int x, int y, int z)
 {
     int fd;
     int ox, oy, limit;
@@ -263,7 +263,7 @@ void process_pack(const char *name)
         process_meta(xmlconfig, x, y, z);
 }
 
-static void write_tile(char *xmlconfig, int x, int y, int z, const unsigned char *buf, size_t sz)
+static void write_tile(const char *xmlconfig, int x, int y, int z, const unsigned char *buf, size_t sz)
 {
     int fd;
     char path[PATH_MAX];
