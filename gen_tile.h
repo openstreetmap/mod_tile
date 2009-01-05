@@ -17,7 +17,7 @@ struct item {
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);
-void *render_thread(void *unused);
+void *render_thread(void *);
 struct item *fetch_request(void);
 void delete_request(struct item *item);
 void send_response(struct item *item, enum protoCmd);

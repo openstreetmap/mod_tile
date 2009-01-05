@@ -7,21 +7,31 @@ extern "C" {
 
 /* Protocol between client and render daemon
  *
- * ver = 1;
+ * ver = 2;
  *
- * cmdRender(z,x,y), response: {cmdDone(z,x,y), cmdBusy(z,x,y)}
- * cmdDirty(z,x,y), no response
+ * cmdRender(z,x,y,xmlconfig), response: {cmdDone(z,x,y), cmdBusy(z,x,y)}
+ * cmdDirty(z,x,y,xmlconfig), no response
  *
  * A client may not bother waiting for a response if the render daemon is too slow
  * causing responses to get slightly out of step with requests.
  */
 #define TILE_PATH_MAX (256)
-#define PROTO_VER (1)
+#define PROTO_VER (2)
 #define RENDER_SOCKET "/tmp/osm-renderd"
+#define XMLCONFIG_MAX 41
 
 enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone };
 
 struct protocol {
+    int ver;
+    enum protoCmd cmd;
+    int x;
+    int y;
+    int z;
+    char xmlname[XMLCONFIG_MAX];
+};
+
+struct protocol_v1 {
     int ver;
     enum protoCmd cmd;
     int x;

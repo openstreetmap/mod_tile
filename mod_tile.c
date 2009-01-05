@@ -46,6 +46,16 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include "store.h"
 #include "dir_utils.h"
 
+#define INILINE_MAX 256
+typedef struct {
+    char xmlname[XMLCONFIG_MAX];
+    char baseuri[PATH_MAX];
+} tile_config_rec;
+
+typedef struct {
+    apr_array_header_t *configs;
+} tile_server_conf;
+
 enum tileState { tileMissing, tileOld, tileCurrent };
 
 static int error_message(request_rec *r, const char *format, ...)
@@ -83,7 +93,7 @@ int socket_init(request_rec *r)
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "failed to create unix socket");
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "failed to create unix socket");
         return FD_INVALID;
     }
 
@@ -92,7 +102,7 @@ int socket_init(request_rec *r)
     strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "socket connect failed for: %s", spath);
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s", spath);
         close(fd);
         return FD_INVALID;
     }
@@ -116,32 +126,12 @@ static void make_key(void)
     (void) pthread_key_create(&key, pfd_free);
 }
 
-
-int request_tile(request_rec *r, int dirtyOnly)
+int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
 {
-    struct protocol cmd;
     int *pfd;
     int ret = 0;
     int retry = 1;
-    int x, y, z, n, limit, oob;
-
-    /* URI = .../<z>/<x>/<y>.png[/option] */
-    n = sscanf(r->uri, TILE_PATH "/%d/%d/%d", &z, &x, &y);
-    if (n != 3)
-        return 0;
-
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "z(%d) x(%d) y(%d)", z, x, y);
-
-    // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
-    if (!oob) {
-         // valid x/y for tiles are 0 ... 2^zoom-1
-        limit = (1 << z) - 1;
-        oob =  (x < 0 || x > limit || y < 0 || y > limit);
-    }
-
-    if (oob)
-        return 0;
+    struct protocol resp;
 
     (void) pthread_once(&key_once, make_key);
     if ((pfd = pthread_getspecific(key)) == NULL) {
@@ -157,25 +147,22 @@ int request_tile(request_rec *r, int dirtyOnly)
 
         if (*pfd == FD_INVALID) {
             //fprintf(stderr, "Failed to connect to renderer\n");
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Failed to connected to renderer");
             return 0;
         } else {
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Connected to renderer");
         }
     }
 
-    bzero(&cmd, sizeof(cmd));
+    // cmd has already been partial filled, fill in the rest
+    cmd->ver = PROTO_VER;
+    cmd->cmd = dirtyOnly ? cmdDirty : cmdRender;
 
-    cmd.ver = PROTO_VER;
-    cmd.cmd = dirtyOnly ? cmdDirty : cmdRender;
-    cmd.z = z;
-    cmd.x = x;
-    cmd.y = y;
-
-    //fprintf(stderr, "Requesting tile(%d,%d,%d)\n", z,x,y);
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
     do {
-        ret = send(*pfd, &cmd, sizeof(cmd), 0);
+        ret = send(*pfd, cmd, sizeof(struct protocol), 0);
 
-        if (ret == sizeof(cmd))
+        if (ret == sizeof(struct protocol))
             break;
 
         if (errno != EPIPE)
@@ -198,9 +185,9 @@ int request_tile(request_rec *r, int dirtyOnly)
             FD_SET(*pfd, &rx);
             s = select((*pfd)+1, &rx, NULL, NULL, &tv);
             if (s == 1) {
-                bzero(&cmd, sizeof(cmd));
-                ret = recv(*pfd, &cmd, sizeof(cmd), 0);
-                if (ret != sizeof(cmd)) {
+                bzero(&resp, sizeof(struct protocol));
+                ret = recv(*pfd, &resp, sizeof(struct protocol), 0);
+                if (ret != sizeof(struct protocol)) {
                     if (errno == EPIPE) {
                         close(*pfd);
                         *pfd = FD_INVALID;
@@ -208,12 +195,16 @@ int request_tile(request_rec *r, int dirtyOnly)
                     //perror("recv error");
                     break;
                 }
-                //fprintf(stderr, "Completed tile(%d,%d,%d)\n", z,x,y);
-                if (cmd.x == x && cmd.y == y && cmd.z == z) {
-                    if (cmd.cmd == cmdDone)
+  
+                if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
+                    if (resp.cmd == cmdDone)
                         return 1;
                     else
                         return 0;
+                } else {
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, 
+                       "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname, 
+                       resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);                    
                 }
             } else if (s == 0) {
                 break;
@@ -228,8 +219,6 @@ int request_tile(request_rec *r, int dirtyOnly)
     }
     return 0;
 }
-
-
 
 static apr_time_t getPlanetTime(request_rec *r)
 {
@@ -278,44 +267,40 @@ static enum tileState tile_state_once(request_rec *r)
     return tileCurrent;
 }
 
-static enum tileState tile_state(request_rec *r)
+static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 {
     enum tileState state = tile_state_once(r);
-#ifdef METATILE
+#ifdef METATILEFALLBACK
     if (state == tileMissing) {
+
         // Try fallback to plain PNG
         char path[PATH_MAX];
-        int x, y, z, n;
-        /* URI = .../<z>/<x>/<y>.png[/option] */
-        n = sscanf(r->uri, TILE_PATH "/%d/%d/%d", &z, &x, &y);
-        if (n == 3) {
-            xyz_to_path(path, sizeof(path), x,y,z);
-            r->filename = apr_pstrdup(r->pool, path);
-            state = tile_state_once(r);
-            //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "png fallback %d/%d/%d",x,y,z);
+        xyz_to_path(path, sizeof(path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+        r->filename = apr_pstrdup(r->pool, path);
+        state = tile_state_once(r);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "png fallback %d/%d/%d",x,y,z);
 
-            if (state == tileMissing) {
-                // PNG not available either, if it gets rendered, it'll now be a .meta
-                xyz_to_meta(path, sizeof(path), x,y,z);
-                r->filename = apr_pstrdup(r->pool, path);
-            }
+        if (state == tileMissing) {
+            // PNG not available either, if it gets rendered, it'll now be a .meta
+            xyz_to_meta(path, sizeof(path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+            r->filename = apr_pstrdup(r->pool, path);
         }
     }
 #endif
     return state;
 }
 
-static void add_expiry(request_rec *r)
+static void add_expiry(request_rec *r, struct protocol * cmd)
 {
     apr_time_t expires, holdoff, planetTimestamp;
     apr_table_t *t = r->headers_out;
-    enum tileState state = tile_state(r);
+    enum tileState state = tile_state(r, cmd);
     char *timestr;
 
     /* Append expiry headers ... */
 
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
-    //              r->handler, r->uri, r->filename, r->path_info);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
+                  r->handler, r->uri, r->filename, r->path_info);
 
     // We estimate an expiry based on when the next planet dump is (or was) due
     // If we are past this time already then round up to request time
@@ -349,16 +334,22 @@ static int tile_handler_dirty(request_rec *r)
     if(strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
-    request_tile(r, 1);
+    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    if (cmd == NULL)
+        return DECLINED;
+
+    request_tile(r, cmd, 1);
     return error_message(r, "Tile submitted for rendering\n");
 }
 
-
-
 static int tile_storage_hook(request_rec *r)
 {
+//    char abs_path[PATH_MAX];
     int avg;
     enum tileState state;
+
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
+                  r->handler, r->uri, r->filename, r->path_info);
 
     if (!r->handler)
         return DECLINED;
@@ -370,8 +361,22 @@ static int tile_storage_hook(request_rec *r)
     if (strcmp(r->handler, "tile_serve") && strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
+    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    if (cmd == NULL)
+        return DECLINED;
+/*
+should already be done
+    // Generate the tile filename
+#ifdef METATILE
+    xyz_to_meta(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+#else
+    xyz_to_path(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+#endif
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "abs_path(%s)", abs_path);
+    r->filename = apr_pstrdup(r->pool, abs_path);
+*/
     avg = get_load_avg(r);
-    state = tile_state(r);
+    state = tile_state(r, cmd);
 
     switch (state) {
         case tileCurrent:
@@ -380,19 +385,20 @@ static int tile_storage_hook(request_rec *r)
         case tileOld:
             if (avg > MAX_LOAD_OLD) {
                // Too much load to render it now, mark dirty but return old tile
-               request_tile(r, 1);
+               request_tile(r, cmd, 1);
                return OK;
             }
             break;
         case tileMissing:
             if (avg > MAX_LOAD_MISSING) {
-               request_tile(r, 1);
+               request_tile(r, cmd, 1);
                return HTTP_NOT_FOUND;
             }
             break;
     }
 
-    if (request_tile(r, 0)) {
+    if (request_tile(r, cmd, 0)) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Update file info abs_path(%s)", r->filename);
         // Need to update fileinfo for new rendered tile
         apr_stat(&r->finfo, r->filename, APR_FINFO_MIN, r->pool);
         return OK;
@@ -412,7 +418,13 @@ static int tile_handler_status(request_rec *r)
     if(strcmp(r->handler, "tile_status"))
         return DECLINED;
 
-    state = tile_state(r);
+    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    if (cmd == NULL){
+        sleep(CLIENT_PENALTY);
+        return HTTP_NOT_FOUND;
+    }
+
+    state = tile_state(r, cmd);
     if (state == tileMissing)
         return error_message(r, "Unable to find a tile at %s\n", r->filename);
     apr_ctime(time_str, r->finfo.mtime);
@@ -420,102 +432,30 @@ static int tile_handler_status(request_rec *r)
     return error_message(r, "Tile is %s. Last rendered at %s\n", (state == tileOld) ? "due to be rendered" : "clean", time_str);
 }
 
-static int tile_translate(request_rec *r)
-{
-    int x, y, z, n, limit;
-    char option[11];
-    int oob;
-    char abs_path[PATH_MAX];
-
-    option[0] = '\0';
-
-    /* URI = .../<z>/<x>/<y>.png[/option] */
-    n = sscanf(r->uri, TILE_PATH "/%d/%d/%d.png/%10s", &z, &x, &y, option);
-    /* The original rewrite config matched anything that ended with 3 numbers */
-    //if (n < 3)
-    //        n = sscanf(r->uri, TILE_PATH "%*[^0-9]%d/%d/%d.png/%10s", &z, &x, &y, option);
-
-    if (n < 3)
-        return DECLINED;
-
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "z(%d) x(%d) y(%d)", z, x, y);
-
-    // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
-    if (!oob) {
-         // valid x/y for tiles are 0 ... 2^zoom-1
-        limit = (1 << z) - 1;
-        oob =  (x < 0 || x > limit || y < 0 || y > limit);
-    }
-
-    if (oob) {
-        sleep(CLIENT_PENALTY);
-        return HTTP_NOT_FOUND;
-    }
-
-
-    // Generate the tile filename
-#ifdef METATILE
-    xyz_to_meta(abs_path, sizeof(abs_path), x, y, z);
-#else
-    xyz_to_path(abs_path, sizeof(abs_path), x, y, z);
-#endif
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "abs_path(%s), rel_path(%s)", abs_path, rel_path);
-    r->filename = apr_pstrdup(r->pool, abs_path);
-
-    if (n == 4) {
-        if (!strcmp(option, "status"))
-            r->handler = "tile_status";
-        else if (!strcmp(option, "dirty"))
-            r->handler = "tile_dirty";
-        else
-            return DECLINED;
-    } else 
-        r->handler = "tile_serve";
-
-    return OK;
-}
-
-
-
 static int tile_handler_serve(request_rec *r)
 {
-    int x, y, z, n, limit, oob;
+    const int tile_max = MAX_SIZE;
     unsigned char *buf;
     int len;
-    const int tile_max = 1024 * 1024;
     apr_status_t errstatus;
 
     if(strcmp(r->handler, "tile_serve"))
         return DECLINED;
 
-    /* URI = .../<z>/<x>/<y>.png[/option] */
-    n = sscanf(r->uri, TILE_PATH "/%d/%d/%d", &z, &x, &y);
-    if (n != 3)
-        return 0;
-
-    // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
-    if (!oob) {
-         // valid x/y for tiles are 0 ... 2^zoom-1
-        limit = (1 << z) - 1;
-        oob =  (x < 0 || x > limit || y < 0 || y > limit);
-    }
-
-    if (oob) {
+    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    if (cmd == NULL){
         sleep(CLIENT_PENALTY);
         return HTTP_NOT_FOUND;
     }
 
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "serve handler(%s), uri(%s), filename(%s), path_info(%s)",
-    //              r->handler, r->uri, r->filename, r->path_info);
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_handler_serve: xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
 
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
     if (!buf)
         return HTTP_INTERNAL_SERVER_ERROR;
 
-    len = tile_read(x, y, z, buf, tile_max);
+    len = tile_read(cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max);
     if (len > 0) {
 #if 0
         // Set default Last-Modified and Etag headers
@@ -532,7 +472,7 @@ static int tile_handler_serve(request_rec *r)
 #endif
         ap_set_content_type(r, "image/png");
         ap_set_content_length(r, len);
-        add_expiry(r);
+        add_expiry(r, cmd);
         if ((errstatus = ap_meets_conditions(r)) != OK) {
             free(buf);
             return errstatus;
@@ -548,7 +488,71 @@ static int tile_handler_serve(request_rec *r)
     return DECLINED;
 }
 
+static int tile_translate(request_rec *r)
+{
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_translate: uri(%s)", r->uri);
 
+    int i,n,limit,oob;
+    char option[11];
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+    for (i = 0; i < scfg->configs->nelts; ++i) {
+        tile_config_rec *tile_config = &tile_configs[i];
+    
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_translate: baseuri(%s) name(%s)", tile_config->baseuri, tile_config->xmlname);
+
+        if (!strncmp(tile_config->baseuri, r->uri, strlen(tile_config->baseuri))) {
+
+            struct protocol * cmd = (struct protocol *) apr_pcalloc(r->pool, sizeof(struct protocol));
+            bzero(cmd, sizeof(struct protocol));
+
+            n = sscanf(r->uri+strlen(tile_config->baseuri), "%d/%d/%d.png/%10s", &(cmd->z), &(cmd->x), &(cmd->y), option);
+            if (n < 3) return DECLINED;
+
+            oob = (cmd->z < 0 || cmd->z > MAX_ZOOM);
+            if (!oob) {
+                 // valid x/y for tiles are 0 ... 2^zoom-1
+                 limit = (1 << cmd->z) - 1;
+                 oob =  (cmd->x < 0 || cmd->x > limit || cmd->y < 0 || cmd->y > limit);
+            }
+
+            if (oob) {
+                sleep(CLIENT_PENALTY);
+                return HTTP_NOT_FOUND;
+            }
+
+            strcpy(cmd->xmlname, tile_config->xmlname);
+
+            // Store a copy for later
+            ap_set_module_config(r->request_config, &tile_module, cmd);
+
+            // Generate the tile filename?
+            char abs_path[PATH_MAX];
+#ifdef METATILE
+            xyz_to_meta(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+#else
+            xyz_to_path(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+#endif
+            r->filename = apr_pstrdup(r->pool, abs_path);
+
+            if (n == 4) {
+                if (!strcmp(option, "status")) r->handler = "tile_status";
+                else if (!strcmp(option, "dirty")) r->handler = "tile_dirty";
+                else return DECLINED;
+            } else {
+                r->handler = "tile_serve";
+            }
+
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_translate: op(%s) xml(%s) z(%d) x(%d) y(%d)", r->handler , cmd->xmlname, cmd->z, cmd->x, cmd->y);
+
+            return OK;
+        }
+    }    
+    return DECLINED;
+}
 
 static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 {
@@ -559,13 +563,112 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
     ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
 
+static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
+{
+    if (strlen(name) == 0) {
+        return "ConfigName value must not be null";
+    }
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    tile_config_rec *tilecfg = apr_array_push(scfg->configs);    
+
+    strncpy(tilecfg->baseuri, baseuri, PATH_MAX-1);
+    tilecfg->baseuri[PATH_MAX-1] = 0;
+    strncpy(tilecfg->xmlname, name, XMLCONFIG_MAX-1);
+    tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
+    
+    return NULL;
+}
+
+static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
+{
+    FILE * hini ;
+    char filename[PATH_MAX];
+    char xmlname[XMLCONFIG_MAX];
+    char line[INILINE_MAX];
+    char key[INILINE_MAX];
+    char value[INILINE_MAX];
+    const char * result;
+
+    if (strlen(conffile) == 0) {
+        strcpy(filename, RENDERD_CONFIG);
+    } else {
+        strcpy(filename, conffile);
+    }
+
+    // Load the config
+    if ((hini=fopen(filename, "r"))==NULL) {
+        return "Unable to open config file";
+    }
+
+    while (fgets(line, INILINE_MAX, hini)!=NULL) {
+        if (line[0] == '#') continue;
+        if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
+        if (line[0] == '[') {
+            if (strlen(line) >= XMLCONFIG_MAX){
+                return "XML name too long";
+            }
+            sscanf(line, "[%[^]]", xmlname);
+        } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
+               ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
+
+            if (!strcmp(key, "URI")){
+                if (strlen(value) >= PATH_MAX){
+                    return "URI too long";
+                }
+                result = add_tile_config(cmd, mconfig, value, xmlname);
+                if (result != NULL) return result;
+            }
+        }
+    }
+    fclose(hini);
+    return NULL;
+}
+
+static void *create_tile_config(apr_pool_t *p, server_rec *s)
+{
+    tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
+    scfg->configs = apr_array_make(p, 4, sizeof(tile_config_rec));
+    return scfg;
+}
+
+static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
+{
+    tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
+    tile_server_conf * scfg_base = (tile_server_conf *) basev;
+    tile_server_conf * scfg_over = (tile_server_conf *) overridesv;
+
+    scfg->configs = apr_array_append(p, scfg_base->configs, scfg_over->configs);
+    return scfg;
+}
+
+static const command_rec tile_cmds[] =
+{
+    AP_INIT_TAKE1(
+        "LoadTileConfigFile",            /* directive name */
+        load_tile_config,                /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "load an entire renderd config file"  /* directive description */
+    ),
+    AP_INIT_TAKE2(
+        "AddTileConfig",                 /* directive name */
+        add_tile_config,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "path and name of renderd config to use"  /* directive description */
+    ),
+    {NULL}
+};
+
 module AP_MODULE_DECLARE_DATA tile_module =
 {
     STANDARD20_MODULE_STUFF,
-    NULL,           /* dir config creater */
-    NULL,           /* dir merger --- default is to override */
-    NULL,           /* server config */
-    NULL,           /* merge server config */
-    NULL,           /* command apr_table_t */
-    register_hooks  /* register hooks */
+    NULL,                                /* dir config creater */
+    NULL,                                /* dir merger --- default is to override */
+    create_tile_config,                  /* server config */
+    merge_tile_config,                   /* merge server config */
+    tile_cmds,                           /* command apr_table_t */
+    register_hooks                       /* register hooks */
 };
+

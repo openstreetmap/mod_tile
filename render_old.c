@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 }
 #else
 
+#define INILINE_MAX 256
 #define DEG_TO_RAD (M_PIl/180)
 #define RAD_TO_DEG (180/M_PIl)
 
@@ -100,7 +101,7 @@ int get_load_avg(void)
 }
 
 
-int process_loop(int fd, int x, int y, int z)
+int process_loop(int fd, char * xmlname, int x, int y, int z)
 {
     struct protocol cmd, rsp;
     //struct pollfd fds[1];
@@ -108,13 +109,13 @@ int process_loop(int fd, int x, int y, int z)
 
     bzero(&cmd, sizeof(cmd));
 
-    cmd.ver = 1;
+    cmd.ver = 2;
     cmd.cmd = cmdRender;
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
+    strcpy(cmd.xmlname, xmlname);
     //strcpy(cmd.path, "/tmp/foo.png");
-
     //printf("Sending request\n");
     ret = send(fd, &cmd, sizeof(cmd), 0);
     if (ret != sizeof(cmd)) {
@@ -142,17 +143,19 @@ int process_loop(int fd, int x, int y, int z)
 void process(int fd, const char *name)
 {
     struct stat s;
+    char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
 
-    if (path_to_xyz(name, &x, &y, &z))
+    if (path_to_xyz(name, xmlconfig, &x, &y, &z))
         return;
 
     num_all++;
 
+//    printf("Found xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
     if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
          // missing or old, render it
-        printf("Requesting x(%d) y(%d) z(%d)\n", x, y, z);
-        process_loop(fd, x, y, z);
+        printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
+        process_loop(fd, xmlconfig, x, y, z);
         num_render++;
         if (!(num_render % 10)) {
             gettimeofday(&end, NULL);
@@ -206,7 +209,7 @@ static void descend(int fd, const char *search)
         }
         p = strrchr(path, '.');
         if (p && !strcmp(p, ".meta")) {
-            //printf("Found tile %s\n", path);
+//            printf("Found tile %s\n", path);
             process(fd, path);
         }
     }
@@ -291,10 +294,30 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    for (z=minZoom; z<=maxZoom; z++) {
-        char path[PATH_MAX];
-        snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d", z);
-        descend(fd, path);
+    FILE * hini ;
+    char line[INILINE_MAX];
+    char value[INILINE_MAX];
+
+    // Load the config
+    if ((hini=fopen(RENDERD_CONFIG, "r"))==NULL) {
+        fprintf(stderr, "Config: cannot open %s\n", RENDERD_CONFIG);
+        exit(7);
+    }
+
+    while (fgets(line, INILINE_MAX, hini)!=NULL) {
+        if (line[0] == '[') {
+            if (strlen(line) >= XMLCONFIG_MAX){
+                fprintf(stderr, "XML name too long: %s\n", line);
+                exit(7);
+            }
+            sscanf(line, "[%[^]]", value);
+
+            for (z=minZoom; z<=maxZoom; z++) {
+                char path[PATH_MAX];
+                snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", value, z);
+                descend(fd, path);
+            }
+        }
     }
 
     gettimeofday(&end, NULL);

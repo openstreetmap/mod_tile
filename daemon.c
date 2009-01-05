@@ -11,7 +11,7 @@
 #include <pthread.h>
 #include <signal.h>
 
-
+#include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
@@ -139,7 +139,7 @@ enum protoCmd pending(struct item *test)
 
     item = renderHead.next;
     while (item != &renderHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z)) {
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
             // Add new test item in the list of duplicates
             test->duplicates = item->duplicates;
             item->duplicates = test;
@@ -150,7 +150,7 @@ enum protoCmd pending(struct item *test)
 
     item = reqHead.next;
     while (item != &reqHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z)) {
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
             // Add new test item in the list of duplicates
             test->duplicates = item->duplicates;
             item->duplicates = test;
@@ -161,7 +161,7 @@ enum protoCmd pending(struct item *test)
 
     item = dirtyHead.next;
     while (item != &dirtyHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z))
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname)))
             return cmdNotDone;
         item = item->next;
     }
@@ -172,16 +172,24 @@ enum protoCmd pending(struct item *test)
 
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
+    struct protocol *reqnew;
     struct item *list = NULL, *item;
     enum protoCmd pend;
 
-    if (req->ver != 1) {
+    // Upgrade version 1 to version 2
+    if (req->ver == 1) {
+        reqnew = (struct protocol *)malloc(sizeof(protocol));
+        memcpy(reqnew, req, sizeof(protocol_v1));
+        reqnew->xmlname[0] = 0;
+        req = reqnew;
+    }
+    else if (req->ver != 2) {
         fprintf(stderr, "Bad protocol version %d\n", req->ver);
         return cmdIgnore;
     }
 
-    fprintf(stderr, "%s fd(%d) z(%d), x(%d), y(%d)\n",
-            cmdStr(req->cmd), fd, req->z, req->x, req->y);
+    fprintf(stderr, "%s fd(%d) xml(%s), z(%d), x(%d), y(%d)\n",
+            cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
         return cmdIgnore;
@@ -399,10 +407,57 @@ int main(void)
         exit(6);
     }
 
+    xmlconfigitem maps[XMLCONFIGS_MAX];
+    bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
+
+    FILE * hini ;
+    char line[INILINE_MAX];
+    char key[INILINE_MAX];
+    char value[INILINE_MAX];
+
+    // Load the config
+    if ((hini=fopen(RENDERD_CONFIG, "r"))==NULL) {
+        fprintf(stderr, "Config: cannot open %s\n", RENDERD_CONFIG);
+        exit(7);
+    }
+
+    int iconf = -1;
+    while (fgets(line, INILINE_MAX, hini)!=NULL) {
+        if (line[0] == '#') continue;
+        if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
+        if (line[0] == '[') {
+            iconf++;
+            if (iconf >= XMLCONFIGS_MAX) {
+                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
+                exit(7);
+            }
+            if (strlen(line) >= XMLCONFIG_MAX){
+                fprintf(stderr, "XML name too long: %s\n", line);
+                exit(7);
+            }
+            sscanf(line, "[%[^]]", maps[iconf].xmlname);
+        } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
+               ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
+
+            if (!strcmp(key, "XML")){
+                if (strlen(value) >= PATH_MAX){
+                    fprintf(stderr, "XML path too long: %s\n", value);
+                    exit(7);
+                }
+                strcpy(maps[iconf].xmlfile, value);
+            }
+        }
+    }
+    fclose(hini);
+
+    for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
+         printf("config %d: name(%s) file(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile);
+    }
+
     render_init();
 
     for(i=0; i<NUM_THREADS; i++) {
-        if (pthread_create(&render_threads[i], NULL, render_thread, NULL)) {
+        if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
             fprintf(stderr, "error spawning render thread\n");
             close(fd);
             exit(7);

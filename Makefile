@@ -19,6 +19,9 @@ EXTRA_LDFLAGS += $(shell pkg-config --libs libagg)
 
 all: local-shared-build renderd speedtest render_list render_old convert_meta
 
+install: 
+	cp -u renderd.conf /etc/renderd.conf
+
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
 	rm -f renderd render_list speedtest render_old convert_meta

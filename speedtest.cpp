@@ -136,6 +136,7 @@ int process_loop(int fd, int x, int y, int z)
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
+    strcpy(cmd.xmlname, XMLCONFIG_DEFAULT);
     //strcpy(cmd.path, "/tmp/foo.png");
 
         //printf("Sending request\n");
@@ -229,7 +230,7 @@ int main(int argc, char **argv)
         for (x=xmin; x<=xmax; x++) {
             for (y=ymin; y<=ymax; y++) {
                 struct stat s;
-                xyz_to_meta(name, sizeof(name), x, y, z);
+                xyz_to_meta(name, sizeof(name), XMLCONFIG_DEFAULT, x, y, z);
                 if (stat(name, &s) < 0) {
                 // File doesn't exist
                     ret = process_loop(fd, x, y, z);

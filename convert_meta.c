@@ -156,7 +156,7 @@ int main(int argc, char **argv)
 
     for (z=minZoom; z<=maxZoom; z++) {
         char path[PATH_MAX];
-        snprintf(path, PATH_MAX, WWW_ROOT HASH_PATH "/%d", z);
+        snprintf(path, PATH_MAX, HASH_PATH "/%d", z);
         descend(path);
     }
 
