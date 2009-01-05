@@ -62,7 +62,7 @@ int mkdirp(const char *path) {
  * to work
  */
 
-void xyz_to_path(char *path, size_t len, char * xmlconfig, int x, int y, int z)
+void xyz_to_path(char *path, size_t len, const char *xmlconfig, int x, int y, int z)
 {
 #ifdef DIRECTORY_HASH
     // We attempt to cluseter the tiles so that a 16x16 square of tiles will be in a single directory
@@ -130,7 +130,7 @@ int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
 
 #ifdef METATILE
 // Returns the path to the meta-tile and the offset within the meta-tile
-int xyz_to_meta(char *path, size_t len, char *xmlconfig, int x, int y, int z)
+int xyz_to_meta(char *path, size_t len, const char *xmlconfig, int x, int y, int z)
 {
     unsigned char i, hash[5], offset, mask;
 

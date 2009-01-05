@@ -7,7 +7,7 @@ extern "C" {
 
 #include <stdlib.h>
 #include "render_config.h"
-int tile_read(char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz);
+int tile_read(const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz);
 
 #define META_MAGIC "META"
 //static const char meta_magic[4] = { 'M', 'E', 'T', 'A' };
@@ -27,11 +27,11 @@ struct meta_layout {
 };
 
 
-int read_from_file(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz);
+int read_from_file(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz);
 
 #ifdef METATILE
-int read_from_meta(char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz);
-void process_meta(char *xmlconfig, int x, int y, int z);
+int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz);
+void process_meta(const char *xmlconfig, int x, int y, int z);
 void process_pack(const char *name);
 void process_unpack(const char *name);
 #endif
