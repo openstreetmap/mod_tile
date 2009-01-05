@@ -1,6 +1,8 @@
 #ifndef DAEMON_H
 #define DEEMON_H
 
+#include <limits.h> /* for PATH_MAX */
+
 #include "protocol.h"
 
 #define INILINE_MAX 256
