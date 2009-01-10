@@ -83,11 +83,13 @@ int process_loop(int fd, int x, int y, int z)
 
     bzero(&cmd, sizeof(cmd));
 
-    cmd.ver = 1;
+    cmd.ver = 2;
     cmd.cmd = cmdRender;
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
+    strcpy(cmd.xmlname, "Default");
+
     //strcpy(cmd.path, "/tmp/foo.png");
 
         //printf("Sending request\n");
