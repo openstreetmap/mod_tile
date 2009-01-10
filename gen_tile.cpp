@@ -21,10 +21,10 @@
 #include "dir_utils.h"
 #include "store.h"
 
-using namespace mapnik;
 
-#define DEG_TO_RAD (M_PIl/180)
-#define RAD_TO_DEG (180/M_PIl)
+using namespace mapnik;
+#define DEG_TO_RAD (M_PI/180)
+#define RAD_TO_DEG (180/M_PI)
 
 #ifdef METATILE
 #define RENDER_SIZE (256 * (METATILE + 1))
@@ -67,7 +67,7 @@ class GoogleProjection
             for (d=0; d<levels; d++) {
                 int e = c/2;
                 Bc[d] = c/360.0;
-                Cc[d] = c/(2 * M_PIl);
+                Cc[d] = c/(2 * M_PI);
                 zc[d] = e;
                 Ac[d] = c;
                 c *=2;
@@ -84,7 +84,7 @@ class GoogleProjection
             double e = zc[zoom];
             double g = (y - e)/-Cc[zoom];
             x = (x - e)/Bc[zoom];
-            y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PIl);
+            y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PI);
         }
 };
 

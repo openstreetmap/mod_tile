@@ -10,11 +10,15 @@
 #include <errno.h>
 #include <math.h>
 #include <limits.h>
+#include <string.h>
 
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
 #include "dir_utils.h"
+
+#define DEG_TO_RAD (M_PI/180)
+#define RAD_TO_DEG (180/M_PI)
 
 #ifndef METATILE
 #warning("Speed test not implemented for non-metatile mode. Feel free to submit fix")
@@ -24,9 +28,6 @@ int main(int argc, char **argv)
     return -1;
 }
 #else
-
-#define DEG_TO_RAD (M_PIl/180)
-#define RAD_TO_DEG (180/M_PIl)
 
 static const int minZoom = 0;
 static const int maxZoom = 18;
@@ -76,7 +77,7 @@ class GoogleProjection
             for (d=0; d<levels; d++) {
                 int e = c/2;
                 Bc[d] = c/360.0;
-                Cc[d] = c/(2 * M_PIl);
+                Cc[d] = c/(2 * M_PI);
                 zc[d] = e;
                 Ac[d] = c;
                 c *=2;
@@ -93,7 +94,7 @@ class GoogleProjection
             double e = zc[zoom];
             double g = (y - e)/-Cc[zoom];
             x = (x - e)/Bc[zoom];
-            y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PIl);
+            y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PI);
         }
 };
 

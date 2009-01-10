@@ -14,6 +14,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <limits.h>
+#include <string.h>
 
 #include "gen_tile.h"
 #include "protocol.h"
@@ -28,9 +29,6 @@ int main(int argc, char **argv)
     return -1;
 }
 #else
-
-#define DEG_TO_RAD (M_PIl/180)
-#define RAD_TO_DEG (180/M_PIl)
 
 static int minZoom = 0;
 static int maxZoom = 18;
