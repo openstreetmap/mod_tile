@@ -233,7 +233,8 @@ class RenderThread:
         bbox.height(bbox.height() * scale)
         # Calculate meta tile size in pixels
         render_size = 256 * (sz + 1)
-        #m.resize(render_size, render_size);
+        m.width = render_size
+        m.height = render_size
         m.zoom_to_box(bbox)
 
         # Render image
