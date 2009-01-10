@@ -17,7 +17,8 @@
 #include <dirent.h>
 #include <assert.h>
 #include <fcntl.h>
-
+#include <limits.h>
+#include <string.h>
 #include "render_config.h"
 #include "dir_utils.h"
 #include "store.h"

@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
 
 #include "daemon.h"
 #include "gen_tile.h"
