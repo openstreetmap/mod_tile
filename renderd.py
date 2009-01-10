@@ -35,6 +35,9 @@ import time
 import errno
 from math import pi,cos,sin,log,exp,atan
 
+import cairo
+import cStringIO
+
 MAX_ZOOM = 18
 METATILE = 8
 META_MAGIC = "META"
@@ -166,7 +169,7 @@ class SphericalProjection:
         self.zc = []
         self.Ac = []
         c = 256
-        for d in range(0,levels):
+        for d in range(0,levels+1):
             e = c/2;
             self.Bc.append(c/360.0)
             self.Cc.append(c/(2 * pi))
@@ -212,6 +215,49 @@ class RenderThread:
         # This is the Spherical mercator projection (EPSG:900913)
         self.prj = mapnik.Projection("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over")
 
+    def render_with_agg(self, m, render_size, sz):
+        # Render image with default Agg renderer
+        im = mapnik.Image(render_size, render_size)
+        mapnik.render(m, im)
+
+        # Split image up into NxN grid of tile PNGs
+        tiles = {}
+        for yy in range(0,sz):
+            for xx in range(0,sz):
+                # Position of tile, offset due to gutter
+                yoff = 128 + yy * 256
+                xoff = 128 + xx * 256
+                view = im.view(xoff, yoff, 256, 256)
+                tile = view.tostring('png256')
+                #print "Got view of z(%d) x(%d) y(%d), len(%d)" % (z, x+xx, y+yy, len(tile))
+                tiles[(xx, yy)] = tile
+
+        return tiles
+
+    def render_with_cairo(self, m, render_size, sz):
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, render_size, render_size)
+        mapnik.render(m, surface)
+
+        # Split image up into NxN grid of tile PNGs
+        tiles = {}
+        for yy in range(0,sz):
+            for xx in range(0,sz):
+                # Position of tile, offset due to gutter
+                yoff = 128 + yy * 256
+                xoff = 128 + xx * 256
+                tile_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 256, 256)
+                cr = cairo.Context(tile_surface)
+                cr.set_source_surface(surface, -xoff, -yoff)
+                cr.rectangle(0, 0, 256, 256);
+                cr.fill();
+
+                s = cStringIO.StringIO()
+                tile_surface.write_to_png(s)
+                tiles[(xx, yy)] = s.getvalue()
+                s.close()
+
+        return tiles
+
     def render_meta(self, m, style, x, y, z, sz):
         # Calculate pixel positions of bottom-left & top-right
         p0 = (x * 256, (y + sz) * 256)
@@ -237,24 +283,8 @@ class RenderThread:
         m.height = render_size
         m.zoom_to_box(bbox)
 
-        # Render image
-        im = mapnik.Image(render_size, render_size)
-        mapnik.render(m, im)
-
-        tiles = {}
-
-        # Split image up into NxN grid of tile
-        for yy in range(0,sz):
-            for xx in range(0,sz):
-                # Position of tile, offset due to gutter
-                yoff = 128 + yy * 256
-                xoff = 128 + xx * 256
-                view = im.view(xoff, yoff, 256, 256)
-                tile = view.tostring('png256')
-                #print "Got view of z(%d) x(%d) y(%d), len(%d)" % (z, x+xx, y+yy, len(tile))
-                tiles[(xx, yy)] = tile
-
-        return tiles
+        return self.render_with_agg(m, render_size, sz)
+        #return self.render_with_cairo(m, render_size, sz)
 
     def render_request(self, r):
         # Calculate the meta tile size to use for this zoom level
