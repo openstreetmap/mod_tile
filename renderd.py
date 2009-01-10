@@ -32,8 +32,6 @@ import socket
 import ConfigParser
 import mapnik
 import time
-import Queue
-import tempfile
 import errno
 from math import pi,cos,sin,log,exp,atan
 
@@ -160,10 +158,6 @@ class ProtocolPacketV2(ProtocolPacket):
 DEG_TO_RAD = pi/180
 RAD_TO_DEG = 180/pi
 
-def minmax (a,b,c):
-    a = max(a,b)
-    a = min(a,c)
-    return a
 
 class SphericalProjection:
     def __init__(self,levels=18):
@@ -180,10 +174,15 @@ class SphericalProjection:
             self.Ac.append(c)
             c *= 2
 
+    def minmax(self, a,b,c):
+        a = max(a,b)
+        a = min(a,c)
+        return a
+
     def fromLLtoPixel(self,ll,zoom):
          d = self.zc[zoom]
          e = round(d[0] + ll[0] * self.Bc[zoom])
-         f = minmax(sin(DEG_TO_RAD * ll[1]),-0.9999,0.9999)
+         f = self.minmax(sin(DEG_TO_RAD * ll[1]),-0.9999,0.9999)
          g = round(d[1] + 0.5*log((1+f)/(1-f))*-self.Cc[zoom])
          return (e,g)
 
