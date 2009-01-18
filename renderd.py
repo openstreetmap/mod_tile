@@ -102,8 +102,8 @@ class ProtocolPacketV1(ProtocolPacket):
             self.z = z
             self.xmlname = "Default"
             # Calculate Meta-tile value for this x/y
-            self.mx = x & (METATILE-1)
-            self.my = y & (METATILE-1)
+            self.mx = x & ~(METATILE-1)
+            self.my = y & ~(METATILE-1)
             self.dest = dest
 
 
@@ -115,9 +115,7 @@ class ProtocolPacketV1(ProtocolPacket):
         try: 
             self.dest.send(data)
         except socket.error, e:
-               if e[0] == errno.EBADF:
-                   print "Got EBADF in socket send"
-               else:
+               if e[0] != errno.EBADF:
                    raise
 
 
@@ -153,9 +151,7 @@ class ProtocolPacketV2(ProtocolPacket):
         try:
             self.dest.send(data)
         except socket.error, e:
-               if e[0] == errno.EBADF:
-                   print "Got EBADF in socket send"
-               else:
+               if e[0] != errno.EBADF:
                    raise
 
 DEG_TO_RAD = pi/180
@@ -206,7 +202,7 @@ class RenderThread:
             #print "Creating Mapnik map object for %s with %s" % (xmlname, styles[xmlname])
             m = mapnik.Map(256, 256)
             self.maps[xmlname] = m
-            mapnik.load_map(m, styles[xmlname])
+            mapnik.load_map(m, styles[xmlname], True)
 
         # Projects between tile pixel co-ordinates and LatLong (EPSG:4326)
         self.gprj = SphericalProjection(MAX_ZOOM)
@@ -346,7 +342,7 @@ class RenderThread:
 
         f.close()
         os.rename(tmp, meta_path)
-        print "Wrote: %s" % meta_path
+        #print "Wrote: %s" % meta_path
 
         return True
 
@@ -388,41 +384,43 @@ class RequestQueues:
 
         self.request_limit = request_limit
         self.dirty_limit = dirty_limit
-        self.cond = threading.Condition()
+        self.mutex = threading.Lock()
+        self.not_empty = threading.Condition(self.mutex)
 
 
     def add(self, request):
-        self.cond.acquire()
+        self.mutex.acquire()
         try:
             # FIXME: Add short-circuit for overload condition?
-            if request.meta_tuple() in self.rendering:
-                self.rendering[request.meta_tuple()].append(request)
+            t = request.meta_tuple()
+            if t in self.rendering:
+                self.rendering[t].append(request)
                 return "rendering"
-            elif request.meta_tuple() in self.requests:
-                self.requests[request.meta_tuple()].append(request)
+            elif t in self.requests:
+                self.requests[t].append(request)
                 return "requested"
-            elif request.meta_tuple() in self.dirties:
-                self.dirties[request.meta_tuple()].append(request)
+            elif t in self.dirties:
+                self.dirties[t].append(request)
                 return "dirty"
-            elif request.commandStatus == protocol.Render and len(self.requests) < self.request_limit:
-                self.requests[request.meta_tuple()] = [request]
-                self.cond.notify()
+            elif (request.commandStatus == protocol.Render) and (len(self.requests) < self.request_limit):
+                self.requests[t] = [request]
+                self.not_empty.notify()
                 return "requested"
             elif len(self.dirties) < self.dirty_limit:
-                self.dirties[request.meta_tuple()] = [request]
-                self.cond.notify()
+                self.dirties[t] = [request]
+                self.not_empty.notify()
                 return "dirty"
             else:
                 return "dropped"
         finally:
-            self.cond.release()
+            self.mutex.release()
 
 
     def fetch(self):
-        self.cond.acquire()
+        self.not_empty.acquire()
         try:
-            while len(self.requests) == 0 and len(self.dirties) == 0:
-                self.cond.wait()
+            while (len(self.requests) == 0) and (len(self.dirties) == 0):
+                self.not_empty.wait()
             # Pull request from one of the incoming queues
             try:
                 item = self.requests.popitem()
@@ -440,10 +438,10 @@ class RequestQueues:
             # Return the first request from the list
             return v[0]
         finally:
-            self.cond.release()
+            self.not_empty.release()
 
     def pop_requests(self, request):
-        self.cond.acquire()
+        self.mutex.acquire()
         try:
             return self.rendering.pop(request.meta_tuple())
         except KeyError:
@@ -452,7 +450,7 @@ class RequestQueues:
             print "WARNING: Failed to locate request in rendering list!"
             return (request,)
         finally:
-            self.cond.release()
+            self.mutex.release()
 
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
@@ -468,8 +466,8 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
             return
 
         cur_thread = threading.currentThread()
-        print "%s: xml(%s) z(%d) x(%d) y(%d)" % \
-            (cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
+        #print "%s: xml(%s) z(%d) x(%d) y(%d)" % \
+        #    (cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
 
         status = self.server.queue_handler.add(request)
         if status in ("rendering", "requested"):
@@ -482,7 +480,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         cur_thread = threading.currentThread()
-        print "%s: New connection" % cur_thread.getName()
+        #print "%s: New connection" % cur_thread.getName()
         req_v1 = ProtocolPacketV1()
         req_v2 = ProtocolPacketV2()
         max_len = max(req_v1.len(), req_v2.len())
@@ -492,7 +490,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 data = self.request.recv(max_len)
             except socket.error, e:
                 if e[0] == errno.ECONNRESET:
-                    print "Connection reset by peer"
+                    #print "Connection reset by peer"
                     break
                 else:
                     raise
@@ -504,7 +502,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 req_v2.receive(data, self.request)
                 self.rx_request(req_v2)
             elif len(data) == 0:
-                print "%s: Connection closed" % cur_thread.getName()
+                #print "%s: Connection closed" % cur_thread.getName()
                 break
             else:
                 print "Invalid request length %d" % len(data)
@@ -553,10 +551,13 @@ if __name__ == "__main__":
     HASH_PATH = "/var/lib/mod_tile"
     NUM_THREADS = 4
 
+    mapnik.FontEngine.instance().register_font("/home/jburgess/osm/fonts/unifont-5.1.20080706.ttf")
+
     config = ConfigParser.ConfigParser()
     config.read(cfg_file)
     display_config(config)
     styles = read_styles(config)
+
 
     queue_handler = RequestQueues()
     start_renderers(NUM_THREADS, HASH_PATH, styles, queue_handler)
