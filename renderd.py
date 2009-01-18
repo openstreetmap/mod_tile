@@ -269,16 +269,12 @@ class RenderThread:
             print "No map for: '%s'" % xmlname
             return False
         tiles = self.render_meta(m, xmlname, x, y, z, size)
-        status = self.meta_save(xmlname, x, y, z, size, tiles)
+        self.meta_save(xmlname, x, y, z, size, tiles)
 
-        if status == True:
-            print "Done xmlname(%s) z(%d) x(%d-%d) y(%d-%d)" % \
-            (xmlname, r.z, x, x+size-1, y, y+size-1)
-        else:
-            print "FAILED xmlname(%s) z(%d) x(%d-%d) y(%d-%d)" % \
-            (xmlname, z, x, x+size-1, y, y+size-1)
+        print "Done xmlname(%s) z(%d) x(%d-%d) y(%d-%d)" % \
+        (xmlname, r.z, x, x+size-1, y, y+size-1)
 
-        return status;
+        return True;
 
     def xyz_to_meta(self, xmlname, x,y, z):
         mask = METATILE -1
@@ -344,8 +340,6 @@ class RenderThread:
         os.rename(tmp, meta_path)
         #print "Wrote: %s" % meta_path
 
-        return True
-
     def loop(self):
         while True:
             #Fetch a meta-tile to render
@@ -359,8 +353,6 @@ class RenderThread:
                         request.send(protocol.Done)
                     else:
                         request.send(protocol.NotDone)
-            #time.sleep(1)
-        print "Dummy render thread, exiting. Path %s" % self.tile_path
 
 
 def start_renderers(num_threads, tile_path, styles, queue_handler):
