@@ -473,9 +473,9 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         cur_thread = threading.currentThread()
         #print "%s: New connection" % cur_thread.getName()
-        req_v1 = ProtocolPacketV1()
-        req_v2 = ProtocolPacketV2()
-        max_len = max(req_v1.len(), req_v2.len())
+        len_v1 = ProtocolPacketV1().len()
+        len_v2 = ProtocolPacketV2().len()
+        max_len = max(len_v1, len_v2)
 
         while True:
             try:
@@ -487,10 +487,12 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 else:
                     raise
 
-            if len(data) == req_v1.len():
+            if len(data) == len_v1:
+                req_v1 = ProtocolPacketV1()
                 req_v1.receive(data, self.request)
                 self.rx_request(req_v1)
-            if len(data) == req_v2.len():
+            if len(data) == len_v2:
+                req_v2 = ProtocolPacketV2()
                 req_v2.receive(data, self.request)
                 self.rx_request(req_v2)
             elif len(data) == 0:
