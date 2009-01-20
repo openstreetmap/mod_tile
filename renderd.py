@@ -2,17 +2,17 @@
 #
 # mod_tile rendering daemon example written in Python.
 # The code is mostly a direct port of the C implementation.
+#
+# This is currently experimental and not intended as a replacement
+# of the C implementation, but works surpringly well. It should be
+# easier to produce custom variations of the rendering pipeline,
+# e.g. such as compositing tiles from multiple layers.
+#
 # It needs more work to make it more Pythonic, split it
 # into more appropriate classes, add documentation, fix bugs etc.
 #
-# This is currently experimental and not intended as a replacement
-# of the C implementation! It should allow more people to produce
-# custom variations of the rendering pipeline, e.g. such as compositing
-# tiles from multiple layers.
-#
-# The code functions but I'm not yet convinced this is the correct
-# approach to integrating Python with the render daemon. Two other
-# options I'm considering:
+# I'm not yet convinced this is the best approach to integrating
+# Python with the render daemon. Two other options I'm considering:
 #
 # - Use the C renderd code with python binding allowing the replacement
 # of just the core tile rendering code (this is the bit that people
@@ -66,6 +66,7 @@ class ProtocolPacket:
         return struct.calcsize(self.fields)
 
     def bad_request(self):
+        # Check that the requested (x,y,z) is invalid
         x = self.x
         y = self.y
         z = self.z
@@ -198,16 +199,18 @@ class RenderThread:
         self.tile_path = tile_path
         self.queue_handler = queue_handler
         self.maps = {}
+        self.prj = {}
         for xmlname in styles:
             #print "Creating Mapnik map object for %s with %s" % (xmlname, styles[xmlname])
             m = mapnik.Map(256, 256)
             self.maps[xmlname] = m
+            # Load XML style
             mapnik.load_map(m, styles[xmlname], True)
+            # Obtain <Map> projection
+            self.prj[xmlname] = mapnik.Projection(m.srs)
 
         # Projects between tile pixel co-ordinates and LatLong (EPSG:4326)
-        self.gprj = SphericalProjection(MAX_ZOOM)
-        # This is the Spherical mercator projection (EPSG:900913)
-        self.prj = mapnik.Projection("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over")
+        self.tileproj = SphericalProjection(MAX_ZOOM)
 
     def render_with_agg(self, m, size):
         # Render image with default Agg renderer
@@ -238,12 +241,12 @@ class RenderThread:
         p1 = ((x + sz) * 256, y * 256)
 
         # Convert to LatLong (EPSG:4326)
-        l0 = self.gprj.fromPixelToLL(p0, z);
-        l1 = self.gprj.fromPixelToLL(p1, z);
+        l0 = self.tileproj.fromPixelToLL(p0, z);
+        l1 = self.tileproj.fromPixelToLL(p1, z);
 
-        # Convert to mercator co-ords (EPSG:900913)
-        c0 = self.prj.forward(mapnik.Coord(l0[0],l0[1]))
-        c1 = self.prj.forward(mapnik.Coord(l1[0],l1[1]))
+        # Convert to map projection (e.g. mercator co-ords EPSG:900913)
+        c0 = self.prj[style].forward(mapnik.Coord(l0[0],l0[1]))
+        c1 = self.prj[style].forward(mapnik.Coord(l1[0],l1[1]))
 
         # Bounding box for the meta-tile
         bbox = mapnik.Envelope(c0.x,c0.y, c1.x,c1.y)
@@ -256,13 +259,10 @@ class RenderThread:
         #im = self.render_with_cairo(m, render_size)
         return self.split_meta_image(im, sz)
 
-    def render_request(self, r):
+    def render_request(self, t):
+        (xmlname, x, y, z) = t
         # Calculate the meta tile size to use for this zoom level
-        size = min(METATILE, 1 << r.z)
-        xmlname = r.xmlname
-        x = r.mx
-        y = r.my
-        z = r.z
+        size = min(METATILE, 1 << z)
         try:
             m = self.maps[xmlname]
         except KeyError:
@@ -272,7 +272,7 @@ class RenderThread:
         self.meta_save(xmlname, x, y, z, size, tiles)
 
         print "Done xmlname(%s) z(%d) x(%d-%d) y(%d-%d)" % \
-        (xmlname, r.z, x, x+size-1, y, y+size-1)
+            (xmlname, z, x, x+size-1, y, y+size-1)
 
         return True;
 
@@ -365,10 +365,10 @@ def start_renderers(num_threads, tile_path, styles, queue_handler):
 
 class RequestQueues:
     def __init__(self, request_limit = 32, dirty_limit = 1000):
-        # Queues are used as follows:
+        # We store requests in several lists
         # - Incoming render requests are initally put into the request queue
-        # If the request queue is full then the new request is demoted dirty queue
-        # - Incoming 'dirty' requests are put into the dirty queue or overflow from render queue
+        # If the request queue is full then the new request is demoted to the dirty queue
+        # - Incoming 'dirty' requests are put into the dirty queue, or dropped if this is full
         # - The render queue holds the requests which are in progress by the render threads
         self.requests = {}
         self.dirties = {}
@@ -376,39 +376,42 @@ class RequestQueues:
 
         self.request_limit = request_limit
         self.dirty_limit = dirty_limit
-        self.mutex = threading.Lock()
-        self.not_empty = threading.Condition(self.mutex)
+        self.not_empty = threading.Condition()
 
 
     def add(self, request):
-        self.mutex.acquire()
+        self.not_empty.acquire()
         try:
+            # Before adding this new request we first look if this tile is already pending
+            # If so, the new request is tacked on to the existing one
             # FIXME: Add short-circuit for overload condition?
             t = request.meta_tuple()
             if t in self.rendering:
                 self.rendering[t].append(request)
                 return "rendering"
-            elif t in self.requests:
+            if t in self.requests:
                 self.requests[t].append(request)
                 return "requested"
-            elif t in self.dirties:
+            if t in self.dirties:
                 self.dirties[t].append(request)
                 return "dirty"
-            elif (request.commandStatus == protocol.Render) and (len(self.requests) < self.request_limit):
+            # If we've reached here then there are no existing requests for this tile
+            if (request.commandStatus == protocol.Render) and (len(self.requests) < self.request_limit):
                 self.requests[t] = [request]
                 self.not_empty.notify()
                 return "requested"
-            elif len(self.dirties) < self.dirty_limit:
+            if len(self.dirties) < self.dirty_limit:
                 self.dirties[t] = [request]
                 self.not_empty.notify()
                 return "dirty"
-            else:
-                return "dropped"
+            return "dropped"
         finally:
-            self.mutex.release()
+            self.not_empty.release()
 
 
     def fetch(self):
+        # Fetches a request tuple from the request or dirty queue
+        # The requests are moved to the rendering queue while they are being rendered
         self.not_empty.acquire()
         try:
             while (len(self.requests) == 0) and (len(self.dirties) == 0):
@@ -423,26 +426,23 @@ class RequestQueues:
                     print "Odd, queues empty"
                     return
 
-            # Push request list on to the list of items being rendered
-            k = item[0]
-            v = item[1] # This is a list of all requests for this meta-tile
-            self.rendering[k] = v
-            # Return the first request from the list
-            return v[0]
+            t = item[0]
+            self.rendering[t] = item[1]
+            return t
         finally:
             self.not_empty.release()
 
-    def pop_requests(self, request):
-        self.mutex.acquire()
+    def pop_requests(self, t):
+        # Removes this tuple from the rendering queue
+        # and returns the list of request for the tuple
+        self.not_empty.acquire()
         try:
-            return self.rendering.pop(request.meta_tuple())
+            return self.rendering.pop(t)
         except KeyError:
-            # It is not yet clear why this happens, there should always be
-            # an entry in the rendering queue for each active meta -tile request
+            # Should never happen. It implies the requests queues are broken
             print "WARNING: Failed to locate request in rendering list!"
-            return (request,)
         finally:
-            self.mutex.release()
+            self.not_empty.release()
 
 
 class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
@@ -457,7 +457,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
                 request.send(protocol.NotDone)
             return
 
-        cur_thread = threading.currentThread()
+        #cur_thread = threading.currentThread()
         #print "%s: xml(%s) z(%d) x(%d) y(%d)" % \
         #    (cur_thread.getName(), request.xmlname, request.z, request.x, request.y)
 
@@ -466,7 +466,7 @@ class ThreadedUnixStreamHandler(SocketServer.BaseRequestHandler):
             # Request queued, response will be sent on completion
             return
 
-        # The tile won't be rendered soon
+        # The tile won't be rendered soon, tell the requestor straight away
         if (request.commandStatus == protocol.Render):
             request.send(protocol.NotDone)
 
@@ -545,13 +545,14 @@ if __name__ == "__main__":
     HASH_PATH = "/var/lib/mod_tile"
     NUM_THREADS = 4
 
+    # Unifont has a better character coverage and is used as a fallback for DejaVu
+    # if you use a style based on the osm-template-fonset.xml
     mapnik.FontEngine.instance().register_font("/home/jburgess/osm/fonts/unifont-5.1.20080706.ttf")
 
     config = ConfigParser.ConfigParser()
     config.read(cfg_file)
     display_config(config)
     styles = read_styles(config)
-
 
     queue_handler = RequestQueues()
     start_renderers(NUM_THREADS, HASH_PATH, styles, queue_handler)
