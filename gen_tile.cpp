@@ -8,6 +8,7 @@
 #include <mapnik/image_util.hpp>
 
 #include <iostream>
+#include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -39,26 +40,16 @@ typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
     Map map;
+    projection prj;
 } xmlmapconfig;
 
-// The map projection must match the one in the osm.xml file
-static projection prj("+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over");
 
-static double minmax(double a, double b, double c)
-{
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)>(y)?(x):(y))
-    a = MAX(a,b);
-    a = MIN(a,c);
-    return a;
-}
-
-class GoogleProjection
+class SphericalProjection
 {
     double *Ac, *Bc, *Cc, *zc;
 
     public:
-        GoogleProjection(int levels=18) {
+        SphericalProjection(int levels=18) {
             Ac = new double[levels];
             Bc = new double[levels];
             Cc = new double[levels];
@@ -86,7 +77,19 @@ class GoogleProjection
             x = (x - e)/Bc[zoom];
             y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PI);
         }
+
+    private:
+        double minmax(double a, double b, double c)
+        {
+            #define MIN(x,y) ((x)<(y)?(x):(y))
+            #define MAX(x,y) ((x)>(y)?(x):(y))
+            a = MAX(a,b);
+            a = MIN(a,c);
+            return a;
+        }
 };
+
+static SphericalProjection tiling(maxZoom+1);
 
 static void load_fonts(const char *font_dir, int recurse)
 {
@@ -122,12 +125,107 @@ static void load_fonts(const char *font_dir, int recurse)
     closedir(fonts);
 }
 
-static GoogleProjection gprj(maxZoom+1);
 
 #ifdef METATILE
-static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z, unsigned int size)
+
+class metaTile {
+    public:
+        metaTile(const std::string &xmlconfig, int x, int y, int z):
+            x_(x), y_(y), z_(z), xmlconfig_(xmlconfig)
+        {
+            clear();
+        }
+
+        void clear()
+        {
+            for (int x = 0; x < METATILE; x++)
+                for (int y = 0; y < METATILE; y++)
+                    tile[x][y] = "";
+        }
+
+        void set(int x, int y, const std::string &data)
+        {
+            tile[x][y] = data;
+        }
+
+        const std::string get(int x, int y)
+        {
+            return tile[x][y];
+        }
+
+        // Returns the offset within the meta-tile index table
+        int xyz_to_meta_offset(int x, int y, int z)
+        {
+            unsigned char mask = METATILE - 1;
+            return (x & mask) * METATILE + (y & mask);
+        }
+
+        void save()
+        {
+            int ox, oy, limit;
+            size_t offset;
+            struct meta_layout m;
+            char meta_path[PATH_MAX];
+            struct entry offsets[METATILE * METATILE];
+
+            memset(&m, 0, sizeof(m));
+            memset(&offsets, 0, sizeof(offsets));
+
+            xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig_.c_str(), x_, y_, z_);
+            std::stringstream ss;
+            ss << std::string(meta_path) << "." << pthread_self();
+            std::string tmp(ss.str());
+
+            mkdirp(tmp.c_str());
+
+            std::ofstream file(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+
+            // Create and write header
+            m.count = METATILE * METATILE;
+            memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
+            m.x = x_;
+            m.y = y_;
+            m.z = z_;
+            file.write((const char *)&m, sizeof(m));
+
+            offset = header_size;
+            limit = (1 << z_);
+            limit = MIN(limit, METATILE);
+
+            // Generate offset table
+            for (ox=0; ox < limit; ox++) {
+                for (oy=0; oy < limit; oy++) {
+                    int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
+                    offsets[mt].offset = offset;
+                    offsets[mt].size   = tile[ox][oy].size();
+                    offset += offsets[mt].size;
+                }
+            }
+            file.write((const char *)&offsets, sizeof(offsets));
+
+            // Write tiles
+            for (ox=0; ox < limit; ox++) {
+                for (oy=0; oy < limit; oy++) {
+                    file.write((const char *)tile[ox][oy].data(), tile[ox][oy].size());
+                }
+            }
+
+            file.close();
+
+            rename(tmp.c_str(), meta_path);
+            //printf("Produced .meta: %s\n", meta_path);
+        }
+
+        int x_, y_, z_;
+        std::string xmlconfig_;
+        std::string tile[METATILE][METATILE];
+        static const int header_size = sizeof(struct meta_layout) + (sizeof(struct entry) * (METATILE * METATILE));
+};
+
+
+static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y, int z, unsigned int size, metaTile &tiles)
 {
-    int render_size = 256 * (size + 1);
+    int render_size = 256 * size;
     double p0x = x * 256;
     double p0y = (y + size) * 256;
     double p1x = (x + size) * 256;
@@ -135,51 +233,35 @@ static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z, unsigned
 
     //std::cout << "META TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
 
-    gprj.fromPixelToLL(p0x, p0y, z);
-    gprj.fromPixelToLL(p1x, p1y, z);
+    tiling.fromPixelToLL(p0x, p0y, z);
+    tiling.fromPixelToLL(p1x, p1y, z);
 
     prj.forward(p0x, p0y);
     prj.forward(p1x, p1y);
 
     Envelope<double> bbox(p0x, p0y, p1x,p1y);
-    bbox.height(bbox.height() * (size+1.0)/size);
-    bbox.width(bbox.width() * (size+1.0)/size);
     m.resize(render_size, render_size);
     m.zoomToBox(bbox);
+    m.set_buffer_size(128);
     //m.zoom(size+1);
 
     Image32 buf(render_size, render_size);
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
 
-
     // Split the meta tile into an NxN grid of tiles
     unsigned int xx, yy;
     for (yy = 0; yy < size; yy++) {
         for (xx = 0; xx < size; xx++) {
-            int yoff = 128 + yy * 256;
-            int xoff = 128 + xx * 256;
-            image_view<ImageData32> vw(xoff, yoff, 256, 256, buf.data());
-
-            char filename[PATH_MAX];
-            char tmp[PATH_MAX];
-            xyz_to_path(filename, sizeof(filename), xmlname, x+xx, y+yy, z);
-            if (mkdirp(filename))
-                return cmdNotDone;
-            snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
-            //std::cout << "Render " << z << " " << x << "(" << xx << ") " << y << "(" << yy << ") " << filename << "\n";
-            save_to_file(vw, tmp, "png256");
-            if (rename(tmp, filename)) {
-                perror(tmp);
-                return cmdNotDone;
-            }
+            image_view<ImageData32> vw(xx * 256, yy * 256, 256, 256, buf.data());
+            tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
     std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
     return cmdDone; // OK
 }
 #else
-static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z)
+static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y, int z)
 {
     char filename[PATH_MAX];
     char tmp[PATH_MAX];
@@ -188,8 +270,8 @@ static enum protoCmd render(Map &m, char *xmlname, int x, int y, int z)
     double p1x = (x + 1) * 256.0;
     double p1y = y * 256.0;
 
-    gprj.fromPixelToLL(p0x, p0y, z);
-    gprj.fromPixelToLL(p1x, p1y, z);
+    tiling.fromPixelToLL(p0x, p0y, z);
+    tiling.fromPixelToLL(p1x, p1y, z);
 
     prj.forward(p0x, p0y);
     prj.forward(p1x, p1y);
@@ -240,6 +322,7 @@ void *render_thread(void * arg)
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
         maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
         load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+        maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
     }
 
     while (1) {
@@ -252,11 +335,13 @@ void *render_thread(void * arg)
             unsigned int size = MIN(METATILE, 1 << req->z);
             for (i = 0; i < iMaxConfigs; ++i) {
                 if (!strcmp(maps[i].xmlname, req->xmlname)) {
-                    ret = render(maps[i].map, req->xmlname, item->mx, item->my, req->z, size);
+                    metaTile tiles(req->xmlname, item->mx, item->my, req->z);
+
+                    ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
                     if (ret == cmdDone)
-                        process_meta(req->xmlname, item->mx, item->my, req->z);
+                        tiles.save();
 #else
-                    ret = render(maps[i].map, req->xmlname, req->x, req->y, req->z);
+                    ret = render(maps[i].map, req->xmlname, maps[i].prj, req->x, req->y, req->z);
 #endif
                     send_response(item, ret);
                     break;
