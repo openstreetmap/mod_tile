@@ -97,10 +97,12 @@ static void descend(const char *search)
 int main(int argc, char **argv)
 {
     int z, c;
+    const char *layer = "Default";
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
+            {"layer", 1, 0, 'l'},
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
             {"unpack", 0, 0, 'u'},
@@ -109,7 +111,7 @@ int main(int argc, char **argv)
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "uhvz:Z:", long_options, &option_index);
+        c = getopt_long(argc, argv, "uhvz:Z:l:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -128,6 +130,9 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
+            case 'l':
+                layer=strdup(optarg);
+                break;
             case 'u':
                 unpack=1;
                 break;
@@ -137,6 +142,7 @@ int main(int argc, char **argv)
             case 'h':
                 fprintf(stderr, "Convert the rendered PNGs into the more efficient .meta format\n");
                 fprintf(stderr, "\t-u|--unpack\tUnpack the .meta files back to PNGs\n");
+                fprintf(stderr, "\t-l|--layer\tUnpack the specified layer name (default is \"Default\")\n");
                 fprintf(stderr, "\t-z|--min-zoom\tonly process tiles greater or equal this zoom level (default 0)\n");
                 fprintf(stderr, "\t-Z|--max-zoom\tonly process tiles less than or equal to this zoom level (default 18)\n");
                 return -1;
@@ -151,13 +157,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    fprintf(stderr, "Converting tiles\n");
+    fprintf(stderr, "Converting tiles in layer %s\n", layer);
 
     gettimeofday(&start, NULL);
 
     for (z=minZoom; z<=maxZoom; z++) {
         char path[PATH_MAX];
-        snprintf(path, PATH_MAX, HASH_PATH "/%d", z);
+        snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", layer, z);
         descend(path);
     }
 
