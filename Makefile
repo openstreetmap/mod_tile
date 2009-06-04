@@ -1,4 +1,5 @@
-APXS      = $(shell which apxs || which apxs2)
+APXS      = $(shell which apxs || which apxs2 || echo "need apxs"; exit 1)
+$(if $(wildcard $(APXS)),,$(error "cannot find apxs or apxs2")) 
 
 builddir     = .
 top_dir:=$(shell ${APXS} -q exp_installbuilddir)
