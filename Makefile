@@ -1,5 +1,7 @@
+APXS      = $(shell which apxs || which apxs2)
+
 builddir     = .
-top_dir:=$(shell /usr/sbin/apxs -q exp_installbuilddir)
+top_dir:=$(shell ${APXS} -q exp_installbuilddir)
 top_dir:=$(shell /usr/bin/dirname ${top_dir})
 
 top_srcdir   = ${top_dir}
@@ -10,8 +12,7 @@ include ${top_builddir}/build/special.mk
 CXX := g++
 CXXFLAGS += -Wall
 
-APXS      = apxs
-APACHECTL = apachectl
+APACHECTL = $(shell which apachectl || which apache2ctl)
 EXTRA_CFLAGS = -I$(builddir)
 
 EXTRA_CPPFLAGS += -g -O2 -Wall
