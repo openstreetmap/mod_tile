@@ -50,10 +50,15 @@ module AP_MODULE_DECLARE_DATA tile_module;
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
+    int minzoom;
+    int maxzoom;
 } tile_config_rec;
 
 typedef struct {
     apr_array_header_t *configs;
+    int request_timeout;
+    int max_load_old;
+    int max_load_missing;
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
@@ -133,6 +138,9 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
     int retry = 1;
     struct protocol resp;
 
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
     (void) pthread_once(&key_once, make_key);
     if ((pfd = pthread_getspecific(key)) == NULL) {
         pfd = malloc(sizeof(*pfd));
@@ -176,7 +184,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
     } while (retry--);
 
     if (!dirtyOnly) {
-        struct timeval tv = { REQUEST_TIMEOUT, 0 };
+        struct timeval tv = {scfg->request_timeout, 0 };
         fd_set rx;
         int s;
 
@@ -378,20 +386,25 @@ should already be done
     avg = get_load_avg(r);
     state = tile_state(r, cmd);
 
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
     switch (state) {
         case tileCurrent:
             return OK;
             break;
         case tileOld:
-            if (avg > MAX_LOAD_OLD) {
+            if (avg > scfg->max_load_old) {
                // Too much load to render it now, mark dirty but return old tile
                request_tile(r, cmd, 1);
+               ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_old (%d). Mark dirty and deliver from cache.", scfg->max_load_old);
                return OK;
             }
             break;
         case tileMissing:
-            if (avg > MAX_LOAD_MISSING) {
+            if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 1);
+               ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
                return HTTP_NOT_FOUND;
             }
             break;
@@ -563,7 +576,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
     ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
 
-static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
+static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, int minzoom, int maxzoom)
 {
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
@@ -576,8 +589,15 @@ static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *ba
     tilecfg->baseuri[PATH_MAX-1] = 0;
     strncpy(tilecfg->xmlname, name, XMLCONFIG_MAX-1);
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
+    tilecfg->minzoom = minzoom;
+    tilecfg->maxzoom = maxzoom;
     
     return NULL;
+}
+
+static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
+{
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
@@ -625,10 +645,54 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     return NULL;
 }
 
+static const char *mod_tile_request_timeout_config(cmd_parms *cmd, void *mconfig, const char *request_timeout_string)
+{
+    int request_timeout;
+
+    if (sscanf(request_timeout_string, "%d", &request_timeout) != 1) {
+        return "ModTileRequestTimeout needs integer argument";
+    }
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->request_timeout = request_timeout;
+    return NULL;
+}
+
+static const char *mod_tile_max_load_old_config(cmd_parms *cmd, void *mconfig, const char *max_load_old_string)
+{
+    int max_load_old;
+
+    if (sscanf(max_load_old_string, "%d", &max_load_old) != 1) {
+        return "ModTileMaxLoadOld needs integer argument";
+    }
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->max_load_old = max_load_old;
+    return NULL;
+}
+
+static const char *mod_tile_max_load_missing_config(cmd_parms *cmd, void *mconfig, const char *max_load_missing_string)
+{
+    int max_load_missing;
+
+    if (sscanf(max_load_missing_string, "%d", &max_load_missing) != 1) {
+        return "ModTileMaxLoadMissing needs integer argument";
+    }
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->max_load_missing = max_load_missing;
+    return NULL;
+}
+
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
+
     scfg->configs = apr_array_make(p, 4, sizeof(tile_config_rec));
+    scfg->request_timeout = REQUEST_TIMEOUT;
+    scfg->max_load_old = MAX_LOAD_OLD;
+    scfg->max_load_missing = MAX_LOAD_MISSING;
+
     return scfg;
 }
 
@@ -639,6 +703,10 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     tile_server_conf * scfg_over = (tile_server_conf *) overridesv;
 
     scfg->configs = apr_array_append(p, scfg_base->configs, scfg_over->configs);
+    scfg->request_timeout = scfg_over->request_timeout;
+    scfg->max_load_old = scfg_over->max_load_old;
+    scfg->max_load_missing = scfg_over->max_load_missing;
+
     return scfg;
 }
 
@@ -657,6 +725,27 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "path and name of renderd config to use"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileRequestTimeout",         /* directive name */
+        mod_tile_request_timeout_config, /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set timeout in seconds on mod_tile requests"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileMaxLoadOld",             /* directive name */
+        mod_tile_max_load_old_config,    /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set max load for rendering old tiles"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileMaxLoadMissing",         /* directive name */
+        mod_tile_max_load_missing_config, /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set max load for rendering missing tiles"  /* directive description */
     ),
     {NULL}
 };

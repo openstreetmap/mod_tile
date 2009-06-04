@@ -350,8 +350,9 @@ void *render_thread(void * arg)
             if (i == iMaxConfigs){
                 fprintf(stderr, "No map for: %s\n", req->xmlname);
             }
-        } else
+        } else {
             sleep(1); // TODO: Use an event to indicate there are new requests
+        }
     }
     return NULL;
 }

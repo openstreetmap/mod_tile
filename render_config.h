@@ -15,8 +15,10 @@
 //#define TILE_PATH "/var/www/html/osm_tiles2"
 
 // MAX_LOAD_OLD: if tile is out of date, don't re-render it if past this load threshold (users gets old tile)
+// (This is the default value. Can be overwritten in Apache config with ModTileMaxLoadOld.)
 #define MAX_LOAD_OLD 5
-// MAX_LOAD_OLD: if tile is missing, don't render it if past this load threshold (user gets 404 error)
+// MAX_LOAD_MISSING: if tile is missing, don't render it if past this load threshold (user gets 404 error)
+// (This is the default value. Can be overwritten in Apache config with ModTileMaxLoadMissing.)
 #define MAX_LOAD_MISSING 10
 // MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
 #define MAX_LOAD_ANY 100
@@ -42,6 +44,7 @@
 #define PLANET_TIMESTAMP HASH_PATH "/planet-import-complete"
 
 // Timeout before giving for a tile to be rendered
+// (This is the default value. Can be overwritten in Apache config with ModTileRequestTimeout.)
 #define REQUEST_TIMEOUT (3)
 #define FD_INVALID (-1)
 
