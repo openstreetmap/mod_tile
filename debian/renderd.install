@@ -1,0 +1,8 @@
+readme.txt usr/share/doc/renderd
+renderd.conf /etc
+render_all /usr/bin
+convert_meta /usr/bin
+renderd /usr/bin
+speedtest /usr/bin
+update /usr/bin
+render_list /usr/bin
