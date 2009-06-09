@@ -303,11 +303,10 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
 #endif
 
 
-void render_init(void)
+void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
-    // TODO: Make these module options
-    datasource_cache::instance()->register_datasources(MAPNIK_PLUGINS);
-    load_fonts(FONT_DIR, FONT_RECURSE);
+    datasource_cache::instance()->register_datasources(plugins_dir);
+    load_fonts(font_dir, font_dir_recurse);
 }
 
 void *render_thread(void * arg)

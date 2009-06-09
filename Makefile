@@ -32,7 +32,7 @@ RENDER_CPPFLAGS += -I/usr/local/include/mapnik
 RENDER_CPPFLAGS += $(shell pkg-config --cflags freetype2)
 
 RENDER_LDFLAGS += -g
-RENDER_LDFLAGS += -lmapnik -L/usr/local/lib64
+RENDER_LDFLAGS += -lmapnik -L/usr/local/lib64 -Liniparser3.0b -liniparser
 
 renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h store.h
 	$(CXX) -o $@ $^ $(RENDER_LDFLAGS) $(RENDER_CPPFLAGS)

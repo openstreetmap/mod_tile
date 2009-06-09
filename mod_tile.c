@@ -59,6 +59,7 @@ typedef struct {
     int request_timeout;
     int max_load_old;
     int max_load_missing;
+    char renderd_socket_name[PATH_MAX];
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
@@ -90,11 +91,11 @@ static int error_message(request_rec *r, const char *format, ...)
 
 int socket_init(request_rec *r)
 {
-    const char *spath = RENDER_SOCKET;
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
     int fd;
     struct sockaddr_un addr;
-
-    //fprintf(stderr, "Starting rendering client\n");
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
@@ -104,10 +105,10 @@ int socket_init(request_rec *r)
 
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path));
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s", spath);
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s", scfg->renderd_socket_name);
         close(fd);
         return FD_INVALID;
     }
@@ -154,7 +155,6 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
         *pfd = socket_init(r);
 
         if (*pfd == FD_INVALID) {
-            //fprintf(stderr, "Failed to connect to renderer\n");
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Failed to connected to renderer");
             return 0;
         } else {
@@ -684,6 +684,14 @@ static const char *mod_tile_max_load_missing_config(cmd_parms *cmd, void *mconfi
     return NULL;
 }
 
+static const char *mod_tile_renderd_socket_name_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_name_string)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    strncpy(scfg->renderd_socket_name, renderd_socket_name_string, PATH_MAX-1);
+    scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    return NULL;
+}
+
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
@@ -706,6 +714,8 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->request_timeout = scfg_over->request_timeout;
     scfg->max_load_old = scfg_over->max_load_old;
     scfg->max_load_missing = scfg_over->max_load_missing;
+    strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
+    scfg->renderd_socket_name[PATH_MAX-1] = 0;
 
     return scfg;
 }
@@ -746,6 +756,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set max load for rendering missing tiles"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileRenderdSocketName",      /* directive name */
+        mod_tile_renderd_socket_name_config, /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set name of unix domain socket for connecting to rendering daemon"  /* directive description */
     ),
     {NULL}
 };

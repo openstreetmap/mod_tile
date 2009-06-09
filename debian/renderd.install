@@ -1,5 +1,5 @@
 readme.txt /usr/share/doc/renderd
-renderd.conf /etc
+debian/renderd.conf /etc
 render_all /usr/bin
 convert_meta /usr/bin
 renderd /usr/bin
