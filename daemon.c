@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <signal.h>
 #include <string.h>
+#include <syslog.h>
+#include <getopt.h>
 
 #include "daemon.h"
 #include "gen_tile.h"
@@ -191,11 +193,11 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         req = reqnew;
     }
     else if (req->ver != 2) {
-        fprintf(stderr, "Bad protocol version %d\n", req->ver);
+        syslog(LOG_ERR, "Bad protocol version %d", req->ver);
         return cmdIgnore;
     }
 
-    fprintf(stderr, "%s fd(%d) xml(%s), z(%d), x(%d), y(%d)\n",
+    syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
             cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
@@ -206,7 +208,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     item = (struct item *)malloc(sizeof(*item));
     if (!item) {
-            fprintf(stderr, "malloc failed\n");
+            syslog(LOG_ERR, "malloc failed");
             return cmdNotDone;
     }
 
@@ -309,11 +311,11 @@ void process_loop(int listen_fd)
                     perror("accept()");
                 } else {
                     if (num_connections == MAX_CONNECTIONS) {
-                        fprintf(stderr, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
+                        syslog(LOG_WARNING, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
                         close(incoming);
                     } else {
                         connections[num_connections++] = incoming;
-                        fprintf(stderr, "Got incoming connection, fd %d, number %d\n", incoming, num_connections);
+                        syslog(LOG_DEBUG, "DEBUG: Got incoming connection, fd %d, number %d\n", incoming, num_connections);
                     }
                 }
             }
@@ -323,7 +325,6 @@ void process_loop(int listen_fd)
                     struct protocol cmd;
                     int ret;
 
-                    //fprintf(stderr, "New command from fd %d, number %d, to go %d\n", fd, i, num);
                     // TODO: to get highest performance we should loop here until we get EAGAIN
                     ret = recv(fd, &cmd, sizeof(cmd), MSG_DONTWAIT);
                     if (ret == sizeof(cmd)) {
@@ -331,7 +332,7 @@ void process_loop(int listen_fd)
 
                         if ((cmd.cmd == cmdRender) && (rsp == cmdNotDone)) {
                             cmd.cmd = rsp;
-                            fprintf(stderr, "Sending NotDone response(%d)\n", rsp);
+                            syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
                             ret = send(fd, &cmd, sizeof(cmd), 0);
                             if (ret != sizeof(cmd))
                                 perror("response send error");
@@ -340,30 +341,63 @@ void process_loop(int listen_fd)
                         int j;
 
                         num_connections--;
-                        fprintf(stderr, "Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
+                        syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
                         for (j=i; j < num_connections; j++)
                             connections[j] = connections[j+1];
                         clear_requests(fd);
                         close(fd);
                     } else {
-                        fprintf(stderr, "Recv Error on fd %d\n", fd);
+                        syslog(LOG_ERR, "Recv Error on fd %d", fd);
                         break;
                     }
                 }
             }
-        } else
-            fprintf(stderr, "Select timeout\n");
+        } else {
+            syslog(LOG_ERR, "Select timeout");
+        }
     }
 }
 
 
-int main(void)
+int main(int argc, char **argv)
 {
     int fd, i;
     struct sockaddr_un addr;
     mode_t old;
+    int c;
+    char config_file_name[PATH_MAX] = RENDERD_CONFIG;
 
-    fprintf(stderr, "Rendering daemon\n");
+    while (1) {
+        int option_index = 0;
+        static struct option long_options[] = {
+            {"config", 1, 0, 'c'},
+            {"help", 0, 0, 'h'},
+            {0, 0, 0, 0}
+        };
+
+        c = getopt_long(argc, argv, "hc:", long_options, &option_index);
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 'c':
+                strncpy(config_file_name, optarg, PATH_MAX-1);
+                config_file_name[PATH_MAX-1] = 0;
+                break;
+            case 'h':
+                fprintf(stderr, "Usage: renderd [OPTION] ...\n");
+                fprintf(stderr, "Mapnik rendering daemon\n");
+                fprintf(stderr, "  -h, --help           display this help and exit\n");
+                fprintf(stderr, "  -c, --config=CONFIG  set location of config file (default /etc/renderd.conf)\n");
+                exit(0);
+            default:
+                fprintf(stderr, "unknown config option '%c'\n", c);
+                exit(1);
+        }
+    }
+
+    openlog("renderd", LOG_PID, LOG_DAEMON);
+    syslog(LOG_INFO, "Rendering daemon started");
 
     pthread_mutex_init(&qLock, NULL);
     pthread_cond_init(&qCond, NULL);
@@ -374,7 +408,10 @@ int main(void)
     xmlconfigitem maps[XMLCONFIGS_MAX];
     bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
 
-    dictionary *ini = iniparser_load(RENDERD_CONFIG);
+    dictionary *ini = iniparser_load(config_file_name);
+    if (! ini) {
+        exit(1);
+    }
 
     config.socketname = iniparser_getstring(ini, "renderd:socketname", (char *)RENDER_SOCKET);
     config.num_threads = iniparser_getint(ini, "renderd:num_threads", NUM_THREADS);
@@ -415,14 +452,14 @@ int main(void)
         }
     }
     
-    printf("config renderd: socketname=%s\n", config.socketname);
-    printf("config renderd: num_threads=%d\n", config.num_threads);
-    printf("config renderd: tile_dir=%s\n", config.tile_dir);
-    printf("config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
-    printf("config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
-    printf("config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
+    syslog(LOG_INFO, "config renderd: socketname=%s\n", config.socketname);
+    syslog(LOG_INFO, "config renderd: num_threads=%d\n", config.num_threads);
+    syslog(LOG_INFO, "config renderd: tile_dir=%s\n", config.tile_dir);
+    syslog(LOG_INFO, "config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
+    syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
+    syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
     for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
-         printf("config map %d:   name(%s) file(%s) uri(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri);
+         syslog(LOG_INFO, "config map %d:   name(%s) file(%s) uri(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri);
     }
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
