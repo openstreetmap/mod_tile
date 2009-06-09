@@ -15,6 +15,14 @@ Mapnik renderer along with the OSM.xml file and map
 symbols, world_boundaries shapefiles. Apache with
 development headers for APR module development.
 
+iniParser
+=========
+renderd uses the ini config file parser from
+http://ndevilla.free.fr/iniparser/ . To make it easier to
+compile, the full distribution is included in the
+subdirectory "iniparser3.0b". Go there and type "make"
+to generate the library before compiling renderd.
+
 Updating From Previous Version
 ==============================
 The new version of mod_tile uses a slightly different
@@ -135,6 +143,7 @@ mysql2file
 ==========
 This was written to export the existing OSM tiles from
 the Mysql database to the filesystem.
+
 
 Bugs
 ====

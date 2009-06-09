@@ -18,13 +18,19 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
-static pthread_t render_threads[NUM_THREADS];
+extern "C" {
+#include "iniparser3.0b/src/iniparser.h"
+}
+
+static pthread_t *render_threads;
 static struct sigaction sigPipeAction;
 
 static struct item reqHead, dirtyHead, renderHead;
 static int reqNum, dirtyNum;
 static pthread_mutex_t qLock;
 static pthread_cond_t qCond;
+
+static renderd_config config;
 
 struct item *fetch_request(void)
 {
@@ -353,7 +359,6 @@ void process_loop(int listen_fd)
 
 int main(void)
 {
-    const char *spath = RENDER_SOCKET;
     int fd, i;
     struct sockaddr_un addr;
     mode_t old;
@@ -366,6 +371,60 @@ int main(void)
     dirtyHead.next = dirtyHead.prev = &dirtyHead;
     renderHead.next = renderHead.prev = &renderHead;
 
+    xmlconfigitem maps[XMLCONFIGS_MAX];
+    bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
+
+    dictionary *ini = iniparser_load(RENDERD_CONFIG);
+
+    config.socketname = iniparser_getstring(ini, "renderd:socketname", (char *)RENDER_SOCKET);
+    config.num_threads = iniparser_getint(ini, "renderd:num_threads", NUM_THREADS);
+    config.tile_dir = iniparser_getstring(ini, "renderd:tile_dir", (char *)HASH_PATH);
+    config.mapnik_plugins_dir = iniparser_getstring(ini, "mapnik:plugins_dir", (char *)MAPNIK_PLUGINS);
+    config.mapnik_font_dir = iniparser_getstring(ini, "mapnik:font_dir", (char *)FONT_DIR);
+
+    int iconf = -1;
+    char buffer[PATH_MAX];
+    for (int section=0; section < iniparser_getnsec(ini); section++) {
+        char *name = iniparser_getsecname(ini, section);
+        if (strcmp(name, "renderd") && strcmp(name, "mapnik")) {
+            /* this is a map section */
+            iconf++;
+            if (strlen(name) >= XMLCONFIG_MAX) {
+                fprintf(stderr, "XML name too long: %s\n", name);
+                exit(7);
+            }
+            strcpy(maps[iconf].xmlname, name);
+            if (iconf >= XMLCONFIGS_MAX) {
+                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
+                exit(7);
+            }
+            sprintf(buffer, "%s:uri", name);
+            char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
+            if (strlen(ini_uri) >= PATH_MAX) {
+                fprintf(stderr, "URI too long: %s\n", ini_uri);
+                exit(7);
+            }
+            strcpy(maps[iconf].xmluri, ini_uri);
+            sprintf(buffer, "%s:xml", name);
+            char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
+            if (strlen(ini_xmlpath) >= PATH_MAX){
+                fprintf(stderr, "XML path too long: %s\n", ini_xmlpath);
+                exit(7);
+            }
+            strcpy(maps[iconf].xmlfile, ini_xmlpath);
+        }
+    }
+    
+    printf("config renderd: socketname=%s\n", config.socketname);
+    printf("config renderd: num_threads=%d\n", config.num_threads);
+    printf("config renderd: tile_dir=%s\n", config.tile_dir);
+    printf("config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
+    printf("config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
+    printf("config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
+    for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
+         printf("config map %d:   name(%s) file(%s) uri(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri);
+    }
+
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
         fprintf(stderr, "failed to create unix socket\n");
@@ -374,13 +433,13 @@ int main(void)
 
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, config.socketname, sizeof(addr.sun_path));
 
     unlink(addr.sun_path);
 
     old = umask(0); // Need daemon socket to be writeable by apache
     if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket bind failed for: %s\n", spath);
+        fprintf(stderr, "socket bind failed for: %s\n", config.socketname);
         close(fd);
         exit(3);
     }
@@ -408,56 +467,10 @@ int main(void)
         exit(6);
     }
 
-    xmlconfigitem maps[XMLCONFIGS_MAX];
-    bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
+    render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 
-    FILE * hini ;
-    char line[INILINE_MAX];
-    char key[INILINE_MAX];
-    char value[INILINE_MAX];
-
-    // Load the config
-    if ((hini=fopen(RENDERD_CONFIG, "r"))==NULL) {
-        fprintf(stderr, "Config: cannot open %s\n", RENDERD_CONFIG);
-        exit(7);
-    }
-
-    int iconf = -1;
-    while (fgets(line, INILINE_MAX, hini)!=NULL) {
-        if (line[0] == '#') continue;
-        if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
-        if (line[0] == '[') {
-            iconf++;
-            if (iconf >= XMLCONFIGS_MAX) {
-                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
-                exit(7);
-            }
-            if (strlen(line) >= XMLCONFIG_MAX){
-                fprintf(stderr, "XML name too long: %s\n", line);
-                exit(7);
-            }
-            sscanf(line, "[%[^]]", maps[iconf].xmlname);
-        } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
-               ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
-
-            if (!strcmp(key, "XML")){
-                if (strlen(value) >= PATH_MAX){
-                    fprintf(stderr, "XML path too long: %s\n", value);
-                    exit(7);
-                }
-                strcpy(maps[iconf].xmlfile, value);
-            }
-        }
-    }
-    fclose(hini);
-
-    for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
-         printf("config %d: name(%s) file(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile);
-    }
-
-    render_init();
-
-    for(i=0; i<NUM_THREADS; i++) {
+    render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
+    for(i=0; i<config.num_threads; i++) {
         if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
             fprintf(stderr, "error spawning render thread\n");
             close(fd);
@@ -466,7 +479,7 @@ int main(void)
     }
     process_loop(fd);
 
-    unlink(spath);
+    unlink(config.socketname);
     close(fd);
     return 0;
 }

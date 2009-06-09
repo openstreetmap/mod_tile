@@ -26,14 +26,14 @@
 // Location of osm.xml file
 #define RENDERD_CONFIG "/etc/renderd.conf"
 // The XML configuration used if one is not provided
-#define XMLCONFIG_DEFAULT "Default"
+#define XMLCONFIG_DEFAULT "default"
 // Maximum number of configurations that mod tile will allow
 #define XMLCONFIGS_MAX 10
 
 // Mapnik input plugins (will need to adjust for 32 bit libs)
 #define MAPNIK_PLUGINS "/usr/local/lib64/mapnik/input"
 
-// Directory to search for fonts. Recursion can be enabled if desired.
+// Default directory to search for fonts. Recursion can be enabled if desired.
 #define FONT_DIR "/usr/local/lib64/mapnik/fonts"
 #define FONT_RECURSE 0
 
@@ -53,6 +53,8 @@
 #define MAX(x,y) ((x)>(y)?(x):(y))
 
 #define MAX_CONNECTIONS (2048)
+
+// default for number of rendering threads
 #define NUM_THREADS (4)
 
 // Use this to enable meta-tiles which will render NxN tiles at once
