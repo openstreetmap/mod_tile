@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -98,7 +99,7 @@ static void load_fonts(const char *font_dir, int recurse)
     char path[PATH_MAX]; // FIXME: Eats lots of stack space when recursive
 
     if (!fonts) {
-        fprintf(stderr, "Unable to open font directory: %s\n", font_dir);
+        syslog(LOG_CRIT, "Unable to open font directory: %s", font_dir);
         return;
     }
 
@@ -118,7 +119,7 @@ static void load_fonts(const char *font_dir, int recurse)
         }
         p = strrchr(path, '.');
         if (p && !strcmp(p, ".ttf")) {
-            //fprintf(stderr, "Loading font: %s\n", path);
+            syslog(LOG_DEBUG, "DEBUG: Loading font: %s", path);
             freetype_engine::register_font(path);
         }
     }
@@ -257,7 +258,8 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
-    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
+//    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
+    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
     return cmdDone; // OK
 }
 #else
@@ -347,7 +349,7 @@ void *render_thread(void * arg)
                }
             }
             if (i == iMaxConfigs){
-                fprintf(stderr, "No map for: %s\n", req->xmlname);
+                syslog(LOG_ERR, "No map for: %s", req->xmlname);
             }
         } else {
             sleep(1); // TODO: Use an event to indicate there are new requests
