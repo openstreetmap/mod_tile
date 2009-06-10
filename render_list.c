@@ -112,8 +112,9 @@ int process_loop(int fd, const char *mapname, int x, int y, int z)
 
 int main(int argc, char **argv)
 {
-    char spath[PATH_MAX] = RENDER_SOCKET;
-    char mapname[PATH_MAX] = "default";
+    char *spath = RENDER_SOCKET;
+    char *mapname = "default";
+    char *tile_dir = HASH_PATH;
     int fd;
     struct sockaddr_un addr;
     int ret=0;
@@ -136,6 +137,7 @@ int main(int argc, char **argv)
             {"min-y", 1, 0, 'y'},
             {"max-y", 1, 0, 'Y'},
             {"socket", 1, 0, 's'},
+            {"tile-dir", 1, 0, 't'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
             {"all", 0, 0, 'a'},
@@ -143,7 +145,7 @@ int main(int argc, char **argv)
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -152,12 +154,13 @@ int main(int argc, char **argv)
                 all=1;
                 break;
             case 's':   /* -s, --socket */
-                strncpy(spath, optarg, PATH_MAX-1);
-                spath[PATH_MAX-1] = 0;
+                spath = strdup(optarg);
+                break;
+            case 't':
+                tile_dir=strdup(optarg);
                 break;
             case 'm':   /* -m, --map */
-                strncpy(mapname, optarg, PATH_MAX-1);
-                spath[PATH_MAX-1] = 0;
+                mapname=strdup(optarg);
                 break;
             case 'x':   /* -x, --min-x */
                 minX=atoi(optarg);
@@ -190,11 +193,12 @@ int main(int argc, char **argv)
                 break;
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_list [OPTION] ...\n");
-                fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default 18)\n");
-                fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
-                fprintf(stderr, "  -m, --map=MAP        name of the map config (defaults to 'default')\n");
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
+                fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to 'default')\n");
+                fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
+                fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
+                fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is 18)\n");
                 fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
                 fprintf(stderr, "  -x, --min-x=X        minimum X tile coordinate\n");
                 fprintf(stderr, "  -X, --max-x=X        maximum X tile coordinate\n");
@@ -301,7 +305,7 @@ int main(int argc, char **argv)
             printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
             num_all++;
-            xyz_to_path(name, sizeof(name), XMLCONFIG_DEFAULT, x, y, z);
+            xyz_to_path(name, sizeof(name), tile_dir, XMLCONFIG_DEFAULT, x, y, z);
 
             if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
                 // missing or old, render it

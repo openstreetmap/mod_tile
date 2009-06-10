@@ -135,7 +135,7 @@ int main(int argc, char **argv)
             case 'm':
                 map=strdup(optarg);
                 break;
-            case 'p':
+            case 't':
                 tile_dir=strdup(optarg);
                 break;
             case 'u':
@@ -147,11 +147,11 @@ int main(int argc, char **argv)
             case 'h':
                 fprintf(stderr, "Usage: convert_meta [OPTION] ...\n");
                 fprintf(stderr, "Convert the rendered PNGs into the more efficient .meta format\n");
+                fprintf(stderr, "  -m, --map       convert tiles in this map (default is 'default')\n");
+                fprintf(stderr, "  -t, --tile-dir  tile cache directory (default is '" HASH_PATH "')\n");
                 fprintf(stderr, "  -u, --unpack    unpack the .meta files back to PNGs\n");
-                fprintf(stderr, "  -m, --map       convert tiles in this map (default is \"default\")\n");
-                fprintf(stderr, "  -t, --tile-dir  tile cache directory (default is \"" HASH_PATH "\")\n");
-                fprintf(stderr, "  -z, --min-zoom  only process tiles greater or equal this zoom level (default 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom  only process tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -z, --min-zoom  only process tiles greater or equal to this zoom level (default is 0)\n");
+                fprintf(stderr, "  -Z, --max-zoom  only process tiles less than or equal to this zoom level (default is 18)\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);

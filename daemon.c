@@ -449,6 +449,7 @@ int main(int argc, char **argv)
                 exit(7);
             }
             strcpy(maps[iconf].xmlfile, ini_xmlpath);
+            strcpy(maps[iconf].tile_dir, config.tile_dir);
         }
     }
     
