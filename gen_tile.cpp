@@ -23,6 +23,12 @@
 #include "dir_utils.h"
 #include "store.h"
 
+#ifdef HTCP_EXPIRE_CACHE
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
+
+
 
 using namespace mapnik;
 #define DEG_TO_RAD (M_PI/180)
@@ -43,6 +49,10 @@ typedef struct {
     char tile_dir[PATH_MAX];
     Map map;
     projection prj;
+    char xmluri[PATH_MAX];
+    char host[PATH_MAX];
+    char htcphost[PATH_MAX];
+    int htcpsock;
 } xmlmapconfig;
 
 
@@ -126,6 +136,148 @@ static void load_fonts(const char *font_dir, int recurse)
     }
     closedir(fonts);
 }
+
+#ifdef HTCP_EXPIRE_CACHE
+
+/**
+ * This function sends a HTCP cache clr request for a given
+ * URL.
+ * RFC for HTCP can be found at http://www.htcp.org/
+ */
+void cache_expire_url(int sock, char * url) {
+    char * buf;
+
+    if (sock < 0) {
+            return;
+    }
+
+    int idx = 0;
+    int url_len;
+
+    url_len = strlen(url);
+    buf = (char *) malloc(12 + 22 + url_len);
+    if (!buf) {
+        return;
+    }
+
+    idx = 0;
+
+    //16 bit: Overall length of the datagram packet, including this header
+    *((uint16_t *) (&buf[idx])) = htons(12 + 22 + url_len);
+    idx += 2;
+
+    //HTCP version. Currently at 0.0
+    buf[idx++] = 0; //Major version
+    buf[idx++] = 0; //Minor version
+
+    //Length of HTCP data, including this field
+    *((uint16_t *) (&buf[idx])) = htons(8 + 22 + url_len);
+    idx += 2;
+
+    //HTCP opcode CLR=4
+    buf[idx++] = 4;
+    //Reserved
+    buf[idx++] = 0;
+
+    //32 bit transaction id;
+    *((uint32_t *) (&buf[idx])) = htonl(255);
+    idx += 4;
+
+    buf[idx++] = 0;
+    buf[idx++] = 0; //HTCP reason
+
+    //Length of the Method string
+    *((uint16_t *) (&buf[idx])) = htons(4);
+    idx += 2;
+
+    ///Method string
+    memcpy(&buf[idx], "HEAD", 4);
+    idx += 4;
+
+    //Length of the url string
+    *((uint16_t *) (&buf[idx])) = htons(url_len);
+    idx += 2;
+
+    //Url string
+    memcpy(&buf[idx], url, url_len);
+    idx += url_len;
+
+    //Length of version string
+    *((uint16_t *) (&buf[idx])) = htons(8);
+    idx += 2;
+
+    //version string
+    memcpy(&buf[idx], "HTTP/1.1", 8);
+    idx += 8;
+
+    //Length of request headers. Currently 0 as we don't have any headers to send
+    *((uint16_t *) (&buf[idx])) = htons(0);
+
+    if (send(sock, (void *) buf, (12 + 22 + url_len), 0) < (12 + 22 + url_len)) {
+        syslog(LOG_ERR, "Failed to send HTCP purge for %s\n", url);
+    };
+
+    free(buf);
+}
+
+void cache_expire(int sock, char * host, char * uri, int x, int y, int z) {
+
+    if (sock < 0) {
+        return;
+    }
+    char * url = (char *)malloc(1024);
+    sprintf(url,"http://%s%s%i/%i/%i.png", host, uri, z,x,y);
+    cache_expire_url(sock, url);
+    free(url);
+}
+
+int init_cache_expire(char * htcphost) {
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int sfd, s;
+
+    /* Obtain address(es) matching host/port */
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC; /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0; /* Any protocol */
+
+    s = getaddrinfo(htcphost, HTCP_EXPIRE_CACHE_PORT, &hints, &result);
+    if (s != 0) {
+        syslog(LOG_ERR, "Failed to lookup HTCP cache host: %s", gai_strerror(s));
+        return -1;
+    }
+
+    /* getaddrinfo() returns a list of address structures.
+     Try each address until we successfully connect(2).
+     If socket(2) (or connect(2)) fails, we (close the socket
+     and) try the next address. */
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sfd == -1)
+            continue;
+
+        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break; /* Success */
+
+        close(sfd);
+    }
+
+    if (rp == NULL) { /* No address succeeded */
+        syslog(LOG_ERR, "Failed to create HTCP cache socket");
+        return -1;
+    }
+
+    freeaddrinfo(result); /* No longer needed */
+
+    return sfd;
+
+}
+#endif
+
 
 
 #ifdef METATILE
@@ -218,6 +370,24 @@ class metaTile {
             //printf("Produced .meta: %s\n", meta_path);
         }
 
+#ifdef HTCP_EXPIRE_CACHE
+        void expire_tiles(int sock, char * host, char * uri) {
+            if (sock < 0) {
+                return;
+            }
+            syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
+            int ox, oy;
+            int limit = (1 << z_);
+            limit = MIN(limit, METATILE);
+
+            // Generate offset table
+            for (ox=0; ox < limit; ox++) {
+                for (oy=0; oy < limit; oy++) {
+                    cache_expire(sock, host, uri, (x_ + ox), (y_ + oy), z_);
+                }
+            }
+        }
+#endif
         int x_, y_, z_;
         std::string xmlconfig_;
         std::string tile[METATILE][METATILE];
@@ -326,6 +496,22 @@ void *render_thread(void * arg)
         maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
         load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
         maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
+#ifdef HTCP_EXPIRE_CACHE
+        strcpy(maps[iMaxConfigs].xmluri, parentxmlconfig[iMaxConfigs].xmluri);
+        strcpy(maps[iMaxConfigs].host, parentxmlconfig[iMaxConfigs].host);
+        strcpy(maps[iMaxConfigs].htcphost, parentxmlconfig[iMaxConfigs].htcpip);
+        if (strlen(maps[iMaxConfigs].htcphost) > 0) {
+            maps[iMaxConfigs].htcpsock = init_cache_expire(
+                    maps[iMaxConfigs].htcphost);
+            if (maps[iMaxConfigs].htcpsock > 0) {
+                syslog(LOG_INFO, "Successfully opened socket for HTCP cache expiry");
+            } else {
+                syslog(LOG_ERR, "Failed to opened socket for HTCP cache expiry");
+            }
+        } else {
+            maps[iMaxConfigs].htcpsock = -1;
+        }
+#endif
     }
 
     while (1) {
@@ -341,10 +527,17 @@ void *render_thread(void * arg)
                     metaTile tiles(req->xmlname, item->mx, item->my, req->z);
 
                     ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
-                    if (ret == cmdDone)
+                    if (ret == cmdDone) {
                         tiles.save(maps[i].tile_dir);
+#ifdef HTCP_EXPIRE_CACHE
+                        tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
+#endif
+                    }
 #else
                     ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
+#ifdef HTCP_EXPIRE_CACHE
+                    cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
+#endif
 #endif
                     send_response(item, ret);
                     break;
