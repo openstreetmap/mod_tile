@@ -218,7 +218,7 @@ static void descend(int fd, const char *search)
 
 int main(int argc, char **argv)
 {
-    const char *spath = RENDER_SOCKET;
+    char spath[PATH_MAX] = RENDER_SOCKET;
     int fd;
     struct sockaddr_un addr;
     int z, c;
@@ -228,37 +228,44 @@ int main(int argc, char **argv)
         static struct option long_options[] = {
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
+            {"socket", 1, 0, 's'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-            case 'z':
+            case 's':   /* -s, --socket */
+                strncpy(spath, optarg, PATH_MAX-1);
+                spath[PATH_MAX-1] = 0;
+                break;
+            case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
                 if (minZoom < 0 || minZoom > 18) {
                     fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
                     return 1;
                 }
                 break;
-            case 'Z':
+            case 'Z':   /* -Z, --max-zoom */
                 maxZoom=atoi(optarg);
                 if (maxZoom < 0 || maxZoom > 18) {
                     fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and 18\n");
                     return 1;
                 }
                 break;
-            case 'v':
+            case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
-            case 'h':
+            case 'h':   /* -h, --help */
+                fprintf(stderr, "Usage: render_old [OPTION] ...\n");
                 fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
-                fprintf(stderr, "\t-z|--min-zoom\tonly render tiles greater or equal this zoom level (default 0)\n");
-                fprintf(stderr, "\t-Z|--max-zoom\tonly render tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
