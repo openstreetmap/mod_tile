@@ -117,6 +117,7 @@ int main(int argc, char **argv)
     int fd;
     struct sockaddr_un addr;
     int ret=0;
+    int minX=-1, maxX=-1, minY=-1, maxY=-1;
     int x, y, z;
     char name[PATH_MAX];
     struct timeval start, end;
@@ -130,6 +131,10 @@ int main(int argc, char **argv)
         static struct option long_options[] = {
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
+            {"min-x", 1, 0, 'x'},
+            {"max-x", 1, 0, 'X'},
+            {"min-y", 1, 0, 'y'},
+            {"max-y", 1, 0, 'Y'},
             {"socket", 1, 0, 's'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
@@ -138,7 +143,7 @@ int main(int argc, char **argv)
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvaz:Z:s:m:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -153,6 +158,18 @@ int main(int argc, char **argv)
             case 'm':   /* -m, --map */
                 strncpy(mapname, optarg, PATH_MAX-1);
                 spath[PATH_MAX-1] = 0;
+                break;
+            case 'x':   /* -x, --min-x */
+                minX=atoi(optarg);
+                break;
+            case 'X':   /* -X, --max-x */
+                maxX=atoi(optarg);
+                break;
+            case 'y':   /* -y, --min-y */
+                minY=atoi(optarg);
+                break;
+            case 'Y':   /* -Y, --max-y */
+                maxY=atoi(optarg);
                 break;
             case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
@@ -178,13 +195,18 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 fprintf(stderr, "  -m, --map=MAP        name of the map config (defaults to 'default')\n");
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
-                fprintf(stderr, "\nSend a list of tiles to be rendered from STDIN in the format:\n");
-                fprintf(stderr, "\tX    Y    Z\n");
+                fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
+                fprintf(stderr, "  -x, --min-x=X        minimum X tile coordinate\n");
+                fprintf(stderr, "  -X, --max-x=X        maximum X tile coordinate\n");
+                fprintf(stderr, "  -y, --min-y=Y        minimum Y tile coordinate\n");
+                fprintf(stderr, "  -Y, --max-y=Y        maximum Y tile coordinate\n");
+                fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
+                fprintf(stderr, "  X Y Z\n");
                 fprintf(stderr, "e.g.\n");
-                fprintf(stderr, "\t0    0    1\n");
-                fprintf(stderr, "\t0    1    1\n");
-                fprintf(stderr, "\t1    0    1\n");
-                fprintf(stderr, "\t1    1    1\n");
+                fprintf(stderr, "  0 0 1\n");
+                fprintf(stderr, "  0 1 1\n");
+                fprintf(stderr, "  1 0 1\n");
+                fprintf(stderr, "  1 1 1\n");
                 fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
                 return -1;
             default:
@@ -196,6 +218,33 @@ int main(int argc, char **argv)
     if (maxZoom < minZoom) {
         fprintf(stderr, "Invalid zoom range, max zoom must be greater or equal to minimum zoom\n");
         return 1;
+    }
+
+    if (all) {
+        if ((minX != -1 || minY != -1 || maxX != -1 || maxY != -1) && minZoom != maxZoom) {
+            fprintf(stderr, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options\n");
+            return 1;
+        }
+
+        if (minX == -1) { minX = 0; }
+        if (minY == -1) { minY = 0; }
+
+        int lz = (1 << minZoom) - 1;
+
+        if (minZoom == maxZoom) {
+            if (maxX == -1) { maxX = lz; }
+            if (maxY == -1) { maxY = lz; }
+            if (minX > lz || minY > lz || maxX > lz || maxY > lz) {
+                fprintf(stderr, "Invalid range, x and y values must be <= %d (2^zoom-1)\n", lz);
+                return 1;
+            }
+        }
+
+        if (minX < 0 || minY < 0 || maxX < -1 || maxY < -1) {
+            fprintf(stderr, "Invalid range, x and y values must be >= 0\n");
+            return 1;
+        }
+
     }
 
     fprintf(stderr, "Rendering client\n");
@@ -222,10 +271,11 @@ int main(int argc, char **argv)
         int x, y, z;
         printf("Rendering all tiles from zoom %d to zoom %d\n", minZoom, maxZoom);
         for (z=minZoom; z <= maxZoom; z++) {
-            printf("Rendering all tiles for zoom %d\n", z);
-            int lmax = 1 << z;
-            for (x=0; x < lmax; x+=METATILE) {
-                for (y=0; y < lmax; y+=METATILE) {
+            int current_maxX = (maxX == -1) ? (1 << z)-1 : maxX;
+            int current_maxY = (maxY == -1) ? (1 << z)-1 : maxY;
+            printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
+            for (x=minX; x < current_maxX; x+=METATILE) {
+                for (y=minY; y < current_maxY; y+=METATILE) {
                     process_loop(fd, mapname, x, y, z);
                 }
             }
