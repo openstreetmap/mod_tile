@@ -54,7 +54,7 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/libapache2-mod-tile.
-	$(MAKE) DESTDIR=$(CURDIR)/debian/libapache2-mod-tile install
+	#$(MAKE) DESTDIR=$(CURDIR)/debian/libapache2-mod-tile install
 
 
 # Build architecture-independent files here.
