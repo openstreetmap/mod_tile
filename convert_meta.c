@@ -97,21 +97,23 @@ static void descend(const char *search)
 int main(int argc, char **argv)
 {
     int z, c;
-    const char *layer = "Default";
+    const char *map = "default";
+    char *tile_dir = HASH_PATH;
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
-            {"layer", 1, 0, 'l'},
+            {"map", 1, 0, 'm'},
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
             {"unpack", 0, 0, 'u'},
+            {"tile-dir", 1, 0, 't'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "uhvz:Z:l:", long_options, &option_index);
+        c = getopt_long(argc, argv, "uhvz:Z:m:t:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -130,8 +132,11 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
-            case 'l':
-                layer=strdup(optarg);
+            case 'm':
+                map=strdup(optarg);
+                break;
+            case 'p':
+                tile_dir=strdup(optarg);
                 break;
             case 'u':
                 unpack=1;
@@ -140,11 +145,13 @@ int main(int argc, char **argv)
                 verbose=1;
                 break;
             case 'h':
+                fprintf(stderr, "Usage: convert_meta [OPTION] ...\n");
                 fprintf(stderr, "Convert the rendered PNGs into the more efficient .meta format\n");
-                fprintf(stderr, "\t-u|--unpack\tUnpack the .meta files back to PNGs\n");
-                fprintf(stderr, "\t-l|--layer\tUnpack the specified layer name (default is \"Default\")\n");
-                fprintf(stderr, "\t-z|--min-zoom\tonly process tiles greater or equal this zoom level (default 0)\n");
-                fprintf(stderr, "\t-Z|--max-zoom\tonly process tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -u, --unpack    unpack the .meta files back to PNGs\n");
+                fprintf(stderr, "  -m, --map       convert tiles in this map (default is \"default\")\n");
+                fprintf(stderr, "  -t, --tile-dir  tile cache directory (default is \"" HASH_PATH "\")\n");
+                fprintf(stderr, "  -z, --min-zoom  only process tiles greater or equal this zoom level (default 0)\n");
+                fprintf(stderr, "  -Z, --max-zoom  only process tiles less than or equal to this zoom level (default 18)\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -157,13 +164,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    fprintf(stderr, "Converting tiles in layer %s\n", layer);
+    fprintf(stderr, "Converting tiles in map %s\n", map);
 
     gettimeofday(&start, NULL);
 
     for (z=minZoom; z<=maxZoom; z++) {
         char path[PATH_MAX];
-        snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", layer, z);
+        snprintf(path, PATH_MAX, "%s/%s/%d", tile_dir, map, z);
         descend(path);
     }
 
