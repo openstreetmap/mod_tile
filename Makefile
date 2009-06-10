@@ -26,6 +26,7 @@ install:
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
 	rm -f renderd render_list speedtest render_old convert_meta
+	make -C iniparser3.0b veryclean
 
 RENDER_CPPFLAGS += -g -O2 -Wall
 RENDER_CPPFLAGS += -I/usr/local/include/mapnik
@@ -34,7 +35,7 @@ RENDER_CPPFLAGS += $(shell pkg-config --cflags freetype2)
 RENDER_LDFLAGS += -g
 RENDER_LDFLAGS += -lmapnik -L/usr/local/lib64 -Liniparser3.0b -liniparser
 
-renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h store.h
+renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.a
 	$(CXX) -o $@ $^ $(RENDER_LDFLAGS) $(RENDER_CPPFLAGS)
 
 speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
@@ -44,6 +45,11 @@ render_list: render_config.h protocol.h dir_utils.c dir_utils.h
 render_old: render_config.h protocol.h dir_utils.c dir_utils.h
 
 convert_meta: render_config.h protocol.h dir_utils.c dir_utils.h store.c
+
+iniparser: iniparser3.0b/libiniparser.a
+
+iniparser3.0b/libiniparser.a: iniparser3.0b/src/iniparser.c
+	make -C iniparser3.0b
 
 MYSQL_CFLAGS += -g -O2 -Wall
 MYSQL_CFLAGS += $(shell mysql_config --cflags)
