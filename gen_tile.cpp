@@ -40,6 +40,7 @@ static const int maxZoom = 18;
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
+    char tile_dir[PATH_MAX];
     Map map;
     projection prj;
 } xmlmapconfig;
@@ -161,7 +162,7 @@ class metaTile {
             return (x & mask) * METATILE + (y & mask);
         }
 
-        void save()
+        void save(const char *tile_dir)
         {
             int ox, oy, limit;
             size_t offset;
@@ -172,7 +173,7 @@ class metaTile {
             memset(&m, 0, sizeof(m));
             memset(&offsets, 0, sizeof(offsets));
 
-            xyz_to_meta(meta_path, sizeof(meta_path), xmlconfig_.c_str(), x_, y_, z_);
+            xyz_to_meta(meta_path, sizeof(meta_path), tile_dir, xmlconfig_.c_str(), x_, y_, z_);
             std::stringstream ss;
             ss << std::string(meta_path) << "." << pthread_self();
             std::string tmp(ss.str());
@@ -263,7 +264,7 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
     return cmdDone; // OK
 }
 #else
-static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y, int z)
+static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z)
 {
     char filename[PATH_MAX];
     char tmp[PATH_MAX];
@@ -287,14 +288,14 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
     agg_renderer<Image32> ren(m,buf);
     ren.apply();
 
-    xyz_to_path(filename, sizeof(filename), xmlname, x, y, z);
+    xyz_to_path(filename, sizeof(filename), tile_dir, xmlname, x, y, z);
     if (mkdirp(filename))
         return cmdNotDone;
     snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
 
-    image_view<ImageData32> vw(128,128,256,256, buf.data());
+    image_view<ImageData32> vw(128, 128, 256, 256, buf.data());
     //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
-    save_to_file(vw, tmp,"png256");
+    save_to_file(vw, tmp, "png256");
     if (rename(tmp, filename)) {
         perror(tmp);
         return cmdNotDone;
@@ -321,6 +322,7 @@ void *render_thread(void * arg)
         if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) break;
         strcpy(maps[iMaxConfigs].xmlname, parentxmlconfig[iMaxConfigs].xmlname);
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
+        strcpy(maps[iMaxConfigs].tile_dir, parentxmlconfig[iMaxConfigs].tile_dir);
         maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
         load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
         maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
@@ -340,9 +342,9 @@ void *render_thread(void * arg)
 
                     ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
                     if (ret == cmdDone)
-                        tiles.save();
+                        tiles.save(maps[i].tile_dir);
 #else
-                    ret = render(maps[i].map, req->xmlname, maps[i].prj, req->x, req->y, req->z);
+                    ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
 #endif
                     send_response(item, ret);
                     break;

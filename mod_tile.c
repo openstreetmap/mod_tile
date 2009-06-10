@@ -60,6 +60,7 @@ typedef struct {
     int max_load_old;
     int max_load_missing;
     char renderd_socket_name[PATH_MAX];
+    char tile_dir[PATH_MAX];
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
@@ -280,17 +281,19 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
     enum tileState state = tile_state_once(r);
 #ifdef METATILEFALLBACK
     if (state == tileMissing) {
+        ap_conf_vector_t *sconf = r->server->module_config;
+        tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
         // Try fallback to plain PNG
         char path[PATH_MAX];
-        xyz_to_path(path, sizeof(path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+        xyz_to_path(path, sizeof(path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
         r->filename = apr_pstrdup(r->pool, path);
         state = tile_state_once(r);
         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "png fallback %d/%d/%d",x,y,z);
 
         if (state == tileMissing) {
             // PNG not available either, if it gets rendered, it'll now be a .meta
-            xyz_to_meta(path, sizeof(path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+            xyz_to_meta(path, sizeof(path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
             r->filename = apr_pstrdup(r->pool, path);
         }
     }
@@ -376,9 +379,11 @@ static int tile_storage_hook(request_rec *r)
 should already be done
     // Generate the tile filename
 #ifdef METATILE
-    xyz_to_meta(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    xyz_to_meta(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
 #else
-    xyz_to_path(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+    xyz_to_path(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
 #endif
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "abs_path(%s)", abs_path);
     r->filename = apr_pstrdup(r->pool, abs_path);
@@ -545,9 +550,9 @@ static int tile_translate(request_rec *r)
             // Generate the tile filename?
             char abs_path[PATH_MAX];
 #ifdef METATILE
-            xyz_to_meta(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+            xyz_to_meta(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
 #else
-            xyz_to_path(abs_path, sizeof(abs_path), cmd->xmlname, cmd->x, cmd->y, cmd->z);
+            xyz_to_path(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
 #endif
             r->filename = apr_pstrdup(r->pool, abs_path);
 
@@ -692,6 +697,14 @@ static const char *mod_tile_renderd_socket_name_config(cmd_parms *cmd, void *mco
     return NULL;
 }
 
+static const char *mod_tile_tile_dir_config(cmd_parms *cmd, void *mconfig, const char *tile_dir_string)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    strncpy(scfg->tile_dir, tile_dir_string, PATH_MAX-1);
+    scfg->tile_dir[PATH_MAX-1] = 0;
+    return NULL;
+}
+
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
@@ -700,6 +713,10 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->request_timeout = REQUEST_TIMEOUT;
     scfg->max_load_old = MAX_LOAD_OLD;
     scfg->max_load_missing = MAX_LOAD_MISSING;
+    strncpy(scfg->renderd_socket_name, RENDER_SOCKET, PATH_MAX-1);
+    scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    strncpy(scfg->tile_dir, HASH_PATH, PATH_MAX-1);
+    scfg->tile_dir[PATH_MAX-1] = 0;
 
     return scfg;
 }
@@ -716,6 +733,8 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->max_load_missing = scfg_over->max_load_missing;
     strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    strncpy(scfg->tile_dir, scfg_over->tile_dir, PATH_MAX-1);
+    scfg->tile_dir[PATH_MAX-1] = 0;
 
     return scfg;
 }
@@ -763,6 +782,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set name of unix domain socket for connecting to rendering daemon"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileTileDir",                /* directive name */
+        mod_tile_tile_dir_config,        /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set name of tile cache directory"  /* directive description */
     ),
     {NULL}
 };

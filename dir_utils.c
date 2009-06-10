@@ -62,10 +62,10 @@ int mkdirp(const char *path) {
  * to work
  */
 
-void xyz_to_path(char *path, size_t len, const char *xmlconfig, int x, int y, int z)
+void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
 {
 #ifdef DIRECTORY_HASH
-    // We attempt to cluseter the tiles so that a 16x16 square of tiles will be in a single directory
+    // We attempt to cluster the tiles so that a 16x16 square of tiles will be in a single directory
     // Hash stores our 40 bit result of mixing the 20 bits of the x & y co-ordinates
     // 4 bits of x & y are used per byte of output
     unsigned char i, hash[5];
@@ -75,7 +75,7 @@ void xyz_to_path(char *path, size_t len, const char *xmlconfig, int x, int y, in
         x >>= 4;
         y >>= 4;
     }
-    snprintf(path, len, HASH_PATH "/%s/%d/%u/%u/%u/%u/%u.png", xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.png", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
 #else
     snprintf(path, len, TILE_PATH "/%s/%d/%d/%d.png", xmlconfig, z, x, y);
 #endif
@@ -130,7 +130,7 @@ int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
 
 #ifdef METATILE
 // Returns the path to the meta-tile and the offset within the meta-tile
-int xyz_to_meta(char *path, size_t len, const char *xmlconfig, int x, int y, int z)
+int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
 {
     unsigned char i, hash[5], offset, mask;
 
@@ -146,7 +146,7 @@ int xyz_to_meta(char *path, size_t len, const char *xmlconfig, int x, int y, int
         x >>= 4;
         y >>= 4;
     }
-    snprintf(path, len, HASH_PATH "/%s/%d/%u/%u/%u/%u/%u.meta", xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.meta", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
     return offset;
 }
 #endif
