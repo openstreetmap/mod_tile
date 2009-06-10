@@ -23,6 +23,7 @@ build-stamp: configure-stamp
 	dh_testdir
 
 	# Add here commands to compile the package.
+	$(MAKE) -C iniparser3.0b 
 	$(MAKE)
 
 	touch $@
