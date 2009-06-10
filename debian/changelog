@@ -2,4 +2,4 @@ libapache2-mod-tile (0.1) unstable; urgency=low
 
   * Initial Debian packaging for mod_tile and renderd
 
- -- Frederik Ramm <fred@lambert>  Thu, 04 Jun 2009 13:33:42 +0200
+ -- Frederik Ramm <fred@geofabrik.de>  Thu, 04 Jun 2009 13:33:42 +0200
