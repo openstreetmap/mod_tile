@@ -20,6 +20,8 @@ typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
     char xmluri[PATH_MAX];
+    char host[PATH_MAX];
+    char htcpip[PATH_MAX];
     char tile_dir[PATH_MAX];
 } xmlconfigitem;
 

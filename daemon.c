@@ -430,6 +430,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "XML name too long: %s\n", name);
                 exit(7);
             }
+
             strcpy(maps[iconf].xmlname, name);
             if (iconf >= XMLCONFIGS_MAX) {
                 fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
@@ -448,11 +449,26 @@ int main(int argc, char **argv)
                 fprintf(stderr, "XML path too long: %s\n", ini_xmlpath);
                 exit(7);
             }
+            sprintf(buffer, "%s:host", name);
+            char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
+            if (strlen(ini_hostname) >= PATH_MAX) {
+                fprintf(stderr, "Host name too long: %s\n", ini_hostname);
+                exit(7);
+            }
+
+            sprintf(buffer, "%s:htcphost", name);
+            char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
+            if (strlen(ini_htcpip) >= PATH_MAX) {
+                fprintf(stderr, "HTCP host name too long: %s\n", ini_htcpip);
+                exit(7);
+            }
             strcpy(maps[iconf].xmlfile, ini_xmlpath);
             strcpy(maps[iconf].tile_dir, config.tile_dir);
+            strcpy(maps[iconf].host, ini_hostname);
+            strcpy(maps[iconf].htcpip, ini_htcpip);
         }
     }
-    
+
     syslog(LOG_INFO, "config renderd: socketname=%s\n", config.socketname);
     syslog(LOG_INFO, "config renderd: num_threads=%d\n", config.num_threads);
     syslog(LOG_INFO, "config renderd: tile_dir=%s\n", config.tile_dir);
@@ -460,7 +476,9 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
     for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
-         syslog(LOG_INFO, "config map %d:   name(%s) file(%s) uri(%s)\n", iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri);
+         syslog(LOG_INFO, "config map %d:   name(%s) file(%s) uri(%s) htcp(%s) host(%s)",
+                 iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri,
+                 maps[iconf].htcpip, maps[iconf].host);
     }
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
