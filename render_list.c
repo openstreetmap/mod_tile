@@ -73,7 +73,7 @@ static time_t getPlanetTime(void)
     return planet_timestamp;
 }
 
-int process_loop(int fd, int x, int y, int z)
+int process_loop(int fd, const char *mapname, int x, int y, int z)
 {
     struct protocol cmd, rsp;
     //struct pollfd fds[1];
@@ -86,7 +86,7 @@ int process_loop(int fd, int x, int y, int z)
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
-    strcpy(cmd.xmlname, "Default");
+    strcpy(cmd.xmlname, mapname);
 
     //strcpy(cmd.path, "/tmp/foo.png");
 
@@ -112,7 +112,8 @@ int process_loop(int fd, int x, int y, int z)
 
 int main(int argc, char **argv)
 {
-    const char *spath = RENDER_SOCKET;
+    char spath[PATH_MAX] = RENDER_SOCKET;
+    char mapname[PATH_MAX] = "default";
     int fd;
     struct sockaddr_un addr;
     int ret=0;
@@ -122,41 +123,62 @@ int main(int argc, char **argv)
     int num_render = 0, num_all = 0;
     time_t planetTime = getPlanetTime();
     int c;
+    int all=0;
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
+            {"socket", 1, 0, 's'},
+            {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
+            {"all", 0, 0, 'a'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvaz:Z:s:m:", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-            case 'z':
+            case 'a':   /* -a, --all */
+                all=1;
+                break;
+            case 's':   /* -s, --socket */
+                strncpy(spath, optarg, PATH_MAX-1);
+                spath[PATH_MAX-1] = 0;
+                break;
+            case 'm':   /* -m, --map */
+                strncpy(mapname, optarg, PATH_MAX-1);
+                spath[PATH_MAX-1] = 0;
+                break;
+            case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
                 if (minZoom < 0 || minZoom > 18) {
                     fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
                     return 1;
                 }
                 break;
-            case 'Z':
+            case 'Z':   /* -Z, --max-zoom */
                 maxZoom=atoi(optarg);
                 if (maxZoom < 0 || maxZoom > 18) {
                     fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and 18\n");
                     return 1;
                 }
                 break;
-            case 'v':
+            case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
-            case 'h':
-                fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
+            case 'h':   /* -h, --help */
+                fprintf(stderr, "Usage: render_list [OPTION] ...\n");
+                fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
+                fprintf(stderr, "  -m, --map=MAP        name of the map config (defaults to 'default')\n");
+                fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
+                fprintf(stderr, "\nSend a list of tiles to be rendered from STDIN in the format:\n");
                 fprintf(stderr, "\tX    Y    Z\n");
                 fprintf(stderr, "e.g.\n");
                 fprintf(stderr, "\t0    0    1\n");
@@ -164,8 +186,6 @@ int main(int argc, char **argv)
                 fprintf(stderr, "\t1    0    1\n");
                 fprintf(stderr, "\t1    1    1\n");
                 fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-                fprintf(stderr, "\t-z|--min-zoom\tFilter input to only render tiles greater or equal this zoom level (default 0)\n");
-                fprintf(stderr, "\t-Z|--max-zoom\tFilter input to only render tiles less than or equal to this zoom level (default 18)\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -198,41 +218,55 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    while(!feof(stdin)) {
-        struct stat s;
-        int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
-
-        if (n != 3) {
-            // Discard input line
-            char tmp[1024];
-            char *r = fgets(tmp, sizeof(tmp), stdin);
-            if (!r)
-                continue;
-            // fprintf(stderr, "bad line %d: %s", num_all, tmp);
-            continue;
+    if (all) {
+        int x, y, z;
+        printf("Rendering all tiles from zoom %d to zoom %d\n", minZoom, maxZoom);
+        for (z=minZoom; z <= maxZoom; z++) {
+            printf("Rendering all tiles for zoom %d\n", z);
+            int lmax = 1 << z;
+            for (x=0; x < lmax; x+=METATILE) {
+                for (y=0; y < lmax; y+=METATILE) {
+                    process_loop(fd, mapname, x, y, z);
+                }
+            }
         }
+    } else {
+        while(!feof(stdin)) {
+            struct stat s;
+            int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
 
-        if (z < minZoom || z > maxZoom)
-            continue;
+            if (n != 3) {
+                // Discard input line
+                char tmp[1024];
+                char *r = fgets(tmp, sizeof(tmp), stdin);
+                if (!r)
+                    continue;
+                // fprintf(stderr, "bad line %d: %s", num_all, tmp);
+                continue;
+            }
 
-        printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
+            if (z < minZoom || z > maxZoom)
+                continue;
 
-        num_all++;
-        xyz_to_path(name, sizeof(name), XMLCONFIG_DEFAULT, x, y, z);
+            printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
-        if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
-            // missing or old, render it
-            ret = process_loop(fd, x, y, z);
-            num_render++;
-            if (!(num_render % 10)) {
-                gettimeofday(&end, NULL);
-                printf("\n");
-                printf("Meta tiles rendered: ");
-                display_rate(start, end, num_render);
-                printf("Total tiles rendered: ");
-                display_rate(start, end, num_render * METATILE * METATILE);
-                printf("Total tiles handled from input: ");
-                display_rate(start, end, num_all);
+            num_all++;
+            xyz_to_path(name, sizeof(name), XMLCONFIG_DEFAULT, x, y, z);
+
+            if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
+                // missing or old, render it
+                ret = process_loop(fd, mapname, x, y, z);
+                num_render++;
+                if (!(num_render % 10)) {
+                    gettimeofday(&end, NULL);
+                    printf("\n");
+                    printf("Meta tiles rendered: ");
+                    display_rate(start, end, num_render);
+                    printf("Total tiles rendered: ");
+                    display_rate(start, end, num_render * METATILE * METATILE);
+                    printf("Total tiles handled from input: ");
+                    display_rate(start, end, num_all);
+                }
             }
         }
     }
