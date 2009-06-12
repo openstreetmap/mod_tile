@@ -20,6 +20,8 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
+#define PIDFILE "/var/run/renderd/renderd.pid"
+
 extern "C" {
 #include "iniparser3.0b/src/iniparser.h"
 }
@@ -365,21 +367,26 @@ int main(int argc, char **argv)
     struct sockaddr_un addr;
     mode_t old;
     int c;
+    int foreground=0;
     char config_file_name[PATH_MAX] = RENDERD_CONFIG;
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
             {"config", 1, 0, 'c'},
+            {"foreground", 1, 0, 'f'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hc:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hfc:", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
+            case 'f':
+                foreground=1;
+                break;
             case 'c':
                 strncpy(config_file_name, optarg, PATH_MAX-1);
                 config_file_name[PATH_MAX-1] = 0;
@@ -387,6 +394,7 @@ int main(int argc, char **argv)
             case 'h':
                 fprintf(stderr, "Usage: renderd [OPTION] ...\n");
                 fprintf(stderr, "Mapnik rendering daemon\n");
+                fprintf(stderr, "  -f, --foreground     run in foreground\n");
                 fprintf(stderr, "  -h, --help           display this help and exit\n");
                 fprintf(stderr, "  -c, --config=CONFIG  set location of config file (default /etc/renderd.conf)\n");
                 exit(0);
@@ -525,6 +533,21 @@ int main(int argc, char **argv)
 
     render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 
+    /* unless the command line said to run in foreground mode, fork and detach from terminal */
+    if (foreground) {
+        fprintf(stderr, "Running in foreground mode...\n");
+    } else {
+        if (daemon(0, 0) != 0) {
+            fprintf(stderr, "can't daemonize: %s\n", strerror(errno));
+        }
+        /* write pid file */
+        FILE *pidfile = fopen(PIDFILE, "w");
+        if (pidfile) {
+            (void) fprintf(pidfile, "%d\n", getpid());
+            (void) fclose(pidfile);
+        }
+    }
+
     render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
     for(i=0; i<config.num_threads; i++) {
         if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
@@ -533,6 +556,7 @@ int main(int argc, char **argv)
             exit(7);
         }
     }
+
     process_loop(fd);
 
     unlink(config.socketname);

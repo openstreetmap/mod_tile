@@ -7,7 +7,7 @@ Standards-Version: 3.8.0
 
 Package: libapache2-mod-tile
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, renderd, apache2.2-common, apache2-mpm-prefork | apache2-mpm-worker
+Depends: ${misc:Depends}, renderd, apache2.2-common, apache2-mpm-prefork | apache2-mpm-worker
 Suggests: renderd
 Description: Apache module to deliver tiles created by renderd
  This Apache module receives map tiles requests and satisfies them from
@@ -15,7 +15,7 @@ Description: Apache module to deliver tiles created by renderd
 
 Package: renderd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmapnik
+Depends: ${misc:Depends}, libmapnik0.6
 Suggests: libapache2-mod-tile
 Description: Daemon that renders map tiles using mapnik
  This daemon creates "metatiles" for map tile requests issued by mod_tile
