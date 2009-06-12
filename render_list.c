@@ -48,20 +48,23 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static time_t getPlanetTime(void)
+static time_t getPlanetTime(char *tile_dir)
 {
     static time_t last_check;
     static time_t planet_timestamp;
     time_t now = time(NULL);
     struct stat buf;
+    char filename[PATH_MAX];
+
+    snprintf(filename, PATH_MAX-1, "%s/%s", tile_dir, PLANET_TIMESTAMP);
 
     // Only check for updates periodically
     if (now < last_check + 300)
         return planet_timestamp;
 
     last_check = now;
-    if (stat(PLANET_TIMESTAMP, &buf)) {
-        fprintf(stderr, "Planet timestamp file " PLANET_TIMESTAMP " is missing");
+    if (stat(filename, &buf)) {
+        fprintf(stderr, "Planet timestamp file (%s) is missing", filename);
         // Make something up
         planet_timestamp = now - 3 * 24 * 60 * 60;
     } else {
@@ -123,7 +126,7 @@ int main(int argc, char **argv)
     char name[PATH_MAX];
     struct timeval start, end;
     int num_render = 0, num_all = 0;
-    time_t planetTime = getPlanetTime();
+    time_t planetTime;
     int c;
     int all=0;
 
@@ -156,7 +159,7 @@ int main(int argc, char **argv)
             case 's':   /* -s, --socket */
                 spath = strdup(optarg);
                 break;
-            case 't':
+            case 't':   /* -t, --tile-dir */
                 tile_dir=strdup(optarg);
                 break;
             case 'm':   /* -m, --map */
@@ -252,6 +255,8 @@ int main(int argc, char **argv)
     }
 
     fprintf(stderr, "Rendering client\n");
+
+    planetTime = getPlanetTime(tile_dir);
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {

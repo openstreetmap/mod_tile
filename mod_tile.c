@@ -253,9 +253,14 @@ static apr_time_t getPlanetTime(request_rec *r)
         return planet_timestamp;
     }
 
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    char filename[PATH_MAX];
+    snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
+
     last_check = now;
-    if (apr_stat(&s, PLANET_TIMESTAMP, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Planet timestamp file " PLANET_TIMESTAMP " is missing");
+    if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Planet timestamp file (%s) is missing", filename);
         // Make something up
         planet_timestamp = now - apr_time_from_sec(3 * 24 * 60 * 60);
     } else {

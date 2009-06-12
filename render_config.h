@@ -41,7 +41,7 @@
 #define PLANET_INTERVAL (7 * 24 * 60 * 60)
 
 // Planet import should touch this file when complete
-#define PLANET_TIMESTAMP HASH_PATH "/planet-import-complete"
+#define PLANET_TIMESTAMP "/planet-import-complete"
 
 // Timeout before giving for a tile to be rendered
 // (This is the default value. Can be overwritten in Apache config with ModTileRequestTimeout.)

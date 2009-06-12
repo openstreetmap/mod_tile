@@ -55,20 +55,23 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static time_t getPlanetTime(void)
+static time_t getPlanetTime(char *tile_dir)
 {
     static time_t last_check;
     static time_t planet_timestamp;
     time_t now = time(NULL);
     struct stat buf;
+    char filename[PATH_MAX];
+
+    snprintf(filename, PATH_MAX-1, "%s/%s", tile_dir, PLANET_TIMESTAMP);
 
     // Only check for updates periodically
     if (now < last_check + 300)
         return planet_timestamp;
 
     last_check = now;
-    if (stat(PLANET_TIMESTAMP, &buf)) {
-        printf("Planet timestamp file " PLANET_TIMESTAMP " is missing");
+    if (stat(filename, &buf)) {
+        fprintf(stderr, "Planet timestamp file (%s) is missing", filename);
         // Make something up
         planet_timestamp = now - 3 * 24 * 60 * 60;
     } else {
@@ -221,6 +224,7 @@ int main(int argc, char **argv)
     char spath[PATH_MAX] = RENDER_SOCKET;
     int fd;
     struct sockaddr_un addr;
+    char *tile_dir = HASH_PATH;
     int z, c;
 
     while (1) {
@@ -229,12 +233,13 @@ int main(int argc, char **argv)
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
             {"socket", 1, 0, 's'},
+            {"tile-dir", 1, 0, 't'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:s:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:t:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -242,6 +247,9 @@ int main(int argc, char **argv)
             case 's':   /* -s, --socket */
                 strncpy(spath, optarg, PATH_MAX-1);
                 spath[PATH_MAX-1] = 0;
+                break;
+            case 't':   /* -t, --tile-dir */
+                tile_dir=strdup(optarg);
                 break;
             case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
@@ -280,7 +288,7 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Rendering old tiles\n");
 
-    planetTime = getPlanetTime();
+    planetTime = getPlanetTime(tile_dir);
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
