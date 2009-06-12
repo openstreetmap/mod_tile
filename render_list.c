@@ -283,8 +283,8 @@ int main(int argc, char **argv)
             int current_maxX = (maxX == -1) ? (1 << z)-1 : maxX;
             int current_maxY = (maxY == -1) ? (1 << z)-1 : maxY;
             printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
-            for (x=minX; x < current_maxX; x+=METATILE) {
-                for (y=minY; y < current_maxY; y+=METATILE) {
+            for (x=minX; x <= current_maxX; x+=METATILE) {
+                for (y=minY; y <= current_maxY; y+=METATILE) {
                     process_loop(fd, mapname, x, y, z);
                 }
             }
