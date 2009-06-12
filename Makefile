@@ -59,6 +59,9 @@ MYSQL_LDFLAGS += $(shell mysql_config --libs)
 mysql2file: mysql2file.c
 	$(CC) $(MYSQL_CFLAGS) $(MYSQL_LDFLAGS) -o $@ $^
 
+deb:
+	debuild
+
 # Not sure why this is not created automatically
 .deps:
 	touch .deps

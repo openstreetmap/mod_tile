@@ -6,4 +6,3 @@ renderd /usr/bin
 speedtest /usr/bin
 update /usr/bin
 render_list /usr/bin
-debian/renderd.init /etc/init.d/renderd

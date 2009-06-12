@@ -71,7 +71,7 @@ static time_t getPlanetTime(char *tile_dir)
 
     last_check = now;
     if (stat(filename, &buf)) {
-        fprintf(stderr, "Planet timestamp file (%s) is missing", filename);
+        fprintf(stderr, "Planet timestamp file (%s) is missing\n", filename);
         // Make something up
         planet_timestamp = now - 3 * 24 * 60 * 60;
     } else {
