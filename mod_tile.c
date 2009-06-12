@@ -766,7 +766,7 @@ static const char *mod_tile_cache_duration_max_config(cmd_parms *cmd, void *mcon
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config,
             &tile_module);
     if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
-        return "ModTileCacheDuraionMax needs integer argument";
+        return "ModTileCacheDurationMax needs integer argument";
     }
     scfg->cache_duration_max = cache_duration;
     return NULL;
@@ -778,7 +778,7 @@ static const char *mod_tile_cache_duration_dirty_config(cmd_parms *cmd, void *mc
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config,
             &tile_module);
     if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
-        return "ModTileCacheDuraionDirty needs integer argument";
+        return "ModTileCacheDurationDirty needs integer argument";
     }
     scfg->cache_duration_dirty = cache_duration;
     return NULL;
@@ -790,7 +790,7 @@ static const char *mod_tile_cache_duration_minimum_config(cmd_parms *cmd, void *
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config,
             &tile_module);
     if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
-        return "ModTileCacheDuraionMinimum needs integer argument";
+        return "ModTileCacheDurationMinimum needs integer argument";
     }
     scfg->cache_duration_minimum = cache_duration;
     return NULL;
@@ -802,10 +802,10 @@ static const char *mod_tile_cache_duration_low_config(cmd_parms *cmd, void *mcon
     int cache_duration;
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     if (sscanf(zoom_level_string, "%d", &zoom_level) != 1) {
-            return "ModTileCacheDuraionLowZoom needs integer argument";
+            return "ModTileCacheDurationLowZoom needs integer argument";
     }
     if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
-            return "ModTileCacheDuraionLowZoom needs integer argument";
+            return "ModTileCacheDurationLowZoom needs integer argument";
     }
     scfg->cache_level_low_zoom = zoom_level;
     scfg->cache_duration_low_zoom = cache_duration;
@@ -818,10 +818,10 @@ static const char *mod_tile_cache_duration_medium_config(cmd_parms *cmd, void *m
     int cache_duration;
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     if (sscanf(zoom_level_string, "%d", &zoom_level) != 1) {
-            return "ModTileCacheDuraionMediumZoom needs integer argument";
+            return "ModTileCacheDurationMediumZoom needs integer argument";
     }
     if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
-            return "ModTileCacheDuraionMediumZoom needs integer argument";
+            return "ModTileCacheDurationMediumZoom needs integer argument";
     }
     scfg->cache_level_medium_zoom = zoom_level;
     scfg->cache_duration_medium_zoom = cache_duration;
@@ -960,14 +960,14 @@ static const command_rec tile_cmds[] =
         "Set the factor by which the last modified determins cache expiry" /* directive description */
     ),
     AP_INIT_TAKE2(
-        "ModTileCacheDuraionLowZoom",       /* directive name */
+        "ModTileCacheDurationLowZoom",       /* directive name */
         mod_tile_cache_duration_low_config,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the minimum cache duration and zoom level for low zoom tiles"  /* directive description */
     ),
     AP_INIT_TAKE2(
-        "ModTileCacheDuraionMediumZoom",       /* directive name */
+        "ModTileCacheDurationMediumZoom",       /* directive name */
         mod_tile_cache_duration_medium_config,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
