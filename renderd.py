@@ -101,7 +101,7 @@ class ProtocolPacketV1(ProtocolPacket):
             self.x = x
             self.y = y
             self.z = z
-            self.xmlname = "Default"
+            self.xmlname = "default"
             # Calculate Meta-tile value for this x/y
             self.mx = x & ~(METATILE-1)
             self.my = y & ~(METATILE-1)
@@ -521,17 +521,17 @@ def listener(address, queue_handler):
 
 def display_config(config):
     for xmlname in config.sections():
-        print "Layer name: %s" % xmlname
-        #for opt in config.options(xmlname):
-        #   print "%s = %s" % (opt, config.get(xmlname, opt))
-        uri = config.get(xmlname, "uri")
-        xml = config.get(xmlname, "xml")
-        print "    URI(%s) = XML(%s)" % (uri, xml)
+        if xmlname != "renderd" and xmlname != "mapnik":
+            print "Layer name: %s" % xmlname
+            uri = config.get(xmlname, "uri")
+            xml = config.get(xmlname, "xml")
+            print "    URI(%s) = XML(%s)" % (uri, xml)
 
 def read_styles(config):
     styles = {}
     for xmlname in config.sections():
-        styles[xmlname] = config.get(xmlname, "xml")
+        if xmlname != "renderd" and xmlname != "mapnik":
+            styles[xmlname] = config.get(xmlname, "xml")
     return styles
 
 if __name__ == "__main__":
