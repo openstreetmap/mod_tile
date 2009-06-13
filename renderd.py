@@ -34,6 +34,7 @@ import mapnik
 import time
 import errno
 from math import pi,cos,sin,log,exp,atan
+from StringIO import StringIO
 
 import cairo
 import cStringIO
@@ -540,20 +541,27 @@ if __name__ == "__main__":
     except KeyError:
         cfg_file = "/etc/renderd.conf"
 
-    # FIXME: Move more of these to config file?
-    RENDER_SOCKET = "/tmp/osm-renderd"
-    HASH_PATH = "/var/lib/mod_tile"
-    NUM_THREADS = 4
-
     # Unifont has a better character coverage and is used as a fallback for DejaVu
     # if you use a style based on the osm-template-fonset.xml
     mapnik.FontEngine.instance().register_font("/home/jburgess/osm/fonts/unifont-5.1.20080706.ttf")
 
+    default_cfg = StringIO("""
+[renderd]
+socketname=/tmp/osm-renderd
+num_threads=4
+tile_dir=/var/lib/mod_tile
+""")
+
     config = ConfigParser.ConfigParser()
+    config.readfp(default_cfg)
     config.read(cfg_file)
     display_config(config)
     styles = read_styles(config)
 
+    num_threads    = config.getint("renderd", "num_threads")
+    renderd_socket = config.get("renderd", "socketname")
+    tile_dir       = config.get("renderd", "tile_dir")
+
     queue_handler = RequestQueues()
-    start_renderers(NUM_THREADS, HASH_PATH, styles, queue_handler)
-    listener(RENDER_SOCKET, queue_handler)
+    start_renderers(num_threads, tile_dir, styles, queue_handler)
+    listener(renderd_socket, queue_handler)
