@@ -339,7 +339,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
         // cache heuristic based on zoom level
         minCache = tile_configs->mincachetime[cmd->z];
         // Time to the next known complete rerender
-        planetTimestamp = apr_time_sec( + getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL) - r->request_time) ;
+        planetTimestamp = apr_time_sec(getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL) - r->request_time) ;
         // Time since the last render of this tile
         lastModified = (int)(((double)apr_time_sec(r->request_time - finfo->mtime)) * scfg->cache_duration_last_modified_factor);
         // Add a random jitter of 3 hours to space out cache expiry
@@ -634,7 +634,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
-    for (i = tilecfg->minzoom = minzoom; i < tilecfg->maxzoom; i++) {
+    for (i = minzoom; i < maxzoom; i++) {
              if (i < scfg->cache_level_low_zoom) {
                  tilecfg->mincachetime[i] = scfg->cache_duration_low_zoom;
              } else if (i < scfg->cache_level_medium_zoom) {
