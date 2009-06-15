@@ -286,6 +286,8 @@ int main(int argc, char **argv)
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
                     process_loop(fd, mapname, x, y, z);
+                    num_all++;
+                    num_render++;
                 }
             }
         }
