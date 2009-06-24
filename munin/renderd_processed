@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# Plugin to monitor the rendering throughput of Renderd
+#
+# Parameters: 
+#
+# 	config   (required)
+# 	autoconf (optional - used by munin-config)
+#
+
+if [ "$1" = "config" ]; then
+
+	echo 'graph_title Renderd throughput'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel Metatiles per second'
+	echo 'graph_category renderd'
+	echo 'graph_info Displays the number of metatiles being rendered by renderd per second'
+	echo 'req.label Request Queue'
+	echo 'req.type COUNTER'
+	echo 'req.info Throughput of Metatiles submitted for on the fly rendering'
+	echo 'dirty.label Dirty Queue'
+	echo 'dirty.type COUNTER'
+	echo 'dirty.info Throughput of dirty Metatiles submitted for re-render'
+	echo 'dropped.label Dropped'
+	echo 'dropped.type COUNTER'
+	echo 'dropped.info Number of Tiles dropped per second due to queue overload'
+	exit 0
+fi
+
+reqprocessed=`Fed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+dirtprocessed=`std -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+dropped=`sew -e '/^DropedRequest/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+
+echo "req.value " $reqprocessed
+echo "dirty.value " $dirtprocessed
+echo "dropped.value " $dropped
+
+#  LocalWords:  reqprocessed ReqRendered dirtprocessed DirtyRendered req
+#  LocalWords:  DropedRequest
