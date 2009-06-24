@@ -14,6 +14,7 @@ typedef struct {
     char *mapnik_plugins_dir;
     char *mapnik_font_dir;
     int mapnik_font_dir_recurse;
+    char * stats_filename;
 } renderd_config;
 
 typedef struct {
@@ -24,5 +25,11 @@ typedef struct {
     char htcpip[PATH_MAX];
     char tile_dir[PATH_MAX];
 } xmlconfigitem;
+
+typedef struct {
+    long noDirtyRender;
+    long noReqRender;
+    long noReqDroped;
+} stats_struct;
 
 #endif
