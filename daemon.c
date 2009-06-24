@@ -34,6 +34,9 @@ static int reqNum, dirtyNum;
 static pthread_mutex_t qLock;
 static pthread_cond_t qCond;
 
+static stats_struct stats;
+static pthread_t stats_thread;
+
 static renderd_config config;
 
 struct item *fetch_request(void)
@@ -48,9 +51,11 @@ struct item *fetch_request(void)
     if (reqNum) {
         item = reqHead.next;
         reqNum--;
+        stats.noReqRender++;
     } else if (dirtyNum) {
         item = dirtyHead.next;
         dirtyNum--;
+        stats.noDirtyRender++;
     }
     if (item) {
         item->next->prev = item->prev;
@@ -234,6 +239,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     if (dirtyNum == DIRTY_LIMIT) {
         // The queue is severely backlogged. Drop request
+        stats.noReqDroped++;
         pthread_mutex_unlock(&qLock);
         free(item);
         return cmdNotDone;
@@ -360,6 +366,46 @@ void process_loop(int listen_fd)
     }
 }
 
+/**
+ * Periodically write out current stats to a stats file. This information
+ * can then be used to monitor performance of renderd e.g. with a munin plugin
+ */
+void *stats_writeout_thread(void * arg) {
+    stats_struct lStats;
+    int dirtQueueLength;
+    int reqQueueLength;
+    int noFailedAttempts = 0;
+    syslog(LOG_DEBUG, "Starting stats thread");
+    while (1) {
+        pthread_mutex_lock(&qLock);
+        memcpy(&lStats, &stats, sizeof(stats_struct));
+        dirtQueueLength = dirtyNum;
+        reqQueueLength = reqNum;
+        pthread_mutex_unlock(&qLock);
+
+        FILE * statfile = fopen(config.stats_filename,"w");
+        if (statfile == NULL) {
+            syslog(LOG_WARNING, "Failed to open stats file: %i", errno);
+            noFailedAttempts++;
+            if (noFailedAttempts > 3) {
+                syslog(LOG_ERR, "ERROR: Failed repeatedly to write stats, giving up");
+                break;
+            }
+            continue;
+        } else {
+            noFailedAttempts = 0;
+            fprintf(statfile, "ReqQueueLength: %i\n", reqQueueLength);
+            fprintf(statfile, "DirtQueueLength: %i\n", dirtQueueLength);
+            fprintf(statfile, "DropedRequest: %li\n", lStats.noReqDroped);
+            fprintf(statfile, "ReqRendered: %li\n", lStats.noReqRender);
+            fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
+            fclose(statfile);
+        }
+
+        sleep(10);
+    }
+    return NULL;
+}
 
 int main(int argc, char **argv)
 {
@@ -413,6 +459,10 @@ int main(int argc, char **argv)
     dirtyHead.next = dirtyHead.prev = &dirtyHead;
     renderHead.next = renderHead.prev = &renderHead;
 
+    stats.noDirtyRender = 0;
+    stats.noReqDroped = 0;
+    stats.noReqRender = 0;
+
     xmlconfigitem maps[XMLCONFIGS_MAX];
     bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
 
@@ -424,8 +474,10 @@ int main(int argc, char **argv)
     config.socketname = iniparser_getstring(ini, "renderd:socketname", (char *)RENDER_SOCKET);
     config.num_threads = iniparser_getint(ini, "renderd:num_threads", NUM_THREADS);
     config.tile_dir = iniparser_getstring(ini, "renderd:tile_dir", (char *)HASH_PATH);
+    config.stats_filename = iniparser_getstring(ini, "renderd:stats_file", NULL);
     config.mapnik_plugins_dir = iniparser_getstring(ini, "mapnik:plugins_dir", (char *)MAPNIK_PLUGINS);
     config.mapnik_font_dir = iniparser_getstring(ini, "mapnik:font_dir", (char *)FONT_DIR);
+
 
     int iconf = -1;
     char buffer[PATH_MAX];
@@ -480,6 +532,7 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "config renderd: socketname=%s\n", config.socketname);
     syslog(LOG_INFO, "config renderd: num_threads=%d\n", config.num_threads);
     syslog(LOG_INFO, "config renderd: tile_dir=%s\n", config.tile_dir);
+    syslog(LOG_INFO, "config renderd: stats_file=%s\n", config.stats_filename);
     syslog(LOG_INFO, "config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
@@ -546,6 +599,14 @@ int main(int argc, char **argv)
             (void) fprintf(pidfile, "%d\n", getpid());
             (void) fclose(pidfile);
         }
+    }
+
+    if (config.stats_filename != NULL) {
+        if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
+            syslog(LOG_WARNING, "Could not create stats writeout thread");
+        }
+    } else {
+        syslog(LOG_INFO, "No stats file specified in config. Stats reporting disabled");
     }
 
     render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
