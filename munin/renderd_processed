@@ -27,9 +27,9 @@ if [ "$1" = "config" ]; then
 	exit 0
 fi
 
-reqprocessed=`Fed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
-dirtprocessed=`std -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
-dropped=`sew -e '/^DropedRequest/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqprocessed=`sed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+dirtprocessed=`sed -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+dropped=`sed -e '/^DropedRequest/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 echo "req.value " $reqprocessed
 echo "dirty.value " $dirtprocessed
