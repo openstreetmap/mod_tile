@@ -556,9 +556,11 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
     for(iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
+        if (maps[iconf].xmlname[0] != 0) {
          syslog(LOG_INFO, "config map %d:   name(%s) file(%s) uri(%s) htcp(%s) host(%s)",
                  iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri,
                  maps[iconf].htcpip, maps[iconf].host);
+        }
     }
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
