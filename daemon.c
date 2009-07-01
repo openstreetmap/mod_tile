@@ -375,6 +375,10 @@ void *stats_writeout_thread(void * arg) {
     int dirtQueueLength;
     int reqQueueLength;
     int noFailedAttempts = 0;
+    char tmpName[PATH_MAX];
+
+    snprintf(tmpName, sizeof(tmpName), "%s.tmp", config.stats_filename);
+
     syslog(LOG_DEBUG, "Starting stats thread");
     while (1) {
         pthread_mutex_lock(&qLock);
@@ -383,7 +387,7 @@ void *stats_writeout_thread(void * arg) {
         reqQueueLength = reqNum;
         pthread_mutex_unlock(&qLock);
 
-        FILE * statfile = fopen(config.stats_filename,"w");
+        FILE * statfile = fopen(tmpName, "w");
         if (statfile == NULL) {
             syslog(LOG_WARNING, "Failed to open stats file: %i", errno);
             noFailedAttempts++;
@@ -400,8 +404,16 @@ void *stats_writeout_thread(void * arg) {
             fprintf(statfile, "ReqRendered: %li\n", lStats.noReqRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
             fclose(statfile);
+            if (rename(tmpName, config.stats_filename)) {
+                syslog(LOG_WARNING, "Failed to overwrite stats file: %i", errno);
+                noFailedAttempts++;
+                if (noFailedAttempts > 3) {
+                    syslog(LOG_ERR, "ERROR: Failed repeatedly to overwrite stats, giving up");
+                    break;
+                }
+                continue;
+            }
         }
-
         sleep(10);
     }
     return NULL;
@@ -414,6 +426,7 @@ int main(int argc, char **argv)
     mode_t old;
     int c;
     int foreground=0;
+    int log_options;
     char config_file_name[PATH_MAX] = RENDERD_CONFIG;
 
     while (1) {
@@ -450,7 +463,13 @@ int main(int argc, char **argv)
         }
     }
 
-    openlog("renderd", LOG_PID, LOG_DAEMON);
+    log_options = LOG_PID;
+#ifdef LOG_PERROR
+    if (foreground)
+        log_options |= LOG_PERROR;
+#endif
+    openlog("renderd", log_options, LOG_DAEMON);
+
     syslog(LOG_INFO, "Rendering daemon started");
 
     pthread_mutex_init(&qLock, NULL);
