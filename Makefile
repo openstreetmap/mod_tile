@@ -20,7 +20,10 @@ EXTRA_CPPFLAGS += -g -O2 -Wall
 
 all: local-shared-build renderd speedtest render_list render_old convert_meta
 
-install: 
+install: ${DESTDIR}/etc/renderd.conf
+
+
+${DESTDIR}/etc/renderd.conf:
 	cp -u renderd.conf ${DESTDIR}/etc/renderd.conf
 
 clean:
