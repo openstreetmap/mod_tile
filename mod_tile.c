@@ -47,6 +47,24 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include "dir_utils.h"
 
 #define INILINE_MAX 256
+
+#define FRESH 1
+#define OLD 2
+#define FRESH_RENDER 3
+#define OLD_RENDER 4
+
+typedef struct stats_data {
+    apr_uint64_t noResp200;
+    apr_uint64_t noResp304;
+    apr_uint64_t noResp404;
+    apr_uint64_t noResp5XX;
+    apr_uint64_t noRespOther;
+    apr_uint64_t noFreshCache;
+    apr_uint64_t noFreshRender;
+    apr_uint64_t noOldCache;
+    apr_uint64_t noOldRender;
+} stats_data;
+
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
@@ -70,6 +88,7 @@ typedef struct {
     char renderd_socket_name[PATH_MAX];
     char tile_dir[PATH_MAX];
     int mincachetime[MAX_ZOOM + 1];
+    int enableGlobalStats;
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
@@ -98,6 +117,20 @@ static int error_message(request_rec *r, const char *format, ...)
     return OK;
 }
 
+#if !defined(OS2) && !defined(WIN32) && !defined(BEOS) && !defined(NETWARE)
+#include "unixd.h"
+#define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
+#endif
+
+/* Number of microseconds to camp out on the mutex */
+#define CAMPOUT 10
+/* Maximum number of times we camp out before giving up */
+#define MAXCAMP 10
+
+apr_shm_t *stats_shm;
+char *shmfilename;
+apr_global_mutex_t *stats_mutex;
+char *mutexfilename;
 
 int socket_init(request_rec *r)
 {
@@ -383,6 +416,128 @@ double get_load_avg(request_rec *r)
         return loadavg[0];
 }
 
+static int get_global_lock(request_rec *r) {
+    apr_status_t rs;
+    int camped;
+
+    for (camped = 0; camped < MAXCAMP; camped++) {
+        rs = apr_global_mutex_trylock(stats_mutex);
+        if (APR_STATUS_IS_EBUSY(rs)) {
+            apr_sleep(CAMPOUT);
+        } else if (rs == APR_SUCCESS) {
+            return 1;
+        } else if (APR_STATUS_IS_ENOTIMPL(rs)) {
+            /* If it's not implemented, just hang in the mutex. */
+            rs = apr_global_mutex_lock(stats_mutex);
+            if (rs == APR_SUCCESS) {
+                return 1;
+            } else {
+                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not get hardlock");
+                return 0;
+            }
+        } else {
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Unknown return status from trylock");
+            return 0;
+        }
+    }
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Timedout trylock");
+    return 0;
+}
+
+static int incRespCounter(int resp, request_rec *r) {
+    stats_data *stats;
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+    if (!scfg->enableGlobalStats) {
+        /* If tile stats reporting is not enable
+         * pretend we correctly updated the counter to
+         * not fill the logs with warnings about failed
+         * stats
+         */
+        return 1;
+    }
+
+    if (get_global_lock(r) != 0) {
+        stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+        switch (resp) {
+        case OK: {
+            stats->noResp200++;
+            break;
+        }
+        case HTTP_NOT_MODIFIED: {
+            stats->noResp304++;
+            break;
+        }
+        case HTTP_NOT_FOUND: {
+            stats->noResp404++;
+            break;
+        }
+        case HTTP_INTERNAL_SERVER_ERROR: {
+            stats->noResp5XX++;
+            break;
+        }
+        default: {
+            stats->noRespOther++;
+        }
+
+        }
+        apr_global_mutex_unlock(stats_mutex);
+        /* Swallowing the result because what are we going to do with it at
+         * this stage?
+         */
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static int incFreshCounter(int status, request_rec *r) {
+    stats_data *stats;
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+    if (!scfg->enableGlobalStats) {
+        /* If tile stats reporting is not enable
+         * pretend we correctly updated the counter to
+         * not fill the logs with warnings about failed
+         * stats
+         */
+        return 1;
+    }
+
+    if (get_global_lock(r) != 0) {
+        stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+        switch (status) {
+        case FRESH: {
+            stats->noFreshCache++;
+            break;
+        }
+        case FRESH_RENDER: {
+            stats->noFreshRender++;
+            break;
+        }
+        case OLD: {
+            stats->noOldCache++;
+            break;
+        }
+        case OLD_RENDER: {
+            stats->noOldRender++;
+            break;
+        }
+        }
+        apr_global_mutex_unlock(stats_mutex);
+        /* Swallowing the result because what are we going to do with it at
+         * this stage?
+         */
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 static int tile_handler_dirty(request_rec *r)
 {
     if(strcmp(r->handler, "tile_dirty"))
@@ -439,6 +594,10 @@ should already be done
 
     switch (state) {
         case tileCurrent:
+            if (!incFreshCounter(FRESH, r)) {
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase fresh stats counter");
+            }
             return OK;
             break;
         case tileOld:
@@ -446,6 +605,10 @@ should already be done
                // Too much load to render it now, mark dirty but return old tile
                request_tile(r, cmd, 1);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_old (%d). Mark dirty and deliver from cache.", scfg->max_load_old);
+               if (!incFreshCounter(OLD, r)) {
+                   ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                        "Failed to increase fresh stats counter");
+               }
                return OK;
             }
             break;
@@ -453,6 +616,10 @@ should already be done
             if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 1);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
+               if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+                   ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                        "Failed to increase response stats counter");
+               }
                return HTTP_NOT_FOUND;
             }
             break;
@@ -462,11 +629,24 @@ should already be done
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Update file info abs_path(%s)", r->filename);
         // Need to update fileinfo for new rendered tile
         apr_stat(&r->finfo, r->filename, APR_FINFO_MIN, r->pool);
+        if (!incFreshCounter(FRESH_RENDER, r)) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase fresh stats counter");
+        }
         return OK;
     }
 
-    if (state == tileOld)
+    if (state == tileOld) {
+        if (!incFreshCounter(OLD_RENDER, r)) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase fresh stats counter");
+        }
         return OK;
+    }
+    if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                "Failed to increase response stats counter");
+    }
 
     return HTTP_NOT_FOUND;
 }
@@ -493,6 +673,46 @@ static int tile_handler_status(request_rec *r)
     return error_message(r, "Tile is %s. Last rendered at %s\n", (state == tileOld) ? "due to be rendered" : "clean", time_str);
 }
 
+static int tile_handler_mod_stats(request_rec *r)
+{
+    stats_data * stats;
+    stats_data local_stats;
+
+    if (strcmp(r->handler, "tile_mod_stats"))
+        return DECLINED;
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+    if (!scfg->enableGlobalStats) {
+        return error_message(r, "Stats are not enabled for this server");
+    }
+
+    if (get_global_lock(r) != 0) {
+        //Copy over the global counter variable into
+        //local variables, that we can immediately
+        //release the lock again
+        stats = (stats_data *) apr_shm_baseaddr_get(stats_shm);
+        memcpy(&local_stats, stats, sizeof(stats_data));
+        apr_global_mutex_unlock(stats_mutex);
+    } else {
+        return error_message(r, "Failed to acquire lock, can't display stats");
+    }
+
+    ap_rprintf(r, "NoResp200: %li\n", local_stats.noResp200);
+    ap_rprintf(r, "NoResp304: %li\n", local_stats.noResp304);
+    ap_rprintf(r, "NoResp404: %li\n", local_stats.noResp404);
+    ap_rprintf(r, "NoResp5XX: %li\n", local_stats.noResp5XX);
+    ap_rprintf(r, "NoRespOther: %li\n", local_stats.noRespOther);
+    ap_rprintf(r, "NoFreshCache: %li\n", local_stats.noFreshCache);
+    ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
+    ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
+    ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
+
+
+    return OK;
+}
+
 static int tile_handler_serve(request_rec *r)
 {
     const int tile_max = MAX_SIZE;
@@ -506,6 +726,10 @@ static int tile_handler_serve(request_rec *r)
     struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
     if (cmd == NULL){
         sleep(CLIENT_PENALTY);
+        if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase response stats counter");
+        }
         return HTTP_NOT_FOUND;
     }
 
@@ -513,8 +737,13 @@ static int tile_handler_serve(request_rec *r)
 
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
-    if (!buf)
+    if (!buf) {
+        if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r)) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase response stats counter");
+        }
         return HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     len = tile_read(cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max);
     if (len > 0) {
@@ -536,16 +765,27 @@ static int tile_handler_serve(request_rec *r)
         add_expiry(r, cmd);
         if ((errstatus = ap_meets_conditions(r)) != OK) {
             free(buf);
+            if (!incRespCounter(errstatus, r)) {
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                        "Failed to increase response stats counter");
+            }
             return errstatus;
         } else {
             ap_rwrite(buf, len, r);
             free(buf);
+            if (!incRespCounter(errstatus, r)) {
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                        "Failed to increase response stats counter");
+            }
             return OK;
         }
     }
     free(buf);
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "len = %d", len);
-
+    if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                "Failed to increase response stats counter");
+    }
     return DECLINED;
 }
 
@@ -560,6 +800,19 @@ static int tile_translate(request_rec *r)
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
     tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+
+    /*
+     * The page /mod_tile returns global stats about the number of tiles
+     * handled and in what state those tiles were.
+     * This should probably not be hard coded
+     */
+    if (!strncmp("/mod_tile", r->uri, strlen("/mod_tile"))) {
+        r->handler = "tile_mod_stats";
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                "tile_translate: retrieving global mod_tile stats");
+        return OK;
+    }
+
     for (i = 0; i < scfg->configs->nelts; ++i) {
         tile_config_rec *tile_config = &tile_configs[i];
 
@@ -582,6 +835,8 @@ static int tile_translate(request_rec *r)
 
             if (oob) {
                 sleep(CLIENT_PENALTY);
+                //Don't increase stats counter here,
+                //As we are interested in valid tiles only
                 return HTTP_NOT_FOUND;
             }
 
@@ -615,11 +870,132 @@ static int tile_translate(request_rec *r)
     return DECLINED;
 }
 
+/*
+ * This routine is called in the parent, so we'll set up the shared
+ * memory segment and mutex here.
+ */
+
+static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
+                             apr_pool_t *ptemp, server_rec *s)
+{
+    void *data; /* These two help ensure that we only init once. */
+    const char *userdata_key = "mod_tile_init_module";
+    apr_status_t rs;
+    stats_data *stats;
+
+
+    /*
+     * The following checks if this routine has been called before.
+     * This is necessary because the parent process gets initialized
+     * a couple of times as the server starts up, and we don't want
+     * to create any more mutexes and shared memory segments than
+     * we're actually going to use.
+     */
+    apr_pool_userdata_get(&data, userdata_key, s->process->pool);
+    if (!data) {
+        apr_pool_userdata_set((const void *) 1, userdata_key,
+                              apr_pool_cleanup_null, s->process->pool);
+        return OK;
+    } /* Kilroy was here */
+
+    /* Create the shared memory segment */
+
+    /*
+     * Create a unique filename using our pid. This information is
+     * stashed in the global variable so the children inherit it.
+     * TODO get the location from the environment $TMPDIR or somesuch.
+     */
+    shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
+
+    /* Now create that segment */
+    rs = apr_shm_create(&stats_shm, sizeof(stats_data),
+                        (const char *) shmfilename, pconf);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
+                     "Failed to create shared memory segment on file %s",
+                     shmfilename);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    /* Created it, now let's zero it out */
+    stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+    stats->noResp200 = 0;
+    stats->noResp304 = 0;
+    stats->noResp404 = 0;
+    stats->noResp5XX = 0;
+    stats->noRespOther = 0;
+    stats->noFreshCache = 0;
+    stats->noFreshRender = 0;
+    stats->noOldCache = 0;
+    stats->noOldRender = 0;
+
+    /* Create global mutex */
+
+    /*
+     * Create another unique filename to lock upon. Note that
+     * depending on OS and locking mechanism of choice, the file
+     * may or may not be actually created.
+     */
+    mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex.%ld",
+                                 (long int) getpid());
+
+    rs = apr_global_mutex_create(&stats_mutex, (const char *) mutexfilename,
+                                 APR_LOCK_DEFAULT, pconf);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
+                     "Failed to create mutex on file %s",
+                     mutexfilename);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+#ifdef MOD_TILE_SET_MUTEX_PERMS
+    rs = unixd_set_global_mutex_perms(stats_mutex);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
+                     "Parent could not set permissions on mod_tile "
+                     "mutex: check User and Group directives");
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+#endif /* MOD_TILE_SET_MUTEX_PERMS */
+
+    return OK;
+}
+
+
+/*
+ * This routine gets called when a child inits. We use it to attach
+ * to the shared memory segment, and reinitialize the mutex.
+ */
+
+static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
+{
+    apr_status_t rs;
+
+     /*
+      * Re-open the mutex for the child. Note we're reusing
+      * the mutex pointer global here.
+      */
+     rs = apr_global_mutex_child_init(&stats_mutex,
+                                      (const char *) mutexfilename,
+                                      p);
+     if (rs != APR_SUCCESS) {
+         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
+                     "Failed to reopen mutex on file %s",
+                     shmfilename);
+         /* There's really nothing else we can do here, since
+          * This routine doesn't return a status. */
+         exit(1); /* Ugly, but what else? */
+     }
+}
+
 static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 {
+    ap_hook_post_config(mod_tile_post_config, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_child_init(mod_tile_child_init, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_serve, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_dirty, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_status, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_handler(tile_handler_mod_stats, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_translate_name(tile_translate, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
@@ -830,6 +1206,12 @@ static const char *mod_tile_cache_duration_medium_config(cmd_parms *cmd, void *m
     return NULL;
 }
 
+static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enableStats)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->enableGlobalStats = enableStats;
+    return NULL;
+}
 
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
@@ -851,6 +1233,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->cache_duration_medium_zoom = 1*24*60*60;
     scfg->cache_level_low_zoom = 0;
     scfg->cache_level_medium_zoom = 0;
+    scfg->enableGlobalStats = 1;
 
     return scfg;
 }
@@ -878,6 +1261,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_duration_medium_zoom = scfg_over->cache_duration_medium_zoom;
     scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
+    scfg->enableGlobalStats = scfg_over->enableGlobalStats;
 
     //Construct a table of minimum cache times per zoom level
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -985,6 +1369,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the minimum cache duration and zoom level for medium zoom tiles"  /* directive description */
+    ),
+    AP_INIT_FLAG(
+        "ModTileEnableStats",       /* directive name */
+        mod_tile_enable_stats,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "On Off - enable of keeping stats about what mod_tile is serving"  /* directive description */
     ),
     {NULL}
 };
