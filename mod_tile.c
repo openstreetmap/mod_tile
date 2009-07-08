@@ -50,7 +50,6 @@ module AP_MODULE_DECLARE_DATA tile_module;
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
-    int mincachetime[MAX_ZOOM];
     int minzoom;
     int maxzoom;
 } tile_config_rec;
@@ -70,6 +69,7 @@ typedef struct {
     double cache_duration_last_modified_factor;
     char renderd_socket_name[PATH_MAX];
     char tile_dir[PATH_MAX];
+    int mincachetime[MAX_ZOOM + 1];
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
@@ -326,7 +326,6 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
                   r->handler, r->uri, r->filename, r->path_info);
@@ -337,7 +336,14 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
         maxAge = scfg->cache_duration_dirty + holdoff;
     } else {
         // cache heuristic based on zoom level
-        minCache = tile_configs->mincachetime[cmd->z];
+        if (cmd->z > MAX_ZOOM) {
+            minCache = 0;
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                                    "z (%i) is larger than MAXZOOM %i\n",
+                                    cmd->z, MAX_ZOOM);
+        } else {
+            minCache = scfg->mincachetime[cmd->z];
+        }
         // Time to the next known complete rerender
         planetTimestamp = apr_time_sec(getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL) - r->request_time) ;
         // Time since the last render of this tile
@@ -620,7 +626,6 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, int minzoom, int maxzoom)
 {
-    int i;
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
     }
@@ -634,15 +639,6 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
-    for (i = minzoom; i < maxzoom; i++) {
-             if (i < scfg->cache_level_low_zoom) {
-                 tilecfg->mincachetime[i] = scfg->cache_duration_low_zoom;
-             } else if (i < scfg->cache_level_medium_zoom) {
-                 tilecfg->mincachetime[i] = scfg->cache_duration_medium_zoom;
-             } else {
-                 tilecfg->mincachetime[i] = scfg->cache_duration_minimum;
-             }
-         }
 
 
     return NULL;
@@ -861,6 +857,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 
 static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 {
+    int i;
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
     tile_server_conf * scfg_base = (tile_server_conf *) basev;
     tile_server_conf * scfg_over = (tile_server_conf *) overridesv;
@@ -881,6 +878,17 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_duration_medium_zoom = scfg_over->cache_duration_medium_zoom;
     scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
+
+    //Construct a table of minimum cache times per zoom level
+    for (i = 0; i <= MAX_ZOOM; i++) {
+        if (i <= scfg->cache_level_low_zoom) {
+            scfg->mincachetime[i] = scfg->cache_duration_low_zoom;
+        } else if (i <= scfg->cache_level_medium_zoom) {
+            scfg->mincachetime[i] = scfg->cache_duration_medium_zoom;
+        } else {
+            scfg->mincachetime[i] = scfg->cache_duration_minimum;
+        }
+    }
 
     return scfg;
 }
