@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# Plugin to monitor the response codes of tiles returned by mod_tile
+#
+# Parameters: 
+#
+# 	config   (required)
+# 	autoconf (optional - used by munin-config)
+#
+
+if [ "$1" = "config" ]; then
+
+	echo 'graph_title mod_tile HTTP response codes'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel responses per ${graph_period}'
+	echo 'graph_category mod_tile'
+	echo '200.label 200'
+	echo '200.draw AREA'
+	echo '200.type DERIVE'
+	echo '200.min 0'
+	echo '304.label 304'
+	echo '304.draw STACK'
+	echo '304.type DERIVE'
+	echo '304.min 0'
+	echo '404.label 404'
+	echo '404.draw STACK'
+	echo '404.type DERIVE'
+	echo '404.min 0'
+	echo '500.label 500'
+	echo '500.draw STACK'
+	echo '500.type DERIVE'
+	echo '500.min 0'
+
+	exit 0
+fi
+
+wget http://localhost/mod_tile -O /var/run/renderd/mod_tile_resp.stats
+
+ok_resp=`sed -e '/^NoResp200/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
+nm_resp=`sed -e '/^NoResp304/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
+fnf_resp=`sed -e '/^NoResp404/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
+error_resp=`sed -e '/^NoResp5XX/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
+
+echo "200.value " $ok_resp
+echo "304.value " $nm_resp
+echo "404.value " $fnf_resp
+echo "500.value " $error_resp
