@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# Plugin to monitor the state / freshness  of the tiles returned by mod_tile
+#
+# Parameters: 
+#
+# 	config   (required)
+# 	autoconf (optional - used by munin-config)
+#
+
+if [ "$1" = "config" ]; then
+
+	echo 'graph_title freshness of served tiles'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel tiles per ${graph_period}'
+	echo 'graph_category mod_tile'
+	echo 'fresh.label Fresh from disk'
+	echo 'fresh.draw AREA'
+	echo 'fresh.type DERIVE'
+	echo 'fresh.min 0'
+	echo 'freshrender.label Freshly rendered'
+	echo 'freshrender.draw STACK'
+	echo 'freshrender.type DERIVE'
+	echo 'freshrender.min 0'
+	echo 'old.label Old from disk'
+	echo 'old.draw STACK'
+	echo 'old.type DERIVE'
+	echo 'old.min 0'
+	echo 'oldrender.label Old tile, attempted render'
+	echo 'oldrender.draw STACK'
+	echo 'oldrender.type DERIVE'
+	echo 'oldrender.min 0'
+
+	exit 0
+fi
+
+wget http://localhost/mod_tile -O /var/run/renderd/mod_tile_fresh.stats
+
+fresh=`sed -e '/^NoFreshCache/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
+freshRender=`sed -e '/^NoFreshRender/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
+old=`sed -e '/^NoOldCache/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
+oldRender=`sed -e '/^NoOldRender/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
+
+echo "fresh.value " $fresh
+echo "freshrender.value " $freshRender
+echo "old.value " $old
+echo "oldrender.value " $oldRender
