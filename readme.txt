@@ -5,8 +5,8 @@ www.openstreetmap.org map using Apache and Mapnik.
 
 Note: This program is very much still in development
 it has numerous hard coded paths and options which need
-to be made user configurable options. You may need to 
-these to fit your local environment.
+to be made user configurable options. You may need to
+change these to fit your local environment.
 
 Requirements
 ============
