@@ -565,7 +565,7 @@ int main(int argc, char **argv)
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
+        fprintf(stderr, "failed to create unix socket: %s\n", strerror(errno));
         exit(2);
     }
 
@@ -577,7 +577,7 @@ int main(int argc, char **argv)
 
     old = umask(0); // Need daemon socket to be writeable by apache
     if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket bind failed for: %s\n", config.socketname);
+        fprintf(stderr, "socket bind failed for `%s': %s\n", config.socketname, strerror(errno));
         close(fd);
         exit(3);
     }
