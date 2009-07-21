@@ -32,7 +32,7 @@ move them to:
 
 /var/lib/mod_tile/Default/[Z]/nnn/nnn/nnn/nnn/nnn.png
 
-You will also need to recongiure your http configuration
+You will also need to reconfigure your http configuration
 to use the new apache directives and to create an 
 /etc/renderd.conf file. See the example renderd.conf and
 mod_tile.conf for details.
