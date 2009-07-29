@@ -496,7 +496,7 @@ int main(int argc, char **argv)
     config.stats_filename = iniparser_getstring(ini, "renderd:stats_file", NULL);
     config.mapnik_plugins_dir = iniparser_getstring(ini, "mapnik:plugins_dir", (char *)MAPNIK_PLUGINS);
     config.mapnik_font_dir = iniparser_getstring(ini, "mapnik:font_dir", (char *)FONT_DIR);
-    config.mapnik_font_dir_recurse = iniparser_getint(ini, "mapnik:font_dir_recurse", FONT_RECURSE);
+    config.mapnik_font_dir_recurse = iniparser_getboolean(ini, "mapnik:font_dir_recurse", FONT_RECURSE);
 
 
     int iconf = -1;
