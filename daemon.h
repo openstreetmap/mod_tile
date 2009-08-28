@@ -6,9 +6,12 @@
 #include "protocol.h"
 
 #define INILINE_MAX 256
+#define MAX_SLAVES 5
 
 typedef struct {
     char *socketname;
+    char *iphostname;
+    int ipport;
     int num_threads;
     char *tile_dir;
     char *mapnik_plugins_dir;
