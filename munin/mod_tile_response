@@ -34,12 +34,13 @@ if [ "$1" = "config" ]; then
 	exit 0
 fi
 
-wget http://localhost/mod_tile -O /var/run/renderd/mod_tile_resp.stats
 
-ok_resp=`sed -e '/^NoResp200/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
-nm_resp=`sed -e '/^NoResp304/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
-fnf_resp=`sed -e '/^NoResp404/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
-error_resp=`sed -e '/^NoResp5XX/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_resp.stats`
+data=`wget -q http://localhost/mod_tile -O -`
+
+ok_resp=`expr match "$data" '.*NoResp200: \([0-9]*\)'`
+nm_resp=`expr match "$data" '.*NoResp304: \([0-9]*\)'`
+fnf_resp=`expr match "$data" '.*NoResp404: \([0-9]*\)'`
+error_resp=`expr match "$data" '.*NoResp5XX: \([0-9]*\)'`
 
 echo "200.value " $ok_resp
 echo "304.value " $nm_resp
