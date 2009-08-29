@@ -10,6 +10,8 @@ extern "C" {
 #define HTCP_EXPIRE_CACHE 1
 #define HTCP_EXPIRE_CACHE_PORT "4827"
 
+enum queueEnum {queueRequest, queueDirty, queueRender, queueDuplicate};
+
 struct item {
     struct item *next;
     struct item *prev;
@@ -17,6 +19,12 @@ struct item {
     int mx, my;
     int fd;
     struct item *duplicates;
+    enum queueEnum inQueue;
+};
+
+struct item_idx {
+    struct item_idx *next;
+    struct item *item;
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);
