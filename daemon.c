@@ -33,6 +33,7 @@ static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
 
 static struct item reqHead, dirtyHead, renderHead;
+static struct item_idx * item_hashidx;
 static int reqNum, dirtyNum;
 static pthread_mutex_t qLock;
 static pthread_cond_t qCond;
@@ -43,6 +44,7 @@ static pthread_t stats_thread;
 static renderd_config config;
 
 int noSlaveRenders;
+int hashidxSize;
 
 struct item *fetch_request(void)
 {
@@ -70,6 +72,7 @@ struct item *fetch_request(void)
         item->next = renderHead.next;
         renderHead.next->prev = item;
         renderHead.next = item;
+        item->inQueue = queueRender;
     }
 
     pthread_mutex_unlock(&qLock);
@@ -81,6 +84,9 @@ void clear_requests(int fd)
 {
     struct item *item, *dupes;
 
+    /**Only need to look up on the shorter request and render queue
+      * so using the linear list shouldn't be a problem
+      */
     pthread_mutex_lock(&qLock);
     item = reqHead.next;
     while (item != &reqHead) {
@@ -113,6 +119,108 @@ void clear_requests(int fd)
     pthread_mutex_unlock(&qLock);
 }
 
+
+static int calcHashKey(struct item *item) {
+    int xmlnameHash = 0;
+    long key;
+    for (int i = 0; item->req.xmlname[i] != 0; i++) {
+        xmlnameHash += item->req.xmlname[i];
+    }
+    key = ((long)(xmlnameHash & 0x1FF) << 52) + ((long)(item->req.z) << 48) + ((long)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
+    return key % hashidxSize;
+}
+
+void insert_item_idx(struct item *item) {
+    struct item_idx * nextItem;
+    struct item_idx * prevItem;
+
+    int key = calcHashKey(item);
+
+    if (item_hashidx[key].item == NULL) {
+        item_hashidx[key].item = item;
+    } else {
+        prevItem = &(item_hashidx[key]);
+        nextItem = item_hashidx[key].next;
+        while(nextItem) {
+            prevItem = nextItem;
+            nextItem = nextItem->next;
+        }
+        nextItem = (struct item_idx *)malloc(sizeof(struct item_idx));
+        nextItem->item = item;
+        nextItem->next = NULL;
+        prevItem->next = nextItem;
+    }
+}
+
+void remove_item_idx(struct item * item) {
+    int key = calcHashKey(item);
+    struct item_idx * nextItem;
+    struct item_idx * prevItem;
+    struct item * test;
+    if (item_hashidx[key].item == NULL) {
+        //item not in index;
+        return;
+    }
+    prevItem = &(item_hashidx[key]);
+    nextItem = &(item_hashidx[key]);
+
+    while (nextItem != NULL) {
+        test = nextItem->item;
+        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z
+                == test->req.z) && (!strcmp(item->req.xmlname,
+                test->req.xmlname))) {
+            /*
+             * Found item, removing it from list
+             */
+            nextItem->item = NULL;
+            if (nextItem->next != NULL) {
+                if (nextItem == &(item_hashidx[key])) {
+                    prevItem = nextItem->next;
+                    memcpy(&(item_hashidx[key]), nextItem->next,
+                            sizeof(struct item_idx));
+                    free(prevItem);
+                } else {
+                    prevItem->next = nextItem->next;
+                }
+            } else {
+                prevItem->next = NULL;
+            }
+
+            if (nextItem != &(item_hashidx[key])) {
+                free(nextItem);
+            }
+            return;
+        } else {
+            prevItem = nextItem;
+            nextItem = nextItem->next;
+        }
+    }
+}
+
+struct item * lookup_item_idx(struct item * item) {
+    struct item_idx * nextItem;
+    struct item * test;
+
+    int key = calcHashKey(item);
+
+    if (item_hashidx[key].item == NULL) {
+        return NULL;
+    } else {
+        nextItem = &(item_hashidx[key]);
+        while (nextItem != NULL) {
+            test = nextItem->item;
+            if ((item->mx == test->mx) && (item->my == test->my)
+                    && (item->req.z == test->req.z) && (!strcmp(
+                    item->req.xmlname, test->req.xmlname))) {
+                return test;
+            } else {
+                nextItem = nextItem->next;
+            }
+        }
+    }
+    return NULL;
+}
+
 static inline const char *cmdStr(enum protoCmd c)
 {
     switch (c) {
@@ -133,6 +241,7 @@ void send_response(struct item *item, enum protoCmd rsp)
     pthread_mutex_lock(&qLock);
     item->next->prev = item->prev;
     item->prev->next = item->next;
+    remove_item_idx(item);
     pthread_mutex_unlock(&qLock);
 
     while (item) {
@@ -158,33 +267,16 @@ enum protoCmd pending(struct item *test)
     // call with qLock held
     struct item *item;
 
-    item = renderHead.next;
-    while (item != &renderHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
-            // Add new test item in the list of duplicates
+    item = lookup_item_idx(test);
+    if (item != NULL) {
+        if ((item->inQueue == queueRender) || (item->inQueue == queueRequest)) {
             test->duplicates = item->duplicates;
             item->duplicates = test;
+            test->inQueue = queueDuplicate;
             return cmdIgnore;
-        }
-        item = item->next;
-    }
-
-    item = reqHead.next;
-    while (item != &reqHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
-            // Add new test item in the list of duplicates
-            test->duplicates = item->duplicates;
-            item->duplicates = test;
-            return cmdIgnore;
-        }
-        item = item->next;
-    }
-
-    item = dirtyHead.next;
-    while (item != &dirtyHead) {
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname)))
+        } else if (item->inQueue == queueDirty) {
             return cmdNotDone;
-        item = item->next;
+        }
     }
 
     return cmdRender;
@@ -267,9 +359,11 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     // New request, add it to render or dirty queue
     if ((req->cmd == cmdRender) && (reqNum < REQ_LIMIT)) {
         list = &reqHead;
+        item->inQueue = queueRequest;
         reqNum++;
     } else if (dirtyNum < DIRTY_LIMIT) {
         list = &dirtyHead;
+        item->inQueue = queueDirty;
         dirtyNum++;
         item->fd = FD_INVALID; // No response after render
     }
@@ -279,6 +373,10 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         item->prev = list->prev;
         item->prev->next = item;
         list->prev = item;
+        /* In addition to the linked list, add item to a hash table index
+         * for faster lookup of pending requests.
+         */
+        insert_item_idx(item);
 
         pthread_cond_signal(&qCond);
     } else
@@ -749,6 +847,9 @@ int main(int argc, char **argv)
     reqHead.next = reqHead.prev = &reqHead;
     dirtyHead.next = dirtyHead.prev = &dirtyHead;
     renderHead.next = renderHead.prev = &renderHead;
+    hashidxSize = HASHIDX_SIZE;
+    item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * hashidxSize);
+    bzero(item_hashidx, sizeof(struct item_idx) * hashidxSize);
 
     stats.noDirtyRender = 0;
     stats.noReqDroped = 0;
