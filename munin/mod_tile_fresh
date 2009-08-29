@@ -34,12 +34,12 @@ if [ "$1" = "config" ]; then
 	exit 0
 fi
 
-wget http://localhost/mod_tile -O /var/run/renderd/mod_tile_fresh.stats
+data=`wget -q http://localhost/mod_tile -O -`
 
-fresh=`sed -e '/^NoFreshCache/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
-freshRender=`sed -e '/^NoFreshRender/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
-old=`sed -e '/^NoOldCache/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
-oldRender=`sed -e '/^NoOldRender/!d' -e 's/.*: //' -e q /var/run/renderd/mod_tile_fresh.stats`
+fresh=`expr match "$data" '.*NoFreshCache: \([0-9]*\)'`
+freshRender=`expr match "$data" '.*NoFreshRender: \([0-9]*\)'`
+old=`expr match "$data" '.*NoOldCache: \([0-9]*\)'`
+oldRender=`expr match "$data" '.*NoOldRender: \([0-9]*\)'`
 
 echo "fresh.value " $fresh
 echo "freshrender.value " $freshRender
