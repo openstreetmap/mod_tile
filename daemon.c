@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -121,12 +122,12 @@ void clear_requests(int fd)
 
 
 static int calcHashKey(struct item *item) {
-    int xmlnameHash = 0;
-    long key;
+    uint64_t xmlnameHash = 0;
+    uint64_t key;
     for (int i = 0; item->req.xmlname[i] != 0; i++) {
         xmlnameHash += item->req.xmlname[i];
     }
-    key = ((long)(xmlnameHash & 0x1FF) << 52) + ((long)(item->req.z) << 48) + ((long)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
+    key = ((uint64_t)(xmlnameHash & 0x1FF) << 52) + ((uint64_t)(item->req.z) << 48) + ((uint64_t)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
     return key % hashidxSize;
 }
 
