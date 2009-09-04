@@ -496,6 +496,7 @@ int main(int argc, char **argv)
             render_layer(value);
         }
     }
+    fclose(hini);
 
     finish_workers(numThreads);
 
