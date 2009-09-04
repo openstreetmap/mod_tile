@@ -191,7 +191,8 @@ static void check_load(void)
 #define QMAX 64
 
 pthread_mutex_t qLock;
-pthread_cond_t qCond;
+pthread_cond_t qCondNotEmpty;
+pthread_cond_t qCondNotFull;
 
 unsigned int qLen;
 struct qItem {
@@ -214,7 +215,7 @@ char *fetch(void)
             pthread_mutex_unlock(&qLock);
             return NULL;
         }
-        pthread_cond_wait(&qCond, &qLock);
+        pthread_cond_wait(&qCondNotEmpty, &qLock);
     }
 
     // Fetch item from queue
@@ -233,9 +234,10 @@ char *fetch(void)
         struct qItem *e = qHead;
         qHead = qHead->next;
         free(e);
+        if (qLen == QMAX)
+            pthread_cond_signal(&qCondNotFull);
         qLen--;
     }
-    pthread_cond_signal(&qCond);
 
     pthread_mutex_unlock(&qLock);
     return path;
@@ -257,7 +259,7 @@ void enqueue(const char *path)
     pthread_mutex_lock(&qLock);
 
     while (qLen == QMAX) {
-        pthread_cond_wait(&qCond, &qLock);
+        pthread_cond_wait(&qCondNotFull, &qLock);
     }
 
     // Append item to end of queue
@@ -266,8 +268,9 @@ void enqueue(const char *path)
     else
         qHead = e;
     qTail = e;
+    if (qLen == 0)
+        pthread_cond_signal(&qCondNotEmpty);
     qLen++;
-    pthread_cond_signal(&qCond);
 
     pthread_mutex_unlock(&qLock);
 }
@@ -359,7 +362,8 @@ void spawn_workers(int num, const char *spath)
 
     // Setup request queue
     pthread_mutex_init(&qLock, NULL);
-    pthread_cond_init(&qCond, NULL);
+    pthread_cond_init(&qCondNotEmpty, NULL);
+    pthread_cond_init(&qCondNotFull, NULL);
 
     printf("Starting %d rendering threads\n", num);
     workers = calloc(sizeof(pthread_t), num);
@@ -381,7 +385,7 @@ void finish_workers(int num)
 
     printf("Waiting for rendering threads to finish\n");
     work_complete = 1;
-    pthread_cond_broadcast(&qCond);
+    pthread_cond_broadcast(&qCondNotEmpty);
 
     for(i=0; i<num; i++)
         pthread_join(workers[i], NULL);
