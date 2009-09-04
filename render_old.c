@@ -18,6 +18,9 @@
 #include <limits.h>
 #include <string.h>
 
+#include <pthread.h>
+
+
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
@@ -40,6 +43,8 @@ static int num_render = 0, num_all = 0;
 static time_t planetTime;
 static struct timeval start, end;
 
+
+int work_complete;
 
 void display_rate(struct timeval start, struct timeval end, int num) 
 {
@@ -183,7 +188,91 @@ static void check_load(void)
     }
 }
 
-static void descend(int fd, const char *search)
+#define QMAX 64
+
+pthread_mutex_t qLock;
+pthread_cond_t qCond;
+
+unsigned int qLen;
+struct qItem {
+    char *path;
+    struct qItem *next;
+};
+
+struct qItem *qHead, *qTail;
+
+char *fetch(void)
+{
+    // Fetch path to render from queue or NULL on work completion
+    // Must free() pointer after use
+    char *path;
+
+    pthread_mutex_lock(&qLock);
+
+    while (qLen == 0) {
+        if (work_complete) {
+            pthread_mutex_unlock(&qLock);
+            return NULL;
+        }
+        pthread_cond_wait(&qCond, &qLock);
+    }
+
+    // Fetch item from queue
+    if (!qHead) {
+        fprintf(stderr, "Queue failure, null qHead with %d items in list\n", qLen);
+        exit(1);
+    }
+    path = qHead->path;
+
+    if (qHead == qTail) {
+        free(qHead);
+        qHead = NULL;
+        qTail = NULL;
+        qLen = 0;
+    } else {
+        struct qItem *e = qHead;
+        qHead = qHead->next;
+        free(e);
+        qLen--;
+    }
+    pthread_cond_signal(&qCond);
+
+    pthread_mutex_unlock(&qLock);
+    return path;
+}
+
+void enqueue(const char *path)
+{
+    // Add this path in the local render queue
+    struct qItem *e = malloc(sizeof(struct qItem));
+
+    e->path = strdup(path);
+    e->next = NULL;
+
+    if (!e->path) {
+        fprintf(stderr, "Malloc failure\n");
+        exit(1);
+    }
+
+    pthread_mutex_lock(&qLock);
+
+    while (qLen == QMAX) {
+        pthread_cond_wait(&qCond, &qLock);
+    }
+
+    // Append item to end of queue
+    if (qTail)
+        qTail->next = e;
+    else
+        qHead = e;
+    qTail = e;
+    qLen++;
+    pthread_cond_signal(&qCond);
+
+    pthread_mutex_unlock(&qLock);
+}
+
+static void descend(const char *search)
 {
     DIR *tiles = opendir(search);
     struct dirent *entry;
@@ -206,26 +295,107 @@ static void descend(int fd, const char *search)
         if (stat(path, &b))
             continue;
         if (S_ISDIR(b.st_mode)) {
-            descend(fd, path);
+            descend(path);
             continue;
         }
         p = strrchr(path, '.');
         if (p && !strcmp(p, ".meta")) {
 //            printf("Found tile %s\n", path);
-            process(fd, path);
+            enqueue(path);
         }
     }
     closedir(tiles);
+}
+
+void *thread_main(void *arg)
+{
+    const char *spath = (const char *)arg;
+    int fd;
+    struct sockaddr_un addr;
+    char *tile;
+
+    fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+        fprintf(stderr, "failed to create unix socket\n");
+        exit(2);
+    }
+
+    bzero(&addr, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        fprintf(stderr, "socket connect failed for: %s\n", spath);
+        close(fd);
+        return NULL;
+    }
+
+    while((tile = fetch())) {
+        process(fd, tile);
+        free(tile);
+    }
+
+    close(fd);
+
+    return NULL;
+}
+
+void render_layer(const char *name)
+{
+    int z;
+
+    for (z=minZoom; z<=maxZoom; z++) {
+        char path[PATH_MAX];
+        snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", name, z);
+        descend(path);
+    }
+}
+
+pthread_t *workers;
+
+void spawn_workers(int num, const char *spath)
+{
+    int i;
+
+    // Setup request queue
+    pthread_mutex_init(&qLock, NULL);
+    pthread_cond_init(&qCond, NULL);
+
+    printf("Starting %d rendering threads\n", num);
+    workers = calloc(sizeof(pthread_t), num);
+    if (!workers) {
+        perror("Error allocating worker memory");
+        exit(1);
+    }
+    for(i=0; i<num; i++) {
+        if (pthread_create(&workers[i], NULL, thread_main, (void *)spath)) {
+            perror("Thread creation failed");
+            exit(1);
+        }
+    }
+}
+
+void finish_workers(int num)
+{
+    int i;
+
+    printf("Waiting for rendering threads to finish\n");
+    work_complete = 1;
+    pthread_cond_broadcast(&qCond);
+
+    for(i=0; i<num; i++)
+        pthread_join(workers[i], NULL);
+    free(workers);
+    workers = NULL;
 }
 
 
 int main(int argc, char **argv)
 {
     char spath[PATH_MAX] = RENDER_SOCKET;
-    int fd;
-    struct sockaddr_un addr;
     char *tile_dir = HASH_PATH;
-    int z, c;
+    int c;
+    int numThreads = 1;
 
     while (1) {
         int option_index = 0;
@@ -233,13 +403,14 @@ int main(int argc, char **argv)
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
             {"socket", 1, 0, 's'},
+            {"num-threads", 1, 0, 'n'},
             {"tile-dir", 1, 0, 't'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:s:t:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:t:n:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -251,8 +422,15 @@ int main(int argc, char **argv)
             case 't':   /* -t, --tile-dir */
                 tile_dir=strdup(optarg);
                 break;
-            case 'z':   /* -z, --min-zoom */
-                minZoom=atoi(optarg);
+            case 'n':   /* -n, --num-threads */
+                numThreads=atoi(optarg);
+                if (numThreads <= 0) {
+                    fprintf(stderr, "Invalid number of threads, must be at least 1\n");
+                    return 1;
+                }
+                break;
+           case 'z':   /* -z, --min-zoom */
+                        minZoom=atoi(optarg);
                 if (minZoom < 0 || minZoom > 18) {
                     fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
                     return 1;
@@ -290,22 +468,6 @@ int main(int argc, char **argv)
 
     planetTime = getPlanetTime(tile_dir);
 
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
-        exit(2);
-    }
-
-    bzero(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
-
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
-        close(fd);
-        exit(3);
-    }
-
     gettimeofday(&start, NULL);
 
     FILE * hini ;
@@ -318,6 +480,8 @@ int main(int argc, char **argv)
         exit(7);
     }
 
+    spawn_workers(numThreads, spath);
+
     while (fgets(line, INILINE_MAX, hini)!=NULL) {
         if (line[0] == '[') {
             if (strlen(line) >= XMLCONFIG_MAX){
@@ -325,14 +489,11 @@ int main(int argc, char **argv)
                 exit(7);
             }
             sscanf(line, "[%[^]]", value);
-
-            for (z=minZoom; z<=maxZoom; z++) {
-                char path[PATH_MAX];
-                snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", value, z);
-                descend(fd, path);
-            }
+            render_layer(value);
         }
     }
+
+    finish_workers(numThreads);
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");
@@ -343,7 +504,6 @@ int main(int argc, char **argv)
     printf("Total tiles handled: ");
     display_rate(start, end, num_all);
 
-    close(fd);
     return 0;
 }
 #endif
