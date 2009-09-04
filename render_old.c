@@ -149,32 +149,14 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
 
 void process(int fd, const char *name)
 {
-    struct stat s;
     char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
 
     if (path_to_xyz(name, xmlconfig, &x, &y, &z))
         return;
 
-    num_all++;
-
-//    printf("Found xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
-    if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
-         // missing or old, render it
-        printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
-        process_loop(fd, xmlconfig, x, y, z);
-        num_render++;
-        if (!(num_render % 10)) {
-            gettimeofday(&end, NULL);
-            printf("\n");
-            printf("Meta tiles rendered: ");
-            display_rate(start, end, num_render);
-            printf("Total tiles rendered: ");
-            display_rate(start, end, num_render * METATILE * METATILE);
-            printf("Total tiles handled from input: ");
-            display_rate(start, end, num_all);
-        }
-    }
+    printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
+    process_loop(fd, xmlconfig, x, y, z);
 }
 
 static void check_load(void)
@@ -188,7 +170,7 @@ static void check_load(void)
     }
 }
 
-#define QMAX 64
+#define QMAX 32
 
 pthread_mutex_t qLock;
 pthread_cond_t qCondNotEmpty;
@@ -303,8 +285,22 @@ static void descend(const char *search)
         }
         p = strrchr(path, '.');
         if (p && !strcmp(p, ".meta")) {
-//            printf("Found tile %s\n", path);
-            enqueue(path);
+            num_all++;
+            if (planetTime > b.st_mtime) {
+                // request rendering of  old tile
+                enqueue(path);
+                num_render++;
+                if (!(num_render % 10)) {
+                    gettimeofday(&end, NULL);
+                    printf("\n");
+                    printf("Meta tiles rendered: ");
+                    display_rate(start, end, num_render);
+                    printf("Total tiles rendered: ");
+                    display_rate(start, end, num_render * METATILE * METATILE);
+                    printf("Total tiles handled from input: ");
+                    display_rate(start, end, num_all);
+                }
+            }
         }
     }
     closedir(tiles);
@@ -384,7 +380,9 @@ void finish_workers(int num)
     int i;
 
     printf("Waiting for rendering threads to finish\n");
+    pthread_mutex_lock(&qLock);
     work_complete = 1;
+    pthread_mutex_unlock(&qLock);
     pthread_cond_broadcast(&qCondNotEmpty);
 
     for(i=0; i<num; i++)
