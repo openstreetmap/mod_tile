@@ -963,6 +963,8 @@ int main(int argc, char **argv)
                         "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
                 config.mapnik_font_dir = iniparser_getstring(ini,
                         "mapnik:font_dir", (char *) FONT_DIR);
+                config.mapnik_font_dir_recurse = iniparser_getboolean(ini, 
+                        "mapnik:font_dir_recurse", FONT_RECURSE);
             } else {
                 noSlaveRenders += config_slaves[render_sec].num_threads;
             }
