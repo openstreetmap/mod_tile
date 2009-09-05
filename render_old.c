@@ -492,7 +492,7 @@ int main(int argc, char **argv)
             }
             sscanf(line, "[%[^]]", value);
             // Skip mapnik & renderd sections which are config, not tile layers
-            if (strcmp(value,"mapnik") && strcmp(value,"renderd"))
+            if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
                 render_layer(value);
         }
     }
