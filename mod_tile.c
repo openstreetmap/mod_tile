@@ -158,26 +158,9 @@ int socket_init(request_rec *r)
     return fd;
 }
 
-static pthread_key_t key;
-static pthread_once_t key_once = PTHREAD_ONCE_INIT;
-
-static void pfd_free(void *ptr)
-{
-    int *pfd = ptr;
-
-    if (*pfd != FD_INVALID)
-        close(*pfd);
-    free(pfd);
-}
-
-static void make_key(void)
-{
-    (void) pthread_key_create(&key, pfd_free);
-}
-
 int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
 {
-    int *pfd;
+    int fd;
     int ret = 0;
     int retry = 1;
     struct protocol resp;
@@ -185,24 +168,11 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
-    (void) pthread_once(&key_once, make_key);
-    if ((pfd = pthread_getspecific(key)) == NULL) {
-        pfd = malloc(sizeof(*pfd));
-        if (!pfd)
-            return 0;
-        *pfd = FD_INVALID;
-        (void) pthread_setspecific(key, pfd);
-    }
+    fd = socket_init(r);
 
-    if (*pfd == FD_INVALID) {
-        *pfd = socket_init(r);
-
-        if (*pfd == FD_INVALID) {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Failed to connected to renderer");
-            return 0;
-        } else {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Connected to renderer");
-        }
+    if (fd == FD_INVALID) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Failed to connect to renderer");
+        return 0;
     }
 
     // cmd has already been partial filled, fill in the rest
@@ -211,19 +181,18 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
     do {
-        ret = send(*pfd, cmd, sizeof(struct protocol), 0);
+        ret = send(fd, cmd, sizeof(struct protocol), 0);
 
         if (ret == sizeof(struct protocol))
             break;
 
+        close(fd);
         if (errno != EPIPE)
             return 0;
 
-         close(*pfd);
-         *pfd = socket_init(r);
-         if (*pfd == FD_INVALID)
-             return 0;
-         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Reconnected to renderer");
+        fd = socket_init(r);
+        if (fd == FD_INVALID)
+            return 0;
     } while (retry--);
 
     if (!dirtyOnly) {
@@ -233,21 +202,18 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
 
         while (1) {
             FD_ZERO(&rx);
-            FD_SET(*pfd, &rx);
-            s = select((*pfd)+1, &rx, NULL, NULL, &tv);
+            FD_SET(fd, &rx);
+            s = select(fd+1, &rx, NULL, NULL, &tv);
             if (s == 1) {
                 bzero(&resp, sizeof(struct protocol));
-                ret = recv(*pfd, &resp, sizeof(struct protocol), 0);
+                ret = recv(fd, &resp, sizeof(struct protocol), 0);
                 if (ret != sizeof(struct protocol)) {
-                    if (errno == EPIPE) {
-                        close(*pfd);
-                        *pfd = FD_INVALID;
-                    }
                     //perror("recv error");
                     break;
                 }
 
                 if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
+                    close(fd);
                     if (resp.cmd == cmdDone)
                         return 1;
                     else
@@ -257,17 +223,13 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
                        "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
                        resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
                 }
-            } else if (s == 0) {
-                break;
             } else {
-                if (errno == EPIPE) {
-                    close(*pfd);
-                    *pfd = FD_INVALID;
-                    break;
-                }
+                break;
             }
         }
     }
+
+    close(fd);
     return 0;
 }
 
