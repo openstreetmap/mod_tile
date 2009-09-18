@@ -10,7 +10,7 @@ extern "C" {
 #define HTCP_EXPIRE_CACHE 1
 #define HTCP_EXPIRE_CACHE_PORT "4827"
 
-enum queueEnum {queueRequest, queueDirty, queueRender, queueDuplicate};
+enum queueEnum {queueRequest, queueRequestPrio, queueRequestBulk, queueDirty, queueRender,  queueDuplicate};
 
 struct item {
     struct item *next;
