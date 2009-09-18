@@ -17,14 +17,24 @@ if [ "$1" = "config" ]; then
 	echo 'req.label Request Queue'
 	echo 'req.type GAUGE'
 	echo 'req.max 100'
+	echo 'reqPrio.label Priority request Queue'
+	echo 'reqPrio.type GAUGE'
+	echo 'reqPrio.max 100'
 	echo 'dirty.label Dirty Queue'
 	echo 'dirty.type GAUGE'
 	echo 'dirty.max 1000'
+	echo 'reqBulk.label Bulk request Queue'
+	echo 'reqBulk.type GAUGE'
+	echo 'reqBulk.max 100'
 	exit 0
 fi
 
 reqlength=`sed -e '/^ReqQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqpriolength=`sed -e '/^ReqPrioQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqbulklength=`sed -e '/^ReqBulkQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dirtlength=`sed -e '/^DirtQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 echo "req.value " $reqlength
+echo "reqPrio.value " $reqpriolength
 echo "dirty.value " $dirtlength
+echo "reqBulk.value " $reqbulklength

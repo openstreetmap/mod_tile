@@ -20,11 +20,21 @@ if [ "$1" = "config" ]; then
 	echo 'req.min 0'
 	echo 'req.draw AREA'
 	echo 'req.info Throughput of Metatiles submitted for on the fly rendering'
+	echo 'reqPrio.label Priority request Queue'
+	echo 'reqPrio.type DERIVE'
+	echo 'reqPrio.min 0'
+	echo 'reqPrio.draw STACK'
+	echo 'reqPrio.info Throughput of Metatiles submitted high priority for on the fly rendering'
 	echo 'dirty.label Dirty Queue'
 	echo 'dirty.type DERIVE'
 	echo 'dirty.min 0'
 	echo 'dirty.draw STACK'
 	echo 'dirty.info Throughput of dirty Metatiles submitted for re-render'
+	echo 'reqBulk.label Bulk request Queue'
+	echo 'reqBulk.type DERIVE'
+	echo 'reqBulk.min 0'
+	echo 'reqBulk.draw STACK'
+	echo 'reqBulk.info Throughput of Metatiles submitted with background priority'
 	echo 'dropped.label Dropped (x20)'
 	echo 'dropped.type DERIVE'
 	echo 'dropped.min 0'
@@ -35,11 +45,15 @@ if [ "$1" = "config" ]; then
 fi
 
 reqprocessed=`sed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqprioprocessed=`sed -e '/^ReqPrioRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dirtprocessed=`sed -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqbulkprocessed=`sed -e '/^ReqBulkRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dropped=`sed -e '/^DropedRequest/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 echo "req.value " $reqprocessed
+echo "reqPrio.value " $reqprioprocessed
 echo "dirty.value " $dirtprocessed
+echo "reqBulk.value " $reqbulkprocessed
 echo "dropped.value " $dropped
 
 #  LocalWords:  reqprocessed ReqRendered dirtprocessed DirtyRendered req
