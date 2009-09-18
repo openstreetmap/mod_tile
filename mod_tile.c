@@ -158,7 +158,7 @@ int socket_init(request_rec *r)
     return fd;
 }
 
-int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
+int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 {
     int fd;
     int ret = 0;
@@ -177,7 +177,11 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
 
     // cmd has already been partial filled, fill in the rest
     cmd->ver = PROTO_VER;
-    cmd->cmd = dirtyOnly ? cmdDirty : cmdRender;
+    switch (renderImmediately) {
+    case 0: { cmd->cmd = cmdDirty; break;}
+    case 1: { cmd->cmd = cmdRender; break;}
+    case 2: { cmd->cmd = cmdRenderPrio; break;}
+    }
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
     do {
@@ -195,7 +199,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int dirtyOnly)
             return 0;
     } while (retry--);
 
-    if (!dirtyOnly) {
+    if (renderImmediately) {
         struct timeval tv = {scfg->request_timeout, 0 };
         fd_set rx;
         int s;
@@ -509,7 +513,7 @@ static int tile_handler_dirty(request_rec *r)
     if (cmd == NULL)
         return DECLINED;
 
-    request_tile(r, cmd, 1);
+    request_tile(r, cmd, 0);
     return error_message(r, "Tile submitted for rendering\n");
 }
 
@@ -517,6 +521,7 @@ static int tile_storage_hook(request_rec *r)
 {
 //    char abs_path[PATH_MAX];
     int avg;
+    int renderPrio = 0;
     enum tileState state;
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
@@ -565,7 +570,7 @@ should already be done
         case tileOld:
             if (avg > scfg->max_load_old) {
                // Too much load to render it now, mark dirty but return old tile
-               request_tile(r, cmd, 1);
+               request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_old (%d). Mark dirty and deliver from cache.", scfg->max_load_old);
                if (!incFreshCounter(OLD, r)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -573,10 +578,11 @@ should already be done
                }
                return OK;
             }
+            renderPrio = 1;
             break;
         case tileMissing:
             if (avg > scfg->max_load_missing) {
-               request_tile(r, cmd, 1);
+               request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
                if (!incRespCounter(HTTP_NOT_FOUND, r)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -584,10 +590,11 @@ should already be done
                }
                return HTTP_NOT_FOUND;
             }
+            renderPrio = 2;
             break;
     }
 
-    if (request_tile(r, cmd, 0)) {
+    if (request_tile(r, cmd, renderPrio)) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Update file info abs_path(%s)", r->filename);
         // Need to update fileinfo for new rendered tile
         apr_stat(&r->finfo, r->filename, APR_FINFO_MIN, r->pool);

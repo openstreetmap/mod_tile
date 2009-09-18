@@ -32,6 +32,8 @@ typedef struct {
 typedef struct {
     long noDirtyRender;
     long noReqRender;
+    long noReqPrioRender;
+    long noReqBulkRender;
     long noReqDroped;
 } stats_struct;
 

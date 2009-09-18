@@ -33,9 +33,9 @@ static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
 
-static struct item reqHead, dirtyHead, renderHead;
+static struct item reqHead, reqPrioHead, reqBulkHead, dirtyHead, renderHead;
 static struct item_idx * item_hashidx;
-static int reqNum, dirtyNum;
+static int reqNum, reqPrioNum, reqBulkNum, dirtyNum;
 static pthread_mutex_t qLock;
 static pthread_cond_t qCond;
 
@@ -53,10 +53,14 @@ struct item *fetch_request(void)
 
     pthread_mutex_lock(&qLock);
 
-    while (reqNum == 0 && dirtyNum == 0) {
+    while ((reqNum == 0) && (dirtyNum == 0) && (reqPrioNum == 0) && (reqBulkNum == 0)) {
         pthread_cond_wait(&qCond, &qLock);
     }
-    if (reqNum) {
+    if (reqPrioNum) {
+        item = reqPrioHead.next;
+        reqPrioNum--;
+        stats.noReqPrioRender++;
+    } else if (reqNum) {
         item = reqHead.next;
         reqNum--;
         stats.noReqRender++;
@@ -64,6 +68,10 @@ struct item *fetch_request(void)
         item = dirtyHead.next;
         dirtyNum--;
         stats.noDirtyRender++;
+    } else if (reqBulkNum) {
+        item = reqBulkHead.next;
+        reqNum--;
+        stats.noReqBulkRender++;
     }
     if (item) {
         item->next->prev = item->prev;
@@ -83,38 +91,33 @@ struct item *fetch_request(void)
 
 void clear_requests(int fd)
 {
-    struct item *item, *dupes;
+    struct item *item, *dupes, *queueHead;
 
     /**Only need to look up on the shorter request and render queue
       * so using the linear list shouldn't be a problem
       */
     pthread_mutex_lock(&qLock);
-    item = reqHead.next;
-    while (item != &reqHead) {
-        if (item->fd == fd)
-            item->fd = FD_INVALID;
-
-        dupes = item->duplicates;
-        while (dupes) {
-            if (dupes->fd == fd)
-                dupes->fd = FD_INVALID;
-            dupes = dupes->duplicates;
+    for (int i = 0; i < 4; i++) {
+        switch (i) {
+        case 0: { queueHead = &reqHead; break;}
+        case 1: { queueHead = &renderHead; break;}
+        case 2: { queueHead = &reqPrioHead; break;}
+        case 3: { queueHead = &reqBulkHead; break;}
         }
-        item = item->next;
-    }
 
-    item = renderHead.next;
-    while (item != &renderHead) {
-        if (item->fd == fd)
-            item->fd = FD_INVALID;
+        item = queueHead->next;
+        while (item != queueHead) {
+            if (item->fd == fd)
+                item->fd = FD_INVALID;
 
-        dupes = item->duplicates;
-        while (dupes) {
-            if (dupes->fd == fd)
-                dupes->fd = FD_INVALID;
-            dupes = dupes->duplicates;
+            dupes = item->duplicates;
+            while (dupes) {
+                if (dupes->fd == fd)
+                    dupes->fd = FD_INVALID;
+                dupes = dupes->duplicates;
+            }
+            item = item->next;
         }
-        item = item->next;
     }
 
     pthread_mutex_unlock(&qLock);
@@ -227,6 +230,8 @@ static inline const char *cmdStr(enum protoCmd c)
     switch (c) {
         case cmdIgnore:  return "Ignore";
         case cmdRender:  return "Render";
+        case cmdRenderPrio:  return "RenderPrio";
+        case cmdRenderBulk:  return "RenderBulk";
         case cmdDirty:   return "Dirty";
         case cmdDone:    return "Done";
         case cmdNotDone: return "NotDone";
@@ -248,7 +253,7 @@ void send_response(struct item *item, enum protoCmd rsp)
     while (item) {
         struct item *prev = item;
         req = &item->req;
-        if ((item->fd != FD_INVALID) && (req->cmd == cmdRender)) {
+        if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
             ret = send(item->fd, req, sizeof(*req), 0);
@@ -270,12 +275,12 @@ enum protoCmd pending(struct item *test)
 
     item = lookup_item_idx(test);
     if (item != NULL) {
-        if ((item->inQueue == queueRender) || (item->inQueue == queueRequest)) {
+        if ((item->inQueue == queueRender) || (item->inQueue == queueRequest) || (item->inQueue == queueRequestPrio)) {
             test->duplicates = item->duplicates;
             item->duplicates = test;
             test->inQueue = queueDuplicate;
             return cmdIgnore;
-        } else if (item->inQueue == queueDirty) {
+        } else if ((item->inQueue == queueDirty) || (item->inQueue == queueRequestBulk)){
             return cmdNotDone;
         }
     }
@@ -305,7 +310,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
             cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
 
-    if ((req->cmd != cmdRender) && (req->cmd != cmdDirty))
+    if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk))
         return cmdIgnore;
 
     if (check_xyz(req->x, req->y, req->z))
@@ -319,7 +324,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     item->req = *req;
     item->duplicates = NULL;
-    item->fd = (req->cmd == cmdRender) ? fd : FD_INVALID;
+    item->fd = (req->cmd == cmdDirty) ? FD_INVALID : fd;
 
 #ifdef METATILE
     /* Round down request co-ordinates to the neareast N (should be a power of 2)
@@ -334,14 +339,6 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 #endif
 
     pthread_mutex_lock(&qLock);
-
-    if (dirtyNum == DIRTY_LIMIT) {
-        // The queue is severely backlogged. Drop request
-        stats.noReqDroped++;
-        pthread_mutex_unlock(&qLock);
-        free(item);
-        return cmdNotDone;
-    }
 
     // Check for a matching request in the current rendering or dirty queues
     pend = pending(item);
@@ -362,11 +359,25 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
         list = &reqHead;
         item->inQueue = queueRequest;
         reqNum++;
+    } else if ((req->cmd == cmdRenderPrio) && (reqPrioNum < REQ_LIMIT)) {
+        list = &reqPrioHead;
+        item->inQueue = queueRequestPrio;
+        reqPrioNum++;
+    } else if ((req->cmd == cmdRenderBulk) && (reqBulkNum < REQ_LIMIT)) {
+        list = &reqBulkHead;
+        item->inQueue = queueRequestBulk;
+        reqBulkNum++;
     } else if (dirtyNum < DIRTY_LIMIT) {
         list = &dirtyHead;
         item->inQueue = queueDirty;
         dirtyNum++;
         item->fd = FD_INVALID; // No response after render
+    } else {
+        // The queue is severely backlogged. Drop request
+        stats.noReqDroped++;
+        pthread_mutex_unlock(&qLock);
+        free(item);
+        return cmdNotDone;
     }
 
     if (list) {
@@ -478,6 +489,9 @@ void *stats_writeout_thread(void * arg) {
     stats_struct lStats;
     int dirtQueueLength;
     int reqQueueLength;
+    int reqPrioQueueLength;
+    int reqBulkQueueLength;
+
     int noFailedAttempts = 0;
     char tmpName[PATH_MAX];
 
@@ -489,6 +503,8 @@ void *stats_writeout_thread(void * arg) {
         memcpy(&lStats, &stats, sizeof(stats_struct));
         dirtQueueLength = dirtyNum;
         reqQueueLength = reqNum;
+        reqPrioQueueLength = reqPrioNum;
+        reqBulkQueueLength = reqBulkNum;
         pthread_mutex_unlock(&qLock);
 
         FILE * statfile = fopen(tmpName, "w");
@@ -503,9 +519,13 @@ void *stats_writeout_thread(void * arg) {
         } else {
             noFailedAttempts = 0;
             fprintf(statfile, "ReqQueueLength: %i\n", reqQueueLength);
+            fprintf(statfile, "ReqPrioQueueLength: %i\n", reqPrioQueueLength);
+            fprintf(statfile, "ReqBulkQueueLength: %i\n", reqBulkQueueLength);
             fprintf(statfile, "DirtQueueLength: %i\n", dirtQueueLength);
             fprintf(statfile, "DropedRequest: %li\n", lStats.noReqDroped);
             fprintf(statfile, "ReqRendered: %li\n", lStats.noReqRender);
+            fprintf(statfile, "ReqPrioRendered: %li\n", lStats.noReqPrioRender);
+            fprintf(statfile, "ReqBulkRendered: %li\n", lStats.noReqBulkRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
             fclose(statfile);
             if (rename(tmpName, config.stats_filename)) {
@@ -846,6 +866,8 @@ int main(int argc, char **argv)
     pthread_mutex_init(&qLock, NULL);
     pthread_cond_init(&qCond, NULL);
     reqHead.next = reqHead.prev = &reqHead;
+    reqPrioHead.next = reqPrioHead.prev = &reqPrioHead;
+    reqBulkHead.next = reqBulkHead.prev = &reqBulkHead;
     dirtyHead.next = dirtyHead.prev = &dirtyHead;
     renderHead.next = renderHead.prev = &renderHead;
     hashidxSize = HASHIDX_SIZE;
@@ -855,6 +877,8 @@ int main(int argc, char **argv)
     stats.noDirtyRender = 0;
     stats.noReqDroped = 0;
     stats.noReqRender = 0;
+    stats.noReqPrioRender = 0;
+    stats.noReqBulkRender = 0;
 
     xmlconfigitem maps[XMLCONFIGS_MAX];
     bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
@@ -963,7 +987,7 @@ int main(int argc, char **argv)
                         "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
                 config.mapnik_font_dir = iniparser_getstring(ini,
                         "mapnik:font_dir", (char *) FONT_DIR);
-                config.mapnik_font_dir_recurse = iniparser_getboolean(ini, 
+                config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
                         "mapnik:font_dir_recurse", FONT_RECURSE);
             } else {
                 noSlaveRenders += config_slaves[render_sec].num_threads;
