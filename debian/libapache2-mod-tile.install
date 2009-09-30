@@ -1,3 +1,3 @@
 .libs/mod_tile.so /usr/lib/apache2/modules
-debian/libapache2-mod-tile.load /etc/apache2/mods-available/tile.load
+debian/tile.load /etc/apache2/mods-available
 readme.txt /usr/share/doc/libapache2-mod-tile
