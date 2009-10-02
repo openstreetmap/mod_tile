@@ -70,7 +70,7 @@ struct item *fetch_request(void)
         stats.noDirtyRender++;
     } else if (reqBulkNum) {
         item = reqBulkHead.next;
-        reqNum--;
+        reqBulkNum--;
         stats.noReqBulkRender++;
     }
     if (item) {
