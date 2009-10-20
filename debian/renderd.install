@@ -6,3 +6,4 @@ renderd /usr/bin
 speedtest /usr/bin
 update /usr/bin
 render_list /usr/bin
+munin/renderd* /usr/share/munin/plugins

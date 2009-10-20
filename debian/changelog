@@ -1,3 +1,9 @@
+libapache2-mod-tile (0.2) jaunty; urgency=low
+
+  * now also installs munin stuff 
+
+ -- Frederik Ramm <fred@lambert>  Tue, 20 Oct 2009 19:52:04 +0200
+
 libapache2-mod-tile (0.1) unstable; urgency=low
 
   * Initial Debian packaging for mod_tile and renderd

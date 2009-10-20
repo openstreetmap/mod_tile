@@ -1,3 +1,4 @@
 .libs/mod_tile.so /usr/lib/apache2/modules
 debian/tile.load /etc/apache2/mods-available
 readme.txt /usr/share/doc/libapache2-mod-tile
+munin/mod_tile* /usr/share/munin/plugins

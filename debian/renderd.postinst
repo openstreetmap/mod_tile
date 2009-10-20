@@ -5,3 +5,15 @@ chown www-data:www-data /var/lib/mod_tile
 
 update-rc.d renderd defaults
 
+# automatically install munin plugins if munin is present.
+if [ -d /etc/munin/plugins ]
+then
+    cd /etc/munin/plugins
+    for i in /usr/share/munin/plugins/renderd_*
+    do
+        if [ ! -h `basename $i` ]
+        then
+            ln -s $i .
+        fi
+    done
+fi
