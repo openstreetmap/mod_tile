@@ -978,8 +978,16 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     tile_config_rec *tilecfg = apr_array_push(scfg->configs);
 
-    strncpy(tilecfg->baseuri, baseuri, PATH_MAX-1);
-    tilecfg->baseuri[PATH_MAX-1] = 0;
+    // Ensure URI string ends with a trailing slash
+    int urilen = strlen(baseuri);
+
+    if (urilen==0)
+      snprintf(tilecfg->baseuri, PATH_MAX, "/");
+    else if (baseuri[urilen-1] != '/')
+      snprintf(tilecfg->baseuri, PATH_MAX, "%s/", baseuri);
+    else
+      snprintf(tilecfg->baseuri, PATH_MAX, "%s", baseuri);
+
     strncpy(tilecfg->xmlname, name, XMLCONFIG_MAX-1);
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
