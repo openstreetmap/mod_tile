@@ -43,7 +43,8 @@ renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h di
 
 speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
 
-render_list: render_config.h protocol.h dir_utils.c dir_utils.h
+render_list: render_config.h protocol.h dir_utils.c dir_utils.h render_list.c
+	$(CC) $(EXTRA_CPPFLAGS) -o $@ $^ -lpthread
 
 render_old: render_config.h protocol.h dir_utils.c dir_utils.h render_old.c
 	$(CC) $(EXTRA_CPPFLAGS) -o $@ $^ -lpthread
