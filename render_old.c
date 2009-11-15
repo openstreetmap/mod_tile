@@ -117,7 +117,7 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     bzero(&cmd, sizeof(cmd));
 
     cmd.ver = 2;
-    cmd.cmd = cmdRender;
+    cmd.cmd = cmdRenderBulk;
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
