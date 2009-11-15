@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -451,6 +449,8 @@ int main(int argc, char **argv)
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_old [OPTION] ...\n");
                 fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
+                fprintf(stderr, "  -n, --num-threads=N  the number of parallel request threads (default 1)\n");
+                fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
                 fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default 18)\n");
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
