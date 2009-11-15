@@ -530,16 +530,17 @@ static int tile_storage_hook(request_rec *r)
     if (!r->handler)
         return DECLINED;
 
-    // Any status request is OK
-    if (!strcmp(r->handler, "tile_status"))
+    // Any status request is OK. tile_dirty also doesn't need to be handled, as tile_handler_dirty will take care of it
+    if (!strcmp(r->handler, "tile_status") || !strcmp(r->handler, "tile_dirty") || !strcmp(r->handler, "tile_mod_stats"))
         return OK;
 
-    if (strcmp(r->handler, "tile_serve") && strcmp(r->handler, "tile_dirty"))
+    if (strcmp(r->handler, "tile_serve"))
         return DECLINED;
 
     struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
     if (cmd == NULL)
         return DECLINED;
+
 /*
 should already be done
     // Generate the tile filename
