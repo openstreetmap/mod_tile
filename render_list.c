@@ -490,7 +490,7 @@ int main(int argc, char **argv)
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
                     check_load();
-                    xyz_to_path(name, sizeof(name), tile_dir, mapname, x, y, z);
+                    xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
                     enqueue(name);
                     //process_loop(fd, mapname, x, y, z);
                     num_all++;
@@ -522,7 +522,7 @@ int main(int argc, char **argv)
             check_load();
 
             num_all++;
-            xyz_to_path(name, sizeof(name), tile_dir, mapname, x, y, z);
+            xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
 
             if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
                 // missing or old, render it
