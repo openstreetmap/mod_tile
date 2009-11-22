@@ -248,8 +248,7 @@ void enqueue(const char *path)
     else
         qHead = e;
     qTail = e;
-    if (qLen == 0)
-        pthread_cond_signal(&qCondNotEmpty);
+    pthread_cond_signal(&qCondNotEmpty);
     qLen++;
 
     pthread_mutex_unlock(&qLock);
