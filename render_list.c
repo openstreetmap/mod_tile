@@ -337,6 +337,7 @@ int main(int argc, char **argv)
     int c;
     int all=0;
     int numThreads = 1;
+    int force=0;
 
     while (1) {
         int option_index = 0;
@@ -352,6 +353,7 @@ int main(int argc, char **argv)
             {"tile-dir", 1, 0, 't'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
+            {"force", 0, 0, 'f'},
             {"all", 0, 0, 'a'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
@@ -407,12 +409,16 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
+            case 'f':   /* -f, --force */
+                force=1;
+                break;
             case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_list [OPTION] ...\n");
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
+                fprintf(stderr, "  -f, --force          render tiles even if they seem current\n");
                 fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
@@ -523,7 +529,7 @@ int main(int argc, char **argv)
             num_all++;
             xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
 
-            if ((stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
+            if (force || (stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
                 // missing or old, render it
                 //ret = process_loop(fd, mapname, x, y, z);
                 enqueue(name);
