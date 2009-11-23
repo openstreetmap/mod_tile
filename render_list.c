@@ -33,6 +33,7 @@ int main(int argc, char **argv)
 static int minZoom = 0;
 static int maxZoom = 18;
 static int verbose = 0;
+static int maxLoad = MAX_LOAD_OLD;
 
 int work_complete;
 
@@ -153,7 +154,7 @@ static void check_load(void)
 {
     int avg = get_load_avg();
 
-    while (avg >= MAX_LOAD_OLD) {
+    while (avg >= maxLoad) {
         printf("Load average %d, sleeping\n", avg);
         sleep(5);
         avg = get_load_avg();
@@ -350,6 +351,7 @@ int main(int argc, char **argv)
             {"max-y", 1, 0, 'Y'},
             {"socket", 1, 0, 's'},
             {"num-threads", 1, 0, 'n'},
+            {"max-load", 1, 0, 'l'},
             {"tile-dir", 1, 0, 't'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
@@ -375,6 +377,9 @@ int main(int argc, char **argv)
                 break;
             case 'm':   /* -m, --map */
                 mapname=strdup(optarg);
+                break;
+            case 'l':   /* -l, --max-load */
+                maxLoad = atoi(optarg);
                 break;
             case 'n':   /* -n, --num-threads */
                 numThreads=atoi(optarg);
@@ -420,6 +425,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
                 fprintf(stderr, "  -f, --force          render tiles even if they seem current\n");
                 fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+                fprintf(stderr, "  -l, --max-load=LOAD  sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
