@@ -1,1 +1,3 @@
 /etc/renderd.conf
+/etc/munin/plugins/renderd_queue
+/etc/munin/plugins/renderd_processed
