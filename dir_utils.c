@@ -103,6 +103,7 @@ int check_xyz(int x, int y, int z)
 
 int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
 {
+#ifdef DIRECTORY_HASH
     int i, n, hash[5], x, y, z;
 
     n = sscanf(path, HASH_PATH "/%40[^/]/%d/%d/%d/%d/%d/%d", xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
@@ -126,6 +127,16 @@ int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
         *py = y;
         return check_xyz(x, y, z);
     }
+#else
+    int n;
+    n = sscanf(path, TILE_PATH "/%40[^/]/%d/%d/%d", xmlconfig, pz, px, py);
+    if (n != 4) {
+        fprintf(stderr, "Failed to parse tile path: %s\n", path);
+        return 1;
+    } else {
+        return check_xyz(*px, *py, *pz);
+    }
+#endif
 }
 
 #ifdef METATILE
@@ -146,7 +157,11 @@ int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlcon
         x >>= 4;
         y >>= 4;
     }
+#ifdef DIRECTORY_HASH
     snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.meta", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+#else
+    snprintf(path, len, "%s/%s/%d/%u/%u.meta", tile_dir, xmlconfig, z, x, y);
+#endif
     return offset;
 }
 #endif
