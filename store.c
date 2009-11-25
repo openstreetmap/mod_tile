@@ -197,6 +197,10 @@ void process_meta(const char *xmlconfig, int x, int y, int z)
     m->z = z;
 
     xyz_to_meta(meta_path, sizeof(meta_path), HASH_PATH, xmlconfig, x, y, z);
+    if (mkdirp(meta_path)) {
+        fprintf(stderr, "Error creating directories for: %s\n", meta_path);
+        return;
+    }
     snprintf(tmp, sizeof(tmp), "%s.tmp.%d", meta_path, getpid());
 
     fd = open(tmp, O_WRONLY | O_TRUNC | O_CREAT, 0666);
