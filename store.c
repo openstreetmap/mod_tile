@@ -270,6 +270,10 @@ static void write_tile(const char *xmlconfig, int x, int y, int z, const unsigne
     size_t pos;
 
     xyz_to_path(path, sizeof(path), HASH_PATH, xmlconfig, x, y, z);
+    if (mkdirp(path)) {
+        fprintf(stderr, "Error creating directories for: %s\n", path);
+        return;
+    }
     fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
     if (fd < 0) {
         fprintf(stderr, "Error creating file: %s\n", path);
