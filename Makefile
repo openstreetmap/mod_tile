@@ -18,7 +18,7 @@ EXTRA_CFLAGS = -I$(builddir)
 
 EXTRA_CPPFLAGS += -g -O2 -Wall
 
-all: local-shared-build renderd speedtest render_list render_old convert_meta
+all: local-shared-build renderd speedtest render_list render_old convert_meta render_expired
 
 install: ${DESTDIR}/etc/renderd.conf
 
@@ -28,7 +28,7 @@ ${DESTDIR}/etc/renderd.conf:
 
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
-	rm -f renderd render_list speedtest render_old convert_meta
+	rm -f renderd render_expired render_list speedtest render_old convert_meta
 	make -C iniparser3.0b veryclean
 
 RENDER_CPPFLAGS += -g -O2 -Wall
@@ -44,6 +44,9 @@ renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h di
 speedtest: render_config.h protocol.h dir_utils.c dir_utils.h
 
 render_list: render_config.h protocol.h dir_utils.c dir_utils.h render_list.c
+	$(CC) $(EXTRA_CPPFLAGS) -o $@ $^ -lpthread
+
+render_expired: render_config.h protocol.h dir_utils.c dir_utils.h render_expired.c
 	$(CC) $(EXTRA_CPPFLAGS) -o $@ $^ -lpthread
 
 render_old: render_config.h protocol.h dir_utils.c dir_utils.h render_old.c
