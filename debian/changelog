@@ -1,3 +1,11 @@
+libapache2-mod-tile (0.3) jaunty; urgency=low
+
+  * new version of render_list with proper multithreading
+  * bugfixes
+  * new render_expired
+
+ -- Frederik Ramm <fred@lambert>  Tue, 24 Nov 2009 00:09:17 +0100
+
 libapache2-mod-tile (0.2) jaunty; urgency=low
 
   * now also installs munin stuff 

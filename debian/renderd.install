@@ -1,6 +1,8 @@
 readme.txt /usr/share/doc/renderd
 debian/renderd.conf /etc
 render_all /usr/bin
+render_old /usr/bin
+render_expired /usr/bin
 convert_meta /usr/bin
 renderd /usr/bin
 speedtest /usr/bin
