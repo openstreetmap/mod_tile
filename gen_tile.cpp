@@ -1,3 +1,4 @@
+#include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
@@ -28,7 +29,11 @@
 #include <netdb.h>
 #endif
 
-
+#if MAPNIK_VERSION >= 800
+#define Image32 image_32
+#define ImageData32 image_data_32
+#define Envelope box2d
+#endif
 
 using namespace mapnik;
 #define DEG_TO_RAD (M_PI/180)
