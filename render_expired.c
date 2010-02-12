@@ -43,6 +43,7 @@
 #include <sys/un.h>
 #include <getopt.h>
 #include <time.h>
+#include <utime.h>
 #include <string.h>
 #include <limits.h>
 
@@ -329,7 +330,8 @@ int main(int argc, char **argv)
     int c;
     int all=0;
     int numThreads = 1;
-    int deleteFrom = 17;
+    int deleteFrom = 19;
+    int touchFrom = 19;
     int i;
 
     // excess_zoomlevels is how many zoom levels at the large end
@@ -366,6 +368,7 @@ int main(int argc, char **argv)
             {"socket", 1, 0, 's'},
             {"num-threads", 1, 0, 'n'},
             {"delete-from", 1, 0, 'd'},
+	    {"touch-from", 1, 0, 'T'},
             {"tile-dir", 1, 0, 't'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
@@ -406,6 +409,14 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
+             case 'T':   /* -T, --touch-from */
+                touchFrom=atoi(optarg);
+                if (touchFrom < 0 || touchFrom > 18) 
+                {
+                    fprintf(stderr, "Invalid 'touch-from' zoom, must be between 0 and 18\n");
+                    return 1;
+                }
+                break;
             case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
                 if (minZoom < 0 || minZoom > 18) {
@@ -431,7 +442,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
                 fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is 18)\n");
-                fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is 17)\n");
+                fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is 19)\n");
+		fprintf(stderr, "  -T, --touch-from=ZOOM  when expiring tiles of ZOOM or higher, touch them to mark as dirty (default is 19)\n");
                 fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
                 fprintf(stderr, "  z/x/y\n");
                 fprintf(stderr, "e.g.\n");
@@ -522,7 +534,19 @@ int main(int argc, char **argv)
                     unlink(name);
                     num_unlink++;
                 }
-                else
+                else if (z >= touchFrom)
+		{
+		  printf("touching timestamp: %s\n", name);
+		  struct tm tstampinfo;
+                  struct utimbuf accesstime;
+                  tstampinfo.tm_year = 2004 - 1900; tstampinfo.tm_mon = 8 - 1; tstampinfo.tm_mday = 9;
+		  tstampinfo.tm_hour = 18; tstampinfo.tm_min = 47; tstampinfo.tm_sec = 25; tstampinfo.tm_isdst = 1;
+                  time_t tstamp = mktime(&tstampinfo);
+		  accesstime.actime = tstamp;
+                  accesstime.modtime = tstamp;
+                  utime(name,&accesstime);
+		}
+		else
                 {
                     printf("render: %s\n", name);
                     enqueue(name);
