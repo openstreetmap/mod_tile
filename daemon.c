@@ -17,10 +17,10 @@
 #include <syslog.h>
 #include <getopt.h>
 
+#include "render_config.h"
 #include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
-#include "render_config.h"
 #include "dir_utils.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
@@ -83,6 +83,10 @@ struct item *fetch_request(void)
         renderHead.next = item;
         item->inQueue = queueRender;
     }
+
+	if ((item->req.z >= 0) && ( item->req.z <= MAX_ZOOM)) {
+		stats.noZoomRender[item->req.z]++;
+	}
 
     pthread_mutex_unlock(&qLock);
 
@@ -491,6 +495,7 @@ void *stats_writeout_thread(void * arg) {
     int reqQueueLength;
     int reqPrioQueueLength;
     int reqBulkQueueLength;
+	int i;
 
     int noFailedAttempts = 0;
     char tmpName[PATH_MAX];
@@ -527,6 +532,9 @@ void *stats_writeout_thread(void * arg) {
             fprintf(statfile, "ReqPrioRendered: %li\n", lStats.noReqPrioRender);
             fprintf(statfile, "ReqBulkRendered: %li\n", lStats.noReqBulkRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
+			for (i = 0; i <= MAX_ZOOM; i++) {
+				fprintf(statfile,"ZoomRendered%02i: %li\n", i, lStats.noZoomRender[i]);
+			}
             fclose(statfile);
             if (rename(tmpName, config.stats_filename)) {
                 syslog(LOG_WARNING, "Failed to overwrite stats file: %i", errno);

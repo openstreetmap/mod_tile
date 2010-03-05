@@ -1,0 +1,72 @@
+#!/bin/sh
+#
+# Plugin to monitor the rendering throughput of Renderd
+#
+# Parameters: 
+#
+# 	config   (required)
+# 	autoconf (optional - used by munin-config)
+#
+
+if [ "$1" = "config" ]; then
+
+	echo 'graph_title Renderd throughput by zoom'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel Metatiles per ${graph_period}'
+	echo 'graph_category renderd'
+	echo 'graph_info Displays the number of metatiles being rendered by renderd per ${graph_period}'
+	echo '1.label zoom z0 - z8'
+	echo '1.type DERIVE'
+	echo '1.min 0'
+	echo '1.draw AREA'
+	echo '1.info Throughput of Metatiles for z0 - z8'
+	echo '2.label zoom z9 - z12'
+	echo '2.type DERIVE'
+	echo '2.min 0'
+	echo '2.draw AREA'
+	echo '2.info Throughput of Metatiles for z9 - z12'
+	echo '3.label zoom z13 - z14'
+	echo '3.type DERIVE'
+	echo '3.min 0'
+	echo '3.draw AREA'
+	echo '3.info Throughput of Metatiles for z13 - z14'
+	echo '4.label zoom z15 - z16'
+	echo '4.type DERIVE'
+	echo '4.min 0'
+	echo '4.draw AREA'
+	echo '4.info Throughput of Metatiles for z15 - z16'
+	echo '5.label zoom z17 - z18'
+	echo '5.type DERIVE'
+	echo '5.min 0'
+	echo '5.draw AREA'
+	echo '5.info Throughput of Metatiles for z17 - z18'
+
+	exit 0
+fi
+
+req0=`sed -e '/^ZoomRendered00/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req1=`sed -e '/^ZoomRendered01/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req2=`sed -e '/^ZoomRendered02/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req3=`sed -e '/^ZoomRendered03/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req4=`sed -e '/^ZoomRendered04/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req5=`sed -e '/^ZoomRendered05/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req6=`sed -e '/^ZoomRendered06/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req7=`sed -e '/^ZoomRendered07/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req8=`sed -e '/^ZoomRendered08/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req9=`sed -e '/^ZoomRendered09/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req10=`sed -e '/^ZoomRendered10/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req11=`sed -e '/^ZoomRendered11/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req12=`sed -e '/^ZoomRendered12/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req13=`sed -e '/^ZoomRendered13/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req14=`sed -e '/^ZoomRendered14/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req15=`sed -e '/^ZoomRendered15/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req16=`sed -e '/^ZoomRendered16/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req17=`sed -e '/^ZoomRendered17/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req18=`sed -e '/^ZoomRendered18/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+
+
+echo "1.value " `expr $req0 + $req1 + + $req2 + $req3 + $req4 + $req5 + $req6 + $req7 + $req8`
+echo "2.value " `expr $req9 + $req10 + + $req11 + $req12`
+echo "3.value " `expr $req13 + $req14`
+echo "4.value " `expr $req15 + $req16`
+echo "5.value " `expr $req17 + $req18`

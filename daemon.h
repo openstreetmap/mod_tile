@@ -35,6 +35,7 @@ typedef struct {
     long noReqPrioRender;
     long noReqBulkRender;
     long noReqDroped;
+	long noZoomRender[MAX_ZOOM + 1];
 } stats_struct;
 
 #endif
