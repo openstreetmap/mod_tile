@@ -18,9 +18,9 @@
 #include <pthread.h>
 
 #include "gen_tile.h"
+#include "render_config.h"
 #include "daemon.h"
 #include "protocol.h"
-#include "render_config.h"
 #include "dir_utils.h"
 #include "store.h"
 

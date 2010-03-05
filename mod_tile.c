@@ -63,6 +63,7 @@ typedef struct stats_data {
     apr_uint64_t noFreshRender;
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
+	apr_uint64_t noRespZoom[MAX_ZOOM + 1];
 } stats_data;
 
 typedef struct {
@@ -410,7 +411,7 @@ static int get_global_lock(request_rec *r) {
     return 0;
 }
 
-static int incRespCounter(int resp, request_rec *r) {
+static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
     stats_data *stats;
 
     ap_conf_vector_t *sconf = r->server->module_config;
@@ -430,10 +431,16 @@ static int incRespCounter(int resp, request_rec *r) {
         switch (resp) {
         case OK: {
             stats->noResp200++;
+			if (cmd != NULL) {
+				stats->noRespZoom[cmd->z]++;
+			}
             break;
         }
         case HTTP_NOT_MODIFIED: {
             stats->noResp304++;
+			if (cmd != NULL) {
+				stats->noRespZoom[cmd->z]++;
+			}
             break;
         }
         case HTTP_NOT_FOUND: {
@@ -585,7 +592,7 @@ should already be done
             if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
-               if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+               if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
                }
@@ -613,7 +620,7 @@ should already be done
         }
         return OK;
     }
-    if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
     }
@@ -647,6 +654,7 @@ static int tile_handler_mod_stats(request_rec *r)
 {
     stats_data * stats;
     stats_data local_stats;
+	int i;
 
     if (strcmp(r->handler, "tile_mod_stats"))
         return DECLINED;
@@ -678,6 +686,10 @@ static int tile_handler_mod_stats(request_rec *r)
     ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
     ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
     ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
+	for (i = 0; i <= MAX_ZOOM; i++) {
+		ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
+	}
+
 
 
     return OK;
@@ -696,7 +708,7 @@ static int tile_handler_serve(request_rec *r)
     struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
     if (cmd == NULL){
         sleep(CLIENT_PENALTY);
-        if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+        if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase response stats counter");
         }
@@ -708,7 +720,7 @@ static int tile_handler_serve(request_rec *r)
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
     if (!buf) {
-        if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r)) {
+        if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase response stats counter");
         }
@@ -735,7 +747,7 @@ static int tile_handler_serve(request_rec *r)
         add_expiry(r, cmd);
         if ((errstatus = ap_meets_conditions(r)) != OK) {
             free(buf);
-            if (!incRespCounter(errstatus, r)) {
+            if (!incRespCounter(errstatus, r, cmd)) {
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
             }
@@ -743,7 +755,7 @@ static int tile_handler_serve(request_rec *r)
         } else {
             ap_rwrite(buf, len, r);
             free(buf);
-            if (!incRespCounter(errstatus, r)) {
+            if (!incRespCounter(errstatus, r, cmd)) {
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
             }
@@ -752,7 +764,7 @@ static int tile_handler_serve(request_rec *r)
     }
     free(buf);
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "len = %d", len);
-    if (!incRespCounter(HTTP_NOT_FOUND, r)) {
+    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
     }
@@ -852,6 +864,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     const char *userdata_key = "mod_tile_init_module";
     apr_status_t rs;
     stats_data *stats;
+	int i;
 
 
     /*
@@ -893,6 +906,9 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noResp304 = 0;
     stats->noResp404 = 0;
     stats->noResp5XX = 0;
+	for (i = 0; i <= MAX_ZOOM; i++) {
+		stats->noRespZoom[i] = 0;
+	}
     stats->noRespOther = 0;
     stats->noFreshCache = 0;
     stats->noFreshRender = 0;
