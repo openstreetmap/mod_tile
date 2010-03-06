@@ -88,6 +88,8 @@ typedef struct {
     double cache_duration_last_modified_factor;
     char renderd_socket_name[PATH_MAX];
     char tile_dir[PATH_MAX];
+	char cache_extended_hostname[PATH_MAX];
+    int  cache_extended_duration;
     int mincachetime[MAX_ZOOM + 1];
     int enableGlobalStats;
 } tile_server_conf;
@@ -330,37 +332,51 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
                   r->handler, r->uri, r->filename, r->path_info);
 
-    /* Test if the tile we are serving is out of date, then set a low maxAge*/
-    if (state == tileOld) {
-        holdoff = (scfg->cache_duration_dirty /2) * (rand() / (RAND_MAX + 1.0));
-        maxAge = scfg->cache_duration_dirty + holdoff;
+    /* If the hostname matches the "extended caching hostname" then set the cache age accordingly */
+    if ((scfg->cache_extended_hostname[0] != 0) && (strstr(r->hostname,
+            scfg->cache_extended_hostname) != NULL)) {
+        maxAge = scfg->cache_extended_duration;
     } else {
-        // cache heuristic based on zoom level
-        if (cmd->z > MAX_ZOOM) {
-            minCache = 0;
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
-                                    "z (%i) is larger than MAXZOOM %i\n",
-                                    cmd->z, MAX_ZOOM);
+
+        /* Test if the tile we are serving is out of date, then set a low maxAge*/
+        if (state == tileOld) {
+            holdoff = (scfg->cache_duration_dirty / 2) * (rand() / (RAND_MAX
+                    + 1.0));
+            maxAge = scfg->cache_duration_dirty + holdoff;
         } else {
-            minCache = scfg->mincachetime[cmd->z];
+            // cache heuristic based on zoom level
+            if (cmd->z > MAX_ZOOM) {
+                minCache = 0;
+                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                        "z (%i) is larger than MAXZOOM %i\n", cmd->z, MAX_ZOOM);
+            } else {
+                minCache = scfg->mincachetime[cmd->z];
+            }
+            // Time to the next known complete rerender
+            planetTimestamp = apr_time_sec(getPlanetTime(r)
+                    + apr_time_from_sec(PLANET_INTERVAL) - r->request_time);
+            // Time since the last render of this tile
+            lastModified = (int) (((double) apr_time_sec(r->request_time
+                    - finfo->mtime))
+                    * scfg->cache_duration_last_modified_factor);
+            // Add a random jitter of 3 hours to space out cache expiry
+            holdoff = (3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
+
+            maxAge = MAX(minCache, planetTimestamp);
+            maxAge = MAX(maxAge, lastModified);
+            maxAge += holdoff;
+
+            ap_log_rerror(
+                    APLOG_MARK,
+                    APLOG_DEBUG,
+                    0,
+                    r,
+                    "caching heuristics: next planet render %ld; zoom level based %ld; last modified %ld\n",
+                    planetTimestamp, minCache, lastModified);
         }
-        // Time to the next known complete rerender
-        planetTimestamp = apr_time_sec(getPlanetTime(r) + apr_time_from_sec(PLANET_INTERVAL) - r->request_time) ;
-        // Time since the last render of this tile
-        lastModified = (int)(((double)apr_time_sec(r->request_time - finfo->mtime)) * scfg->cache_duration_last_modified_factor);
-        // Add a random jitter of 3 hours to space out cache expiry
-        holdoff = (3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
 
-        maxAge = MAX(minCache, planetTimestamp);
-        maxAge = MAX(maxAge,lastModified);
-        maxAge += holdoff;
-
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                        "caching heuristics: next planet render %ld; zoom level based %ld; last modified %ld\n",
-                        planetTimestamp, minCache, lastModified);
+        maxAge = MIN(maxAge, scfg->cache_duration_max);
     }
-
-    maxAge = MIN(maxAge, scfg->cache_duration_max);
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Setting tiles maxAge to %ld\n", maxAge);
 
@@ -1119,6 +1135,27 @@ static const char *mod_tile_tile_dir_config(cmd_parms *cmd, void *mconfig, const
     return NULL;
 }
 
+static const char *mod_tile_cache_extended_host_name_config(cmd_parms *cmd, void *mconfig, const char *cache_extended_hostname)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    strncpy(scfg->cache_extended_hostname, cache_extended_hostname, PATH_MAX-1);
+    scfg->cache_extended_hostname[PATH_MAX-1] = 0;
+
+    return NULL;
+}
+
+static const char *mod_tile_cache_extended_duration_config(cmd_parms *cmd, void *mconfig, const char *cache_duration_string)
+{
+    int cache_duration;
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    if (sscanf(cache_duration_string, "%d", &cache_duration) != 1) {
+            return "ModTileCacheExtendedDuration needs integer argument";
+    }
+    scfg->cache_extended_duration = cache_duration;
+
+    return NULL;
+}
+
 static const char *mod_tile_cache_lastmod_factor_config(cmd_parms *cmd, void *mconfig, const char *modified_factor_string)
 {
     float modified_factor;
@@ -1219,6 +1256,8 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     strncpy(scfg->tile_dir, HASH_PATH, PATH_MAX-1);
     scfg->tile_dir[PATH_MAX-1] = 0;
+	memset(&(scfg->cache_extended_hostname),0,PATH_MAX);
+	scfg->cache_extended_duration = 0;
     scfg->cache_duration_dirty = 15*60;
     scfg->cache_duration_last_modified_factor = 0.0;
     scfg->cache_duration_max = 7*24*60*60;
@@ -1247,6 +1286,9 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     strncpy(scfg->tile_dir, scfg_over->tile_dir, PATH_MAX-1);
     scfg->tile_dir[PATH_MAX-1] = 0;
+    strncpy(scfg->cache_extended_hostname, scfg_over->cache_extended_hostname, PATH_MAX-1);
+    scfg->cache_extended_hostname[PATH_MAX-1] = 0;
+    scfg->cache_extended_duration = scfg_over->cache_extended_duration;
     scfg->cache_duration_dirty = scfg_over->cache_duration_dirty;
     scfg->cache_duration_last_modified_factor = scfg_over->cache_duration_last_modified_factor;
     scfg->cache_duration_max = scfg_over->cache_duration_max;
@@ -1321,6 +1363,20 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set name of tile cache directory"  /* directive description */
+    ),
+	AP_INIT_TAKE1(
+        "ModTileCacheExtendedHostName",                /* directive name */
+        mod_tile_cache_extended_host_name_config,        /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "set hostname for extended period caching"  /* directive description */
+    ),
+	AP_INIT_TAKE1(
+        "ModTileCacheExtendedDuration",                /* directive name */
+        mod_tile_cache_extended_duration_config,        /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "set length of extended period caching"  /* directive description */
     ),
     AP_INIT_TAKE1(
         "ModTileCacheDurationMax",                /* directive name */
