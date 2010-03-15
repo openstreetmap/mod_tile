@@ -7,7 +7,7 @@ Standards-Version: 3.8.0
 
 Package: libapache2-mod-tile
 Architecture: any
-Depends: ${misc:Depends}, renderd, apache2.2-common, apache2-mpm-prefork | apache2-mpm-worker
+Depends: ${misc:Depends}, renderd | tirex-master, apache2.2-common, apache2-mpm-prefork | apache2-mpm-worker
 Suggests: renderd
 Description: Apache module to deliver tiles created by renderd
  This Apache module receives map tiles requests and satisfies them from
