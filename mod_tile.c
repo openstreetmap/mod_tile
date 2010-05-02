@@ -76,6 +76,7 @@ typedef struct {
 typedef struct {
     apr_array_header_t *configs;
     int request_timeout;
+	int request_timeout_priority;
     int max_load_old;
     int max_load_missing;
     int cache_duration_dirty;
@@ -203,7 +204,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
     } while (retry--);
 
     if (renderImmediately) {
-        struct timeval tv = {scfg->request_timeout, 0 };
+        struct timeval tv = {(renderImmediately > 1?scfg->request_timeout_priority:scfg->request_timeout), 0 };
         fd_set rx;
         int s;
 
@@ -1093,6 +1094,19 @@ static const char *mod_tile_request_timeout_config(cmd_parms *cmd, void *mconfig
     return NULL;
 }
 
+static const char *mod_tile_request_timeout_missing_config(cmd_parms *cmd, void *mconfig, const char *request_timeout_string)
+{
+    int request_timeout;
+
+    if (sscanf(request_timeout_string, "%d", &request_timeout) != 1) {
+        return "ModTilePriorityRequestTimeout needs integer argument";
+    }
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->request_timeout_priority = request_timeout;
+    return NULL;
+}
+
 static const char *mod_tile_max_load_old_config(cmd_parms *cmd, void *mconfig, const char *max_load_old_string)
 {
     int max_load_old;
@@ -1250,6 +1264,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 
     scfg->configs = apr_array_make(p, 4, sizeof(tile_config_rec));
     scfg->request_timeout = REQUEST_TIMEOUT;
+    scfg->request_timeout_priority = REQUEST_TIMEOUT;
     scfg->max_load_old = MAX_LOAD_OLD;
     scfg->max_load_missing = MAX_LOAD_MISSING;
     strncpy(scfg->renderd_socket_name, RENDER_SOCKET, PATH_MAX-1);
@@ -1280,6 +1295,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 
     scfg->configs = apr_array_append(p, scfg_base->configs, scfg_over->configs);
     scfg->request_timeout = scfg_over->request_timeout;
+	scfg->request_timeout_priority = scfg_over->request_timeout_priority;
     scfg->max_load_old = scfg_over->max_load_old;
     scfg->max_load_missing = scfg_over->max_load_missing;
     strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
@@ -1335,6 +1351,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set timeout in seconds on mod_tile requests"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileMissingRequestTimeout",         /* directive name */
+        mod_tile_request_timeout_missing_config, /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set timeout in seconds on missing mod_tile requests"  /* directive description */
     ),
     AP_INIT_TAKE1(
         "ModTileMaxLoadOld",             /* directive name */
