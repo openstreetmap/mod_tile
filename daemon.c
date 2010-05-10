@@ -981,7 +981,7 @@ int main(int argc, char **argv)
                     buffer, (char *) HASH_PATH);
             sprintf(buffer, "%s:stats_file", name);
             config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
-                    buffer, "NULL");
+                    buffer, NULL);
 
             if (render_sec == active_slave) {
                 config.socketname = config_slaves[render_sec].socketname;
