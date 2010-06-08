@@ -415,7 +415,7 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
-            case 'T':   /* -d, --delete-from */
+            case 'T':   /* -T, --touch-from */
                 touchFrom=atoi(optarg);
                 if (touchFrom < 0 || touchFrom > 18) 
                 {
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
                 fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is 18)\n");
                 fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
-                fprintf(stderr, "  -d, --touch-from=ZOOM  when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
+                fprintf(stderr, "  -T, --touch-from=ZOOM   when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
                 fprintf(stderr, "  z/x/y\n");
                 fprintf(stderr, "e.g.\n");
