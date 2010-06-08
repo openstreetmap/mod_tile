@@ -46,6 +46,7 @@
 #include <utime.h>
 #include <string.h>
 #include <limits.h>
+#include <utime.h>
 
 #include <pthread.h>
 
@@ -326,13 +327,18 @@ int main(int argc, char **argv)
     int x, y, z;
     char name[PATH_MAX];
     struct timeval start, end;
-    int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0;
+    int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0, num_touch = 0;
     int c;
     int all=0;
     int numThreads = 1;
-    int deleteFrom = 19;
-    int touchFrom = 19;
+    int deleteFrom = -1;
+    int touchFrom = -1;
     int i;
+
+    // Initialize touchFrom timestamp
+    struct utimbuf touchTime;
+    touchTime.actime = 946681200;
+    touchTime.modtime = 946681200; // Jan 1 00:00 2000
 
     // excess_zoomlevels is how many zoom levels at the large end
     // we can ignore because their tiles will share one meta tile.
@@ -368,7 +374,7 @@ int main(int argc, char **argv)
             {"socket", 1, 0, 's'},
             {"num-threads", 1, 0, 'n'},
             {"delete-from", 1, 0, 'd'},
-	    {"touch-from", 1, 0, 'T'},
+            {"touch-from", 1, 0, 'T'},
             {"tile-dir", 1, 0, 't'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
@@ -409,7 +415,7 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
-             case 'T':   /* -T, --touch-from */
+            case 'T':   /* -d, --delete-from */
                 touchFrom=atoi(optarg);
                 if (touchFrom < 0 || touchFrom > 18) 
                 {
@@ -442,8 +448,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
                 fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is 18)\n");
-                fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is 19)\n");
-		fprintf(stderr, "  -T, --touch-from=ZOOM  when expiring tiles of ZOOM or higher, touch them to mark as dirty (default is 19)\n");
+                fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
+                fprintf(stderr, "  -d, --touch-from=ZOOM  when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
                 fprintf(stderr, "  z/x/y\n");
                 fprintf(stderr, "e.g.\n");
@@ -528,25 +534,19 @@ int main(int argc, char **argv)
             if (stat(name, &s) == 0) // 0 is success
             {
                 // tile exists on disk; render it
-                if (z >= deleteFrom)
+                if (deleteFrom != -1 && z >= deleteFrom)
                 {
                     printf("unlink: %s\n", name);
                     unlink(name);
                     num_unlink++;
                 }
-                else if (z >= touchFrom)
-		{
-		  printf("touching timestamp: %s\n", name);
-		  struct tm tstampinfo;
-                  struct utimbuf accesstime;
-                  tstampinfo.tm_year = 2004 - 1900; tstampinfo.tm_mon = 8 - 1; tstampinfo.tm_mday = 9;
-		  tstampinfo.tm_hour = 18; tstampinfo.tm_min = 47; tstampinfo.tm_sec = 25; tstampinfo.tm_isdst = 1;
-                  time_t tstamp = mktime(&tstampinfo);
-		  accesstime.actime = tstamp;
-                  accesstime.modtime = tstamp;
-                  utime(name,&accesstime);
-		}
-		else
+                else if (touchFrom != -1 && z >= touchFrom)
+                {
+                    printf("touch: %s\n", name);
+                    utime(name, &touchTime);
+                    num_touch++;
+                }
+                else
                 {
                     printf("render: %s\n", name);
                     enqueue(name);
@@ -586,6 +586,7 @@ int main(int argc, char **argv)
     printf("Total tiles in input: %d\n", num_read);
     printf("Total tiles expanded from input: %d\n", num_all);
     printf("Total meta tiles deleted: %d\n", num_unlink);
+    printf("Total meta tiles touched: %d\n", num_touch);
     printf("Total tiles ignored (not on disk): %d\n", num_ignore);
 
     return 0;
