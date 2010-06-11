@@ -333,6 +333,7 @@ int main(int argc, char **argv)
     int numThreads = 1;
     int deleteFrom = -1;
     int touchFrom = -1;
+    int doRender = 0;
     int i;
 
     // Initialize touchFrom timestamp
@@ -476,7 +477,11 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    spawn_workers(numThreads, spath);
+    if (minZoom < touchFrom || minZoom < deleteFrom) {
+        // No need to spawn render threads, when we're not actually going to rerender tiles
+        spawn_workers(numThreads, spath);
+	doRender = 1;
+    }
 
     while(!feof(stdin)) 
     {
@@ -546,7 +551,7 @@ int main(int argc, char **argv)
                     utime(name, &touchTime);
                     num_touch++;
                 }
-                else
+                else if (doRender)
                 {
                     printf("render: %s\n", name);
                     enqueue(name);
@@ -575,7 +580,9 @@ int main(int argc, char **argv)
         }
     }
 
-    finish_workers(numThreads);
+    if (doRender) {
+        finish_workers(numThreads);
+    }
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");
