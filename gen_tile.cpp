@@ -499,7 +499,11 @@ void *render_thread(void * arg)
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
         strcpy(maps[iMaxConfigs].tile_dir, parentxmlconfig[iMaxConfigs].tile_dir);
         maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
-        load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+	try {
+	  load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+	} catch (mapnik::config_error &ex) {
+	  syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
+	}
         maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
 #ifdef HTCP_EXPIRE_CACHE
         strcpy(maps[iMaxConfigs].xmluri, parentxmlconfig[iMaxConfigs].xmluri);
