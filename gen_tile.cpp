@@ -58,6 +58,7 @@ typedef struct {
     char host[PATH_MAX];
     char htcphost[PATH_MAX];
     int htcpsock;
+    int ok;
 } xmlmapconfig;
 
 
@@ -499,10 +500,12 @@ void *render_thread(void * arg)
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
         strcpy(maps[iMaxConfigs].tile_dir, parentxmlconfig[iMaxConfigs].tile_dir);
         maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
+        maps[iMaxConfigs].ok = 1;
 	try {
 	  load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
 	} catch (mapnik::config_error &ex) {
 	  syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
+	  maps[iMaxConfigs].ok = 0;
 	}
         maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
 #ifdef HTCP_EXPIRE_CACHE
@@ -534,8 +537,14 @@ void *render_thread(void * arg)
             for (i = 0; i < iMaxConfigs; ++i) {
                 if (!strcmp(maps[i].xmlname, req->xmlname)) {
                     metaTile tiles(req->xmlname, item->mx, item->my, req->z);
+                    
+                    if (maps[i].ok) {
+                        ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
+                    } else {
+                        syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
+                        ret = cmdNotDone;
+                    }
 
-                    ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
                     if (ret == cmdDone) {
                         tiles.save(maps[i].tile_dir);
 #ifdef HTCP_EXPIRE_CACHE
