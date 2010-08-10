@@ -26,7 +26,7 @@ to generate the library before compiling renderd.
 Updating From Previous Version
 ==============================
 The new version of mod_tile uses a slightly different
-directory heirarchy from the previous version.  In order
+directory hierarchy from the previous version.  In order
 to preserve the previously built tiles you will need to
 move them to:
 
@@ -69,7 +69,7 @@ An Apache module called mod_tile enhances the regular
 Apache file serving mechanisms to provide:
 
 1) Tile expiry. It estimates when the tile is next
-likely to be rendered and adds the approriate HTTP
+likely to be rendered and adds the appropriate HTTP
 cache expiry headers
 
 2) When tiles have expired it requests the rendering
@@ -128,7 +128,7 @@ cease and then reload the tile. With a bit of luck you
 should see a tile of the world in your browser window.
 
 If this fails to happen check the http error log.  You can 
-increate the level of debuging using the LogLevel apache
+increate the level of debugging using the LogLevel apache
 directive.  If no log messages are shown check that you
 are accessing the correct virtual host - the new version
 of mod_tile is only installed on a single host by default.
