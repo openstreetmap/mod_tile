@@ -57,7 +57,7 @@ convert_meta: render_config.h protocol.h dir_utils.c dir_utils.h store.c
 iniparser: iniparser3.0b/libiniparser.a
 
 iniparser3.0b/libiniparser.a: iniparser3.0b/src/iniparser.c
-	make -C iniparser3.0b
+	make -C iniparser3.0b libiniparser.a
 
 MYSQL_CFLAGS += -g -O2 -Wall
 MYSQL_CFLAGS += $(shell mysql_config --cflags)
