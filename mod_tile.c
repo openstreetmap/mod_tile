@@ -39,63 +39,33 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <errno.h>
 #include <limits.h>
 #include <time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
 #include "store.h"
 #include "dir_utils.h"
+#include "mod_tile.h"
 
-#define INILINE_MAX 256
 
-#define FRESH 1
-#define OLD 2
-#define FRESH_RENDER 3
-#define OLD_RENDER 4
 
-typedef struct stats_data {
-    apr_uint64_t noResp200;
-    apr_uint64_t noResp304;
-    apr_uint64_t noResp404;
-    apr_uint64_t noResp5XX;
-    apr_uint64_t noRespOther;
-    apr_uint64_t noFreshCache;
-    apr_uint64_t noFreshRender;
-    apr_uint64_t noOldCache;
-    apr_uint64_t noOldRender;
-	apr_uint64_t noRespZoom[MAX_ZOOM + 1];
-} stats_data;
+#if !defined(OS2) && !defined(WIN32) && !defined(BEOS) && !defined(NETWARE)
+#include "unixd.h"
+#define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
+#endif
 
-typedef struct {
-    char xmlname[XMLCONFIG_MAX];
-    char baseuri[PATH_MAX];
-    int minzoom;
-    int maxzoom;
-} tile_config_rec;
 
-typedef struct {
-    apr_array_header_t *configs;
-    int request_timeout;
-	int request_timeout_priority;
-    int max_load_old;
-    int max_load_missing;
-    int cache_duration_dirty;
-    int cache_duration_max;
-    int cache_duration_minimum;
-    int cache_duration_low_zoom;
-    int cache_level_low_zoom;
-    int cache_duration_medium_zoom;
-    int cache_level_medium_zoom;
-    double cache_duration_last_modified_factor;
-    char renderd_socket_name[PATH_MAX];
-    char tile_dir[PATH_MAX];
-	char cache_extended_hostname[PATH_MAX];
-    int  cache_extended_duration;
-    int mincachetime[MAX_ZOOM + 1];
-    int enableGlobalStats;
-} tile_server_conf;
 
-enum tileState { tileMissing, tileOld, tileCurrent };
+apr_shm_t *stats_shm;
+apr_shm_t *delaypool_shm;
+char *shmfilename;
+char *shmfilename_delaypool;
+apr_global_mutex_t *stats_mutex;
+apr_global_mutex_t *delay_mutex;
+char *mutexfilename;
 
 static int error_message(request_rec *r, const char *format, ...)
                  __attribute__ ((format (printf, 2, 3)));
@@ -120,21 +90,6 @@ static int error_message(request_rec *r, const char *format, ...)
 
     return OK;
 }
-
-#if !defined(OS2) && !defined(WIN32) && !defined(BEOS) && !defined(NETWARE)
-#include "unixd.h"
-#define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
-#endif
-
-/* Number of microseconds to camp out on the mutex */
-#define CAMPOUT 10
-/* Maximum number of times we camp out before giving up */
-#define MAXCAMP 10
-
-apr_shm_t *stats_shm;
-char *shmfilename;
-apr_global_mutex_t *stats_mutex;
-char *mutexfilename;
 
 int socket_init(request_rec *r)
 {
@@ -400,19 +355,19 @@ double get_load_avg(request_rec *r)
         return loadavg[0];
 }
 
-static int get_global_lock(request_rec *r) {
+static int get_global_lock(request_rec *r, apr_global_mutex_t * mutex) {
     apr_status_t rs;
     int camped;
 
     for (camped = 0; camped < MAXCAMP; camped++) {
-        rs = apr_global_mutex_trylock(stats_mutex);
+        rs = apr_global_mutex_trylock(mutex);
         if (APR_STATUS_IS_EBUSY(rs)) {
             apr_sleep(CAMPOUT);
         } else if (rs == APR_SUCCESS) {
             return 1;
         } else if (APR_STATUS_IS_ENOTIMPL(rs)) {
             /* If it's not implemented, just hang in the mutex. */
-            rs = apr_global_mutex_lock(stats_mutex);
+            rs = apr_global_mutex_lock(mutex);
             if (rs == APR_SUCCESS) {
                 return 1;
             } else {
@@ -443,7 +398,7 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
         return 1;
     }
 
-    if (get_global_lock(r) != 0) {
+    if (get_global_lock(r, stats_mutex) != 0) {
         stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
         switch (resp) {
         case OK: {
@@ -462,6 +417,10 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
         }
         case HTTP_NOT_FOUND: {
             stats->noResp404++;
+            break;
+        }
+		case HTTP_SERVICE_UNAVAILABLE: {
+            stats->noResp503++;
             break;
         }
         case HTTP_INTERNAL_SERVER_ERROR: {
@@ -498,7 +457,7 @@ static int incFreshCounter(int status, request_rec *r) {
         return 1;
     }
 
-    if (get_global_lock(r) != 0) {
+    if (get_global_lock(r, stats_mutex) != 0) {
         stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
         switch (status) {
         case FRESH: {
@@ -526,6 +485,109 @@ static int incFreshCounter(int status, request_rec *r) {
     } else {
         return 0;
     }
+}
+
+static int delay_allowed(request_rec *r, enum tileState state) {
+	delaypool * delayp;
+	int delay = 0;
+	int i,j;
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+	delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
+
+	/* TODO: fix IPv6 compatibility */
+	in_addr_t ip = inet_addr(r->connection->remote_ip);
+	
+	int hashkey = ip % DELAY_HASHTABLE_WHITELIST_SIZE;
+	if (delayp->whitelist[hashkey] == ip) {
+		return 1;
+	}
+
+	/* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
+	if (delayp->locked) {
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "skipping delay pool accounting, during fillup procedure\n");
+		return 1;
+	}
+
+	
+	hashkey = ip % DELAY_HASHTABLE_SIZE;
+	
+	if (get_global_lock(r,delay_mutex) == 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
+		return 1;
+	};
+	if (delayp->users[hashkey].ip_addr == ip) {
+		/* Repeat the process to determin if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
+		   so in the mean time, the bucket might have been filled */
+		for (j = 0; j < 3; j++) {
+			//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: Current poolsize: %i tiles and %i renders\n", delayp->users[hashkey].available_tiles, delayp->users[hashkey].available_render_req);
+			delay = 0;
+			if (delayp->users[hashkey].available_tiles > 0) {
+				delayp->users[hashkey].available_tiles--;
+			} else {
+				delay = 1;
+			}
+			if (state == tileMissing) {
+				if (delayp->users[hashkey].available_render_req > 0) {
+					delayp->users[hashkey].available_render_req--;
+				} else {
+					delay = 2;
+				}
+			}
+
+			if (delay > 0) {
+				/* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
+				if (j > 0) {
+					apr_global_mutex_unlock(delay_mutex);
+					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throtteling (%i)\n", r->connection->remote_ip, delay);
+					sleep(CLIENT_PENALTY);
+					if (get_global_lock(r,delay_mutex) == 0) {
+						ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
+						return 0;
+					};
+				}
+				/* We hit an empty bucket, so run the bucket fillup procedure to check if new tokens should have arrived in the mean time. */
+				apr_time_t now = apr_time_now();
+				int tiles_topup = (now - delayp->last_tile_fillup) / scfg->delaypoolTileRate;
+				int render_topup = (now - delayp->last_render_fillup) / scfg->delaypoolRenderRate;
+				//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Filling up pools with %i tiles and %i renders\n", tiles_topup, render_topup);
+				if ((tiles_topup > 0) || (render_topup > 0)) {
+					delayp->locked = 1;
+					for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
+						delayp->users[i].available_tiles += tiles_topup;
+						delayp->users[i].available_render_req += render_topup;
+						if (delayp->users[i].available_tiles > scfg->delaypoolTileSize) {
+							delayp->users[i].available_tiles = scfg->delaypoolTileSize;
+						}
+						if (delayp->users[i].available_render_req > scfg->delaypoolRenderSize) {
+							delayp->users[i].available_render_req = scfg->delaypoolRenderSize;
+						}
+					}
+					delayp->locked = 0;
+				}
+				delayp->last_tile_fillup += scfg->delaypoolTileRate*tiles_topup;
+				delayp->last_render_fillup += scfg->delaypoolRenderRate*render_topup;				
+				
+			} else {
+				break;
+			}
+		}
+	} else {
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s, overwriting %s\n", r->connection->remote_ip, inet_ntoa(inet_makeaddr(delayp->users[hashkey].ip_addr,delayp->users[hashkey].ip_addr)));
+		delayp->users[hashkey].ip_addr = ip;
+		delayp->users[hashkey].available_tiles = scfg->delaypoolTileSize;
+	    delayp->users[hashkey].available_render_req = scfg->delaypoolRenderSize;
+		delay = 0;
+	}
+	apr_global_mutex_unlock(delay_mutex);
+
+	if (delay > 0) {
+		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", r->connection->remote_ip, delay);
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
 static int tile_handler_dirty(request_rec *r)
@@ -583,6 +645,14 @@ should already be done
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+	if (scfg->enableTileThrotteling && !delay_allowed(r, state)) {
+		if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd)) {
+                   ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                        "Failed to increase response stats counter");
+        }
+        return HTTP_SERVICE_UNAVAILABLE;		
+	}
 
     switch (state) {
         case tileCurrent:
@@ -683,7 +753,7 @@ static int tile_handler_mod_stats(request_rec *r)
         return error_message(r, "Stats are not enabled for this server");
     }
 
-    if (get_global_lock(r) != 0) {
+    if (get_global_lock(r,stats_mutex) != 0) {
         //Copy over the global counter variable into
         //local variables, that we can immediately
         //release the lock again
@@ -697,6 +767,7 @@ static int tile_handler_mod_stats(request_rec *r)
     ap_rprintf(r, "NoResp200: %li\n", local_stats.noResp200);
     ap_rprintf(r, "NoResp304: %li\n", local_stats.noResp304);
     ap_rprintf(r, "NoResp404: %li\n", local_stats.noResp404);
+	ap_rprintf(r, "NoResp503: %li\n", local_stats.noResp503);
     ap_rprintf(r, "NoResp5XX: %li\n", local_stats.noResp5XX);
     ap_rprintf(r, "NoRespOther: %li\n", local_stats.noRespOther);
     ap_rprintf(r, "NoFreshCache: %li\n", local_stats.noFreshCache);
@@ -881,6 +952,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     const char *userdata_key = "mod_tile_init_module";
     apr_status_t rs;
     stats_data *stats;
+	delaypool *delayp;
 	int i;
 
 
@@ -906,6 +978,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
      * TODO get the location from the environment $TMPDIR or somesuch.
      */
     shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
+	shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
 
     /* Now create that segment */
     rs = apr_shm_create(&stats_shm, sizeof(stats_data),
@@ -917,11 +990,21 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
+	rs = apr_shm_create(&delaypool_shm, sizeof(delaypool),
+                        (const char *) shmfilename_delaypool, pconf);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
+                     "Failed to create shared memory segment on file %s",
+                     shmfilename_delaypool);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
     /* Created it, now let's zero it out */
     stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
     stats->noResp200 = 0;
     stats->noResp304 = 0;
     stats->noResp404 = 0;
+	stats->noResp503 = 0;
     stats->noResp5XX = 0;
 	for (i = 0; i <= MAX_ZOOM; i++) {
 		stats->noRespZoom[i] = 0;
@@ -931,6 +1014,22 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noFreshRender = 0;
     stats->noOldCache = 0;
     stats->noOldRender = 0;
+
+	delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
+	
+	delayp->last_tile_fillup = apr_time_now();
+	delayp->last_render_fillup = apr_time_now();
+
+	for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
+		delayp->users[i].ip_addr = (in_addr_t)0;
+		delayp->users[i].available_tiles = 0;
+		delayp->users[i].available_render_req = 0;
+	}
+	for (i = 0; i < DELAY_HASHTABLE_WHITELIST_SIZE; i++) {
+		delayp->whitelist[i] = (in_addr_t)0;
+	}
+	/* TODO: need a way to initialise the delaypool whitelist */
+
 
     /* Create global mutex */
 
@@ -953,6 +1052,33 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
     rs = unixd_set_global_mutex_perms(stats_mutex);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
+                     "Parent could not set permissions on mod_tile "
+                     "mutex: check User and Group directives");
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+#endif /* MOD_TILE_SET_MUTEX_PERMS */
+
+    /*
+     * Create another unique filename to lock upon. Note that
+     * depending on OS and locking mechanism of choice, the file
+     * may or may not be actually created.
+     */
+    mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_delay.%ld",
+                                 (long int) getpid());
+
+    rs = apr_global_mutex_create(&delay_mutex, (const char *) mutexfilename,
+                                 APR_LOCK_DEFAULT, pconf);
+    if (rs != APR_SUCCESS) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
+                     "Failed to create mutex on file %s",
+                     mutexfilename);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+#ifdef MOD_TILE_SET_MUTEX_PERMS
+    rs = unixd_set_global_mutex_perms(delay_mutex);
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
                      "Parent could not set permissions on mod_tile "
@@ -1258,6 +1384,53 @@ static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enab
     return NULL;
 }
 
+static const char *mod_tile_enable_throtteling(cmd_parms *cmd, void *mconfig, int enableThrotteling)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->enableTileThrotteling = enableThrotteling;
+    return NULL;
+}
+
+static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
+{
+    int bucketsize;
+    float topuprate;
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    if (sscanf(bucketsize_string, "%d", &bucketsize) != 1) {
+            return "ModTileThrottelingTileSize needs integer argument";
+    }
+    if (sscanf(topuprate_string, "%f", &topuprate) != 1) {
+            return "ModTileThrottelingTileRate needs number argument";
+    }
+    scfg->delaypoolTileSize = bucketsize;
+
+	/*Convert topup rate into microseconds per tile */
+    scfg->delaypoolTileRate = (long)(1000000.0/topuprate);
+
+    return NULL;
+}
+
+static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
+{
+    int bucketsize;
+    float topuprate;
+
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    if (sscanf(bucketsize_string, "%d", &bucketsize) != 1) {
+            return "ModTileThrottelingTileSize needs integer argument";
+    }
+    if (sscanf(topuprate_string, "%f", &topuprate) != 1) {
+            return "ModTileThrottelingTileRate needs number argument";
+    }
+    scfg->delaypoolRenderSize = bucketsize;
+
+	/*Convert topup rate into microseconds per tile */
+    scfg->delaypoolRenderRate = (long)(1000000.0/topuprate);
+
+    return NULL;
+}
+
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
@@ -1282,6 +1455,12 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->cache_level_low_zoom = 0;
     scfg->cache_level_medium_zoom = 0;
     scfg->enableGlobalStats = 1;
+	scfg->enableTileThrotteling = 0;
+	scfg->delaypoolTileSize = AVAILABLE_TILE_BUCKET_SIZE;
+	scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
+	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
+	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
+
 
     return scfg;
 }
@@ -1314,6 +1493,11 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
     scfg->enableGlobalStats = scfg_over->enableGlobalStats;
+	scfg->enableTileThrotteling = scfg_over->enableTileThrotteling;
+	scfg->delaypoolTileSize = scfg_over->delaypoolTileSize;
+	scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
+	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
+	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
 
     //Construct a table of minimum cache times per zoom level
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -1449,6 +1633,27 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "On Off - enable of keeping stats about what mod_tile is serving"  /* directive description */
+    ),
+	AP_INIT_FLAG(
+        "ModTileEnableTileThrotteling",       /* directive name */
+        mod_tile_enable_throtteling,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "On Off - enable of throtteling of IPs who excessively download tiles such as scrapers"  /* directive description */
+    ),
+	AP_INIT_TAKE2(
+        "ModTileThrottelingTiles",       /* directive name */
+        mod_tile_delaypool_tiles_config,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throtteling tile request per IP"  /* directive description */
+    ),
+	AP_INIT_TAKE2(
+        "ModTileThrottelingRenders",       /* directive name */
+        mod_tile_delaypool_render_config,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throtteling tile request per IP"  /* directive description */
     ),
     {NULL}
 };
