@@ -1,4 +1,5 @@
 UNAME := $(shell uname)
+OSARCH= $(shell uname -m)
 
 APXS      = $(shell which apxs || which apxs2 || echo "need apxs"; exit 1)
 $(if $(wildcard $(APXS)),,$(error "cannot find apxs or apxs2")) 
@@ -43,7 +44,14 @@ RENDER_CPPFLAGS += -I/usr/local/include/mapnik -I/usr/local/include/
 RENDER_CPPFLAGS += $(shell freetype-config --cflags)
 
 RENDER_LDFLAGS += -g
-RENDER_LDFLAGS += -lmapnik -L/usr/local/lib -Liniparser3.0b -liniparser
+
+ifeq ($(OSARCH), x86_64)
+RENDER_LDFLAGS += -L/usr/local/lib64
+else
+RENDER_LDFLAGS += -L/usr/local/lib
+endif
+
+RENDER_LDFLAGS += -lmapnik -Liniparser3.0b -liniparser
 
 ifeq ($(UNAME), Darwin)
 RENDER_LDFLAGS += -licuuc -lboost_regex
