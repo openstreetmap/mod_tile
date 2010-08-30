@@ -4,7 +4,6 @@
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/filter_factory.hpp>
 #include <mapnik/color_factory.hpp>
-#include <mapnik/image_util.hpp>
 #include <mapnik/load_map.hpp>
 #include <mapnik/image_util.hpp>
 
@@ -30,10 +29,15 @@
 #endif
 
 #if MAPNIK_VERSION >= 800
+#include <mapnik/box2d.hpp>
 #define Image32 image_32
 #define ImageData32 image_data_32
 #define Envelope box2d
+#define zoomToBox zoom_to_box
+#else
+#include <mapnik/envelope.hpp>
 #endif
+
 
 using namespace mapnik;
 #define DEG_TO_RAD (M_PI/180)
