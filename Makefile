@@ -1,3 +1,5 @@
+UNAME := $(shell uname)
+
 APXS      = $(shell which apxs || which apxs2 || echo "need apxs"; exit 1)
 $(if $(wildcard $(APXS)),,$(error "cannot find apxs or apxs2")) 
 
@@ -24,7 +26,12 @@ install: ${DESTDIR}/etc/renderd.conf
 
 
 ${DESTDIR}/etc/renderd.conf:
-	cp -u renderd.conf ${DESTDIR}/etc/renderd.conf
+ifeq ($(UNAME), Darwin)
+	cp renderd.conf ${DESTDIR}/etc/renderd.conf
+else
+    cp -u renderd.conf ${DESTDIR}/etc/renderd.conf
+endif
+
 
 clean:
 	rm -f *.o *.lo *.slo *.la .libs/*
@@ -32,11 +39,15 @@ clean:
 	make -C iniparser3.0b veryclean
 
 RENDER_CPPFLAGS += -g -O2 -Wall
-RENDER_CPPFLAGS += -I/usr/local/include/mapnik
-RENDER_CPPFLAGS += $(shell pkg-config --cflags freetype2)
+RENDER_CPPFLAGS += -I/usr/local/include/mapnik -I/usr/local/include/
+RENDER_CPPFLAGS += $(shell freetype-config --cflags)
 
 RENDER_LDFLAGS += -g
-RENDER_LDFLAGS += -lmapnik -L/usr/local/lib64 -Liniparser3.0b -liniparser
+RENDER_LDFLAGS += -lmapnik -L/usr/local/lib -Liniparser3.0b -liniparser
+
+ifeq ($(UNAME), Darwin)
+RENDER_LDFLAGS += -licuuc -lboost_regex
+endif
 
 renderd: store.c daemon.c gen_tile.cpp dir_utils.c protocol.h render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.a
 	$(CXX) -o $@ $^ $(RENDER_LDFLAGS) $(RENDER_CPPFLAGS)
