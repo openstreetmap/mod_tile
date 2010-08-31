@@ -30,7 +30,7 @@ ${DESTDIR}/etc/renderd.conf:
 ifeq ($(UNAME), Darwin)
 	cp renderd.conf ${DESTDIR}/etc/renderd.conf
 else
-    cp -u renderd.conf ${DESTDIR}/etc/renderd.conf
+	cp -u renderd.conf ${DESTDIR}/etc/renderd.conf
 endif
 
 
