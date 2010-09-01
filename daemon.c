@@ -47,6 +47,15 @@ static renderd_config config;
 int noSlaveRenders;
 int hashidxSize;
 
+void statsRenderFinish(int z, long time) {
+    pthread_mutex_lock(&qLock);
+    if ((z >= 0) && (z <= MAX_ZOOM)) {
+        stats.noZoomRender[z]++;
+        stats.timeZoomRender[z] += time;
+    }
+    pthread_mutex_unlock(&qLock);
+}
+
 struct item *fetch_request(void)
 {
     struct item *item = NULL;
@@ -84,9 +93,6 @@ struct item *fetch_request(void)
         item->inQueue = queueRender;
     }
 
-	if ((item->req.z >= 0) && ( item->req.z <= MAX_ZOOM)) {
-		stats.noZoomRender[item->req.z]++;
-	}
 
     pthread_mutex_unlock(&qLock);
 
@@ -532,9 +538,12 @@ void *stats_writeout_thread(void * arg) {
             fprintf(statfile, "ReqPrioRendered: %li\n", lStats.noReqPrioRender);
             fprintf(statfile, "ReqBulkRendered: %li\n", lStats.noReqBulkRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
-			for (i = 0; i <= MAX_ZOOM; i++) {
-				fprintf(statfile,"ZoomRendered%02i: %li\n", i, lStats.noZoomRender[i]);
-			}
+            for (i = 0; i <= MAX_ZOOM; i++) {
+                fprintf(statfile,"ZoomRendered%02i: %li\n", i, lStats.noZoomRender[i]);
+            }
+            for (i = 0; i <= MAX_ZOOM; i++) {
+                fprintf(statfile,"TimeRenderedZoom%02i: %li\n", i, lStats.timeZoomRender[i]);
+            }
             fclose(statfile);
             if (rename(tmpName, config.stats_filename)) {
                 syslog(LOG_WARNING, "Failed to overwrite stats file: %i", errno);

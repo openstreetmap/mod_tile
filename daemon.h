@@ -35,7 +35,14 @@ typedef struct {
     long noReqPrioRender;
     long noReqBulkRender;
     long noReqDroped;
-	long noZoomRender[MAX_ZOOM + 1];
+    long noZoomRender[MAX_ZOOM + 1];
+    long timeReqRender;
+    long timeReqPrioRender;
+    long timeReqBulkRender;
+    long timeZoomRender[MAX_ZOOM + 1];
 } stats_struct;
+
+void statsRenderFinish(int z, long time);
+
 
 #endif

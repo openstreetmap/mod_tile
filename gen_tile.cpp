@@ -543,7 +543,17 @@ void *render_thread(void * arg)
                     metaTile tiles(req->xmlname, item->mx, item->my, req->z);
                     
                     if (maps[i].ok) {
+                        timeval tim;
+                        gettimeofday(&tim, NULL);
+                        long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
+
                         ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
+
+                        gettimeofday(&tim, NULL);
+                        long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
+                        syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds", 
+                               req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
+                        statsRenderFinish(req->z, t2 - t1);
                     } else {
                         syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
                         ret = cmdNotDone;
@@ -574,3 +584,4 @@ void *render_thread(void * arg)
     }
     return NULL;
 }
+
