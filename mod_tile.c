@@ -1225,7 +1225,7 @@ static const char *mod_tile_request_timeout_missing_config(cmd_parms *cmd, void 
     int request_timeout;
 
     if (sscanf(request_timeout_string, "%d", &request_timeout) != 1) {
-        return "ModTilePriorityRequestTimeout needs integer argument";
+        return "ModTileMissingRequestTimeout needs integer argument";
     }
 
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
