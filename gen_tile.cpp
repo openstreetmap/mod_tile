@@ -50,7 +50,7 @@ using namespace mapnik;
 #endif
 
 static const int minZoom = 0;
-static const int maxZoom = 18;
+static const int maxZoom = MAX_ZOOM;
 
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
@@ -71,7 +71,7 @@ class SphericalProjection
     double *Ac, *Bc, *Cc, *zc;
 
     public:
-        SphericalProjection(int levels=18) {
+        SphericalProjection(int levels=MAX_ZOOM) {
             Ac = new double[levels];
             Bc = new double[levels];
             Cc = new double[levels];

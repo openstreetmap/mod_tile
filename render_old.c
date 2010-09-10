@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 
 #define INILINE_MAX 256
 static int minZoom = 0;
-static int maxZoom = 18;
+static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 static int num_render = 0, num_all = 0;
 static time_t planetTime;
@@ -430,15 +430,15 @@ int main(int argc, char **argv)
                 break;
            case 'z':   /* -z, --min-zoom */
                         minZoom=atoi(optarg);
-                if (minZoom < 0 || minZoom > 18) {
-                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
+                if (minZoom < 0 || minZoom > MAX_ZOOM) {
+                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
             case 'Z':   /* -Z, --max-zoom */
                 maxZoom=atoi(optarg);
-                if (maxZoom < 0 || maxZoom > 18) {
-                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and 18\n");
+                if (maxZoom < 0 || maxZoom > MAX_ZOOM) { 
+                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
@@ -451,7 +451,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -n, --num-threads=N  the number of parallel request threads (default 1)\n");
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default 18)\n");
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 return -1;
             default:

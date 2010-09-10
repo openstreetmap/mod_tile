@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 #else
 
 static int minZoom = 0;
-static int maxZoom = 18;
+static int maxZoom = MAX_ZOOM; 
 static int verbose = 0;
 static int num_render = 0, num_all = 0;
 static struct timeval start, end;
@@ -120,15 +120,15 @@ int main(int argc, char **argv)
         switch (c) {
             case 'z':
                 minZoom=atoi(optarg);
-                if (minZoom < 0 || minZoom > 18) {
-                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
+                if (minZoom < 0 || minZoom > MAX_ZOOM) { 
+                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
             case 'Z':
                 maxZoom=atoi(optarg);
-                if (maxZoom < 0 || maxZoom > 18) {
-                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and 18\n");
+                if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
+                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
@@ -151,7 +151,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -t, --tile-dir  tile cache directory (default is '" HASH_PATH "')\n");
                 fprintf(stderr, "  -u, --unpack    unpack the .meta files back to PNGs\n");
                 fprintf(stderr, "  -z, --min-zoom  only process tiles greater or equal to this zoom level (default is 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom  only process tiles less than or equal to this zoom level (default is 18)\n");
+                fprintf(stderr, "  -Z, --max-zoom  only process tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
