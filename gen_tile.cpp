@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <dirent.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -40,8 +41,12 @@
 
 
 using namespace mapnik;
+#ifndef DEG_TO_RAD
 #define DEG_TO_RAD (M_PI/180)
+#endif
+#ifndef RAD_TO_DEG
 #define RAD_TO_DEG (180/M_PI)
+#endif
 
 #ifdef METATILE
 #define RENDER_SIZE (256 * (METATILE + 1))
