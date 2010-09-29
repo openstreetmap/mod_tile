@@ -155,7 +155,7 @@ static void check_load(void)
     int avg = get_load_avg();
 
     while (avg >= maxLoad) {
-        printf("Load average %d, sleeping\n", avg);
+        /* printf("Load average %d, sleeping\n", avg); */
         sleep(5);
         avg = get_load_avg();
     }
@@ -274,6 +274,7 @@ void *thread_main(void *arg)
     while((tile = fetch())) {
         process(fd, tile);
         free(tile);
+        check_load();
     }
 
     close(fd);
@@ -500,7 +501,6 @@ int main(int argc, char **argv)
             printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
-                    check_load();
                     xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
                     enqueue(name);
                     //process_loop(fd, mapname, x, y, z);
@@ -529,8 +529,6 @@ int main(int argc, char **argv)
 
 
             printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
-
-            check_load();
 
             num_all++;
             xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
