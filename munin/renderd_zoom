@@ -15,31 +15,31 @@ if [ "$1" = "config" ]; then
 	echo 'graph_vlabel Metatiles per ${graph_period}'
 	echo 'graph_category renderd'
 	echo 'graph_info Displays the number of metatiles being rendered by renderd per ${graph_period}'
-	echo '1.label zoom z0 - z8'
-	echo '1.type DERIVE'
-	echo '1.min 0'
-	echo '1.draw AREA'
-	echo '1.info Throughput of Metatiles for z0 - z8'
-	echo '2.label zoom z9 - z12'
-	echo '2.type DERIVE'
-	echo '2.min 0'
-	echo '2.draw AREA'
-	echo '2.info Throughput of Metatiles for z9 - z12'
-	echo '3.label zoom z13 - z14'
-	echo '3.type DERIVE'
-	echo '3.min 0'
-	echo '3.draw AREA'
-	echo '3.info Throughput of Metatiles for z13 - z14'
-	echo '4.label zoom z15 - z16'
-	echo '4.type DERIVE'
-	echo '4.min 0'
-	echo '4.draw AREA'
-	echo '4.info Throughput of Metatiles for z15 - z16'
-	echo '5.label zoom z17 - z18'
-	echo '5.type DERIVE'
-	echo '5.min 0'
-	echo '5.draw AREA'
-	echo '5.info Throughput of Metatiles for z17 - z18'
+	echo 'z1.label zoom z0 - z8'
+	echo 'z1.type DERIVE'
+	echo 'z1.min 0'
+	echo 'z1.draw AREA'
+	echo 'z1.info Throughput of Metatiles for z0 - z8'
+	echo 'z2.label zoom z9 - z12'
+	echo 'z2.type DERIVE'
+	echo 'z2.min 0'
+	echo 'z2.draw STACK'
+	echo 'z2.info Throughput of Metatiles for z9 - z12'
+	echo 'z3.label zoom z13 - z14'
+	echo 'z3.type DERIVE'
+	echo 'z3.min 0'
+	echo 'z3.draw STACK'
+	echo 'z3.info Throughput of Metatiles for z13 - z14'
+	echo 'z4.label zoom z15 - z16'
+	echo 'z4.type DERIVE'
+	echo 'z4.min 0'
+	echo 'z4.draw STACK'
+	echo 'z4.info Throughput of Metatiles for z15 - z16'
+	echo 'z5.label zoom z17 - z18'
+	echo 'z5.type DERIVE'
+	echo 'z5.min 0'
+	echo 'z5.draw STACK'
+	echo 'z5.info Throughput of Metatiles for z17 - z18'
 
 	exit 0
 fi
@@ -65,8 +65,8 @@ req17=`sed -e '/^ZoomRendered17/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.
 req18=`sed -e '/^ZoomRendered18/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 
-echo "1.value " `expr $req0 + $req1 + + $req2 + $req3 + $req4 + $req5 + $req6 + $req7 + $req8`
-echo "2.value " `expr $req9 + $req10 + + $req11 + $req12`
-echo "3.value " `expr $req13 + $req14`
-echo "4.value " `expr $req15 + $req16`
-echo "5.value " `expr $req17 + $req18`
+echo "z1.value " `expr $req0 + $req1 + + $req2 + $req3 + $req4 + $req5 + $req6 + $req7 + $req8`
+echo "z2.value " `expr $req9 + $req10 + + $req11 + $req12`
+echo "z3.value " `expr $req13 + $req14`
+echo "z4.value " `expr $req15 + $req16`
+echo "z5.value " `expr $req17 + $req18`
