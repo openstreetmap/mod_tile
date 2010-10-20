@@ -477,7 +477,9 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    if (minZoom < touchFrom || minZoom < deleteFrom) {
+    if (   ( touchFrom != -1 && minZoom < touchFrom )
+        || (deleteFrom != -1 && minZoom < deleteFrom)
+        || ( touchFrom == -1 && deleteFrom == -1) ) {
         // No need to spawn render threads, when we're not actually going to rerender tiles
         spawn_workers(numThreads, spath);
 	doRender = 1;
