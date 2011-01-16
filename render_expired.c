@@ -80,10 +80,10 @@ unsigned int **tile_requested;
 
 // "two raised to the power of [...]" - don't trust pow() to be efficient 
 // for base 2
-unsigned int twopow[18];
+unsigned long long twopow[18];
 
 static int minZoom = 0;
-static int maxZoom = 18;
+static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 int work_complete;
 
@@ -360,8 +360,13 @@ int main(int argc, char **argv)
     {
         // initialize twopow array
         twopow[i] = (i==0) ? 1 : twopow[i-1]*2;
-        unsigned int fourpow=twopow[i]*twopow[i];
+        unsigned long long fourpow=twopow[i]*twopow[i];
         tile_requested[i] = (unsigned int *) malloc((fourpow / METATILE) + 1);
+        if (NULL == tile_requested[i])
+        {
+            fprintf(stderr, "not enough memory available.\n");
+            return 1;
+        }
         memset(tile_requested[i], 0, (fourpow / METATILE) + 1);
     }
 
@@ -410,31 +415,31 @@ int main(int argc, char **argv)
                 break;
             case 'd':   /* -d, --delete-from */
                 deleteFrom=atoi(optarg);
-                if (deleteFrom < 0 || deleteFrom > 18) 
+                if (deleteFrom < 0 || deleteFrom > MAX_ZOOM) 
                 {
-                    fprintf(stderr, "Invalid 'delete-from' zoom, must be between 0 and 18\n");
+                    fprintf(stderr, "Invalid 'delete-from' zoom, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
             case 'T':   /* -T, --touch-from */
                 touchFrom=atoi(optarg);
-                if (touchFrom < 0 || touchFrom > 18) 
+                if (touchFrom < 0 || touchFrom > MAX_ZOOM)
                 {
-                    fprintf(stderr, "Invalid 'touch-from' zoom, must be between 0 and 18\n");
+                    fprintf(stderr, "Invalid 'touch-from' zoom, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
             case 'z':   /* -z, --min-zoom */
                 minZoom=atoi(optarg);
-                if (minZoom < 0 || minZoom > 18) {
-                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and 18\n");
+                if (minZoom < 0 || minZoom > MAX_ZOOM) {
+                    fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
             case 'Z':   /* -Z, --max-zoom */
                 maxZoom=atoi(optarg);
-                if (maxZoom < 0 || maxZoom > 18) {
-                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and 18\n");
+                if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
+                    fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
                     return 1;
                 }
                 break;
@@ -448,7 +453,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is 18)\n");
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
                 fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "  -T, --touch-from=ZOOM   when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
