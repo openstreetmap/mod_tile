@@ -550,7 +550,10 @@ int main(int argc, char **argv)
                 else if (touchFrom != -1 && z >= touchFrom)
                 {
                     printf("touch: %s\n", name);
-                    utime(name, &touchTime);
+                    if (-1 == utime(name, &touchTime))
+                    {
+                        perror("modifying timestamp failed");
+                    }
                     num_touch++;
                 }
                 else if (doRender)
