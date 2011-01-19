@@ -540,7 +540,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
 				/* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
 				if (j > 0) {
 					apr_global_mutex_unlock(delay_mutex);
-					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throtteling (%i)\n", r->connection->remote_ip, delay);
+					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", r->connection->remote_ip, delay);
 					sleep(CLIENT_PENALTY);
 					if (get_global_lock(r,delay_mutex) == 0) {
 						ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
@@ -646,7 +646,7 @@ should already be done
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
-	if (scfg->enableTileThrotteling && !delay_allowed(r, state)) {
+	if (scfg->enableTileThrottling && !delay_allowed(r, state)) {
 		if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
@@ -1384,10 +1384,10 @@ static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enab
     return NULL;
 }
 
-static const char *mod_tile_enable_throtteling(cmd_parms *cmd, void *mconfig, int enableThrotteling)
+static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int enableThrottling)
 {
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
-    scfg->enableTileThrotteling = enableThrotteling;
+    scfg->enableTileThrottling = enableThrottling;
     return NULL;
 }
 
@@ -1398,10 +1398,10 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     if (sscanf(bucketsize_string, "%d", &bucketsize) != 1) {
-            return "ModTileThrottelingTileSize needs integer argument";
+            return "ModTileThrottlingTiles needs two numerical arguments, the first one must be integer";
     }
     if (sscanf(topuprate_string, "%f", &topuprate) != 1) {
-            return "ModTileThrottelingTileRate needs number argument";
+            return "ModTileThrottlingTiles needs two numerical arguments, the first one must be integer";
     }
     scfg->delaypoolTileSize = bucketsize;
 
@@ -1418,10 +1418,10 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     if (sscanf(bucketsize_string, "%d", &bucketsize) != 1) {
-            return "ModTileThrottelingTileSize needs integer argument";
+            return "ModTileThrottlingRenders needs two numerical arguments, the first one must be integer";
     }
     if (sscanf(topuprate_string, "%f", &topuprate) != 1) {
-            return "ModTileThrottelingTileRate needs number argument";
+            return "ModTileThrottlingRenders needs two numerical arguments, the first one must be integer";
     }
     scfg->delaypoolRenderSize = bucketsize;
 
@@ -1455,7 +1455,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->cache_level_low_zoom = 0;
     scfg->cache_level_medium_zoom = 0;
     scfg->enableGlobalStats = 1;
-	scfg->enableTileThrotteling = 0;
+	scfg->enableTileThrottling = 0;
 	scfg->delaypoolTileSize = AVAILABLE_TILE_BUCKET_SIZE;
 	scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
 	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
@@ -1493,7 +1493,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
     scfg->enableGlobalStats = scfg_over->enableGlobalStats;
-	scfg->enableTileThrotteling = scfg_over->enableTileThrotteling;
+	scfg->enableTileThrottling = scfg_over->enableTileThrottling;
 	scfg->delaypoolTileSize = scfg_over->delaypoolTileSize;
 	scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
 	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
@@ -1635,25 +1635,25 @@ static const command_rec tile_cmds[] =
         "On Off - enable of keeping stats about what mod_tile is serving"  /* directive description */
     ),
 	AP_INIT_FLAG(
-        "ModTileEnableTileThrotteling",       /* directive name */
-        mod_tile_enable_throtteling,                 /* config action routine */
+        "ModTileEnableTileThrottling",       /* directive name */
+        mod_tile_enable_throttling,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
-        "On Off - enable of throtteling of IPs who excessively download tiles such as scrapers"  /* directive description */
+        "On Off - enable of throttling of IPs that excessively download tiles such as scrapers"  /* directive description */
     ),
 	AP_INIT_TAKE2(
-        "ModTileThrottelingTiles",       /* directive name */
+        "ModTileThrottlingTiles",       /* directive name */
         mod_tile_delaypool_tiles_config,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
-        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throtteling tile request per IP"  /* directive description */
+        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"  /* directive description */
     ),
 	AP_INIT_TAKE2(
-        "ModTileThrottelingRenders",       /* directive name */
+        "ModTileThrottlingRenders",       /* directive name */
         mod_tile_delaypool_render_config,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
-        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throtteling tile request per IP"  /* directive description */
+        "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"  /* directive description */
     ),
     {NULL}
 };
