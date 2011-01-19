@@ -80,7 +80,7 @@ typedef struct {
     int  cache_extended_duration;
     int mincachetime[MAX_ZOOM + 1];
     int enableGlobalStats;
-	int enableTileThrotteling;
+	int enableTileThrottling;
 	int delaypoolTileSize;
 	long delaypoolTileRate;
 	int delaypoolRenderSize;
