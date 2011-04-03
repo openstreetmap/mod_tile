@@ -346,45 +346,51 @@ class metaTile {
             std::string tmp(ss.str());
 
             if (mkdirp(tmp.c_str()))
-              throw std::runtime_error("error when creating tile directory");
+	      throw std::runtime_error("An error when creating tile directory");
 
-            std::ofstream file;
-            file.exceptions(std::ios_base::failbit | std::ios_base::badbit);
-            file.open(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+	    try {
+	      std::ofstream file;
+	      file.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+	      file.open(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
-            // Create and write header
-            m.count = METATILE * METATILE;
-            memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
-            m.x = x_;
-            m.y = y_;
-            m.z = z_;
-            file.write((const char *)&m, sizeof(m));
-
-            offset = header_size;
-            limit = (1 << z_);
-            limit = MIN(limit, METATILE);
-
-            // Generate offset table
-            for (ox=0; ox < limit; ox++) {
+	      // Create and write header
+	      m.count = METATILE * METATILE;
+	      memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
+	      m.x = x_;
+	      m.y = y_;
+	      m.z = z_;
+	      file.write((const char *)&m, sizeof(m));
+	      
+	      offset = header_size;
+	      limit = (1 << z_);
+	      limit = MIN(limit, METATILE);
+	      
+	      // Generate offset table
+	      for (ox=0; ox < limit; ox++) {
                 for (oy=0; oy < limit; oy++) {
-                    int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
-                    offsets[mt].offset = offset;
-                    offsets[mt].size   = tile[ox][oy].size();
-                    offset += offsets[mt].size;
+		  int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
+		  offsets[mt].offset = offset;
+		  offsets[mt].size   = tile[ox][oy].size();
+		  offset += offsets[mt].size;
                 }
-            }
-            file.write((const char *)&offsets, sizeof(offsets));
-
-            // Write tiles
-            for (ox=0; ox < limit; ox++) {
+	      }
+	      file.write((const char *)&offsets, sizeof(offsets));
+	      
+	      // Write tiles
+	      for (ox=0; ox < limit; ox++) {
                 for (oy=0; oy < limit; oy++) {
-                    file.write((const char *)tile[ox][oy].data(), tile[ox][oy].size());
+		  file.write((const char *)tile[ox][oy].data(), tile[ox][oy].size());
                 }
-            }
-
-            file.close();
-
-            rename(tmp.c_str(), meta_path);
+	      }
+	      
+	      file.close();
+	      
+	      rename(tmp.c_str(), meta_path);
+	    } catch (std::ios_base::failure) {
+	      // Remove the temporary file
+	      unlink(tmp.c_str());
+	      throw std::runtime_error("An error occured when writing a metatile\n");
+	    }
             //printf("Produced .meta: %s\n", meta_path);
         }
 
@@ -568,7 +574,14 @@ void *render_thread(void * arg)
                     }
 
                     if (ret == cmdDone) {
+		      try {
                         tiles.save(maps[i].tile_dir);
+		      } catch (...) {
+			// Treat any error as fatal and request end of processing
+                        syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
+                        ret = cmdNotDone;
+			request_exit();
+		      }
 #ifdef HTCP_EXPIRE_CACHE
                         tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
 #endif

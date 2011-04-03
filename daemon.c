@@ -38,6 +38,7 @@ static struct item_idx * item_hashidx;
 static int reqNum, reqPrioNum, reqBulkNum, dirtyNum;
 static pthread_mutex_t qLock;
 static pthread_cond_t qCond;
+static int exit_pipe_fd;
 
 static stats_struct stats;
 static pthread_t stats_thread;
@@ -409,13 +410,29 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     return (list == &reqHead)?cmdIgnore:cmdNotDone;
 }
 
+void request_exit(void)
+{
+  // Any write to the exit pipe will trigger a graceful exit
+  char c=0;
+  write(exit_pipe_fd, &c, sizeof(c));
+}
 
 void process_loop(int listen_fd)
 {
     int num_connections = 0;
     int connections[MAX_CONNECTIONS];
+    int pipefds[2];
+    int exit_pipe_read;
 
     bzero(connections, sizeof(connections));
+
+    // A pipe is used to allow the render threads to request an exit by the main process
+    if (pipe(pipefds)) {
+      fprintf(stderr, "Failed to create pipe\n");
+      return;
+    }
+    exit_pipe_fd = pipefds[1];
+    exit_pipe_read = pipefds[0];
 
     while (1) {
         struct sockaddr_un in_addr;
@@ -432,10 +449,18 @@ void process_loop(int listen_fd)
             nfds = MAX(nfds, connections[i]+1);
         }
 
+	FD_SET(exit_pipe_read, &rd);
+	nfds = MAX(nfds, exit_pipe_read+1);
+
         num = select(nfds, &rd, NULL, NULL, NULL);
         if (num == -1)
             perror("select()");
         else if (num) {
+	    if (FD_ISSET(exit_pipe_read, &rd)) {
+	      // A render thread wants us to exit
+	      break;
+	    }
+
             //printf("Data is available now on %d fds\n", num);
             if (FD_ISSET(listen_fd, &rd)) {
                 num--;

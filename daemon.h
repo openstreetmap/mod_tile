@@ -43,6 +43,7 @@ typedef struct {
 } stats_struct;
 
 void statsRenderFinish(int z, long time);
+void request_exit(void);
 
 
 #endif
