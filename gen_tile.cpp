@@ -345,9 +345,12 @@ class metaTile {
             ss << std::string(meta_path) << "." << pthread_self();
             std::string tmp(ss.str());
 
-            mkdirp(tmp.c_str());
+            if (mkdirp(tmp.c_str()))
+              throw std::runtime_error("error when creating tile directory");
 
-            std::ofstream file(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+            std::ofstream file;
+            file.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+            file.open(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
             // Create and write header
             m.count = METATILE * METATILE;
