@@ -44,6 +44,7 @@ RENDER_CPPFLAGS += -I/usr/local/include/mapnik -I/usr/local/include/
 RENDER_CPPFLAGS += $(shell freetype-config --cflags)
 
 RENDER_LDFLAGS += -g
+RENDER_LDFLAGS += -lpthread
 
 ifeq ($(OSARCH), x86_64)
 RENDER_LDFLAGS += -L/usr/local/lib64
