@@ -54,21 +54,25 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
     }
     if (pos < sizeof(struct meta_layout)) {
         fprintf(stderr, "Meta file %s too small to contain header\n", path);
+        close(fd);
         return -3;
     }
     if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) {
         fprintf(stderr, "Meta file %s header magic mismatch\n", path);
+        close(fd);
         return -4;
     }
 #if 1
     // Currently this code only works with fixed metatile sizes (due to xyz_to_meta above)
     if (m->count != (METATILE * METATILE)) {
         fprintf(stderr, "Meta file %s header bad count %d != %d\n", path, m->count, METATILE * METATILE);
+        close(fd);
         return -5;
     }
 #else
     if (m->count < 0 || m->count > 256) {
         fprintf(stderr, "Meta file %s header bad count %d\n", path, m->count);
+        close(fd);
         return -5;
     }
 #endif
@@ -77,6 +81,7 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
 
     if (lseek(fd, file_offset, SEEK_SET) < 0) {
         fprintf(stderr, "Meta file %s seek error %d\n", path, m->count);
+        close(fd);
         return -6;
     }
     if (tile_size > sz) {
