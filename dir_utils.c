@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <errno.h>
 
 #include "protocol.h"
 #include "render_config.h"
@@ -45,8 +45,11 @@ int mkdirp(const char *path) {
                     return 1;
                 }
             } else if (mkdir(tmp, 0777)) {
-                    perror(tmp);
-                    return 1;
+                    // Ignore multiple threads attempting to create the same directory
+                    if (errno != EEXIST) { 
+                       perror(tmp);
+                       return 1;
+                    }
                 }
             *p = '/';
         }
