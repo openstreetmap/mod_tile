@@ -524,7 +524,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
+            //printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
             if (z < minZoom || z > maxZoom) {
                 printf("Ignoring tile, zoom %d outside valid range (%d..%d)\n", z, minZoom, maxZoom);
@@ -539,13 +539,14 @@ int main(int argc, char **argv)
                 //ret = process_loop(fd, mapname, x, y, z);
                 enqueue(name);
                 num_render++;
-                if (!(num_render % 10)) {
+                // Attempts to adjust the stats for the QMAX tiles which are likely in the queue
+                if ((num_render > QMAX) && !((num_render - QMAX) % 10)) {
                     gettimeofday(&end, NULL);
                     printf("\n");
                     printf("Meta tiles rendered: ");
-                    display_rate(start, end, num_render);
+                    display_rate(start, end, num_render - QMAX);
                     printf("Total tiles rendered: ");
-                    display_rate(start, end, num_render * METATILE * METATILE);
+                    display_rate(start, end, (num_render - QMAX) * METATILE * METATILE);
                     printf("Total tiles handled from input: ");
                     display_rate(start, end, num_all);
                 }
