@@ -524,11 +524,12 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            if (z < minZoom || z > maxZoom)
-                continue;
-
-
             printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
+
+            if (z < minZoom || z > maxZoom) {
+                printf("Ignoring tile, zoom %d outside valid range (%d..%d)\n", z, minZoom, maxZoom);
+                continue;
+            }
 
             num_all++;
             xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
