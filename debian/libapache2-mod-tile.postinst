@@ -3,6 +3,17 @@
 mkdir -p /var/lib/mod_tile
 chown www-data:www-data /var/lib/mod_tile
 
+if [ "$1" = configure ] ; then
+       # only enable on new installs, not on upgrades
+	if [ -z "$2" ] ; then
+		a2enmod tile
+	fi
+       # only restart if mod_something is enabled
+	if [ -e /etc/apache2/mods-enabled/tile.load ] ; then
+		invoke-rc.d apache2 restart
+	fi
+fi
+
 # automatically install munin plugins if munin is present.
 if [ -d /etc/munin/plugins ]
 then
