@@ -182,7 +182,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
                     else
                         return 0;
                 } else {
-                    ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r,
+                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                        "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
                        resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
                 }
@@ -218,7 +218,7 @@ static apr_time_t getPlanetTime(request_rec *r)
 
     last_check = now;
     if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r, "Planet timestamp file (%s) is missing", filename);
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Planet timestamp file (%s) is missing", filename);
         // Make something up
         planet_timestamp = now - apr_time_from_sec(3 * 24 * 60 * 60);
     } else {
@@ -371,7 +371,7 @@ static int get_global_lock(request_rec *r, apr_global_mutex_t * mutex) {
             if (rs == APR_SUCCESS) {
                 return 1;
             } else {
-                ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r, "Could not get hardlock");
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Could not get hardlock");
                 return 0;
             }
         } else {
