@@ -130,7 +130,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
     fd = socket_init(r);
 
     if (fd == FD_INVALID) {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Failed to connect to renderer");
+        ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, "Failed to connect to renderer");
         return 0;
     }
 
@@ -142,7 +142,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
     case 2: { cmd->cmd = cmdRenderPrio; break;}
     }
 
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting style(%s) z(%d) x(%d) y(%d) from renderer with priority %d", cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->cmd);
     do {
         ret = send(fd, cmd, sizeof(struct protocol), 0);
 
@@ -182,7 +182,7 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
                     else
                         return 0;
                 } else {
-                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                    ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r,
                        "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
                        resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
                 }
@@ -218,7 +218,7 @@ static apr_time_t getPlanetTime(request_rec *r)
 
     last_check = now;
     if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Planet timestamp file (%s) is missing", filename);
+        ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r, "Planet timestamp file (%s) is missing", filename);
         // Make something up
         planet_timestamp = now - apr_time_from_sec(3 * 24 * 60 * 60);
     } else {
@@ -371,11 +371,11 @@ static int get_global_lock(request_rec *r, apr_global_mutex_t * mutex) {
             if (rs == APR_SUCCESS) {
                 return 1;
             } else {
-                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not get hardlock");
+                ap_log_rerror(APLOG_MARK, APLOG_WARN, 0, r, "Could not get hardlock");
                 return 0;
             }
         } else {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Unknown return status from trylock");
+            ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, "Unknown return status from trylock");
             return 0;
         }
     }
@@ -610,11 +610,11 @@ static int tile_storage_hook(request_rec *r)
     int renderPrio = 0;
     enum tileState state;
 
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
-                  r->handler, r->uri, r->filename, r->path_info);
-
     if (!r->handler)
         return DECLINED;
+
+	ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
+                  r->handler, r->uri, r->filename, r->path_info);
 
     // Any status request is OK. tile_dirty also doesn't need to be handled, as tile_handler_dirty will take care of it
     if (!strcmp(r->handler, "tile_status") || !strcmp(r->handler, "tile_dirty") || !strcmp(r->handler, "tile_mod_stats"))
@@ -678,7 +678,7 @@ should already be done
         case tileMissing:
             if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 0);
-               ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
+               ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
                if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
@@ -803,7 +803,7 @@ static int tile_handler_serve(request_rec *r)
         return HTTP_NOT_FOUND;
     }
 
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_handler_serve: xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_handler_serve: xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
 
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
@@ -861,7 +861,7 @@ static int tile_handler_serve(request_rec *r)
 
 static int tile_translate(request_rec *r)
 {
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_translate: uri(%s)", r->uri);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: uri(%s)", r->uri);
 
     int i,n,limit,oob;
     char option[11];
@@ -886,7 +886,7 @@ static int tile_translate(request_rec *r)
     for (i = 0; i < scfg->configs->nelts; ++i) {
         tile_config_rec *tile_config = &tile_configs[i];
 
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_translate: baseuri(%s) name(%s)", tile_config->baseuri, tile_config->xmlname);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: testing baseuri(%s) name(%s)", tile_config->baseuri, tile_config->xmlname);
 
         if (!strncmp(tile_config->baseuri, r->uri, strlen(tile_config->baseuri))) {
 
@@ -894,7 +894,10 @@ static int tile_translate(request_rec *r)
             bzero(cmd, sizeof(struct protocol));
 
             n = sscanf(r->uri+strlen(tile_config->baseuri), "%d/%d/%d.png/%10s", &(cmd->z), &(cmd->x), &(cmd->y), option);
-            if (n < 3) return DECLINED;
+            if (n < 3) {
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s", tile_config->xmlname);
+				return DECLINED;
+			}
 
             oob = (cmd->z < 0 || cmd->z > MAX_ZOOM);
             if (!oob) {
@@ -904,6 +907,7 @@ static int tile_translate(request_rec *r)
             }
 
             if (oob) {
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: request for %s was outside of allowed bounds", tile_config->xmlname);
                 sleep(CLIENT_PENALTY);
                 //Don't increase stats counter here,
                 //As we are interested in valid tiles only
@@ -937,6 +941,7 @@ static int tile_translate(request_rec *r)
             return OK;
         }
     }
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: No suitable tile layer found");
     return DECLINED;
 }
 
@@ -1135,6 +1140,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
         return "ConfigName value must not be null";
     }
 
+
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     tile_config_rec *tilecfg = apr_array_push(scfg->configs);
 
@@ -1152,6 +1158,10 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
+
+	ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
+                    "Loading tile config %s at %s for zooms %i - %i from tile directory %s",
+				 name, baseuri, minzoom, maxzoom, scfg->tile_dir);
 
 
     return NULL;
