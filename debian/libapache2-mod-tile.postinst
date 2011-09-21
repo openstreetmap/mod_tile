@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 mkdir -p /var/lib/mod_tile
 chown www-data:www-data /var/lib/mod_tile
@@ -26,3 +27,5 @@ then
         fi
     done
 fi
+
+#DEBHELPER#
