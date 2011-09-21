@@ -12,13 +12,14 @@
 configure: configure-stamp
 configure-stamp: patch
 	dh_testdir
-	
+
 	# Add here commands to configure the package.
 
 	touch configure-stamp
 
-build: build-stamp
-
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
 build-stamp: configure-stamp  
 	dh_testdir
 
@@ -49,7 +50,7 @@ unpatch:
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_prep
 	dh_installdirs
 
 	# Add here commands to install the package into debian/libapache2-mod-tile.

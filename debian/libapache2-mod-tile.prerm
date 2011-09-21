@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 if [ "$1" = remove ] ; then
 	a2dismod -q -f tile || true
@@ -10,3 +11,5 @@ if [ -d /etc/munin/plugins ]
 then
     rm -f /etc/munin/plugins/mod_tile* 
 fi
+
+#DEBHELPER#

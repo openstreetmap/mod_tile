@@ -1,7 +1,10 @@
 #!/bin/sh
+set -e
 
 # automatically remove munin plugins
 if [ -d /etc/munin/plugins ]
 then
     rm -f /etc/munin/plugins/renderd_*
 fi
+
+#DEBHELPER#

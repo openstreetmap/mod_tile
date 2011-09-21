@@ -1,19 +1,26 @@
+libapache2-mod-tile (0.4) natty; urgency=low
+
+  * new upstream version
+  * fixed debian package scripts
+
+ -- Kai Krueger <kakrueger@gmail.com>  Tue, 20 Sep 2011 00:00:00 +0000
+
 libapache2-mod-tile (0.3) jaunty; urgency=low
 
   * new version of render_list with proper multithreading
   * bugfixes
   * new render_expired
 
- -- Frederik Ramm <fred@lambert>  Tue, 24 Nov 2009 00:09:17 +0100
+ -- Frederik Ramm <frederik@remote.org>  Tue, 24 Nov 2009 00:09:17 +0100
 
 libapache2-mod-tile (0.2) jaunty; urgency=low
 
   * now also installs munin stuff 
 
- -- Frederik Ramm <fred@lambert>  Tue, 20 Oct 2009 19:52:04 +0200
+ -- Frederik Ramm <frederik@remote.org>  Tue, 20 Oct 2009 19:52:04 +0200
 
 libapache2-mod-tile (0.1) unstable; urgency=low
 
   * Initial Debian packaging for mod_tile and renderd
 
- -- Frederik Ramm <fred@geofabrik.de>  Thu, 04 Jun 2009 13:33:42 +0200
+ -- Frederik Ramm <frederik@remote.org>  Thu, 04 Jun 2009 13:33:42 +0200
