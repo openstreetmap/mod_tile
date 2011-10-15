@@ -1,9 +1,16 @@
-libapache2-mod-tile (0.4) natty; urgency=low
+libapache2-mod-tile (0.4-9~oneiric1) oneiric; urgency=low
+
+  * added a slippymap
+  * added scripts to update a tileserver
+
+ -- Kai Krueger <kakrueger@gmail.com>  Sun, 09 Oct 2011 00:00:00 +0000
+
+libapache2-mod-tile (0.4-8~natty1) natty; urgency=low
 
   * new upstream version
   * fixed debian package scripts
 
- -- Kai Krueger <kakrueger@gmail.com>  Tue, 20 Sep 2011 00:00:00 +0000
+ -- Kai Krueger <kakrueger@gmail.com>  Thu, 06 Oct 2011 00:00:00 +0000
 
 libapache2-mod-tile (0.3) jaunty; urgency=low
 
