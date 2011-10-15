@@ -495,7 +495,8 @@ int main(int argc, char **argv)
         struct stat s;
         int n = fscanf(stdin, "%d/%d/%d", &z, &x, &y);
 
-        printf("read: x=%d y=%d z=%d\n", x, y, z);
+        if (verbose)
+            printf("read: x=%d y=%d z=%d\n", x, y, z);
         if (n != 3) {
             // Discard input line
             char tmp[1024];
@@ -516,10 +517,13 @@ int main(int argc, char **argv)
         }
         //printf("loop: x=%d y=%d z=%d up to z=%d\n", x, y, z, minZoom);
         num_read++;
+        if (num_read % 100 == 0)
+            printf("Read and expanded %i tiles from list.\n", num_read);
 
         for (; z>= minZoom; z--, x>>=1, y>>=1)
         {
-            printf("process: x=%d y=%d z=%d\n", x, y, z);
+            if (verbose)
+                printf("process: x=%d y=%d z=%d\n", x, y, z);
 
             // don't do anything if this tile was already requested.
             // renderd does keep a list internally to avoid enqueing the same tile
@@ -527,7 +531,8 @@ int main(int argc, char **argv)
             // cause extra work.
             if (TILE_REQUESTED(z - excess_zoomlevels,x>>excess_zoomlevels,y>>excess_zoomlevels)) 
             { 
-                printf("already requested\n"); 
+                if (verbose)
+                    printf("already requested\n"); 
                 break; 
             }
 
@@ -548,13 +553,15 @@ int main(int argc, char **argv)
                 // tile exists on disk; render it
                 if (deleteFrom != -1 && z >= deleteFrom)
                 {
-                    printf("unlink: %s\n", name);
+                    if (verbose)
+                        printf("unlink: %s\n", name);
                     unlink(name);
                     num_unlink++;
                 }
                 else if (touchFrom != -1 && z >= touchFrom)
                 {
-                    printf("touch: %s\n", name);
+                    if (verbose)
+                        printf("touch: %s\n", name);
                     if (-1 == utime(name, &touchTime))
                     {
                         perror("modifying timestamp failed");
@@ -584,7 +591,8 @@ int main(int argc, char **argv)
             }
             else
             {
-                printf("not on disk: %s\n", name);
+                if (verbose)
+                    printf("not on disk: %s\n", name);
                 num_ignore++;
             }
         }
