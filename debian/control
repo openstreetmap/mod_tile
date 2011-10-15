@@ -2,7 +2,7 @@ Source: libapache2-mod-tile
 Section: utils
 Priority: optional
 Maintainer: Frederik Ramm <frederik@remote.org>
-Build-Depends: debhelper (>= 7), apache2-prefork-dev (>= 2.2.3) | apache2-threaded-dev (>= 2.2.3), libmapnik-dev, dpatch
+Build-Depends: debhelper (>= 7), apache2-prefork-dev (>= 2.2.3) | apache2-threaded-dev (>= 2.2.3), libmapnik-dev | libmanik2-dev, dpatch
 Standards-Version: 3.9.2
 
 Package: libapache2-mod-tile
@@ -15,9 +15,10 @@ Description: Apache module to deliver tiles created by renderd
 
 Package: renderd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmapnik0.7
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmapnik0.7 | libmapnik2
 Suggests: libapache2-mod-tile
-Recommends: osm2pgsql
+Recommends: osm2pgsql, openstreetmap-mapnik-stylesheet-data
 Description: Daemon that renders map tiles using mapnik
  This daemon creates "metatiles" for map tile requests issued by mod_tile
  using the mapnik library.
+

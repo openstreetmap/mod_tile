@@ -1,0 +1,6 @@
+Template: libapache2-mod-tile/enablesite
+Type: boolean
+Default: true
+Description: Do you want to enable mod_tile in the apache config?
+ This will enable the apache config for mod_tile
+ WARNING: This will disable the currently active default site config
