@@ -142,6 +142,8 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
     case 2: { cmd->cmd = cmdRenderPrio; break;}
     }
 
+    if (scfg->bulkMode) cmd->cmd = cmdRenderBulk; 
+
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting style(%s) z(%d) x(%d) y(%d) from renderer with priority %d", cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->cmd);
     do {
         ret = send(fd, cmd, sizeof(struct protocol), 0);
@@ -599,6 +601,10 @@ static int tile_handler_dirty(request_rec *r)
     if (cmd == NULL)
         return DECLINED;
 
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+	if (scfg->bulkMode) return OK;
+
     request_tile(r, cmd, 0);
     return error_message(r, "Tile submitted for rendering\n");
 }
@@ -663,7 +669,9 @@ should already be done
             return OK;
             break;
         case tileOld:
-            if (avg > scfg->max_load_old) {
+            if (scfg->bulkMode) {
+                return OK;
+            } else if (avg > scfg->max_load_old) {
                // Too much load to render it now, mark dirty but return old tile
                request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_old (%d). Mark dirty and deliver from cache.", scfg->max_load_old);
@@ -1401,6 +1409,13 @@ static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int
     return NULL;
 }
 
+static const char *mod_tile_bulk_mode(cmd_parms *cmd, void *mconfig, int bulkMode)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->bulkMode = bulkMode;
+    return NULL;
+}
+
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
 {
     int bucketsize;
@@ -1470,6 +1485,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
 	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
 	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
+	scfg->bulkMode = 0;
 
 
     return scfg;
@@ -1508,6 +1524,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
 	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
 	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
+	scfg->bulkMode = scfg_over->bulkMode;
 
     //Construct a table of minimum cache times per zoom level
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -1664,6 +1681,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"  /* directive description */
+    ),
+	AP_INIT_FLAG(
+        "ModTileBulkMode",       /* directive name */
+        mod_tile_bulk_mode,                 /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "On Off - make all requests to renderd with bulk render priority, never mark tiles dirty"  /* directive description */
     ),
     {NULL}
 };

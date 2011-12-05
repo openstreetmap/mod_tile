@@ -85,6 +85,7 @@ typedef struct {
 	long delaypoolTileRate;
 	int delaypoolRenderSize;
 	long delaypoolRenderRate;
+    int bulkMode;
 } tile_server_conf;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
