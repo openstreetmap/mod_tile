@@ -54,7 +54,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
     sec = d_s + d_us / 1000000.0;
 
-    printf("Rendered %d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
+    printf("%d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
     fflush(NULL);
 }
 
@@ -218,7 +218,6 @@ char *fetch(void)
             pthread_cond_signal(&qCondNotFull);
         qLen--;
     }
-
     pthread_mutex_unlock(&qLock);
     return path;
 }
@@ -286,17 +285,6 @@ static void descend(const char *search)
             if (planetTime > b.st_mtime) {
                 // request rendering of  old tile
                 enqueue(path);
-                num_render++;
-                if (!(num_render % 10)) {
-                    gettimeofday(&end, NULL);
-                    printf("\n");
-                    printf("Meta tiles rendered: ");
-                    display_rate(start, end, num_render);
-                    printf("Total tiles rendered: ");
-                    display_rate(start, end, num_render * METATILE * METATILE);
-                    printf("Total tiles handled from input: ");
-                    display_rate(start, end, num_all);
-                }
             }
         }
     }
@@ -328,6 +316,18 @@ void *thread_main(void *arg)
 
     while((tile = fetch())) {
         process(fd, tile);
+        num_render++;
+        if (!(num_render % 10)) {
+            gettimeofday(&end, NULL);
+            printf("\n");
+            printf("Meta tiles rendered: ");
+            display_rate(start, end, num_render);
+            printf("Total tiles rendered: ");
+            display_rate(start, end, num_render * METATILE * METATILE);
+            printf("Number of Metatiles tested for expiry: ");
+            display_rate(start, end, num_all);
+            printf("\n");
+        }
         free(tile);
     }
 
