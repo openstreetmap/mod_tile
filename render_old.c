@@ -38,6 +38,7 @@ static int minZoom = 0;
 static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 static int num_render = 0, num_all = 0;
+static int max_load = MAX_LOAD_OLD;
 static time_t planetTime;
 static struct timeval start, end;
 
@@ -121,7 +122,7 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     cmd.y = y;
     strcpy(cmd.xmlname, xmlname);
     //strcpy(cmd.path, "/tmp/foo.png");
-    //printf("Sending request\n");
+    //printf("Sending request of size %i\n", sizeof(cmd));
     ret = send(fd, &cmd, sizeof(cmd), 0);
     if (ret != sizeof(cmd)) {
         perror("send error");
@@ -161,7 +162,7 @@ static void check_load(void)
 {
     int avg = get_load_avg();
 
-    while (avg >= MAX_LOAD_OLD) {
+    while (avg >= max_load) {
         printf("Load average %d, sleeping\n", avg);
         sleep(5);
         avg = get_load_avg();
@@ -393,23 +394,29 @@ int main(int argc, char **argv)
 {
     char spath[PATH_MAX] = RENDER_SOCKET;
     char *tile_dir = HASH_PATH;
+    char *config_file = RENDERD_CONFIG;
     int c;
     int numThreads = 1;
+    int dd, mm, yy;
+    struct tm tm;
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
+            {"config",1,0,'c'},
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
+            {"max-load", 1, 0, 'l'},
             {"socket", 1, 0, 's'},
             {"num-threads", 1, 0, 'n'},
             {"tile-dir", 1, 0, 't'},
+            {"timestamp", 1, 0, 'T'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:s:t:n:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:t:n:c:l:T:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -420,6 +427,10 @@ int main(int argc, char **argv)
                 break;
             case 't':   /* -t, --tile-dir */
                 tile_dir=strdup(optarg);
+                break;
+
+            case 'c':   /* -c, --config */
+                config_file=strdup(optarg);
                 break;
             case 'n':   /* -n, --num-threads */
                 numThreads=atoi(optarg);
@@ -442,17 +453,40 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
+             case 'l':
+                 max_load = atoi(optarg);
+                 if (max_load < 0) {
+                     fprintf(stderr, "Invalid maximum load specified, must be greater than 0\n");
+                     return 1;
+                 }
+                 break;
+            case 'T':
+                
+                if (sscanf(optarg,"%d/%d/%d", &dd, &mm, &yy) < 3) {
+                    fprintf(stderr, "Invalid planet time stamp, must be in the format dd/mm/yyyy\n");
+                    return 1;
+                }
+                
+                if (yy > 100) yy -= 1900;
+                if (yy < 70) yy += 100;
+                
+                tm.tm_sec = 0; tm.tm_min = 0; tm.tm_hour = 0; tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
+                planetTime = mktime(&tm);
+
             case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_old [OPTION] ...\n");
                 fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
+                fprintf(stderr, "  -c, --config=CONFIG  specify the renderd config file\n");
                 fprintf(stderr, "  -n, --num-threads=N  the number of parallel request threads (default 1)\n");
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
                 fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
+                fprintf(stderr, "  -l, --max-load=LOAD  maximum system load with which requests are submitted\n");
+                fprintf(stderr, "  -T, --timestamp=DD/MM/YY  Overwrite the assumed data of the planet import\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -467,7 +501,11 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Rendering old tiles\n");
 
-    planetTime = getPlanetTime(tile_dir);
+    if (planetTime == 0) {
+        planetTime = getPlanetTime(tile_dir);
+    } else {
+        printf("Overwriting planet file update to %s", ctime(&planetTime));
+    }
 
     gettimeofday(&start, NULL);
 
@@ -476,8 +514,8 @@ int main(int argc, char **argv)
     char value[INILINE_MAX];
 
     // Load the config
-    if ((hini=fopen(RENDERD_CONFIG, "r"))==NULL) {
-        fprintf(stderr, "Config: cannot open %s\n", RENDERD_CONFIG);
+    if ((hini=fopen(config_file, "r"))==NULL) {
+        fprintf(stderr, "Config: cannot open %s\n", config_file);
         exit(7);
     }
 
