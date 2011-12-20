@@ -89,21 +89,38 @@ static time_t getPlanetTime(char *tile_dir)
 
 int get_load_avg(void)
 {
-    FILE *loadavg = fopen("/proc/loadavg", "r");
+    double load[3];
     int avg = 1000;
 
-    if (!loadavg) {
-        fprintf(stderr, "failed to read /proc/loadavg");
+    if (getloadavg(load, 3) < 0) {
+        fprintf(stderr, "failed to read loadavg");
         return 1000;
     }
-    if (fscanf(loadavg, "%d", &avg) != 1) {
-        fprintf(stderr, "failed to parse /proc/loadavg");
-        fclose(loadavg);
-        return 1000;
-    }
-    fclose(loadavg);
 
-    return avg;
+    return (int)load[0];
+}
+
+int connect_socket(const char *arg) {
+    int fd;
+    struct sockaddr_un addr;
+    const char *spath = arg;
+
+    fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+        fprintf(stderr, "failed to create unix socket\n");
+        exit(2);
+    }
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        fprintf(stderr, "socket connect failed for: %s\n", spath);
+        close(fd);
+        return -1;
+    }
+    return fd;
 }
 
 
@@ -113,7 +130,7 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     //struct pollfd fds[1];
     int ret = 0;
 
-    bzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
 
     cmd.ver = 2;
     cmd.cmd = cmdRenderBulk;
@@ -128,11 +145,17 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
         perror("send error");
     }
         //printf("Waiting for response\n");
-    bzero(&rsp, sizeof(rsp));
-    ret = recv(fd, &rsp, sizeof(rsp), 0);
+    memset(&rsp, 0, sizeof(rsp));
+    ret = recv(fd, &rsp, sizeof(rsp), MSG_WAITALL);
     if (ret != sizeof(rsp)) {
-        perror("recv error");
-        return 0;
+        if (ret == 0) {
+            printf("rendering socket closed, pausing\n");
+            sleep(10);
+            return 0;
+        } else {
+            perror("recv error");
+            return -1;
+        }
     }
         //printf("Got response\n");
 
@@ -146,16 +169,16 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     return ret;
 }
 
-void process(int fd, const char *name)
+int process(int fd, const char *name)
 {
     char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
 
     if (path_to_xyz(name, xmlconfig, &x, &y, &z))
-        return;
+        return 1;
 
     printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
-    process_loop(fd, xmlconfig, x, y, z);
+    return process_loop(fd, xmlconfig, x, y, z);
 }
 
 static void check_load(void)
@@ -183,7 +206,7 @@ struct qItem {
 
 struct qItem *qHead, *qTail;
 
-char *fetch(void)
+char *fetch(const char * socket, int * fd)
 {
     // Fetch path to render from queue or NULL on work completion
     // Must free() pointer after use
@@ -192,11 +215,19 @@ char *fetch(void)
     pthread_mutex_lock(&qLock);
 
     while (qLen == 0) {
+        /* If there is nothing to do, close the socket, as it may otherwise timeout */
+        if (fd >= 0) {
+            close(*fd);
+            *fd = -1;
+        }
         if (work_complete) {
             pthread_mutex_unlock(&qLock);
             return NULL;
         }
         pthread_cond_wait(&qCondNotEmpty, &qLock);
+    }
+    if (*fd < 0) {
+        *fd = connect_socket(socket);
     }
 
     // Fetch item from queue
@@ -252,6 +283,7 @@ void enqueue(const char *path)
     qLen++;
 
     pthread_mutex_unlock(&qLock);
+    sleep(10);
 }
 
 static void descend(const char *search)
@@ -292,31 +324,23 @@ static void descend(const char *search)
     closedir(tiles);
 }
 
+
+
 void *thread_main(void *arg)
 {
-    const char *spath = (const char *)arg;
     int fd;
-    struct sockaddr_un addr;
+    char * spath = (char *) arg;
     char *tile;
 
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
-        exit(2);
-    }
+    fd = connect_socket(spath);
 
-    bzero(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
-
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
-        close(fd);
-        return NULL;
-    }
-
-    while((tile = fetch())) {
-        process(fd, tile);
+    while((tile = fetch(spath, &fd))) {
+        int ret = process(fd, tile);
+        if (ret == 0) {
+            printf("Reconnecting closed socket\n");
+            close(fd);
+            fd = connect_socket(spath);
+        }
         num_render++;
         if (!(num_render % 10)) {
             gettimeofday(&end, NULL);
@@ -395,6 +419,7 @@ int main(int argc, char **argv)
     char spath[PATH_MAX] = RENDER_SOCKET;
     char *tile_dir = HASH_PATH;
     char *config_file = RENDERD_CONFIG;
+    char *map = NULL;
     int c;
     int numThreads = 1;
     int dd, mm, yy;
@@ -411,12 +436,13 @@ int main(int argc, char **argv)
             {"num-threads", 1, 0, 'n'},
             {"tile-dir", 1, 0, 't'},
             {"timestamp", 1, 0, 'T'},
+            {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:s:t:n:c:l:T:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:t:n:c:l:T:m:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -431,6 +457,9 @@ int main(int argc, char **argv)
 
             case 'c':   /* -c, --config */
                 config_file=strdup(optarg);
+                break;
+            case 'm':   /* -m, --map */
+                map=strdup(optarg);
                 break;
             case 'n':   /* -n, --num-threads */
                 numThreads=atoi(optarg);
@@ -487,6 +516,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
                 fprintf(stderr, "  -l, --max-load=LOAD  maximum system load with which requests are submitted\n");
                 fprintf(stderr, "  -T, --timestamp=DD/MM/YY  Overwrite the assumed data of the planet import\n");
+                fprintf(stderr, "  -m, --map=STYLE      Instead of going through all styls of CONFIG, only use a specific map-style\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -521,16 +551,20 @@ int main(int argc, char **argv)
 
     spawn_workers(numThreads, spath);
 
-    while (fgets(line, INILINE_MAX, hini)!=NULL) {
-        if (line[0] == '[') {
-            if (strlen(line) >= XMLCONFIG_MAX){
-                fprintf(stderr, "XML name too long: %s\n", line);
-                exit(7);
+    if (map) {
+        render_layer(map);
+    } else {
+        while (fgets(line, INILINE_MAX, hini)!=NULL) {
+            if (line[0] == '[') {
+                if (strlen(line) >= XMLCONFIG_MAX){
+                    fprintf(stderr, "XML name too long: %s\n", line);
+                    exit(7);
+                }
+                sscanf(line, "[%[^]]", value);
+                // Skip mapnik & renderd sections which are config, not tile layers
+                if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
+                    render_layer(value);
             }
-            sscanf(line, "[%[^]]", value);
-            // Skip mapnik & renderd sections which are config, not tile layers
-            if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
-                render_layer(value);
         }
     }
     fclose(hini);
