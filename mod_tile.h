@@ -51,6 +51,8 @@ typedef struct stats_data {
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
 	apr_uint64_t noRespZoom[MAX_ZOOM + 1];
+	apr_uint64_t noResp200Layer[XMLCONFIGS_MAX];
+	apr_uint64_t noResp404Layer[XMLCONFIGS_MAX];
 } stats_data;
 
 typedef struct {
@@ -87,6 +89,11 @@ typedef struct {
 	long delaypoolRenderRate;
     int bulkMode;
 } tile_server_conf;
+
+typedef struct tile_request_data {
+	struct protocol * cmd;
+	int layerNumber;
+};
 
 enum tileState { tileMissing, tileOld, tileCurrent };
 
