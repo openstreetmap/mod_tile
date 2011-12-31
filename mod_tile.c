@@ -385,7 +385,7 @@ static int get_global_lock(request_rec *r, apr_global_mutex_t * mutex) {
     return 0;
 }
 
-static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
+static int incRespCounter(int resp, request_rec *r, struct protocol * cmd, int layerNumber) {
     stats_data *stats;
 
     ap_conf_vector_t *sconf = r->server->module_config;
@@ -407,6 +407,7 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
             stats->noResp200++;
 			if (cmd != NULL) {
 				stats->noRespZoom[cmd->z]++;
+				stats->noResp200Layer[layerNumber]++;
 			}
             break;
         }
@@ -414,11 +415,13 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd) {
             stats->noResp304++;
 			if (cmd != NULL) {
 				stats->noRespZoom[cmd->z]++;
+				stats->noResp200Layer[layerNumber]++;
 			}
             break;
         }
         case HTTP_NOT_FOUND: {
             stats->noResp404++;
+            stats->noResp404Layer[layerNumber]++;
             break;
         }
 		case HTTP_SERVICE_UNAVAILABLE: {
@@ -597,7 +600,8 @@ static int tile_handler_dirty(request_rec *r)
     if(strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
-    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+	struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    struct protocol * cmd = rdata->cmd;
     if (cmd == NULL)
         return DECLINED;
 
@@ -629,7 +633,8 @@ static int tile_storage_hook(request_rec *r)
     if (strcmp(r->handler, "tile_serve"))
         return DECLINED;
 
-    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    struct protocol * cmd = rdata->cmd;
     if (cmd == NULL)
         return DECLINED;
 
@@ -653,7 +658,7 @@ should already be done
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
 	if (scfg->enableTileThrottling && !delay_allowed(r, state)) {
-		if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd)) {
+		if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd, rdata->layerNumber)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
         }
@@ -687,7 +692,7 @@ should already be done
             if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
-               if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
+               if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
                }
@@ -715,7 +720,7 @@ should already be done
         }
         return OK;
     }
-    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
+    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
     }
@@ -731,7 +736,8 @@ static int tile_handler_status(request_rec *r)
     if(strcmp(r->handler, "tile_status"))
         return DECLINED;
 
-    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    struct protocol * cmd = rdata->cmd;
     if (cmd == NULL){
         sleep(CLIENT_PENALTY);
         return HTTP_NOT_FOUND;
@@ -756,6 +762,7 @@ static int tile_handler_mod_stats(request_rec *r)
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
 
     if (!scfg->enableGlobalStats) {
         return error_message(r, "Stats are not enabled for this server");
@@ -785,6 +792,11 @@ static int tile_handler_mod_stats(request_rec *r)
 	for (i = 0; i <= MAX_ZOOM; i++) {
 		ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
 	}
+	for (i = 0; i < scfg->configs->nelts; ++i) {
+	        tile_config_rec *tile_config = &tile_configs[i];
+			ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->xmlname, local_stats.noResp200Layer[i]);
+			ap_rprintf(r,"NoRes404Layer%s: %li\n", tile_config->xmlname, local_stats.noResp404Layer[i]);
+	}
 
 
 
@@ -801,10 +813,11 @@ static int tile_handler_serve(request_rec *r)
     if(strcmp(r->handler, "tile_serve"))
         return DECLINED;
 
-    struct protocol * cmd = (struct protocol *)ap_get_module_config(r->request_config, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    struct protocol * cmd = rdata->cmd;
     if (cmd == NULL){
         sleep(CLIENT_PENALTY);
-        if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
+        if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase response stats counter");
         }
@@ -816,7 +829,7 @@ static int tile_handler_serve(request_rec *r)
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
     if (!buf) {
-        if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd)) {
+        if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase response stats counter");
         }
@@ -843,7 +856,7 @@ static int tile_handler_serve(request_rec *r)
         add_expiry(r, cmd);
         if ((errstatus = ap_meets_conditions(r)) != OK) {
             free(buf);
-            if (!incRespCounter(errstatus, r, cmd)) {
+            if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
             }
@@ -851,7 +864,7 @@ static int tile_handler_serve(request_rec *r)
         } else {
             ap_rwrite(buf, len, r);
             free(buf);
-            if (!incRespCounter(errstatus, r, cmd)) {
+            if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
             }
@@ -860,7 +873,7 @@ static int tile_handler_serve(request_rec *r)
     }
     free(buf);
     //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "len = %d", len);
-    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd)) {
+    if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
     }
@@ -898,8 +911,10 @@ static int tile_translate(request_rec *r)
 
         if (!strncmp(tile_config->baseuri, r->uri, strlen(tile_config->baseuri))) {
 
+        	struct tile_request_data * rdata = (struct tile_request_data *) apr_pcalloc(r->pool, sizeof(struct tile_request_data));
             struct protocol * cmd = (struct protocol *) apr_pcalloc(r->pool, sizeof(struct protocol));
             bzero(cmd, sizeof(struct protocol));
+            bzero(rdata, sizeof(struct tile_request_data));
 
             n = sscanf(r->uri+strlen(tile_config->baseuri), "%d/%d/%d.png/%10s", &(cmd->z), &(cmd->x), &(cmd->y), option);
             if (n < 3) {
@@ -925,7 +940,9 @@ static int tile_translate(request_rec *r)
             strcpy(cmd->xmlname, tile_config->xmlname);
 
             // Store a copy for later
-            ap_set_module_config(r->request_config, &tile_module, cmd);
+			rdata->cmd = cmd;
+			rdata->layerNumber = i;
+            ap_set_module_config(r->request_config, &tile_module, rdata);
 
             // Generate the tile filename?
             char abs_path[PATH_MAX];
