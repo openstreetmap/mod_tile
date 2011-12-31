@@ -200,37 +200,59 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 
 static apr_time_t getPlanetTime(request_rec *r)
 {
-    static apr_time_t last_check;
-    static apr_time_t planet_timestamp;
+    static apr_time_t last_check[XMLCONFIGS_MAX];
+    static apr_time_t planet_timestamp[XMLCONFIGS_MAX];
     static pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
     apr_time_t now = r->request_time;
     struct apr_finfo_t s;
 
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    if (rdata == NULL) {
+    	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "No per request configuration data");
+		return planet_timestamp[0];
+    }
+    struct protocol * cmd = rdata->cmd;
+
+
     pthread_mutex_lock(&planet_lock);
     // Only check for updates periodically
-    if (now < last_check + apr_time_from_sec(300)) {
+    if (now < last_check[rdata->layerNumber] + apr_time_from_sec(300)) {
         pthread_mutex_unlock(&planet_lock);
-        return planet_timestamp;
+        return planet_timestamp[rdata->layerNumber];
     }
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-    char filename[PATH_MAX];
-    snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
 
-    last_check = now;
+    char filename[PATH_MAX];
+    snprintf(filename, PATH_MAX-1, "%s/%s%s", scfg->tile_dir, cmd->xmlname, PLANET_TIMESTAMP);
+
+    last_check[rdata->layerNumber] = now;
     if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Planet timestamp file (%s) is missing", filename);
-        // Make something up
-        planet_timestamp = now - apr_time_from_sec(3 * 24 * 60 * 60);
+    	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "per tile style planet time stamp (%s) missing, trying global one", filename);
+    	snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
+    	if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
+    		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Global planet time stamp file (%s) is missing. Assuming 3 days old.", filename);
+    		// Make something up
+    		planet_timestamp[rdata->layerNumber] = now - apr_time_from_sec(3 * 24 * 60 * 60);
+    	} else {
+    		if (s.mtime != planet_timestamp[rdata->layerNumber]) {
+    			planet_timestamp[rdata->layerNumber] = s.mtime;
+    			char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+    			    apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
+    			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Global planet file time stamp (%s) updated to %s", filename, timestr);
+    		}
+    	}
     } else {
-        if (s.mtime != planet_timestamp) {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Planet file updated");
-            planet_timestamp = s.mtime;
+        if (s.mtime != planet_timestamp[rdata->layerNumber]) {
+        	planet_timestamp[rdata->layerNumber] = s.mtime;
+			char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+        	apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
+        	ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Per style planet file time stamp (%s) updated to %s", filename, timestr);
         }
     }
     pthread_mutex_unlock(&planet_lock);
-    return planet_timestamp;
+    return planet_timestamp[rdata->layerNumber];
 }
 
 static enum tileState tile_state_once(request_rec *r)
