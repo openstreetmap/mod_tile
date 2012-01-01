@@ -58,6 +58,8 @@ typedef struct stats_data {
 typedef struct {
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
+    char fileExtension[PATH_MAX];
+    char mimeType[PATH_MAX];
     int minzoom;
     int maxzoom;
 } tile_config_rec;
