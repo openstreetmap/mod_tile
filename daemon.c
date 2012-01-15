@@ -25,9 +25,9 @@
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
-extern "C" {
+// extern "C" {
 #include "iniparser3.0b/src/iniparser.h"
-}
+// }
 
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
@@ -308,8 +308,8 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     // Upgrade version 1 to version 2
     if (req->ver == 1) {
-        reqnew = (struct protocol *)malloc(sizeof(protocol));
-        memcpy(reqnew, req, sizeof(protocol_v1));
+        reqnew = (struct protocol *)malloc(sizeof(struct protocol));
+        memcpy(reqnew, req, sizeof(struct protocol_v1));
         reqnew->xmlname[0] = 0;
         req = reqnew;
     }
@@ -721,8 +721,8 @@ void *slave_thread(void * arg) {
     struct protocol * resp;
     struct protocol * req_slave;
 
-    req_slave = (struct protocol *)malloc(sizeof(protocol));
-    resp = (struct protocol *)malloc(sizeof(protocol));
+    req_slave = (struct protocol *)malloc(sizeof(struct protocol));
+    resp = (struct protocol *)malloc(sizeof(struct protocol));
     bzero(req_slave, sizeof(struct protocol));
     bzero(resp, sizeof(struct protocol));
 
