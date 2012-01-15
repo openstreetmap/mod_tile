@@ -1,6 +1,10 @@
 #ifndef DAEMON_H
 #define DEEMON_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <limits.h> /* for PATH_MAX */
 
 #include "protocol.h"
@@ -45,5 +49,7 @@ typedef struct {
 void statsRenderFinish(int z, long time);
 void request_exit(void);
 
-
+#ifdef __cplusplus
+}
+#endif
 #endif

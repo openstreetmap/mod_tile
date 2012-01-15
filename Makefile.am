@@ -1,0 +1,28 @@
+AUTOMAKE_OPTIONS = foreign
+SUBDIRS = iniparser3.0b
+
+ACLOCAL_AMFLAGS = -I m4
+
+AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS)
+
+bin_PROGRAMS = render_old render_expired render_list speedtest render_old renderd convert_meta
+
+renderd_SOURCES = protocol.h store.c daemon.h daemon.c gen_tile.h gen_tile.cpp dir_utils.c  render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.la
+renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) -Liniparser3.0b/.libs -liniparser
+speedtest_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h speedtest.cpp
+render_list_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_list.c
+render_list_LDADD = $(PTHREAD_CFLAGS)
+render_expired_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_expired.c
+render_expired_LDADD = $(PTHREAD_CFLAGS)
+render_old_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_old.c
+render_old_LDADD = $(PTHREAD_CFLAGS)
+convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.c convert_meta.c
+
+all-local:
+	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
+
+install-exec-local: 
+	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
+	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
+
+
