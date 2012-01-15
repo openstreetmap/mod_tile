@@ -173,11 +173,15 @@ int process(int fd, const char *name)
 {
     char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
+    struct stat b;
+
+    if (stat(name, &b))
+        return 1;
 
     if (path_to_xyz(name, xmlconfig, &x, &y, &z))
         return 1;
 
-    printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
+    printf("Requesting xml(%s) x(%d) y(%d) z(%d) as last modified at %s\n", xmlconfig, x, y, z, ctime(&b.st_mtime));
     return process_loop(fd, xmlconfig, x, y, z);
 }
 
