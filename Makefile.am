@@ -21,7 +21,7 @@ convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.
 all-local:
 	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
 
-install-exec-local: 
+install-mod_tile: 
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
 	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
 

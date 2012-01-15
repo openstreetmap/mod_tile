@@ -10,7 +10,7 @@
 #export DH_VERBOSE=1
 
 configure: configure-stamp
-configure-stamp: patch
+configure-stamp:
 	dh_testdir
 
 	# Add here commands to configure the package.
@@ -24,28 +24,23 @@ build-stamp: configure-stamp
 	dh_testdir
 
 	# Add here commands to compile the package.
+	./autogen.sh
+	./configure --prefix=/usr
 	$(MAKE)
 
 	touch $@
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	$(MAKE) clean
+	$(MAKE) clean || /bin/true
 
 	dh_clean 
 
-patch: patch-stamp
-patch-stamp:
-	dpatch apply-all
-	dpatch cat-all >patch-stamp
-
-unpatch:
-	dpatch deapply-all
-	rm -rf patch-stamp debian/patched
+patch:
 
 install: build
 	dh_testdir
@@ -54,7 +49,8 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/libapache2-mod-tile.
-	#$(MAKE) DESTDIR=$(CURDIR)/debian/libapache2-mod-tile install
+	$(MAKE) DESTDIR=$(CURDIR)/debian/libapache2-mod-tile install-mod_tile
+	$(MAKE) DESTDIR=$(CURDIR)/debian/renderd install
 
 
 # Build architecture-independent files here.
@@ -85,7 +81,7 @@ binary-arch: build install
 	dh_compress
 	dh_fixperms
 #	dh_perl
-#	dh_makeshlibs
+	dh_makeshlibs
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

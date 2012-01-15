@@ -1,4 +1,11 @@
-libapache2-mod-tile (0.4-9~oneiric1) oneiric; urgency=low
+libapache2-mod-tile (0.4-10~oneiric1) oneiric; urgency=low
+
+  * support extensions other than png
+  * autoconf'ify build system
+
+ -- Kai Krueger <kakrueger@gmail.com>  Sun, 15 Jan 2012 00:00:00 +0000
+	
+libapache2-mod-tile (0.4-9~oneiric2) oneiric; urgency=low
 
   * added a slippymap
   * added scripts to update a tileserver
