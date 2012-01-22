@@ -39,6 +39,7 @@ AC_SEARCH_LIBS(inet_ntoa, nsl)
 AC_SEARCH_LIBS(gethostbyname, resolv nsl)
 AC_SEARCH_LIBS(pow,m)
 AX_BOOST_BASE
+AC_CHECK_ICU(4.4)
 AX_LIB_MAPNIK
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 
