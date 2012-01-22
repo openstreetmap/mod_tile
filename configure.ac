@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.68])
+AC_PREREQ([2.61])
 AX_CONFIG_NICE
 AC_INIT(mod_tile, 0.1, http://trac.openstreetmap.org)
 AM_INIT_AUTOMAKE(mod_tile,0.1)

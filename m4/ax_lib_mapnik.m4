@@ -1,15 +1,13 @@
 # SYNOPSIS
 #
-#   AX_LIB_MAPNIK([MINIMUM-VERSION])
+#   AX_LIB_MAPNIK()
 #
 # DESCRIPTION
 #
 #   This macro provides tests of availability of mapnik 'libmapnik' library
 #   of particular version or newer.
 #
-#   AX_LIB_MAPNIK macro takes only one argument which is optional. If
-#   there is no required version passed, then macro does not run version
-#   test.
+#   
 #
 #   The --with-mapnik option takes one of three possible values:
 #
@@ -25,7 +23,6 @@
 #
 #     AC_SUBST(MAPNIK_CFLAGS)
 #     AC_SUBST(MAPNIK_LDFLAGS)
-#     AC_SUBST(MAPNIK_VERSION)
 #
 #   And sets:
 #
@@ -74,73 +71,34 @@ AC_DEFUN([AX_LIB_MAPNIK],
         fi
 
         if test ! -x "$MAPNIK_CONFIG"; then
-            AC_MSG_ERROR([$MAPNIK_CONFIG does not exist or it is not an exectuable file])
-            MAPNIK_CONFIG="no"
-            found_libmapnik="no"
-        fi
-
-        if test "$MAPNIK_CONFIG" != "no"; then
-            AC_MSG_CHECKING([for mapnik libraries])
-
-            MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
-            MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs`"
-
-            MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
-
-            AC_DEFINE([HAVE_MAPNIK], [1],
-                [Define to 1 if mapnik libraries are available])
-
-            found_libmapnik="yes"
-            AC_MSG_RESULT([yes])
+            # mapnik version < 2.0 did not have mapnik-config, so need to manually figure out the configuration
+            AC_CHECK_HEADER(mapnik/version.hpp,[],[AC_MSG_ERROR([Did not find mapnik])])
+            AC_CHECK_LIB([mapnik],[main],[MAPNIK_LDFLAGS="-lmapnik" found_libmapnik="yes"])
+            AC_CHECK_LIB([mapnik2],[main],[MAPNIK_LDFLAGS="-lmapnik2" found_libmapnik="yes"])
+            if test "$found_libmapnik" = "yes"; then
+                AC_MSG_CHECKING([for mapnik libraries])			
+                AC_MSG_RESULT([yes])
+            else
+                AC_MSG_ERROR([Did not find usable mapnik library])
+            fi
         else
-            found_libmapnik="no"
-            AC_MSG_RESULT([no])
-        fi
-    fi
+            if test "$MAPNIK_CONFIG" != "no"; then
+	            AC_MSG_CHECKING([for mapnik libraries])
 
-    dnl
-    dnl Check if required version of mapnik is available
-    dnl
+        	    MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
+        	    MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs`"
 
+        	    MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
 
-    libmapnik_version_req=ifelse([$1], [], [], [$1])
+        	    AC_DEFINE([HAVE_MAPNIK], [1],
+        	        [Define to 1 if mapnik libraries are available])
 
-
-    if test "$found_libmapnik" = "yes" -a -n "$libmapnik_version_req"; then
-
-        AC_MSG_CHECKING([if mapnik version is >= $libmapnik_version_req])
-
-        dnl Decompose required version string of mapnik
-        dnl and calculate its number representation
-        libxml2_version_req_major=`expr $libxml2_version_req : '\([[0-9]]*\)'`
-        libxml2_version_req_minor=`expr $libxml2_version_req : '[[0-9]]*\.\([[0-9]]*\)'`
-        libxml2_version_req_micro=`expr $libxml2_version_req : '[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)'`
-        if test "x$libxml2_version_req_micro" = "x"; then
-            libxml2_version_req_micro="0"
-        fi
-
-        libxml2_version_req_number=`expr $libxml2_version_req_major \* 1000000 \
-                                   \+ $libxml2_version_req_minor \* 1000 \
-                                   \+ $libxml2_version_req_micro`
-
-        dnl Decompose version string of installed PostgreSQL
-        dnl and calculate its number representation
-        libxml2_version_major=`expr $XML2_VERSION : '\([[0-9]]*\)'`
-        libxml2_version_minor=`expr $XML2_VERSION : '[[0-9]]*\.\([[0-9]]*\)'`
-        libxml2_version_micro=`expr $XML2_VERSION : '[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)'`
-        if test "x$libxml2_version_micro" = "x"; then
-            libxml2_version_micro="0"
-        fi
-
-        libxml2_version_number=`expr $libxml2_version_major \* 1000000 \
-                                   \+ $libxml2_version_minor \* 1000 \
-                                   \+ $libxml2_version_micro`
-
-        libxml2_version_check=`expr $libxml2_version_number \>\= $libxml2_version_req_number`
-        if test "$libxml2_version_check" = "1"; then
-            AC_MSG_RESULT([yes])
-        else
-            AC_MSG_RESULT([no])
+        	    found_libmapnik="yes"
+	            AC_MSG_RESULT([yes])
+        	else
+	            found_libmapnik="no"
+	            AC_MSG_RESULT([no])
+	        fi
         fi
     fi
 
