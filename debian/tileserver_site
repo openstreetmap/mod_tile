@@ -131,10 +131,6 @@ ModTileThrottlingRenders 128 0.2
 		Allow from all
 	</Directory>
 
-	ErrorLog ${APACHE_LOG_DIR}/error.log
-
-	CustomLog ${APACHE_LOG_DIR}/access.log combined
-
     Alias /doc/ "/usr/share/doc/"
     <Directory "/usr/share/doc/">
         Options Indexes MultiViews FollowSymLinks
