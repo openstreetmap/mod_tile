@@ -11,6 +11,7 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
+#include <getopt.h>
 
 #include "gen_tile.h"
 #include "protocol.h"
@@ -124,7 +125,7 @@ int rx_process(const struct protocol *req)
     return 0;
 }
 
-int process_loop(int fd, int x, int y, int z)
+int process_loop(int fd, int x, int y, int z, char * map)
 {
     struct protocol cmd, rsp;
     //struct pollfd fds[1];
@@ -137,7 +138,7 @@ int process_loop(int fd, int x, int y, int z)
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
-    strcpy(cmd.xmlname, XMLCONFIG_DEFAULT);
+    strcpy(cmd.xmlname, map);
     //strcpy(cmd.path, "/tmp/foo.png");
 
         //printf("Sending request\n");
@@ -167,10 +168,50 @@ int main(int argc, char **argv)
     struct sockaddr_un addr;
     int ret=0;
     int z;
+    int c;
     char name[PATH_MAX];
     struct timeval start, end;
     struct timeval start_all, end_all;
     int num, num_all = 0;
+    char * mapname = "default";
+    int verbose = 0;
+
+    while (1) {
+        int option_index = 0;
+        static struct option long_options[] = {
+            {"socket", 1, 0, 's'},
+            {"map", 1, 0, 'm'},
+            {"verbose", 0, 0, 'v'},
+            {"help", 0, 0, 'h'},
+            {0, 0, 0, 0}
+        };
+
+        c = getopt_long(argc, argv, "hvs:m:", long_options, &option_index);
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 's':   /* -s, --socket */
+                spath = strdup(optarg);
+                break;
+            case 'm':   /* -m, --map */
+                mapname=strdup(optarg);
+                break;
+            case 'v':   /* -v, --verbose */
+                verbose=1;
+                break;
+            case 'h':   /* -h, --help */
+                fprintf(stderr, "Usage: speedtest [OPTION] ...\n");
+                fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+                fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
+                return -1;
+            default:
+                fprintf(stderr, "unhandled char '%c'\n", c);
+                break;
+        }
+    }
+
+
   
     
     fprintf(stderr, "Rendering client\n");
@@ -196,7 +237,7 @@ int main(int argc, char **argv)
 
     printf("Initial startup costs\n");
     gettimeofday(&start, NULL);
-    process_loop(fd, 0,0,0);
+    process_loop(fd, 0,0,0,mapname);
     gettimeofday(&end, NULL);
     display_rate(start, end, 1);
 
@@ -234,7 +275,7 @@ int main(int argc, char **argv)
                 xyz_to_meta(name, sizeof(name), HASH_PATH, XMLCONFIG_DEFAULT, x, y, z);
                 if (stat(name, &s) < 0) {
                 // File doesn't exist
-                    ret = process_loop(fd, x, y, z);
+                    ret = process_loop(fd, x, y, z, mapname);
                 }
                 //printf(".");
                 fflush(NULL);
