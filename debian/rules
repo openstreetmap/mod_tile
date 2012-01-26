@@ -25,7 +25,7 @@ build-stamp: configure-stamp
 
 	# Add here commands to compile the package.
 	./autogen.sh
-	./configure --prefix=/usr
+	./configure --prefix=/usr --sysconfdir=/etc
 	$(MAKE)
 
 	touch $@
@@ -34,7 +34,8 @@ clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
-
+	rm -f config.status
+	rm -f config.log
 	# Add here commands to clean up after the build process.
 	$(MAKE) clean || /bin/true
 

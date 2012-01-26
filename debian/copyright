@@ -1,8 +1,9 @@
 Format: http://dep.debian.net/deps/dep5
 Source: http://svn.openstreetmap.org/applications/utils/mod_tile/
 
+Files: *
 Copyright: © 2007 - 2011, Jon Burgess
-Copyright: © 2009 - 2011, Kai Krueger
+Copyright: © 2009 - 2012, Kai Krueger
 Copyright: © 2009 - 2011, Frederik Ramm
 Copyright: © 2008 - 2010, Tom Hughes
 Copyright: ©        2011, Stephan Knauss 
@@ -12,9 +13,6 @@ Copyright: ©        2010, Andreas Hubel
 Copyright: ©        2010, Brian Quinion 
 Copyright: ©        2009, Ævar Arnfjörð Bjarmason 
 Copyright: ©        2009, Jochen Topf
-
-
-
 License: GPL-2+
  This package is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -32,27 +30,5 @@ License: GPL-2+
 Comments:
  On Debian systems, the complete text of the GNU General Public License
  version 2 or later can be found in `/usr/share/common-licenses/GPL-2'.
-
-License: other
- Permission to use, copy, modify, and distribute this software and its
- documentation for any purpose, without fee, and without a written agreement
- is hereby granted, provided that the above copyright notice and this
- paragraph and the following two paragraphs appear in all copies.
- .
- IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
- DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
- LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS
- DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE
- POSSIBILITY OF SUCH DAMAGE.
- .
- THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO
- PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
-
-Licensed under GPL v2 or later
-The full license text can be found at /usr/share/common-licenses/GPL-2
-Copyright 2007-2001 various authors, as per http://svn.openstreetmap.org/applications/utils/mod_tile/
 
 
