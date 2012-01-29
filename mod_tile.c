@@ -1231,7 +1231,7 @@ static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const cha
 		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
 	}
 	if (strcmp(fileExtension,"js") == 0) {
-		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/js");
+		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript");
 	}
 	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
 }
@@ -1630,11 +1630,11 @@ static const command_rec tile_cmds[] =
         "path and name of renderd config to use"  /* directive description */
     ),
     AP_INIT_TAKE3(
-            "AddTileConfig",                 /* directive name */
+            "AddTileMimeConfig",                 /* directive name */
             add_tile_mime_config,                 /* config action routine */
             NULL,                            /* argument to include in call */
             OR_OPTIONS,                      /* where available */
-            "path and name of renderd config to use"  /* directive description */
+            "path, name and file extension of renderd config to use"  /* directive description */
         ),
     AP_INIT_TAKE1(
         "ModTileRequestTimeout",         /* directive name */

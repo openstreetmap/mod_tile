@@ -13,10 +13,24 @@
 	# increase the log level for more detailed information
     LogLevel info
 
-# You can either manually configure each tile set
+# You can manually configure each tile set with AddTileConfig or AddTileMimeConfig.
+# The first argument is the URL path relative to this virtual host
+# under which a tile set is served. The second argument specifies the
+# name of the tile set. This is used in the communication with renderd
+# and is the directory under which (meta)tiles are stored on disk.
+#
+# By default (AddTileConfig) mod_tile assumes you are serving png files, however,
+# mod_tile can also serve arbitrary other tile types such as javascript vector tiles,
+# assuming the backend render daemon can handle the file type.
+# To this purpose AddTileMimeConfig takes a 3rd agument, the file extension and it
+# will guess the correct mimetype from it. If the mime type is not set correctly automatically,
+# you need to use the configuration file route, where you can specify the mimetype and file extension
+# independently.
+# 
 #    AddTileConfig /folder/ TileSetName
+#    AddTileMimeConfig /folder2/ TileSetName2 js
 
-# or load all the tile sets defined in the configuration file into this virtual host
+# Alternatively (or in addition) you can load all the tile sets defined in the configuration file into this virtual host
     LoadTileConfigFile /etc/renderd.conf
 
 # Timeout before giving up for a tile to be rendered
