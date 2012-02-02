@@ -941,7 +941,7 @@ static int tile_translate(request_rec *r)
             bzero(cmd, sizeof(struct protocol));
             bzero(rdata, sizeof(struct tile_request_data));
             char extension[256];
-            n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%s/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option);
+            n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option);
             if (n < 4) {
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s", tile_config->xmlname);
 				return DECLINED;
