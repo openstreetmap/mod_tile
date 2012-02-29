@@ -459,8 +459,6 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, meta
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
-//    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
-//    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
     return cmdDone; // OK
 }
 #else //METATILE
@@ -588,6 +586,8 @@ void *render_thread(void * arg)
                             timeval tim;
                             gettimeofday(&tim, NULL);
                             long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
+                            syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d",
+                                   req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1);
 
                             ret = render(&(maps[i]), item->mx, item->my, req->z, tiles);
 
