@@ -6,6 +6,7 @@
 #include <mapnik/color_factory.hpp>
 #include <mapnik/load_map.hpp>
 #include <mapnik/image_util.hpp>
+#include <mapnik/config_error.hpp>
 
 #include <iostream>
 #include <fstream>
