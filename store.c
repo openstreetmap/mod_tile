@@ -16,7 +16,7 @@
 #include <utime.h>
 #include <fcntl.h>
 #include <assert.h>
-
+#include <errno.h>
 
 #include "store.h"
 #include "render_config.h"
@@ -24,7 +24,7 @@
 #include "protocol.h"
 
 #ifdef METATILE
-int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz)
+int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz, unsigned char * log_msg)
 {
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -36,15 +36,18 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
     meta_offset = xyz_to_meta(path, sizeof(path), HASH_PATH, xmlconfig, x, y, z);
 
     fd = open(path, O_RDONLY);
-    if (fd < 0)
+    if (fd < 0) {
+        snprintf(log_msg,1024, "Could not open metatile %s. Reason: %s\n", path, strerror(errno));
         return -1;
+    }
 
     pos = 0;
     while (pos < sizeof(header)) {
         size_t len = sizeof(header) - pos;
         int got = read(fd, header + pos, len);
         if (got < 0) {
-            close(fd);
+            snprintf(log_msg,1024, "Failed to read complete header for metatile %s Reason: %s\n", path, strerror(errno));
+            close(fd);            
             return -2;
         } else if (got > 0) {
             pos += got;
@@ -53,19 +56,19 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
         }
     }
     if (pos < sizeof(struct meta_layout)) {
-        fprintf(stderr, "Meta file %s too small to contain header\n", path);
+        snprintf(log_msg,1024, "Meta file %s too small to contain header\n", path);
         close(fd);
         return -3;
     }
     if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) {
-        fprintf(stderr, "Meta file %s header magic mismatch\n", path);
+        snprintf(log_msg,1024, "Meta file %s header magic mismatch\n", path);
         close(fd);
         return -4;
     }
 #if 1
     // Currently this code only works with fixed metatile sizes (due to xyz_to_meta above)
     if (m->count != (METATILE * METATILE)) {
-        fprintf(stderr, "Meta file %s header bad count %d != %d\n", path, m->count, METATILE * METATILE);
+        snprintf(log_msg, 1024, "Meta file %s header bad count %d != %d\n", path, m->count, METATILE * METATILE);
         close(fd);
         return -5;
     }
@@ -80,12 +83,12 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
     tile_size   = m->index[meta_offset].size;
 
     if (lseek(fd, file_offset, SEEK_SET) < 0) {
-        fprintf(stderr, "Meta file %s seek error %d\n", path, m->count);
+        snprintf(log_msg, 1024, "Meta file %s seek error %d\n", path, m->count);
         close(fd);
         return -6;
     }
     if (tile_size > sz) {
-        fprintf(stderr, "Truncating tile %zd to fit buffer of %zd\n", tile_size, sz);
+        snprintf(log_msg, 1024, "Truncating tile %zd to fit buffer of %zd\n", tile_size, sz);
         tile_size = sz;
     }
     pos = 0;
@@ -93,6 +96,7 @@ int read_from_meta(const char *xmlconfig, int x, int y, int z, unsigned char *bu
         size_t len = tile_size - pos;
         int got = read(fd, buf + pos, len);
         if (got < 0) {
+            snprintf(log_msg, 1024, "Failed to read data from file %s. Reason: %s\n", path, strerror(errno));
             close(fd);
             return -7;
         } else if (got > 0) {
@@ -138,12 +142,12 @@ int read_from_file(const char *xmlconfig, int x, int y, int z, unsigned char *bu
     return pos;
 }
 
-int tile_read(const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz)
+int tile_read(const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz, unsigned char *err_msg)
 {
 #ifdef METATILE
     int r;
 
-    r = read_from_meta(xmlconfig, x, y, z, buf, sz);
+    r = read_from_meta(xmlconfig, x, y, z, buf, sz, err_msg);
     if (r >= 0)
         return r;
 #endif
@@ -310,6 +314,7 @@ void process_unpack(const char *name)
 {
     char meta_path[PATH_MAX];
     char xmlconfig[XMLCONFIG_MAX];
+    char err_msg[4096];
     int x, y, z;
     int ox, oy, limit;
     const int buf_len = 1024 * 1024;
@@ -330,10 +335,11 @@ void process_unpack(const char *name)
 
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
-            int len = read_from_meta(xmlconfig, x + ox, y + oy, z, buf, buf_len);
+            err_msg[0] = 0;
+            int len = read_from_meta(xmlconfig, x + ox, y + oy, z, buf, buf_len, err_msg);
 
             if (len <= 0)
-                fprintf(stderr, "Failed to get tile x(%d) y(%d) z(%d)\n", x + ox, y + oy, z);
+                fprintf(stderr, "Failed to get tile x(%d) y(%d) z(%d)\n    %s", x + ox, y + oy, z, err_msg);
             else
                 write_tile(xmlconfig, x + ox, y + oy, z, buf, len);
         }

@@ -58,7 +58,6 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #endif
 
 
-
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
 char *shmfilename;
@@ -110,7 +109,7 @@ int socket_init(request_rec *r)
     strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path));
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s", scfg->renderd_socket_name);
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s with reason: %s", scfg->renderd_socket_name, strerror(errno));
         close(fd);
         return FD_INVALID;
     }
@@ -150,10 +149,15 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 
         if (ret == sizeof(struct protocol))
             break;
-
-        close(fd);
-        if (errno != EPIPE)
+        
+        if (errno != EPIPE) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to send request to renderer: %s", strerror(errno));
+            close(fd);
             return 0;
+        }
+        close(fd);
+
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "request_tile: Reconnecting to rendering socket after failed request due to sigpipe");
 
         fd = socket_init(r);
         if (fd == FD_INVALID)
@@ -173,7 +177,8 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
                 bzero(&resp, sizeof(struct protocol));
                 ret = recv(fd, &resp, sizeof(struct protocol), 0);
                 if (ret != sizeof(struct protocol)) {
-                    //perror("recv error");
+                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket %s",
+                                  strerror(errno));
                     break;
                 }
 
@@ -189,6 +194,10 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
                        resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
                 }
             } else {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                              "request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
+                              cmd->xmlname, cmd->z, cmd->x, cmd->y,
+                              (renderImmediately > 1?scfg->request_timeout_priority:scfg->request_timeout));
                 break;
             }
         }
@@ -262,12 +271,16 @@ static enum tileState tile_state_once(request_rec *r)
 
     if (!(finfo->valid & APR_FINFO_MTIME)) {
         rv = apr_stat(finfo, r->filename, APR_FINFO_MIN, r->pool);
-        if (rv != APR_SUCCESS)
+        if (rv != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state_once: File %s is missing", r->filename);
             return tileMissing;
+        }
     }
 
-    if (finfo->mtime < getPlanetTime(r))
+    if (finfo->mtime < getPlanetTime(r)) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state_once: File %s is old", r->filename);
         return tileOld;
+    }
 
     return tileCurrent;
 }
@@ -742,6 +755,7 @@ should already be done
         }
         return OK;
     }
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_storage_hook: Missing tile was not rendered in time. Returning File Not Found");
     if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
@@ -828,6 +842,7 @@ static int tile_handler_mod_stats(request_rec *r)
 static int tile_handler_serve(request_rec *r)
 {
     const int tile_max = MAX_SIZE;
+    unsigned char err_msg[4096];
     unsigned char *buf;
     int len;
     apr_status_t errstatus;
@@ -858,7 +873,8 @@ static int tile_handler_serve(request_rec *r)
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    len = tile_read(cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max);
+    err_msg[0] = 0;
+    len = tile_read(cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, err_msg);
     if (len > 0) {
 #if 0
         // Set default Last-Modified and Etag headers
@@ -896,7 +912,7 @@ static int tile_handler_serve(request_rec *r)
         }
     }
     free(buf);
-    //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "len = %d", len);
+    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to read tile from disk: %s", err_msg);
     if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                 "Failed to increase response stats counter");
