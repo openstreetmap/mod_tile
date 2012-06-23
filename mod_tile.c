@@ -57,6 +57,8 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
 #endif
 
+apr_time_t *last_check = 0;
+apr_time_t *planet_timestamp = 0;
 
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
@@ -65,6 +67,7 @@ char *shmfilename_delaypool;
 apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delay_mutex;
 char *mutexfilename;
+int layerCount = 0;
 
 static int error_message(request_rec *r, const char *format, ...)
                  __attribute__ ((format (printf, 2, 3)));
@@ -209,8 +212,6 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 
 static apr_time_t getPlanetTime(request_rec *r)
 {
-    static apr_time_t last_check[XMLCONFIGS_MAX];
-    static apr_time_t planet_timestamp[XMLCONFIGS_MAX];
     static pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
     apr_time_t now = r->request_time;
     struct apr_finfo_t s;
@@ -810,6 +811,10 @@ static int tile_handler_mod_stats(request_rec *r)
         //release the lock again
         stats = (stats_data *) apr_shm_baseaddr_get(stats_shm);
         memcpy(&local_stats, stats, sizeof(stats_data));
+        local_stats.noResp200Layer = malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
+        memcpy(local_stats.noResp200Layer, stats->noResp200Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
+        local_stats.noResp404Layer = malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
+        memcpy(local_stats.noResp404Layer, stats->noResp404Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
         apr_global_mutex_unlock(stats_mutex);
     } else {
         return error_message(r, "Failed to acquire lock, can't display stats");
@@ -829,13 +834,12 @@ static int tile_handler_mod_stats(request_rec *r)
         ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
     }
     for (i = 0; i < scfg->configs->nelts; ++i) {
-            tile_config_rec *tile_config = &tile_configs[i];
-            ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->xmlname, local_stats.noResp200Layer[i]);
-            ap_rprintf(r,"NoRes404Layer%s: %li\n", tile_config->xmlname, local_stats.noResp404Layer[i]);
+        tile_config_rec *tile_config = &tile_configs[i];
+        ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
+        ap_rprintf(r,"NoRes404Layer%s: %li\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
     }
-
-
-
+    free(local_stats.noResp200Layer);
+    free(local_stats.noResp404Layer);
     return OK;
 }
 
@@ -1023,7 +1027,7 @@ static int tile_translate(request_rec *r)
  */
 
 static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
-                             apr_pool_t *ptemp, server_rec *s)
+    apr_pool_t *ptemp, server_rec *s)
 {
     void *data; /* These two help ensure that we only init once. */
     const char *userdata_key = "mod_tile_init_module";
@@ -1031,7 +1035,6 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats_data *stats;
     delaypool *delayp;
     int i;
-
 
     /*
      * The following checks if this routine has been called before.
@@ -1047,6 +1050,9 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
         return OK;
     } /* Kilroy was here */
 
+    // would prefer to use scfg->configs->nelts here but that does
+    // not seem to be set at this stage, so rely on previously set layerCount
+
     /* Create the shared memory segment */
 
     /*
@@ -1058,7 +1064,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
 
     /* Now create that segment */
-    rs = apr_shm_create(&stats_shm, sizeof(stats_data),
+    rs = apr_shm_create(&stats_shm, sizeof(stats_data) + layerCount * 2 * sizeof(apr_uint64_t),
                         (const char *) shmfilename, pconf);
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
@@ -1091,6 +1097,26 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noFreshRender = 0;
     stats->noOldCache = 0;
     stats->noOldRender = 0;
+
+    /* the "stats" block does not have a fixed size; it is a fixed-size struct
+     * followed by two arrays with one element each per layer. All of this sits
+     * in one shared memory block, and for ease of use, pointers from inside the
+     * struct point to the arrays. */
+    stats->noResp404Layer = (apr_uint64_t *) ((char *) stats + sizeof(stats_data));
+    stats->noResp200Layer = (apr_uint64_t *) ((char *) stats + sizeof(stats_data) + sizeof(apr_uint64_t) * layerCount);
+
+    /* the last_check and planet_timestamp arrays have a variable size as well,
+     * however they are not in shared memory. */
+    last_check = (apr_time_t *) apr_pcalloc(pconf, sizeof(apr_time_t) * layerCount);
+    planet_timestamp = (apr_time_t *) apr_pcalloc(pconf, sizeof(apr_time_t) * layerCount);
+
+    /* zero out all the non-fixed-length stuff */
+    for (i=0; i<layerCount; i++) {
+        stats->noResp404Layer[i] = 0;
+        stats->noResp200Layer[i] = 0;
+        last_check[i] = 0;
+        planet_timestamp[i] = 0;
+    }
 
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
     
