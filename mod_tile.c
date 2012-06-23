@@ -217,8 +217,8 @@ static apr_time_t getPlanetTime(request_rec *r)
 
     struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
     if (rdata == NULL) {
-    	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "No per request configuration data");
-		return planet_timestamp[0];
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "No per request configuration data");
+        return planet_timestamp[0];
     }
     struct protocol * cmd = rdata->cmd;
 
@@ -238,26 +238,26 @@ static apr_time_t getPlanetTime(request_rec *r)
 
     last_check[rdata->layerNumber] = now;
     if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-    	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "per tile style planet time stamp (%s) missing, trying global one", filename);
-    	snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
-    	if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-    		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Global planet time stamp file (%s) is missing. Assuming 3 days old.", filename);
-    		// Make something up
-    		planet_timestamp[rdata->layerNumber] = now - apr_time_from_sec(3 * 24 * 60 * 60);
-    	} else {
-    		if (s.mtime != planet_timestamp[rdata->layerNumber]) {
-    			planet_timestamp[rdata->layerNumber] = s.mtime;
-    			char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
-    			    apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
-    			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Global planet file time stamp (%s) updated to %s", filename, timestr);
-    		}
-    	}
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "per tile style planet time stamp (%s) missing, trying global one", filename);
+        snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
+        if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Global planet time stamp file (%s) is missing. Assuming 3 days old.", filename);
+            // Make something up
+            planet_timestamp[rdata->layerNumber] = now - apr_time_from_sec(3 * 24 * 60 * 60);
+        } else {
+            if (s.mtime != planet_timestamp[rdata->layerNumber]) {
+                planet_timestamp[rdata->layerNumber] = s.mtime;
+                char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+                    apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
+                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Global planet file time stamp (%s) updated to %s", filename, timestr);
+            }
+        }
     } else {
         if (s.mtime != planet_timestamp[rdata->layerNumber]) {
-        	planet_timestamp[rdata->layerNumber] = s.mtime;
-			char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
-        	apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
-        	ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Per style planet file time stamp (%s) updated to %s", filename, timestr);
+            planet_timestamp[rdata->layerNumber] = s.mtime;
+            char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+            apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Per style planet file time stamp (%s) updated to %s", filename, timestr);
         }
     }
     pthread_mutex_unlock(&planet_lock);
@@ -440,18 +440,18 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd, int l
         switch (resp) {
         case OK: {
             stats->noResp200++;
-			if (cmd != NULL) {
-				stats->noRespZoom[cmd->z]++;
-				stats->noResp200Layer[layerNumber]++;
-			}
+            if (cmd != NULL) {
+                stats->noRespZoom[cmd->z]++;
+                stats->noResp200Layer[layerNumber]++;
+            }
             break;
         }
         case HTTP_NOT_MODIFIED: {
             stats->noResp304++;
-			if (cmd != NULL) {
-				stats->noRespZoom[cmd->z]++;
-				stats->noResp200Layer[layerNumber]++;
-			}
+            if (cmd != NULL) {
+                stats->noRespZoom[cmd->z]++;
+                stats->noResp200Layer[layerNumber]++;
+            }
             break;
         }
         case HTTP_NOT_FOUND: {
@@ -459,7 +459,7 @@ static int incRespCounter(int resp, request_rec *r, struct protocol * cmd, int l
             stats->noResp404Layer[layerNumber]++;
             break;
         }
-		case HTTP_SERVICE_UNAVAILABLE: {
+        case HTTP_SERVICE_UNAVAILABLE: {
             stats->noResp503++;
             break;
         }
@@ -528,106 +528,106 @@ static int incFreshCounter(int status, request_rec *r) {
 }
 
 static int delay_allowed(request_rec *r, enum tileState state) {
-	delaypool * delayp;
-	int delay = 0;
-	int i,j;
+    delaypool * delayp;
+    int delay = 0;
+    int i,j;
 
     ap_conf_vector_t *sconf = r->server->module_config;
-	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-	delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
 
-	/* TODO: fix IPv6 compatibility */
-	in_addr_t ip = inet_addr(r->connection->remote_ip);
-	
-	int hashkey = ip % DELAY_HASHTABLE_WHITELIST_SIZE;
-	if (delayp->whitelist[hashkey] == ip) {
-		return 1;
-	}
+    /* TODO: fix IPv6 compatibility */
+    in_addr_t ip = inet_addr(r->connection->remote_ip);
+    
+    int hashkey = ip % DELAY_HASHTABLE_WHITELIST_SIZE;
+    if (delayp->whitelist[hashkey] == ip) {
+        return 1;
+    }
 
-	/* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
-	if (delayp->locked) {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "skipping delay pool accounting, during fillup procedure\n");
-		return 1;
-	}
+    /* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
+    if (delayp->locked) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "skipping delay pool accounting, during fillup procedure\n");
+        return 1;
+    }
 
-	
-	hashkey = ip % DELAY_HASHTABLE_SIZE;
-	
-	if (get_global_lock(r,delay_mutex) == 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
-		return 1;
-	};
-	if (delayp->users[hashkey].ip_addr == ip) {
-		/* Repeat the process to determin if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
-		   so in the mean time, the bucket might have been filled */
-		for (j = 0; j < 3; j++) {
-			//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: Current poolsize: %i tiles and %i renders\n", delayp->users[hashkey].available_tiles, delayp->users[hashkey].available_render_req);
-			delay = 0;
-			if (delayp->users[hashkey].available_tiles > 0) {
-				delayp->users[hashkey].available_tiles--;
-			} else {
-				delay = 1;
-			}
-			if (state == tileMissing) {
-				if (delayp->users[hashkey].available_render_req > 0) {
-					delayp->users[hashkey].available_render_req--;
-				} else {
-					delay = 2;
-				}
-			}
+    
+    hashkey = ip % DELAY_HASHTABLE_SIZE;
+    
+    if (get_global_lock(r,delay_mutex) == 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
+        return 1;
+    };
+    if (delayp->users[hashkey].ip_addr == ip) {
+        /* Repeat the process to determin if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
+           so in the mean time, the bucket might have been filled */
+        for (j = 0; j < 3; j++) {
+            //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: Current poolsize: %i tiles and %i renders\n", delayp->users[hashkey].available_tiles, delayp->users[hashkey].available_render_req);
+            delay = 0;
+            if (delayp->users[hashkey].available_tiles > 0) {
+                delayp->users[hashkey].available_tiles--;
+            } else {
+                delay = 1;
+            }
+            if (state == tileMissing) {
+                if (delayp->users[hashkey].available_render_req > 0) {
+                    delayp->users[hashkey].available_render_req--;
+                } else {
+                    delay = 2;
+                }
+            }
 
-			if (delay > 0) {
-				/* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
-				if (j > 0) {
-					apr_global_mutex_unlock(delay_mutex);
-					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", r->connection->remote_ip, delay);
-					sleep(CLIENT_PENALTY);
-					if (get_global_lock(r,delay_mutex) == 0) {
-						ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
-						return 0;
-					};
-				}
-				/* We hit an empty bucket, so run the bucket fillup procedure to check if new tokens should have arrived in the mean time. */
-				apr_time_t now = apr_time_now();
-				int tiles_topup = (now - delayp->last_tile_fillup) / scfg->delaypoolTileRate;
-				int render_topup = (now - delayp->last_render_fillup) / scfg->delaypoolRenderRate;
-				//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Filling up pools with %i tiles and %i renders\n", tiles_topup, render_topup);
-				if ((tiles_topup > 0) || (render_topup > 0)) {
-					delayp->locked = 1;
-					for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
-						delayp->users[i].available_tiles += tiles_topup;
-						delayp->users[i].available_render_req += render_topup;
-						if (delayp->users[i].available_tiles > scfg->delaypoolTileSize) {
-							delayp->users[i].available_tiles = scfg->delaypoolTileSize;
-						}
-						if (delayp->users[i].available_render_req > scfg->delaypoolRenderSize) {
-							delayp->users[i].available_render_req = scfg->delaypoolRenderSize;
-						}
-					}
-					delayp->locked = 0;
-				}
-				delayp->last_tile_fillup += scfg->delaypoolTileRate*tiles_topup;
-				delayp->last_render_fillup += scfg->delaypoolRenderRate*render_topup;				
-				
-			} else {
-				break;
-			}
-		}
-	} else {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s, overwriting %s\n", r->connection->remote_ip, inet_ntoa(inet_makeaddr(delayp->users[hashkey].ip_addr,delayp->users[hashkey].ip_addr)));
-		delayp->users[hashkey].ip_addr = ip;
-		delayp->users[hashkey].available_tiles = scfg->delaypoolTileSize;
-	    delayp->users[hashkey].available_render_req = scfg->delaypoolRenderSize;
-		delay = 0;
-	}
-	apr_global_mutex_unlock(delay_mutex);
+            if (delay > 0) {
+                /* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
+                if (j > 0) {
+                    apr_global_mutex_unlock(delay_mutex);
+                    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", r->connection->remote_ip, delay);
+                    sleep(CLIENT_PENALTY);
+                    if (get_global_lock(r,delay_mutex) == 0) {
+                        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
+                        return 0;
+                    };
+                }
+                /* We hit an empty bucket, so run the bucket fillup procedure to check if new tokens should have arrived in the mean time. */
+                apr_time_t now = apr_time_now();
+                int tiles_topup = (now - delayp->last_tile_fillup) / scfg->delaypoolTileRate;
+                int render_topup = (now - delayp->last_render_fillup) / scfg->delaypoolRenderRate;
+                //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Filling up pools with %i tiles and %i renders\n", tiles_topup, render_topup);
+                if ((tiles_topup > 0) || (render_topup > 0)) {
+                    delayp->locked = 1;
+                    for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
+                        delayp->users[i].available_tiles += tiles_topup;
+                        delayp->users[i].available_render_req += render_topup;
+                        if (delayp->users[i].available_tiles > scfg->delaypoolTileSize) {
+                            delayp->users[i].available_tiles = scfg->delaypoolTileSize;
+                        }
+                        if (delayp->users[i].available_render_req > scfg->delaypoolRenderSize) {
+                            delayp->users[i].available_render_req = scfg->delaypoolRenderSize;
+                        }
+                    }
+                    delayp->locked = 0;
+                }
+                delayp->last_tile_fillup += scfg->delaypoolTileRate*tiles_topup;
+                delayp->last_render_fillup += scfg->delaypoolRenderRate*render_topup;                
+                
+            } else {
+                break;
+            }
+        }
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s, overwriting %s\n", r->connection->remote_ip, inet_ntoa(inet_makeaddr(delayp->users[hashkey].ip_addr,delayp->users[hashkey].ip_addr)));
+        delayp->users[hashkey].ip_addr = ip;
+        delayp->users[hashkey].available_tiles = scfg->delaypoolTileSize;
+        delayp->users[hashkey].available_render_req = scfg->delaypoolRenderSize;
+        delay = 0;
+    }
+    apr_global_mutex_unlock(delay_mutex);
 
-	if (delay > 0) {
-		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", r->connection->remote_ip, delay);
-		return 0;
-	} else {
-		return 1;
-	}
+    if (delay > 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", r->connection->remote_ip, delay);
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 static int tile_handler_dirty(request_rec *r)
@@ -635,14 +635,14 @@ static int tile_handler_dirty(request_rec *r)
     if(strcmp(r->handler, "tile_dirty"))
         return DECLINED;
 
-	struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
     struct protocol * cmd = rdata->cmd;
     if (cmd == NULL)
         return DECLINED;
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-	if (scfg->bulkMode) return OK;
+    if (scfg->bulkMode) return OK;
 
     request_tile(r, cmd, 0);
     return error_message(r, "Tile submitted for rendering\n");
@@ -658,7 +658,7 @@ static int tile_storage_hook(request_rec *r)
     if (!r->handler)
         return DECLINED;
 
-	ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
                   r->handler, r->uri, r->filename, r->path_info);
 
     // Any status request is OK. tile_dirty also doesn't need to be handled, as tile_handler_dirty will take care of it
@@ -692,13 +692,13 @@ should already be done
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
-	if (scfg->enableTileThrottling && !delay_allowed(r, state)) {
-		if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd, rdata->layerNumber)) {
+    if (scfg->enableTileThrottling && !delay_allowed(r, state)) {
+        if (!incRespCounter(HTTP_SERVICE_UNAVAILABLE, r, cmd, rdata->layerNumber)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
         }
-        return HTTP_SERVICE_UNAVAILABLE;		
-	}
+        return HTTP_SERVICE_UNAVAILABLE;        
+    }
 
     switch (state) {
         case tileCurrent:
@@ -791,7 +791,7 @@ static int tile_handler_mod_stats(request_rec *r)
 {
     stats_data * stats;
     stats_data local_stats;
-	int i;
+    int i;
 
     if (strcmp(r->handler, "tile_mod_stats"))
         return DECLINED;
@@ -818,21 +818,21 @@ static int tile_handler_mod_stats(request_rec *r)
     ap_rprintf(r, "NoResp200: %li\n", local_stats.noResp200);
     ap_rprintf(r, "NoResp304: %li\n", local_stats.noResp304);
     ap_rprintf(r, "NoResp404: %li\n", local_stats.noResp404);
-	ap_rprintf(r, "NoResp503: %li\n", local_stats.noResp503);
+    ap_rprintf(r, "NoResp503: %li\n", local_stats.noResp503);
     ap_rprintf(r, "NoResp5XX: %li\n", local_stats.noResp5XX);
     ap_rprintf(r, "NoRespOther: %li\n", local_stats.noRespOther);
     ap_rprintf(r, "NoFreshCache: %li\n", local_stats.noFreshCache);
     ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
     ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
     ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
-	for (i = 0; i <= MAX_ZOOM; i++) {
-		ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
-	}
-	for (i = 0; i < scfg->configs->nelts; ++i) {
-	        tile_config_rec *tile_config = &tile_configs[i];
-			ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->xmlname, local_stats.noResp200Layer[i]);
-			ap_rprintf(r,"NoRes404Layer%s: %li\n", tile_config->xmlname, local_stats.noResp404Layer[i]);
-	}
+    for (i = 0; i <= MAX_ZOOM; i++) {
+        ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
+    }
+    for (i = 0; i < scfg->configs->nelts; ++i) {
+            tile_config_rec *tile_config = &tile_configs[i];
+            ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->xmlname, local_stats.noResp200Layer[i]);
+            ap_rprintf(r,"NoRes404Layer%s: %li\n", tile_config->xmlname, local_stats.noResp404Layer[i]);
+    }
 
 
 
@@ -889,7 +889,7 @@ static int tile_handler_serve(request_rec *r)
         apr_table_setn(r->headers_out, "ETag",
                         apr_psprintf(r->pool, "\"%s\"", md5));
 #endif
-		tile_server_conf *scfg = ap_get_module_config(r->server->module_config, &tile_module);
+        tile_server_conf *scfg = ap_get_module_config(r->server->module_config, &tile_module);
         tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
         ap_set_content_type(r, tile_configs[rdata->layerNumber].mimeType);
         ap_set_content_length(r, len);
@@ -948,25 +948,25 @@ static int tile_translate(request_rec *r)
         tile_config_rec *tile_config = &tile_configs[i];
 
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: testing baseuri(%s) name(%s) extension(%s)",
-        		tile_config->baseuri, tile_config->xmlname, tile_config->fileExtension );
+                tile_config->baseuri, tile_config->xmlname, tile_config->fileExtension );
 
         if (!strncmp(tile_config->baseuri, r->uri, strlen(tile_config->baseuri))) {
 
-        	struct tile_request_data * rdata = (struct tile_request_data *) apr_pcalloc(r->pool, sizeof(struct tile_request_data));
+            struct tile_request_data * rdata = (struct tile_request_data *) apr_pcalloc(r->pool, sizeof(struct tile_request_data));
             struct protocol * cmd = (struct protocol *) apr_pcalloc(r->pool, sizeof(struct protocol));
             bzero(cmd, sizeof(struct protocol));
             bzero(rdata, sizeof(struct tile_request_data));
             char extension[256];
             n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option);
             if (n < 4) {
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s", tile_config->xmlname);
-				return DECLINED;
-			}
-			if (strcmp(extension, tile_config->fileExtension) != 0) {
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid file extension (%s) for tilelayer %s, required %s",
-						extension, tile_config->xmlname, tile_config->fileExtension);
-				return DECLINED;
-			}
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s", tile_config->xmlname);
+                return DECLINED;
+            }
+            if (strcmp(extension, tile_config->fileExtension) != 0) {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid file extension (%s) for tilelayer %s, required %s",
+                        extension, tile_config->xmlname, tile_config->fileExtension);
+                return DECLINED;
+            }
 
             oob = (cmd->z < 0 || cmd->z > MAX_ZOOM);
             if (!oob) {
@@ -976,7 +976,7 @@ static int tile_translate(request_rec *r)
             }
 
             if (oob) {
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: request for %s was outside of allowed bounds", tile_config->xmlname);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: request for %s was outside of allowed bounds", tile_config->xmlname);
                 sleep(CLIENT_PENALTY);
                 //Don't increase stats counter here,
                 //As we are interested in valid tiles only
@@ -986,8 +986,8 @@ static int tile_translate(request_rec *r)
             strcpy(cmd->xmlname, tile_config->xmlname);
 
             // Store a copy for later
-			rdata->cmd = cmd;
-			rdata->layerNumber = i;
+            rdata->cmd = cmd;
+            rdata->layerNumber = i;
             ap_set_module_config(r->request_config, &tile_module, rdata);
 
             // Generate the tile filename?
@@ -1008,12 +1008,12 @@ static int tile_translate(request_rec *r)
             }
 
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: op(%s) xml(%s) mime(%s) z(%d) x(%d) y(%d)",
-            		r->handler , cmd->xmlname, tile_config->mimeType, cmd->z, cmd->x, cmd->y);
+                    r->handler , cmd->xmlname, tile_config->mimeType, cmd->z, cmd->x, cmd->y);
 
             return OK;
         }
     }
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: No suitable tile layer found");
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: No suitable tile layer found");
     return DECLINED;
 }
 
@@ -1029,8 +1029,8 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     const char *userdata_key = "mod_tile_init_module";
     apr_status_t rs;
     stats_data *stats;
-	delaypool *delayp;
-	int i;
+    delaypool *delayp;
+    int i;
 
 
     /*
@@ -1055,7 +1055,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
      * TODO get the location from the environment $TMPDIR or somesuch.
      */
     shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
-	shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
+    shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
 
     /* Now create that segment */
     rs = apr_shm_create(&stats_shm, sizeof(stats_data),
@@ -1067,7 +1067,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
-	rs = apr_shm_create(&delaypool_shm, sizeof(delaypool),
+    rs = apr_shm_create(&delaypool_shm, sizeof(delaypool),
                         (const char *) shmfilename_delaypool, pconf);
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
@@ -1081,31 +1081,31 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noResp200 = 0;
     stats->noResp304 = 0;
     stats->noResp404 = 0;
-	stats->noResp503 = 0;
+    stats->noResp503 = 0;
     stats->noResp5XX = 0;
-	for (i = 0; i <= MAX_ZOOM; i++) {
-		stats->noRespZoom[i] = 0;
-	}
+    for (i = 0; i <= MAX_ZOOM; i++) {
+        stats->noRespZoom[i] = 0;
+    }
     stats->noRespOther = 0;
     stats->noFreshCache = 0;
     stats->noFreshRender = 0;
     stats->noOldCache = 0;
     stats->noOldRender = 0;
 
-	delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
-	
-	delayp->last_tile_fillup = apr_time_now();
-	delayp->last_render_fillup = apr_time_now();
+    delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
+    
+    delayp->last_tile_fillup = apr_time_now();
+    delayp->last_render_fillup = apr_time_now();
 
-	for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
-		delayp->users[i].ip_addr = (in_addr_t)0;
-		delayp->users[i].available_tiles = 0;
-		delayp->users[i].available_render_req = 0;
-	}
-	for (i = 0; i < DELAY_HASHTABLE_WHITELIST_SIZE; i++) {
-		delayp->whitelist[i] = (in_addr_t)0;
-	}
-	/* TODO: need a way to initialise the delaypool whitelist */
+    for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
+        delayp->users[i].ip_addr = (in_addr_t)0;
+        delayp->users[i].available_tiles = 0;
+        delayp->users[i].available_render_req = 0;
+    }
+    for (i = 0; i < DELAY_HASHTABLE_WHITELIST_SIZE; i++) {
+        delayp->whitelist[i] = (in_addr_t)0;
+    }
+    /* TODO: need a way to initialise the delaypool whitelist */
 
 
     /* Create global mutex */
@@ -1233,9 +1233,9 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
 
-	ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
+    ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
-				 name, baseuri, minzoom, maxzoom, scfg->tile_dir, fileExtension, mimeType);
+                 name, baseuri, minzoom, maxzoom, scfg->tile_dir, fileExtension, mimeType);
 
 
     return NULL;
@@ -1243,13 +1243,13 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
 
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
-	if (strcmp(fileExtension,"png") == 0) {
-		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
-	}
-	if (strcmp(fileExtension,"js") == 0) {
-		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript");
-	}
-	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
+    if (strcmp(fileExtension,"png") == 0) {
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
+    }
+    if (strcmp(fileExtension,"js") == 0) {
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript");
+    }
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
@@ -1301,12 +1301,12 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 if (result != NULL) return result;
             }
             if (!strcmp(key, "TYPE")){
-            	if (strlen(value) >= PATH_MAX){
-            		return "TYPE too long";
+                if (strlen(value) >= PATH_MAX){
+                    return "TYPE too long";
                 }
-            	if (sscanf(value, "%[^ ] %[^;#]", fileExtension, mimeType) != 2) {
-            		return "TYPE is not correctly parsable";
-            	}
+                if (sscanf(value, "%[^ ] %[^;#]", fileExtension, mimeType) != 2) {
+                    return "TYPE is not correctly parsable";
+                }
             }
         }
     }
@@ -1519,7 +1519,7 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
     }
     scfg->delaypoolTileSize = bucketsize;
 
-	/*Convert topup rate into microseconds per tile */
+    /*Convert topup rate into microseconds per tile */
     scfg->delaypoolTileRate = (long)(1000000.0/topuprate);
 
     return NULL;
@@ -1539,7 +1539,7 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
     }
     scfg->delaypoolRenderSize = bucketsize;
 
-	/*Convert topup rate into microseconds per tile */
+    /*Convert topup rate into microseconds per tile */
     scfg->delaypoolRenderRate = (long)(1000000.0/topuprate);
 
     return NULL;
@@ -1558,8 +1558,8 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     strncpy(scfg->tile_dir, HASH_PATH, PATH_MAX-1);
     scfg->tile_dir[PATH_MAX-1] = 0;
-	memset(&(scfg->cache_extended_hostname),0,PATH_MAX);
-	scfg->cache_extended_duration = 0;
+    memset(&(scfg->cache_extended_hostname),0,PATH_MAX);
+    scfg->cache_extended_duration = 0;
     scfg->cache_duration_dirty = 15*60;
     scfg->cache_duration_last_modified_factor = 0.0;
     scfg->cache_duration_max = 7*24*60*60;
@@ -1569,12 +1569,12 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->cache_level_low_zoom = 0;
     scfg->cache_level_medium_zoom = 0;
     scfg->enableGlobalStats = 1;
-	scfg->enableTileThrottling = 0;
-	scfg->delaypoolTileSize = AVAILABLE_TILE_BUCKET_SIZE;
-	scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
-	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
-	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
-	scfg->bulkMode = 0;
+    scfg->enableTileThrottling = 0;
+    scfg->delaypoolTileSize = AVAILABLE_TILE_BUCKET_SIZE;
+    scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
+    scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
+    scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
+    scfg->bulkMode = 0;
 
 
     return scfg;
@@ -1589,7 +1589,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 
     scfg->configs = apr_array_append(p, scfg_base->configs, scfg_over->configs);
     scfg->request_timeout = scfg_over->request_timeout;
-	scfg->request_timeout_priority = scfg_over->request_timeout_priority;
+    scfg->request_timeout_priority = scfg_over->request_timeout_priority;
     scfg->max_load_old = scfg_over->max_load_old;
     scfg->max_load_missing = scfg_over->max_load_missing;
     strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
@@ -1608,12 +1608,12 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
     scfg->enableGlobalStats = scfg_over->enableGlobalStats;
-	scfg->enableTileThrottling = scfg_over->enableTileThrottling;
-	scfg->delaypoolTileSize = scfg_over->delaypoolTileSize;
-	scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
-	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
-	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
-	scfg->bulkMode = scfg_over->bulkMode;
+    scfg->enableTileThrottling = scfg_over->enableTileThrottling;
+    scfg->delaypoolTileSize = scfg_over->delaypoolTileSize;
+    scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
+    scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
+    scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
+    scfg->bulkMode = scfg_over->bulkMode;
 
     //Construct a table of minimum cache times per zoom level
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -1646,10 +1646,10 @@ static const command_rec tile_cmds[] =
         "path and name of renderd config to use"  /* directive description */
     ),
     AP_INIT_TAKE3(
-            "AddTileMimeConfig",                 /* directive name */
-            add_tile_mime_config,                 /* config action routine */
-            NULL,                            /* argument to include in call */
-            OR_OPTIONS,                      /* where available */
+            "AddTileMimeConfig",         /* directive name */
+            add_tile_mime_config,        /* config action routine */
+            NULL,                        /* argument to include in call */
+            OR_OPTIONS,                  /* where available */
             "path, name and file extension of renderd config to use"  /* directive description */
         ),
     AP_INIT_TAKE1(
@@ -1694,14 +1694,14 @@ static const command_rec tile_cmds[] =
         OR_OPTIONS,                      /* where available */
         "Set name of tile cache directory"  /* directive description */
     ),
-	AP_INIT_TAKE1(
+    AP_INIT_TAKE1(
         "ModTileCacheExtendedHostName",                /* directive name */
         mod_tile_cache_extended_host_name_config,        /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "set hostname for extended period caching"  /* directive description */
     ),
-	AP_INIT_TAKE1(
+    AP_INIT_TAKE1(
         "ModTileCacheExtendedDuration",                /* directive name */
         mod_tile_cache_extended_duration_config,        /* config action routine */
         NULL,                            /* argument to include in call */
@@ -1744,43 +1744,43 @@ static const command_rec tile_cmds[] =
         "Set the minimum cache duration and zoom level for low zoom tiles"  /* directive description */
     ),
     AP_INIT_TAKE2(
-        "ModTileCacheDurationMediumZoom",       /* directive name */
+        "ModTileCacheDurationMediumZoom", /* directive name */
         mod_tile_cache_duration_medium_config,                 /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the minimum cache duration and zoom level for medium zoom tiles"  /* directive description */
     ),
     AP_INIT_FLAG(
-        "ModTileEnableStats",       /* directive name */
-        mod_tile_enable_stats,                 /* config action routine */
+        "ModTileEnableStats",            /* directive name */
+        mod_tile_enable_stats,           /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "On Off - enable of keeping stats about what mod_tile is serving"  /* directive description */
     ),
-	AP_INIT_FLAG(
-        "ModTileEnableTileThrottling",       /* directive name */
-        mod_tile_enable_throttling,                 /* config action routine */
+    AP_INIT_FLAG(
+        "ModTileEnableTileThrottling",   /* directive name */
+        mod_tile_enable_throttling,      /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "On Off - enable of throttling of IPs that excessively download tiles such as scrapers"  /* directive description */
     ),
-	AP_INIT_TAKE2(
-        "ModTileThrottlingTiles",       /* directive name */
-        mod_tile_delaypool_tiles_config,                 /* config action routine */
+    AP_INIT_TAKE2(
+        "ModTileThrottlingTiles",        /* directive name */
+        mod_tile_delaypool_tiles_config, /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"  /* directive description */
     ),
-	AP_INIT_TAKE2(
-        "ModTileThrottlingRenders",       /* directive name */
-        mod_tile_delaypool_render_config,                 /* config action routine */
+    AP_INIT_TAKE2(
+        "ModTileThrottlingRenders",      /* directive name */
+        mod_tile_delaypool_render_config,/* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"  /* directive description */
     ),
-	AP_INIT_FLAG(
-        "ModTileBulkMode",       /* directive name */
-        mod_tile_bulk_mode,                 /* config action routine */
+    AP_INIT_FLAG(
+        "ModTileBulkMode",               /* directive name */
+        mod_tile_bulk_mode,              /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "On Off - make all requests to renderd with bulk render priority, never mark tiles dirty"  /* directive description */
