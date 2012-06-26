@@ -51,8 +51,8 @@ typedef struct stats_data {
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
 	apr_uint64_t noRespZoom[MAX_ZOOM + 1];
-	apr_uint64_t noResp200Layer[XMLCONFIGS_MAX];
-	apr_uint64_t noResp404Layer[XMLCONFIGS_MAX];
+	apr_uint64_t * noResp200Layer;
+	apr_uint64_t * noResp404Layer;
 } stats_data;
 
 typedef struct {
