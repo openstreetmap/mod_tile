@@ -1050,9 +1050,6 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
         return OK;
     } /* Kilroy was here */
 
-    // would prefer to use scfg->configs->nelts here but that does
-    // not seem to be set at this stage, so rely on previously set layerCount
-
     /* Create the shared memory segment */
 
     /*
@@ -1063,7 +1060,10 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
     shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
 
-    /* Now create that segment */
+    /* Now create that segment 
+     * would prefer to use scfg->configs->nelts here but that does
+     * not seem to be set at this stage, so rely on previously set layerCount */
+
     rs = apr_shm_create(&stats_shm, sizeof(stats_data) + layerCount * 2 * sizeof(apr_uint64_t),
                         (const char *) shmfilename, pconf);
     if (rs != APR_SUCCESS) {
@@ -1263,7 +1263,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
                  name, baseuri, minzoom, maxzoom, scfg->tile_dir, fileExtension, mimeType);
 
-
+    layerCount++;
     return NULL;
 }
 
