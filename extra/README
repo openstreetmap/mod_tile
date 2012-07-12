@@ -1,0 +1,5 @@
+meta2tile.c is a small utility to convert meta tiles into normal tiles.
+It is similar to convert_meta.c, but convert_meta.c creates individual 
+tiles in a "hashed" directory structure whereas meta2tile.c creates them
+in a simple z/x/y directory structure.
+
