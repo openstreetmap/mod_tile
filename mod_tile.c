@@ -663,7 +663,8 @@ static int tile_storage_hook(request_rec *r)
                   r->handler, r->uri, r->filename, r->path_info);
 
     // Any status request is OK. tile_dirty also doesn't need to be handled, as tile_handler_dirty will take care of it
-    if (!strcmp(r->handler, "tile_status") || !strcmp(r->handler, "tile_dirty") || !strcmp(r->handler, "tile_mod_stats"))
+    if (!strcmp(r->handler, "tile_status") || !strcmp(r->handler, "tile_dirty") || !strcmp(r->handler, "tile_mod_stats")
+            || !(strcmp(r->handler, "tile_json")))
         return OK;
 
     if (strcmp(r->handler, "tile_serve"))
@@ -786,6 +787,76 @@ static int tile_handler_status(request_rec *r)
     apr_ctime(time_str, r->finfo.mtime);
 
     return error_message(r, "Tile is %s. Last rendered at %s\n", (state == tileOld) ? "due to be rendered" : "clean", time_str);
+}
+
+/**
+ * Implement a tilejson description page for the tile layer.
+ * This follows the tilejson specification of mapbox ( https://github.com/mapbox/tilejson-spec/tree/master/2.0.0 )
+ */
+static int tile_handler_json(request_rec *r)
+{
+    unsigned char *buf;
+    int len;
+    enum tileState state;
+    char *timestr;
+    long int maxAge = 7*24*60*60;
+    apr_table_t *t = r->headers_out;
+    int i;
+
+    if(strcmp(r->handler, "tile_json"))
+        return DECLINED;
+
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Handling tile json request\n");
+
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+    tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Handling tile json request for layer %s\n", tile_config->xmlname);
+
+    buf = malloc(8*1024);
+
+    snprintf(buf, 8*1024,
+            "{\n"
+            "\t\"tilejson\": \"2.0.0\",\n"
+            "\t\"schema\": \"xyz\",\n"
+            "\t\"name\": \"%s\"\n"
+            "\t\"description\": \"%s\",\n"
+            "\t\"attribution\": \"%s\",\n"
+            "\t\"minzoom\": %i,\n"
+            "\t\"maxzoom\": %i,\n"
+            "\t\"tiles\": [\n",
+            tile_config->xmlname, (tile_config->description?tile_config->description:""), tile_config->attribution, tile_config->minzoom, tile_config->maxzoom);
+    for (i = 0; i < tile_config->noHostnames; i++) {
+        strncat(buf,"\t\t\"", 8*1024);
+        strncat(buf,tile_config->hostnames[i], 8*1024);
+        strncat(buf,tile_config->baseuri,8*1024);
+        strncat(buf,"{z}/{x}/{y}.",8*1024);
+        strncat(buf,tile_config->fileExtension, 8*1024);
+        strncat(buf,"\"\n", 8*1024);
+    }
+    strncat(buf,"\t]\n}\n", 8*1024);
+    len = strlen(buf);
+
+    /*
+     * Add HTTP headers. Make this file cachable for 1 week
+     */
+    char *md5 = ap_md5_binary(r->pool, buf, len);
+    apr_table_setn(r->headers_out, "ETag",
+            apr_psprintf(r->pool, "\"%s\"", md5));
+    ap_set_content_type(r, "application/json");
+    ap_set_content_length(r, len);
+    apr_table_mergen(t, "Cache-Control",
+            apr_psprintf(r->pool, "max-age=%" APR_TIME_T_FMT,
+                    maxAge));
+    timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+    apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
+    apr_table_setn(t, "Expires", timestr);
+    ap_rwrite(buf, len, r);
+    free(buf);
+
+    return OK;
 }
 
 static int tile_handler_mod_stats(request_rec *r)
@@ -954,12 +1025,20 @@ static int tile_translate(request_rec *r)
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: testing baseuri(%s) name(%s) extension(%s)",
                 tile_config->baseuri, tile_config->xmlname, tile_config->fileExtension );
 
+
         if (!strncmp(tile_config->baseuri, r->uri, strlen(tile_config->baseuri))) {
 
             struct tile_request_data * rdata = (struct tile_request_data *) apr_pcalloc(r->pool, sizeof(struct tile_request_data));
             struct protocol * cmd = (struct protocol *) apr_pcalloc(r->pool, sizeof(struct protocol));
             bzero(cmd, sizeof(struct protocol));
             bzero(rdata, sizeof(struct tile_request_data));
+            if (!strncmp(r->uri + strlen(tile_config->baseuri),"tile-layer.json", strlen("tile-layer.json"))) {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Requesting tileJSON for tilelayer %s", tile_config->xmlname);
+                r->handler = "tile_json";
+                rdata->layerNumber = i;
+                ap_set_module_config(r->request_config, &tile_module, rdata);
+                return OK;
+            }
             char extension[256];
             n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option);
             if (n < 4) {
@@ -1227,15 +1306,27 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
     ap_hook_handler(tile_handler_serve, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_dirty, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_status, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_handler(tile_handler_json, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(tile_handler_mod_stats, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_translate_name(tile_translate, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
 
-static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, int minzoom, int maxzoom, const char * fileExtension, const char *mimeType)
+static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
+        const char *baseuri, const char *name, int minzoom, int maxzoom,
+        const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
+        int noHostnames, const char ** hostnames)
 {
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
+    }
+
+    if (hostnames == NULL) {
+        hostnames = malloc(sizeof(char *));
+        hostnames[0] = malloc(PATH_MAX);
+        strncpy(hostnames[0],"http://", PATH_MAX);
+        strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX);
+        noHostnames = 1;
     }
 
 
@@ -1258,6 +1349,10 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
+    tilecfg->description = description;
+    tilecfg->attribution = attribution;
+    tilecfg->noHostnames = noHostnames;
+    tilecfg->hostnames = hostnames;
 
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
@@ -1270,23 +1365,24 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig, const char *b
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
     if (strcmp(fileExtension,"png") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
     }
     if (strcmp(fileExtension,"js") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript");
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,DEFAULT_ATTRIBUTION,0,NULL);
     }
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png");
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
 {
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png");
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
 {
     FILE * hini ;
     char filename[PATH_MAX];
+    char url[PATH_MAX];
     char xmlname[XMLCONFIG_MAX];
     char line[INILINE_MAX];
     char key[INILINE_MAX];
@@ -1294,6 +1390,12 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     const char * result;
     char fileExtension[INILINE_MAX];
     char mimeType[INILINE_MAX];
+    char * description;
+    char * attribution;
+    char **hostnames;
+    char **hostnames_tmp;
+    int noHostnames;
+    int tilelayer = 0;
 
     if (strlen(conffile) == 0) {
         strcpy(filename, RENDERD_CONFIG);
@@ -1308,14 +1410,34 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
     while (fgets(line, INILINE_MAX, hini)!=NULL) {
         if (line[0] == '#') continue;
+        if (line[0] == ';') continue;
         if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
         if (line[0] == '[') {
+            /*Add the previous section to the configuration */
+            if (tilelayer == 1) {
+                result = _add_tile_config(cmd, mconfig, url, xmlname, 0, MAX_ZOOM, fileExtension, mimeType,
+                        description,attribution,noHostnames,hostnames);
+                if (result != NULL) return result;
+            }
             if (strlen(line) >= XMLCONFIG_MAX){
                 return "XML name too long";
             }
             sscanf(line, "[%[^]]", xmlname);
+            if ((strcmp(xmlname,"mapnik") == 0) || (strcmp(xmlname,"renderd") == 0)) {
+                /* These aren't tile layers but configuration sections for renderd */
+                tilelayer = 0;
+            } else {
+                tilelayer = 1;
+            }
+            /* Initialise default values for tile layer */
+            strcpy(url,"");
             strcpy(fileExtension,"png");
             strcpy(mimeType,"image/png");
+            description = NULL;
+            attribution = malloc(sizeof(char)*(strlen(DEFAULT_ATTRIBUTION) + 1));
+            strcpy(attribution,DEFAULT_ATTRIBUTION);
+            hostnames = NULL;
+            noHostnames = 0;
         } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
                ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
 
@@ -1323,8 +1445,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 if (strlen(value) >= PATH_MAX){
                     return "URI too long";
                 }
-                result = _add_tile_config(cmd, mconfig, value, xmlname, 0, MAX_ZOOM, fileExtension, mimeType);
-                if (result != NULL) return result;
+                strcpy(url, value);
             }
             if (!strcmp(key, "TYPE")){
                 if (strlen(value) >= PATH_MAX){
@@ -1334,7 +1455,36 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                     return "TYPE is not correctly parsable";
                 }
             }
+            if (!strcmp(key, "DESCRIPTION")){
+                description = malloc(sizeof(char) * (strlen(value) + 1));
+                strcpy(description, value);
+            }
+            if (!strcmp(key, "ATTRIBUTION")){
+                attribution = malloc(sizeof(char) * (strlen(value) + 1));
+                strcpy(attribution, value);
+            }
+            if (!strcmp(key, "SERVER_ALIAS")){
+                if (hostnames == NULL) {
+                    noHostnames = 1;
+                    hostnames = malloc((noHostnames + 1) * sizeof(char *));
+                } else {
+                    hostnames_tmp = hostnames;
+                    hostnames = malloc((noHostnames + 1) * sizeof(char *));
+                    memcpy(hostnames, hostnames_tmp,sizeof(char *) * noHostnames);
+                    free(hostnames_tmp);
+                    noHostnames++;
+                }
+                hostnames[noHostnames - 1] = malloc(sizeof(char)*(strlen(value) + 1));
+                strcpy(hostnames[noHostnames - 1], value);
+            }
         }
+    }
+    if (tilelayer == 1) {
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
+                "Committing tile config %s", xmlname);
+        result = _add_tile_config(cmd, mconfig, url, xmlname, 0, MAX_ZOOM, fileExtension, mimeType,
+                description,attribution,noHostnames,hostnames);
+        if (result != NULL) return result;
     }
     fclose(hini);
     return NULL;

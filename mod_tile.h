@@ -25,6 +25,8 @@
 /* Maximum number of times we camp out before giving up */
 #define MAXCAMP 10
 
+#define DEFAULT_ATTRIBUTION "&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>"
+
 typedef struct delaypool_entry {
 	in_addr_t ip_addr;
 	int available_tiles;
@@ -60,6 +62,10 @@ typedef struct {
     char baseuri[PATH_MAX];
     char fileExtension[PATH_MAX];
     char mimeType[PATH_MAX];
+    char * description;
+    char * attribution;
+    char **hostnames;
+    int noHostnames;
     int minzoom;
     int maxzoom;
 } tile_config_rec;
