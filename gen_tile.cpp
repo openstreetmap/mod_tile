@@ -2,9 +2,8 @@
 #include <mapnik/map.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
-#include <mapnik/filter_factory.hpp>
-#include <mapnik/color_factory.hpp>
 #include <mapnik/load_map.hpp>
+#include <mapnik/graphics.hpp>
 #include <mapnik/image_util.hpp>
 #include <mapnik/config_error.hpp>
 
@@ -30,14 +29,14 @@
 #include <netdb.h>
 #endif
 
-#if MAPNIK_VERSION >= 800
-#include <mapnik/box2d.hpp>
-#define Image32 image_32
-#define ImageData32 image_data_32
-#define Envelope box2d
-#define zoomToBox zoom_to_box
-#else
+#if MAPNIK_VERSION < 200000
 #include <mapnik/envelope.hpp>
+#define image_32 Image32
+#define image_data_32 ImageData32
+#define box2d Envelope
+#define zoom_to_box zoomToBox
+#else
+#include <mapnik/box2d.hpp>
 #endif
 
 
@@ -436,21 +435,21 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
     prj.forward(p0x, p0y);
     prj.forward(p1x, p1y);
 
-    Envelope<double> bbox(p0x, p0y, p1x,p1y);
+    mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
     m.resize(render_size, render_size);
-    m.zoomToBox(bbox);
+    m.zoom_to_box(bbox);
     m.set_buffer_size(128);
     //m.zoom(size+1);
 
-    Image32 buf(render_size, render_size);
-    agg_renderer<Image32> ren(m,buf);
+    mapnik::image_32 buf(render_size, render_size);
+    mapnik::agg_renderer<mapnik::image_32> ren(m,buf);
     ren.apply();
 
     // Split the meta tile into an NxN grid of tiles
     unsigned int xx, yy;
     for (yy = 0; yy < size; yy++) {
         for (xx = 0; xx < size; xx++) {
-            image_view<ImageData32> vw(xx * 256, yy * 256, 256, 256, buf.data());
+            mapnik::image_view<mapnik::image_data_32> vw(xx * 256, yy * 256, 256, 256, buf.data());
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
@@ -474,13 +473,13 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
     prj.forward(p0x, p0y);
     prj.forward(p1x, p1y);
 
-    Envelope<double> bbox(p0x, p0y, p1x,p1y);
+    mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
     bbox.width(bbox.width() * 2);
     bbox.height(bbox.height() * 2);
     m.zoomToBox(bbox);
 
-    Image32 buf(RENDER_SIZE, RENDER_SIZE);
-    agg_renderer<Image32> ren(m,buf);
+    mapnik::image_32 buf(RENDER_SIZE, RENDER_SIZE);
+    mapnik::agg_renderer<mapnik::image_32> ren(m,buf);
     ren.apply();
 
     xyz_to_path(filename, sizeof(filename), tile_dir, xmlname, x, y, z);
@@ -488,9 +487,9 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
         return cmdNotDone;
     snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
 
-    image_view<ImageData32> vw(128, 128, 256, 256, buf.data());
+    mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
     //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
-    save_to_file(vw, tmp, "png256");
+    mapnik::save_to_file(vw, tmp, "png256");
     if (rename(tmp, filename)) {
         perror(tmp);
         return cmdNotDone;
@@ -504,7 +503,7 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
     syslog(LOG_INFO, "Renderd is using mapnik version %i.%i.%i", (MAPNIK_VERSION / 100000), ((MAPNIK_VERSION / 100) % 1000), (MAPNIK_VERSION % 100));
-    datasource_cache::instance()->register_datasources(plugins_dir);
+    mapnik::datasource_cache::instance()->register_datasources(plugins_dir);
     load_fonts(font_dir, font_dir_recurse);
 }
 
@@ -519,10 +518,10 @@ void *render_thread(void * arg)
         strcpy(maps[iMaxConfigs].xmlname, parentxmlconfig[iMaxConfigs].xmlname);
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
         strcpy(maps[iMaxConfigs].tile_dir, parentxmlconfig[iMaxConfigs].tile_dir);
-        maps[iMaxConfigs].map = Map(RENDER_SIZE, RENDER_SIZE);
+        maps[iMaxConfigs].map = mapnik::Map(RENDER_SIZE, RENDER_SIZE);
         maps[iMaxConfigs].ok = 1;
 	try {
-	  load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+	  mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
 	} catch (mapnik::config_error &ex) {
 	  syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
 	  maps[iMaxConfigs].ok = 0;
