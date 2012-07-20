@@ -5,8 +5,8 @@
 #include <mapnik/load_map.hpp>
 #include <mapnik/graphics.hpp>
 #include <mapnik/image_util.hpp>
-#include <mapnik/config_error.hpp>
 
+#include <exception>
 #include <iostream>
 #include <fstream>
 #include <sys/stat.h>
@@ -522,8 +522,11 @@ void *render_thread(void * arg)
         maps[iMaxConfigs].ok = 1;
 	try {
 	  mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
-	} catch (mapnik::config_error &ex) {
+	} catch (std::exception const& ex) {
 	  syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
+	  maps[iMaxConfigs].ok = 0;
+	} catch (...) {
+	  syslog(LOG_ERR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
 	  maps[iMaxConfigs].ok = 0;
 	}
         maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
