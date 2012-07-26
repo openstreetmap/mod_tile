@@ -23,6 +23,8 @@
 #include "dir_utils.h"
 #include "store.h"
 
+char *tile_dir = HASH_PATH;
+
 #ifndef METATILE
 #warning("convert_meta not implemented for non-metatile mode. Feel free to submit fix")
 int main(int argc, char **argv)
@@ -83,10 +85,10 @@ static void descend(const char *search)
         if (p) {
             if (unpack) {
                 if (!strcmp(p, ".meta")) 
-                    process_unpack(path);
+                    process_unpack(tile_dir, path);
             } else {
                 if (!strcmp(p, ".png")) 
-                  process_pack(path);
+                  process_pack(tile_dir, path);
             }
         }
     }

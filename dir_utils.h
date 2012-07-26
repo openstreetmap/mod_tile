@@ -22,7 +22,7 @@ int mkdirp(const char *path);
 void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z);
 
 int check_xyz(int x, int y, int z);
-int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz);
+int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px, int *py, int *pz);
 
 #ifdef METATILE
 /* New meta-tile storage functions */

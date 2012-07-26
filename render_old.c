@@ -24,6 +24,9 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
+
+char *tile_dir = HASH_PATH;
+
 #ifndef METATILE
 #warning("render_old not implemented for non-metatile mode. Feel free to submit fix")
 int main(int argc, char **argv)
@@ -169,7 +172,7 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     return ret;
 }
 
-int process(int fd, const char *name)
+int process(const char *tilepath, int fd, const char *name)
 {
     char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
@@ -178,7 +181,7 @@ int process(int fd, const char *name)
     if (stat(name, &b))
         return 1;
 
-    if (path_to_xyz(name, xmlconfig, &x, &y, &z))
+    if (path_to_xyz(tilepath, name, xmlconfig, &x, &y, &z))
         return 1;
 
     printf("Requesting xml(%s) x(%d) y(%d) z(%d) as last modified at %s\n", xmlconfig, x, y, z, ctime(&b.st_mtime));
@@ -339,7 +342,7 @@ void *thread_main(void *arg)
     fd = connect_socket(spath);
 
     while((tile = fetch(spath, &fd))) {
-        int ret = process(fd, tile);
+        int ret = process(tile_dir, fd, tile);
         if (ret == 0) {
             printf("Reconnecting closed socket\n");
             close(fd);
@@ -365,13 +368,13 @@ void *thread_main(void *arg)
     return NULL;
 }
 
-void render_layer(const char *name)
+void render_layer(const char *tilepath, const char *name)
 {
     int z;
 
     for (z=minZoom; z<=maxZoom; z++) {
         char path[PATH_MAX];
-        snprintf(path, PATH_MAX, HASH_PATH "/%s/%d", name, z);
+        snprintf(path, PATH_MAX, "%s/%s/%d", tilepath, name, z);
         descend(path);
     }
 }
@@ -421,7 +424,6 @@ void finish_workers(int num)
 int main(int argc, char **argv)
 {
     char spath[PATH_MAX] = RENDER_SOCKET;
-    char *tile_dir = HASH_PATH;
     char *config_file = RENDERD_CONFIG;
     char *map = NULL;
     int c;
@@ -556,7 +558,7 @@ int main(int argc, char **argv)
     spawn_workers(numThreads, spath);
 
     if (map) {
-        render_layer(map);
+        render_layer(tile_dir, map);
     } else {
         while (fgets(line, INILINE_MAX, hini)!=NULL) {
             if (line[0] == '[') {
@@ -567,7 +569,7 @@ int main(int argc, char **argv)
                 sscanf(line, "[%[^]]", value);
                 // Skip mapnik & renderd sections which are config, not tile layers
                 if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
-                    render_layer(value);
+                    render_layer(tile_dir, value);
             }
         }
     }

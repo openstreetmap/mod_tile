@@ -101,7 +101,7 @@ typedef struct {
 typedef struct tile_request_data {
 	struct protocol * cmd;
 	int layerNumber;
-};
+} tile_request_data;
 
 enum tileState { tileMissing, tileOld, tileCurrent };
 
