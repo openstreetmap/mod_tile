@@ -829,14 +829,14 @@ static int tile_handler_json(request_rec *r)
             "\t\"tiles\": [\n",
             tile_config->xmlname, (tile_config->description?tile_config->description:""), tile_config->attribution, tile_config->minzoom, tile_config->maxzoom);
     for (i = 0; i < tile_config->noHostnames; i++) {
-        strncat(buf,"\t\t\"", 8*1024);
-        strncat(buf,tile_config->hostnames[i], 8*1024);
-        strncat(buf,tile_config->baseuri,8*1024);
-        strncat(buf,"{z}/{x}/{y}.",8*1024);
-        strncat(buf,tile_config->fileExtension, 8*1024);
-        strncat(buf,"\"\n", 8*1024);
+        strncat(buf,"\t\t\"", 8*1024-strlen(buf)-1);
+        strncat(buf,tile_config->hostnames[i], 8*1024-strlen(buf)-1);
+        strncat(buf,tile_config->baseuri,8*1024-strlen(buf)-1);
+        strncat(buf,"{z}/{x}/{y}.",8*1024-strlen(buf)-1);
+        strncat(buf,tile_config->fileExtension, 8*1024-strlen(buf)-1);
+        strncat(buf,"\"\n", 8*1024-strlen(buf)-1);
     }
-    strncat(buf,"\t]\n}\n", 8*1024);
+    strncat(buf,"\t]\n}\n", 8*1024-strlen(buf)-1);
     len = strlen(buf);
 
     /*
