@@ -21,6 +21,8 @@
 #include "render_config.h"
 #include "dir_utils.h"
 
+char *tile_dir = HASH_PATH;
+
 #ifndef METATILE
 #warning("render_list not implemented for non-metatile mode. Feel free to submit fix")
 int main(int argc, char **argv)
@@ -138,12 +140,12 @@ int process_loop(int fd, const char *mapname, int x, int y, int z)
     return ret;
 }
 
-void process(int fd, const char *name)
+void process(const char *tilepath, int fd, const char *name)
 {
     char xmlconfig[XMLCONFIG_MAX];
     int x, y, z;
 
-    if (path_to_xyz(name, xmlconfig, &x, &y, &z))
+    if (path_to_xyz(tilepath, name, xmlconfig, &x, &y, &z))
         return;
 
     printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
@@ -272,7 +274,7 @@ void *thread_main(void *arg)
     }
 
     while((tile = fetch())) {
-        process(fd, tile);
+        process(tile_dir, fd, tile);
         free(tile);
         check_load();
     }
@@ -329,7 +331,6 @@ int main(int argc, char **argv)
 {
     char *spath = RENDER_SOCKET;
     char *mapname = XMLCONFIG_DEFAULT;
-    char *tile_dir = HASH_PATH;
     int minX=-1, maxX=-1, minY=-1, maxY=-1;
     int x, y, z;
     char name[PATH_MAX];

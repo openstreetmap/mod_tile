@@ -104,12 +104,12 @@ int check_xyz(int x, int y, int z)
 }
 
 
-int path_to_xyz(const char *path, char *xmlconfig, int *px, int *py, int *pz)
+int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px, int *py, int *pz)
 {
 #ifdef DIRECTORY_HASH
     int i, n, hash[5], x, y, z;
 
-    n = sscanf(path, HASH_PATH "/%40[^/]/%d/%d/%d/%d/%d/%d", xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
+    n = sscanf(path, "%s/%40[^/]/%d/%d/%d/%d/%d/%d", tilepath, xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
     if (n != 7) {
         fprintf(stderr, "Failed to parse tile path: %s\n", path);
         return 1;

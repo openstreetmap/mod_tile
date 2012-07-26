@@ -922,6 +922,9 @@ static int tile_handler_serve(request_rec *r)
     int len;
     apr_status_t errstatus;
 
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
     if(strcmp(r->handler, "tile_serve"))
         return DECLINED;
 
@@ -949,7 +952,7 @@ static int tile_handler_serve(request_rec *r)
     }
 
     err_msg[0] = 0;
-    len = tile_read(cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, err_msg);
+    len = tile_read(scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, err_msg);
     if (len > 0) {
 #if 0
         // Set default Last-Modified and Etag headers
