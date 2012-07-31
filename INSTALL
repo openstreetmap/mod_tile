@@ -1,4 +1,5 @@
 Copy and adapt render_config.h-dist to render_config.h
 ./autogen.sh
+./configure
 make
 sudo make install
