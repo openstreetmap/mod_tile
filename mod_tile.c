@@ -1326,9 +1326,10 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 
     if (hostnames == NULL) {
         hostnames = malloc(sizeof(char *));
+        /* FIXME: wouldn't be allocationg 7+len+1 bytes be enough? */
         hostnames[0] = malloc(PATH_MAX);
         strncpy(hostnames[0],"http://", PATH_MAX);
-        strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX);
+        strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX-strlen(hostnames[0])-1);
         noHostnames = 1;
     }
 
