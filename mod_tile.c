@@ -1329,7 +1329,13 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
         /* FIXME: wouldn't be allocationg 7+len+1 bytes be enough? */
         hostnames[0] = malloc(PATH_MAX);
         strncpy(hostnames[0],"http://", PATH_MAX);
-        strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX-strlen(hostnames[0])-1);
+        if (cmd->server->server_hostname == NULL) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, APR_SUCCESS, cmd->server,
+                         "Could not determin host name of server to configure tile-json request. Using localhost instead");
+
+            strncat(hostnames[0],"localhost",PATH_MAX-10);
+        } else 
+            strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX-strlen(hostnames[0])-1);
         noHostnames = 1;
     }
 
