@@ -559,7 +559,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
         return 1;
     };
     if (delayp->users[hashkey].ip_addr == ip) {
-        /* Repeat the process to determin if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
+        /* Repeat the process to determine if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
            so in the mean time, the bucket might have been filled */
         for (j = 0; j < 3; j++) {
             //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: Current poolsize: %i tiles and %i renders\n", delayp->users[hashkey].available_tiles, delayp->users[hashkey].available_render_req);
@@ -1331,7 +1331,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
         strncpy(hostnames[0],"http://", PATH_MAX);
         if (cmd->server->server_hostname == NULL) {
             ap_log_error(APLOG_MARK, APLOG_WARNING, APR_SUCCESS, cmd->server,
-                         "Could not determin host name of server to configure tile-json request. Using localhost instead");
+                         "Could not determine host name of server to configure tile-json request. Using localhost instead");
 
             strncat(hostnames[0],"localhost",PATH_MAX-10);
         } else 
