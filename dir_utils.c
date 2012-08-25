@@ -108,8 +108,14 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 {
 #ifdef DIRECTORY_HASH
     int i, n, hash[5], x, y, z;
+    for(i = 0; tilepath[i] && tilepath[i] == path[i]; ++i)
+        ;
+    if(tilepath[i]) {
+        fprintf(stderr, "Tile path does not match settings (%s): %s\n", tilepath, path);
+        return 1;
+    }
 
-    n = sscanf(path, "%s/%40[^/]/%d/%d/%d/%d/%d/%d", tilepath, xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
+    n = sscanf(path+1, "/%40[^/]/%d/%d/%d/%d/%d/%d", xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
     if (n != 7) {
         fprintf(stderr, "Failed to parse tile path: %s\n", path);
         return 1;
