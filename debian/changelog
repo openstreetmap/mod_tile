@@ -1,10 +1,29 @@
+libapache2-mod-tile (0.4-12~precise2) precise; urgency=low
+  * fixed renderd.conf to use mapnik 2.0 plugins dir
+
+ -- Kai Krueger <kakrueger@gmail.com>  Mon, 27 Aug 2012 00:00:00 +0000
+
+libapache2-mod-tile (0.4-12~precise1) precise; urgency=low
+  * new upstream version - revision 28638
+    - add a json-tile handler
+    - a number of bug fixes
+
+ -- Kai Krueger <kakrueger@gmail.com>  Sun, 26 Aug 2012 00:00:00 +0000
+
+libapache2-mod-tile (0.4-11~precise2) precise; urgency=low
+
+  * correct renderd.conf
+  * update upstream
+
+ -- Kai Krueger <kakrueger@gmail.com>  Thu, 03 May 2012 00:00:00 +0000
+
 libapache2-mod-tile (0.4-10~oneiric1) oneiric; urgency=low
 
   * support extensions other than png
   * autoconf'ify build system
 
  -- Kai Krueger <kakrueger@gmail.com>  Sun, 15 Jan 2012 00:00:00 +0000
-	
+
 libapache2-mod-tile (0.4-9~oneiric2) oneiric; urgency=low
 
   * added a slippymap
