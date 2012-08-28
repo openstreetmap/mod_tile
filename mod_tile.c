@@ -68,6 +68,7 @@ apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delay_mutex;
 char *mutexfilename;
 int layerCount = 0;
+int global_max_zoom = 0;
 
 static int error_message(request_rec *r, const char *format, ...)
                  __attribute__ ((format (printf, 2, 3)));
@@ -322,6 +323,9 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+    tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
                   r->handler, r->uri, r->filename, r->path_info);
@@ -339,10 +343,10 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
             maxAge = scfg->cache_duration_dirty + holdoff;
         } else {
             // cache heuristic based on zoom level
-            if (cmd->z > MAX_ZOOM) {
+            if (cmd->z > tile_config->maxzoom) {
                 minCache = 0;
                 ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
-                        "z (%i) is larger than MAXZOOM %i\n", cmd->z, MAX_ZOOM);
+                        "z (%i) is larger than MAXZOOM %i\n", cmd->z, tile_config->maxzoom);
             } else {
                 minCache = scfg->mincachetime[cmd->z];
             }
@@ -901,7 +905,7 @@ static int tile_handler_mod_stats(request_rec *r)
     ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
     ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
     ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
-    for (i = 0; i <= MAX_ZOOM; i++) {
+    for (i = 0; i <= global_max_zoom; i++) {
         ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
     }
     for (i = 0; i < scfg->configs->nelts; ++i) {
@@ -1054,7 +1058,7 @@ static int tile_translate(request_rec *r)
                 return DECLINED;
             }
 
-            oob = (cmd->z < 0 || cmd->z > MAX_ZOOM);
+            oob = (cmd->z < tile_config->minzoom || cmd->z > tile_config->maxzoom);
             if (!oob) {
                  // valid x/y for tiles are 0 ... 2^zoom-1
                  limit = (1 << cmd->z) - 1;
@@ -1171,7 +1175,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noResp404 = 0;
     stats->noResp503 = 0;
     stats->noResp5XX = 0;
-    for (i = 0; i <= MAX_ZOOM; i++) {
+    for (i = 0; i <= global_max_zoom; i++) {
         stats->noRespZoom[i] = 0;
     }
     stats->noRespOther = 0;
@@ -1339,6 +1343,11 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
         noHostnames = 1;
     }
 
+    if ((minzoom < 0) || (maxzoom > MAX_ZOOM_SERVER)) {
+        return "The configured zoom level lies outside of the range supported by this server";
+    }
+    if (maxzoom > global_max_zoom) global_max_zoom = maxzoom;
+
 
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     tile_config_rec *tilecfg = apr_array_push(scfg->configs);
@@ -1406,6 +1415,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     char **hostnames_tmp;
     int noHostnames;
     int tilelayer = 0;
+    int minzoom = 0;
+    int maxzoom = MAX_ZOOM;
 
     if (strlen(conffile) == 0) {
         strcpy(filename, RENDERD_CONFIG);
@@ -1425,7 +1436,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
         if (line[0] == '[') {
             /*Add the previous section to the configuration */
             if (tilelayer == 1) {
-                result = _add_tile_config(cmd, mconfig, url, xmlname, 0, MAX_ZOOM, fileExtension, mimeType,
+                result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
                         description,attribution,noHostnames,hostnames);
                 if (result != NULL) return result;
             }
@@ -1448,6 +1459,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             strcpy(attribution,DEFAULT_ATTRIBUTION);
             hostnames = NULL;
             noHostnames = 0;
+            minzoom = 0;
+            maxzoom = MAX_ZOOM;
         } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
                ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
 
@@ -1487,12 +1500,18 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 hostnames[noHostnames - 1] = malloc(sizeof(char)*(strlen(value) + 1));
                 strcpy(hostnames[noHostnames - 1], value);
             }
+            if (!strcmp(key, "MINZOOM")){
+                minzoom = atoi(value);
+            }
+            if (!strcmp(key, "MAXZOOM")){
+                maxzoom = atoi(value);
+            }
         }
     }
     if (tilelayer == 1) {
         ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                 "Committing tile config %s", xmlname);
-        result = _add_tile_config(cmd, mconfig, url, xmlname, 0, MAX_ZOOM, fileExtension, mimeType,
+        result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
                 description,attribution,noHostnames,hostnames);
         if (result != NULL) return result;
     }
@@ -1802,7 +1821,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->bulkMode = scfg_over->bulkMode;
 
     //Construct a table of minimum cache times per zoom level
-    for (i = 0; i <= MAX_ZOOM; i++) {
+    for (i = 0; i <= MAX_ZOOM_SERVER; i++) {
         if (i <= scfg->cache_level_low_zoom) {
             scfg->mincachetime[i] = scfg->cache_duration_low_zoom;
         } else if (i <= scfg->cache_level_medium_zoom) {
