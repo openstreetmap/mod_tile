@@ -15,6 +15,8 @@
 
 #define INILINE_MAX 256
 
+#define MAX_ZOOM_SERVER 30
+
 #define FRESH 1
 #define OLD 2
 #define FRESH_RENDER 3
@@ -52,7 +54,7 @@ typedef struct stats_data {
     apr_uint64_t noFreshRender;
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
-	apr_uint64_t noRespZoom[MAX_ZOOM + 1];
+	apr_uint64_t noRespZoom[MAX_ZOOM_SERVER + 1];
     apr_uint64_t *noResp200Layer;
     apr_uint64_t *noResp404Layer;
 } stats_data;
@@ -88,7 +90,7 @@ typedef struct {
     char tile_dir[PATH_MAX];
 	char cache_extended_hostname[PATH_MAX];
     int  cache_extended_duration;
-    int mincachetime[MAX_ZOOM + 1];
+    int mincachetime[MAX_ZOOM_SERVER + 1];
     int enableGlobalStats;
 	int enableTileThrottling;
 	int delaypoolTileSize;
