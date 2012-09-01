@@ -1322,7 +1322,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
         const char *baseuri, const char *name, int minzoom, int maxzoom,
         const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
-        int noHostnames, const char ** hostnames)
+        int noHostnames, char ** hostnames)
 {
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
