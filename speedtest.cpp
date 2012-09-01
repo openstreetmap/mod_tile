@@ -125,7 +125,7 @@ int rx_process(const struct protocol *req)
     return 0;
 }
 
-int process_loop(int fd, int x, int y, int z, char * map)
+int process_loop(int fd, int x, int y, int z, const char * map)
 {
     struct protocol cmd, rsp;
     //struct pollfd fds[1];
@@ -173,7 +173,7 @@ int main(int argc, char **argv)
     struct timeval start, end;
     struct timeval start_all, end_all;
     int num, num_all = 0;
-    char * mapname = "default";
+    const char * mapname = "default";
     int verbose = 0;
 
     while (1) {

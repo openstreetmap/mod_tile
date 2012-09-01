@@ -64,8 +64,8 @@ typedef struct {
     char baseuri[PATH_MAX];
     char fileExtension[PATH_MAX];
     char mimeType[PATH_MAX];
-    char * description;
-    char * attribution;
+    const char * description;
+    const char * attribution;
     char **hostnames;
     int noHostnames;
     int minzoom;
