@@ -41,7 +41,7 @@ AC_SEARCH_LIBS(pow,m)
 AX_BOOST_BASE
 AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
-AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
+AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime daemon],[],[AC_MSG_ERROR([One of the required functions was not found])])
 
 AC_ARG_WITH(apxs,
     [  --with-apxs=PATH        path to Apache apxs],
