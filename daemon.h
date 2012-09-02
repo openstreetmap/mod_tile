@@ -5,6 +5,10 @@
 extern "C" {
 #endif
 
+#ifndef HAVE_DAEMON
+    int daemon(int nochdir, int noclose);
+#endif
+
 #include <limits.h> /* for PATH_MAX */
 
 #include "protocol.h"
