@@ -30,6 +30,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/socket.h>

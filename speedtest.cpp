@@ -11,6 +11,7 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
+#include <strings.h>
 #include <getopt.h>
 
 #include "gen_tile.h"

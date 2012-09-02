@@ -13,6 +13,7 @@
 #include <time.h>
 #include <limits.h>
 #include <string.h>
+#include <strings.h>
 
 #include <pthread.h>
 
