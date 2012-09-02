@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <string.h>
+#include <strings.h>
 #include <syslog.h>
 #include <getopt.h>
 

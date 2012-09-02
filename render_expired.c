@@ -45,6 +45,7 @@
 #include <time.h>
 #include <utime.h>
 #include <string.h>
+#include <strings.h>
 #include <limits.h>
 #include <utime.h>
 
