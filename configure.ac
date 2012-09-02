@@ -18,7 +18,7 @@ AC_PROG_CC_C99
 # Checks for libraries.
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/socket.h sys/time.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/socket.h sys/time.h syslog.h unistd.h utime.h paths.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
@@ -41,7 +41,8 @@ AC_SEARCH_LIBS(pow,m)
 AX_BOOST_BASE
 AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
-AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime daemon],[],[AC_MSG_ERROR([One of the required functions was not found])])
+AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
+AC_CHECK_FUNCS([daemon],[],[])
 
 AC_ARG_WITH(apxs,
     [  --with-apxs=PATH        path to Apache apxs],
