@@ -528,33 +528,46 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     delaypool * delayp;
     int delay = 0;
     int i,j;
+    int hashkey;
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
 
-    /* TODO: fix IPv6 compatibility */
-    in_addr_t ip = inet_addr(r->connection->remote_ip);
-    
-    int hashkey = ip % DELAY_HASHTABLE_WHITELIST_SIZE;
-    if (delayp->whitelist[hashkey] == ip) {
-        return 1;
+    struct in_addr sin_addr;
+    struct in6_addr ip;
+    if (inet_pton(AF_INET,r->connection->remote_ip,&sin_addr) > 0) {
+        //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv4 address", r->connection->remote_ip);
+        ip.s6_addr32[3] = sin_addr.s_addr; ip.s6_addr32[2] = 0; ip.s6_addr32[1] = 0; ip.s6_addr32[0] = 0;
+        int hashkey = sin_addr.s_addr % DELAY_HASHTABLE_WHITELIST_SIZE;
+                if (delayp->whitelist[hashkey] == sin_addr.s_addr) {
+                    return 1;
+        }
+    } else {
+        if (inet_pton(AF_INET6,r->connection->remote_ip,&ip) > 0) {
+            //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv6 address", r->connection->remote_ip);
+            
+        } else {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Checking delays: for IP %s. Don't know what it is", r->connection->remote_ip);
+            return 0;
+        }
     }
 
+    hashkey = (ip.s6_addr32[0] ^ ip.s6_addr32[1] ^ ip.s6_addr32[2] ^ ip.s6_addr32[3]) % DELAY_HASHTABLE_SIZE;
+
+    
     /* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
     if (delayp->locked) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "skipping delay pool accounting, during fillup procedure\n");
         return 1;
     }
-
-    
-    hashkey = ip % DELAY_HASHTABLE_SIZE;
     
     if (get_global_lock(r,delay_mutex) == 0) {
         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
         return 1;
     };
-    if (delayp->users[hashkey].ip_addr == ip) {
+
+    if (memcmp(&(delayp->users[hashkey].ip_addr), &ip, sizeof(struct in6_addr)) == 0) {
         /* Repeat the process to determine if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
            so in the mean time, the bucket might have been filled */
         for (j = 0; j < 3; j++) {
@@ -611,8 +624,8 @@ static int delay_allowed(request_rec *r, enum tileState state) {
             }
         }
     } else {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s, overwriting %s\n", r->connection->remote_ip, inet_ntoa(inet_makeaddr(delayp->users[hashkey].ip_addr,delayp->users[hashkey].ip_addr)));
-        delayp->users[hashkey].ip_addr = ip;
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s\n", r->connection->remote_ip);
+        memcpy(&(delayp->users[hashkey].ip_addr), &ip, sizeof(struct in6_addr));
         delayp->users[hashkey].available_tiles = scfg->delaypoolTileSize;
         delayp->users[hashkey].available_render_req = scfg->delaypoolRenderSize;
         delay = 0;
@@ -1202,7 +1215,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     delayp->last_render_fillup = apr_time_now();
 
     for (i = 0; i < DELAY_HASHTABLE_SIZE; i++) {
-        delayp->users[i].ip_addr = (in_addr_t)0;
+        memset(&(delayp->users[i].ip_addr),0, sizeof(struct in6_addr));
         delayp->users[i].available_tiles = 0;
         delayp->users[i].available_render_req = 0;
     }

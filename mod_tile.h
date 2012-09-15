@@ -30,7 +30,7 @@
 #define DEFAULT_ATTRIBUTION "&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>"
 
 typedef struct delaypool_entry {
-	in_addr_t ip_addr;
+	struct in6_addr ip_addr;
 	int available_tiles;
 	int available_render_req;
 } delaypool_entry;
