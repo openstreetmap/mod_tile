@@ -8,15 +8,15 @@ AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS)
 bin_PROGRAMS = render_old render_expired render_list speedtest render_old renderd convert_meta
 
 renderddir = $(sysconfdir)
-renderd_SOURCES = protocol.h store.c daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp dir_utils.c  render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.la
+renderd_SOURCES = protocol.h store.c daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp dir_utils.c sys_utils.c sys_utils.h render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.la
 renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 renderd_DATA = renderd.conf
 speedtest_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h speedtest.cpp
-render_list_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_list.c
+render_list_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_list.c sys_utils.c sys_utils.h
 render_list_LDADD = $(PTHREAD_CFLAGS)
 render_expired_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_expired.c
 render_expired_LDADD = $(PTHREAD_CFLAGS)
-render_old_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_old.c
+render_old_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_old.c sys_utils.c sys_utils.h
 render_old_LDADD = $(PTHREAD_CFLAGS)
 convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.c convert_meta.c
 

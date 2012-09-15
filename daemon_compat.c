@@ -30,7 +30,9 @@
 #include "config.h"
 #ifndef HAVE_DAEMON
 
+#ifdef HAVE_SYS_CDEFS_C
 #include <sys/cdefs.h>
+#endif
 
 #include <errno.h>
 #include <fcntl.h>

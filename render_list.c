@@ -21,6 +21,7 @@
 #include "protocol.h"
 #include "render_config.h"
 #include "dir_utils.h"
+#include "sys_utils.h"
 
 char *tile_dir = HASH_PATH;
 
@@ -82,24 +83,7 @@ static time_t getPlanetTime(char *tile_dir)
     return planet_timestamp;
 }
 
-int get_load_avg(void)
-{
-    FILE *loadavg = fopen("/proc/loadavg", "r");
-    int avg = 1000;
 
-    if (!loadavg) {
-        fprintf(stderr, "failed to read /proc/loadavg");
-        return 1000;
-    }
-    if (fscanf(loadavg, "%d", &avg) != 1) {
-        fprintf(stderr, "failed to parse /proc/loadavg");
-        fclose(loadavg);
-        return 1000;
-    }
-    fclose(loadavg);
-
-    return avg;
-}
 
 int process_loop(int fd, const char *mapname, int x, int y, int z)
 {
@@ -155,7 +139,7 @@ void process(const char *tilepath, int fd, const char *name)
 
 static void check_load(void)
 {
-    int avg = get_load_avg();
+    double avg = get_load_avg();
 
     while (avg >= maxLoad) {
         /* printf("Load average %d, sleeping\n", avg); */
