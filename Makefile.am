@@ -25,6 +25,6 @@ all-local:
 
 install-mod_tile: 
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
-	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
+	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c @srcdir@/sys_utils.c
 
 
