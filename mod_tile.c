@@ -387,16 +387,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
     apr_table_setn(t, "Expires", timestr);
 }
 
-double get_load_avg(request_rec *r)
-{
-    double loadavg[1];
-    int n = getloadavg(loadavg, 1);
 
-    if (n < 1)
-        return 1000;
-    else
-        return loadavg[0];
-}
 
 static int get_global_lock(request_rec *r, apr_global_mutex_t * mutex) {
     apr_status_t rs;
@@ -693,7 +684,7 @@ should already be done
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "abs_path(%s)", abs_path);
     r->filename = apr_pstrdup(r->pool, abs_path);
 */
-    avg = get_load_avg(r);
+    avg = get_load_avg();
     state = tile_state(r, cmd);
 
     ap_conf_vector_t *sconf = r->server->module_config;

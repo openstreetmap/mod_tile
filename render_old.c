@@ -23,6 +23,7 @@
 #include "protocol.h"
 #include "render_config.h"
 #include "dir_utils.h"
+#include "sys_utils.h"
 
 
 char *tile_dir = HASH_PATH;
@@ -88,19 +89,6 @@ static time_t getPlanetTime(char *tile_dir)
         }
     }
     return planet_timestamp;
-}
-
-int get_load_avg(void)
-{
-    double load[3];
-    int avg = 1000;
-
-    if (getloadavg(load, 3) < 0) {
-        fprintf(stderr, "failed to read loadavg");
-        return 1000;
-    }
-
-    return (int)load[0];
 }
 
 int connect_socket(const char *arg) {
@@ -190,7 +178,7 @@ int process(const char *tilepath, int fd, const char *name)
 
 static void check_load(void)
 {
-    int avg = get_load_avg();
+    double avg = get_load_avg();
 
     while (avg >= max_load) {
         printf("Load average %d, sleeping\n", avg);
