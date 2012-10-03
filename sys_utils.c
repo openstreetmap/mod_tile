@@ -7,7 +7,7 @@
 
 double get_load_avg(void)
 {
-#ifdef HAVE_LOADAVG
+#ifdef HAVE_GETLOADAVG
     double loadavg[1];
     int n = getloadavg(loadavg, 1);
 
