@@ -21,7 +21,7 @@ render_old_LDADD = $(PTHREAD_CFLAGS)
 convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.c convert_meta.c
 
 all-local:
-	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c
+	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) @srcdir@/mod_tile.c @srcdir@/store.c @srcdir@/dir_utils.c @srcdir@/sys_utils.c
 
 install-mod_tile: 
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
