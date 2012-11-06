@@ -24,7 +24,7 @@
 #include "protocol.h"
 
 #ifdef METATILE
-int read_from_meta(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz, unsigned char * log_msg)
+int read_from_meta(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz, int * compressed, unsigned char * log_msg)
 {
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -61,10 +61,14 @@ int read_from_meta(const char *tilepath, const char *xmlconfig, int x, int y, in
         return -3;
     }
     if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) {
-        snprintf(log_msg,1024, "Meta file %s header magic mismatch\n", path);
-        close(fd);
-        return -4;
-    }
+        if (memcmp(m->magic, META_MAGIC_COMPRESSED, strlen(META_MAGIC_COMPRESSED))) {
+            snprintf(log_msg,1024, "Meta file %s header magic mismatch\n", path);
+            close(fd);
+            return -4;
+        } else {
+            *compressed = 1;
+        }
+    } else *compressed = 0;
 #if 1
     // Currently this code only works with fixed metatile sizes (due to xyz_to_meta above)
     if (m->count != (METATILE * METATILE)) {
@@ -142,12 +146,12 @@ int read_from_file(const char *tilepath, const char *xmlconfig, int x, int y, in
     return pos;
 }
 
-int tile_read(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz, unsigned char *err_msg)
+int tile_read(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz, int * compressed, unsigned char *err_msg)
 {
 #ifdef METATILE
     int r;
 
-    r = read_from_meta(tilepath, xmlconfig, x, y, z, buf, sz, err_msg);
+    r = read_from_meta(tilepath, xmlconfig, x, y, z, buf, sz, compressed, err_msg);
     if (r >= 0)
         return r;
 #endif
@@ -320,6 +324,7 @@ void process_unpack(const char *tilepath, const char *name)
     const int buf_len = 1024 * 1024;
     unsigned char *buf;
     struct stat s;
+    int compressed;
 
     // path_to_xyz is valid for meta tile names as well
     if (path_to_xyz(tilepath, name, xmlconfig, &x, &y, &z))
@@ -336,7 +341,7 @@ void process_unpack(const char *tilepath, const char *name)
     for (ox=0; ox < limit; ox++) {
         for (oy=0; oy < limit; oy++) {
             err_msg[0] = 0;
-            int len = read_from_meta(tilepath, xmlconfig, x + ox, y + oy, z, buf, buf_len, err_msg);
+            int len = read_from_meta(tilepath, xmlconfig, x + ox, y + oy, z, buf, buf_len, &compressed, err_msg);
 
             if (len <= 0)
                 fprintf(stderr, "Failed to get tile x(%d) y(%d) z(%d)\n    %s", x + ox, y + oy, z, err_msg);
