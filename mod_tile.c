@@ -929,6 +929,7 @@ static int tile_handler_serve(request_rec *r)
     unsigned char err_msg[4096];
     unsigned char *buf;
     int len;
+    int compressed;
     apr_status_t errstatus;
 
     ap_conf_vector_t *sconf = r->server->module_config;
@@ -961,8 +962,19 @@ static int tile_handler_serve(request_rec *r)
     }
 
     err_msg[0] = 0;
-    len = tile_read(scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, err_msg);
+    len = tile_read(scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
     if (len > 0) {
+        if (compressed) {
+            const char* accept_encoding = apr_table_get(r->headers_in,"Accept-Encoding");
+            if (accept_encoding && strstr(accept_encoding,"gzip")) {
+                r->content_encoding = "gzip";
+            } else {
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                              "Tile data is compressed, but user agent doesn't support Content-Encoding and we don't know how to decompress it server side");
+                //TODO: decompress the output stream before sending it to client
+            }
+        }
+        
 #if 0
         // Set default Last-Modified and Etag headers
         ap_update_mtime(r, r->finfo.mtime);
