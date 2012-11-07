@@ -538,23 +538,20 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     struct in6_addr ip;
     if (inet_pton(AF_INET,r->connection->remote_ip,&sin_addr) > 0) {
         //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv4 address", r->connection->remote_ip);
-        ip.s6_addr32[3] = sin_addr.s_addr; ip.s6_addr32[2] = 0; ip.s6_addr32[1] = 0; ip.s6_addr32[0] = 0;
-        int hashkey = sin_addr.s_addr % DELAY_HASHTABLE_WHITELIST_SIZE;
-                if (delayp->whitelist[hashkey] == sin_addr.s_addr) {
-                    return 1;
+        memset(ip.s6_addr,0,16);
+        memcpy(&(ip.s6_addr[12]), &(sin_addr.s_addr), 4);
+        uint32_t hashkey = sin_addr.s_addr % DELAY_HASHTABLE_WHITELIST_SIZE;
+        if (delayp->whitelist[hashkey] == sin_addr.s_addr) {
+            return 1;
         }
     } else {
-        if (inet_pton(AF_INET6,r->connection->remote_ip,&ip) > 0) {
-            //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv6 address", r->connection->remote_ip);
-            
-        } else {
+        if (inet_pton(AF_INET6,r->connection->remote_ip,&ip) <= 0) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Checking delays: for IP %s. Don't know what it is", r->connection->remote_ip);
             return 0;
         }
     }
 
-    hashkey = (ip.s6_addr32[0] ^ ip.s6_addr32[1] ^ ip.s6_addr32[2] ^ ip.s6_addr32[3]) % DELAY_HASHTABLE_SIZE;
-
+    hashkey = (*((uint32_t *)(&ip.s6_addr[0])) ^ *((uint32_t *)(&ip.s6_addr[4])) ^ *((uint32_t *)(&ip.s6_addr[8])) ^ *((uint32_t *)(&ip.s6_addr[12]))) % DELAY_HASHTABLE_SIZE;
     
     /* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
     if (delayp->locked) {
