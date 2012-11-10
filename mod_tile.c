@@ -312,6 +312,45 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
     return state;
 }
 
+/**
+ * Add CORS ( Cross-origin resource sharing ) headers. http://www.w3.org/TR/cors/
+ * CORS allows requests that would otherwise be forbidden under the same origin policy.
+ */
+static int add_cors(request_rec *r, const char * cors) {
+    const char* origin = apr_table_get(r->headers_in,"Origin");
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking if CORS headers need to be added: Origin: %s Policy: %s", origin, cors);        
+    if (!origin) return DONE;
+    else {
+        if ((strcmp(cors,"*") == 0) || strstr(cors, origin)) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Origin header is allowed under the CORS policy. Adding Access-Control-Allow-Origin");
+            if (strcmp(cors,"*") == 0) {
+                apr_table_setn(r->headers_out, "Access-Control-Allow-Origin",
+                               apr_psprintf(r->pool, "%s", cors));
+            } else {
+                apr_table_setn(r->headers_out, "Access-Control-Allow-Origin",
+                               apr_psprintf(r->pool, "%s", origin));
+                apr_table_setn(r->headers_out, "Vary",
+                               apr_psprintf(r->pool, "%s", "Origin"));
+                
+            }
+            const char* headers = apr_table_get(r->headers_in,"Access-Control-Request-Headers");
+            apr_table_setn(r->headers_out, "Access-Control-Allow-Headers",
+                           apr_psprintf(r->pool, "%s", headers));
+            if (headers) {
+                apr_table_setn(r->headers_out, "Access-Control-Max-Age",
+                               apr_psprintf(r->pool, "%i", 604800));
+            }
+            //If this is an OPTIONS cors pre-flight request, no need to return the body as the actual request will follow
+            if (strcmp(r->method, "OPTIONS") == 0)
+                return OK;
+            else return DONE;
+        } else {
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s)is NOT allowed under the CORS policy(%s). Rejecting request", origin, cors);
+            return HTTP_FORBIDDEN;
+        }
+    }
+}
+
 static void add_expiry(request_rec *r, struct protocol * cmd)
 {
     apr_time_t holdoff;
@@ -820,6 +859,11 @@ static int tile_handler_json(request_rec *r)
     tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Handling tile json request for layer %s\n", tile_config->xmlname);
 
+    if (tile_config->cors) {
+        int resp = add_cors(r, tile_config->cors);
+        if (resp != DONE) return resp;
+    }
+
     buf = malloc(8*1024);
 
     snprintf(buf, 8*1024,
@@ -947,6 +991,13 @@ static int tile_handler_serve(request_rec *r)
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_handler_serve: xml(%s) z(%d) x(%d) y(%d)", cmd->xmlname, cmd->z, cmd->x, cmd->y);
 
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+
+    if (tile_configs[rdata->layerNumber].cors) {
+        int resp = add_cors(r, tile_configs[rdata->layerNumber].cors);
+        if (resp != DONE) return resp;
+    }
+
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
     if (!buf) {
@@ -984,8 +1035,6 @@ static int tile_handler_serve(request_rec *r)
         apr_table_setn(r->headers_out, "ETag",
                         apr_psprintf(r->pool, "\"%s\"", md5));
 #endif
-        tile_server_conf *scfg = ap_get_module_config(r->server->module_config, &tile_module);
-        tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
         ap_set_content_type(r, tile_configs[rdata->layerNumber].mimeType);
         ap_set_content_length(r, len);
         add_expiry(r, cmd);
@@ -1333,9 +1382,9 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 }
 
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
-        const char *baseuri, const char *name, int minzoom, int maxzoom,
-        const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
-        int noHostnames, char ** hostnames)
+                                    const char *baseuri, const char *name, int minzoom, int maxzoom,
+                                    const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
+                                    int noHostnames, char ** hostnames, char * cors)
 {
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
@@ -1385,6 +1434,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->attribution = attribution;
     tilecfg->noHostnames = noHostnames;
     tilecfg->hostnames = hostnames;
+    tilecfg->cors = cors;
 
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
@@ -1397,17 +1447,17 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
     if (strcmp(fileExtension,"png") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
     }
     if (strcmp(fileExtension,"js") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,DEFAULT_ATTRIBUTION,0,NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,DEFAULT_ATTRIBUTION,0,NULL,"*");
     }
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
 {
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
@@ -1424,6 +1474,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     char mimeType[INILINE_MAX];
     char * description;
     char * attribution;
+    char * cors = NULL;
     char **hostnames;
     char **hostnames_tmp;
     int noHostnames;
@@ -1450,7 +1501,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             /*Add the previous section to the configuration */
             if (tilelayer == 1) {
                 result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
-                        description,attribution,noHostnames,hostnames);
+                                          description,attribution,noHostnames,hostnames, cors);
                 if (result != NULL) return result;
             }
             if (strlen(line) >= XMLCONFIG_MAX){
@@ -1499,6 +1550,10 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 attribution = malloc(sizeof(char) * (strlen(value) + 1));
                 strcpy(attribution, value);
             }
+            if (!strcmp(key, "CORS")){
+                cors = malloc(sizeof(char) * (strlen(value) + 1));
+                strcpy(cors, value);
+            }
             if (!strcmp(key, "SERVER_ALIAS")){
                 if (hostnames == NULL) {
                     noHostnames = 1;
@@ -1525,7 +1580,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
         ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                 "Committing tile config %s", xmlname);
         result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
-                description,attribution,noHostnames,hostnames);
+                                  description,attribution,noHostnames,hostnames, cors);
         if (result != NULL) return result;
     }
     fclose(hini);
