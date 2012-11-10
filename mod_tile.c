@@ -721,7 +721,7 @@ should already be done
             } else if (avg > scfg->max_load_old) {
                // Too much load to render it now, mark dirty but return old tile
                request_tile(r, cmd, 0);
-               ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load larger max_load_old (%d). Mark dirty and deliver from cache.", scfg->max_load_old);
+               ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%d) larger max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
                if (!incFreshCounter(OLD, r)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase fresh stats counter");
@@ -733,7 +733,7 @@ should already be done
         case tileMissing:
             if (avg > scfg->max_load_missing) {
                request_tile(r, cmd, 0);
-               ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load larger max_load_missing (%d). Return HTTP_NOT_FOUND.", scfg->max_load_missing);
+               ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%d) larger max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
                if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase response stats counter");
