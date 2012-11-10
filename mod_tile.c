@@ -79,11 +79,10 @@ static int error_message(request_rec *r, const char *format, ...)
     va_list ap;
     va_start(ap, format);
     int len;
-    char *msg;
-
-    len = vasprintf(&msg, format, ap);
+    char *msg = malloc(1000*sizeof(char));
 
     if (msg) {
+        len = vsnprintf(msg, 1000, format, ap);
         //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", msg);
         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "%s", msg);
         r->content_type = "text/plain";
