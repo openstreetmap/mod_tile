@@ -66,6 +66,7 @@ typedef struct {
     char mimeType[PATH_MAX];
     const char * description;
     const char * attribution;
+    const char * cors;
     char **hostnames;
     int noHostnames;
     int minzoom;
