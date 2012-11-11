@@ -1,5 +1,6 @@
 #include "config.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef HAVE_SYS_LOADAVG_H
 #include <sys/loadavg.h>
@@ -12,21 +13,21 @@ double get_load_avg(void)
     int n = getloadavg(loadavg, 1);
 
     if (n < 1)
-        return 1000;
+        return 1000.0;
     else
         return loadavg[0];
 #else
     FILE *loadavg = fopen("/proc/loadavg", "r");
-    int avg = 1000;
+    double avg = 1000.0;
 
     if (!loadavg) {
         fprintf(stderr, "failed to read /proc/loadavg");
-        return 1000;
+        return 1000.0;
     }
-    if (fscanf(loadavg, "%d", &avg) != 1) {
+    if (fscanf(loadavg, "%lf", &avg) != 1) {
         fprintf(stderr, "failed to parse /proc/loadavg");
         fclose(loadavg);
-        return 1000;
+        return 1000.0;
     }
     fclose(loadavg);
 
