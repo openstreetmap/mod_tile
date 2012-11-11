@@ -181,7 +181,7 @@ static void check_load(void)
     double avg = get_load_avg();
 
     while (avg >= max_load) {
-        printf("Load average %d, sleeping\n", avg);
+        printf("Load average %f, sleeping\n", avg);
         sleep(5);
         avg = get_load_avg();
     }
