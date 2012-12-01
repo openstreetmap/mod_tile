@@ -121,6 +121,9 @@ ModTileCacheLastModifiedFactor 0.20
 
 ## Overall enable or disable tile throttling
 ModTileEnableTileThrottling Off
+## When the tileserver is behind a proxy one can use the X-Forwarded-For http header to determin the remote IP for throttling
+ModTileEnableTileThrottlingXForward Off
+
 ## Parameters (poolsize in tiles and topup rate in tiles per second) for throttling tile serving. 
 ModTileThrottlingTiles 10000 1 
 ## Parameters (poolsize in tiles and topup rate in tiles per second) for throttling render requests. 

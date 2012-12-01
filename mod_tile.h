@@ -94,6 +94,7 @@ typedef struct {
     int mincachetime[MAX_ZOOM_SERVER + 1];
     int enableGlobalStats;
 	int enableTileThrottling;
+    int enableTileThrottlingXForward;
 	int delaypoolTileSize;
 	long delaypoolTileRate;
 	int delaypoolRenderSize;
