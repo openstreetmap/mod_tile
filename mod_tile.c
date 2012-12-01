@@ -573,13 +573,27 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
 
+    ip_addr = r->connection->remote_ip;
     if (scfg->enableTileThrottlingXForward){
-        ip_addr = apr_table_get(r->headers_in,"X-Forwarded-For");
-    }
-    if (!ip_addr) {
-        ip_addr = r->connection->remote_ip;
-    } else {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->remote_ip);
+        const char * ip_addrs = apr_table_get(r->headers_in,"X-Forwarded-For");
+        if (ip_addrs) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
+            //X-Forwarded-For can be a chain of proxies deliminated by , The first entry in the list is the client, the last entry is the remote address seen by the proxy
+            //closest to the tileserver.
+            char ** state;
+            const char * tmp = apr_strtok(ip_addrs,", ",state);
+            ip_addr = tmp; 
+            
+            //Use the last entry in the chain of X-Forwarded-For instead of the client, i.e. the entry added by the proxy closest to the tileserver
+            //If this is a reverse proxy under our control, its X-Forwarded-For can be trusted.
+            if (scfg->enableTileThrottlingXForward == 2) {
+                while (tmp = apr_strtok(NULL,", ",state)) {
+                    ip_addr = tmp;
+                }
+            }
+            
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->remote_ip);
+        }
     }
 
     struct in_addr sin_addr;
@@ -1781,10 +1795,17 @@ static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int
     return NULL;
 }
 
-static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mconfig, int enableThrottlingXForward)
+static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mconfig, const char * enableThrottlingXForward)
 {
+    int throttle_xforward;
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
-    scfg->enableTileThrottlingXForward = enableThrottlingXForward;
+    if (sscanf(enableThrottlingXForward, "%d", &throttle_xforward) != 1) {
+        return "ModTileEnableTileThrottlingXForward needs integer argument between 0 and 2";
+    }
+    if ((throttle_xforward < 0) || (throttle_xforward > 2)) {
+        return "ModTileEnableTileThrottlingXForward needs integer argument between 0 and 2 (0 => off; 1 => use client; 2 => use last entry in chain";
+    }
+    scfg->enableTileThrottlingXForward = throttle_xforward;
     return NULL;
 }
 
@@ -2056,12 +2077,12 @@ static const command_rec tile_cmds[] =
         OR_OPTIONS,                      /* where available */
         "On Off - enable of throttling of IPs that excessively download tiles such as scrapers"  /* directive description */
     ),
-    AP_INIT_FLAG(
+    AP_INIT_TAKE1(
         "ModTileEnableTileThrottlingXForward",   /* directive name */
         mod_tile_enable_throttling_xforward,      /* config action routine */
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
-        "On Off - use X-Forwarded-For http header to determin IP for throttling when available"  /* directive description */
+        "0 1 2 - use X-Forwarded-For http header to determin IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"  /* directive description */
     ),
     AP_INIT_TAKE2(
         "ModTileThrottlingTiles",        /* directive name */
