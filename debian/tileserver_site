@@ -122,7 +122,10 @@ ModTileCacheLastModifiedFactor 0.20
 ## Overall enable or disable tile throttling
 ModTileEnableTileThrottling Off
 ## When the tileserver is behind a proxy one can use the X-Forwarded-For http header to determin the remote IP for throttling
-ModTileEnableTileThrottlingXForward Off
+## 0: don't use X-Forwarded-For
+## 1: Use the first address in the X-Forwarded chain, which should be the client address. However, this may not be trusted.
+## 2: Use the last address in the X-Forwarded chain. If one uses a reverse proxy, this will be the IP address seen by the reverse proxy and can be trusted.
+ModTileEnableTileThrottlingXForward 0
 
 ## Parameters (poolsize in tiles and topup rate in tiles per second) for throttling tile serving. 
 ModTileThrottlingTiles 10000 1 
