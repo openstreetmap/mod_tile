@@ -567,15 +567,25 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     int delay = 0;
     int i,j;
     int hashkey;
+    const char * ip_addr = NULL;
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
 
+    if (scfg->enableTileThrottlingXForward){
+        ip_addr = apr_table_get(r->headers_in,"X-Forwarded-For");
+    }
+    if (!ip_addr) {
+        ip_addr = r->connection->remote_ip;
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->remote_ip);
+    }
+
     struct in_addr sin_addr;
     struct in6_addr ip;
-    if (inet_pton(AF_INET,r->connection->remote_ip,&sin_addr) > 0) {
-        //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv4 address", r->connection->remote_ip);
+    if (inet_pton(AF_INET,ip_addr,&sin_addr) > 0) {
+        //ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: for IP %s appears to be an IPv4 address", ip_addr);
         memset(ip.s6_addr,0,16);
         memcpy(&(ip.s6_addr[12]), &(sin_addr.s_addr), 4);
         uint32_t hashkey = sin_addr.s_addr % DELAY_HASHTABLE_WHITELIST_SIZE;
@@ -583,8 +593,8 @@ static int delay_allowed(request_rec *r, enum tileState state) {
             return 1;
         }
     } else {
-        if (inet_pton(AF_INET6,r->connection->remote_ip,&ip) <= 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Checking delays: for IP %s. Don't know what it is", r->connection->remote_ip);
+        if (inet_pton(AF_INET6,ip_addr,&ip) <= 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Checking delays: for IP %s. Don't know what it is", ip_addr);
             return 0;
         }
     }
@@ -625,7 +635,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
                 /* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
                 if (j > 0) {
                     apr_global_mutex_unlock(delay_mutex);
-                    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", r->connection->remote_ip, delay);
+                    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", ip_addr, delay);
                     sleep(CLIENT_PENALTY);
                     if (get_global_lock(r,delay_mutex) == 0) {
                         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
@@ -659,7 +669,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
             }
         }
     } else {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s\n", r->connection->remote_ip);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Creating a new delaypool for ip %s\n", ip_addr);
         memcpy(&(delayp->users[hashkey].ip_addr), &ip, sizeof(struct in6_addr));
         delayp->users[hashkey].available_tiles = scfg->delaypoolTileSize;
         delayp->users[hashkey].available_render_req = scfg->delaypoolRenderSize;
@@ -668,7 +678,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     apr_global_mutex_unlock(delay_mutex);
 
     if (delay > 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", r->connection->remote_ip, delay);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", ip_addr, delay);
         return 0;
     } else {
         return 1;
@@ -1771,6 +1781,13 @@ static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int
     return NULL;
 }
 
+static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mconfig, int enableThrottlingXForward)
+{
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->enableTileThrottlingXForward = enableThrottlingXForward;
+    return NULL;
+}
+
 static const char *mod_tile_bulk_mode(cmd_parms *cmd, void *mconfig, int bulkMode)
 {
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
@@ -1843,6 +1860,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->cache_level_medium_zoom = 0;
     scfg->enableGlobalStats = 1;
     scfg->enableTileThrottling = 0;
+    scfg->enableTileThrottlingXForward = 0;
     scfg->delaypoolTileSize = AVAILABLE_TILE_BUCKET_SIZE;
     scfg->delaypoolTileRate = RENDER_TOPUP_RATE;
     scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
@@ -1882,6 +1900,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
     scfg->enableGlobalStats = scfg_over->enableGlobalStats;
     scfg->enableTileThrottling = scfg_over->enableTileThrottling;
+    scfg->enableTileThrottlingXForward = scfg_over->enableTileThrottlingXForward;
     scfg->delaypoolTileSize = scfg_over->delaypoolTileSize;
     scfg->delaypoolTileRate = scfg_over->delaypoolTileRate;
     scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
@@ -2036,6 +2055,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "On Off - enable of throttling of IPs that excessively download tiles such as scrapers"  /* directive description */
+    ),
+    AP_INIT_FLAG(
+        "ModTileEnableTileThrottlingXForward",   /* directive name */
+        mod_tile_enable_throttling_xforward,      /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "On Off - use X-Forwarded-For http header to determin IP for throttling when available"  /* directive description */
     ),
     AP_INIT_TAKE2(
         "ModTileThrottlingTiles",        /* directive name */
