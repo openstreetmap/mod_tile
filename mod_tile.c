@@ -894,7 +894,7 @@ static int tile_handler_json(request_rec *r)
             "{\n"
             "\t\"tilejson\": \"2.0.0\",\n"
             "\t\"schema\": \"xyz\",\n"
-            "\t\"name\": \"%s\"\n"
+            "\t\"name\": \"%s\",\n"
             "\t\"description\": \"%s\",\n"
             "\t\"attribution\": \"%s\",\n"
             "\t\"minzoom\": %i,\n"
@@ -907,7 +907,9 @@ static int tile_handler_json(request_rec *r)
         strncat(buf,tile_config->baseuri,8*1024-strlen(buf)-1);
         strncat(buf,"{z}/{x}/{y}.",8*1024-strlen(buf)-1);
         strncat(buf,tile_config->fileExtension, 8*1024-strlen(buf)-1);
-        strncat(buf,"\"\n", 8*1024-strlen(buf)-1);
+        strncat(buf,"\"", 8*1024-strlen(buf)-1);
+        if (i < tile_config->noHostnames - 1) strncat(buf,",", 8*1024-strlen(buf)-1);
+        strncat(buf,"\n", 8*1024-strlen(buf)-1);
     }
     strncat(buf,"\t]\n}\n", 8*1024-strlen(buf)-1);
     len = strlen(buf);
