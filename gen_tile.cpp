@@ -503,7 +503,11 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
     syslog(LOG_INFO, "Renderd is using mapnik version %i.%i.%i", (MAPNIK_VERSION / 100000), ((MAPNIK_VERSION / 100) % 1000), (MAPNIK_VERSION % 100));
+#if MAPNIK_VERSION >= 200200
+    mapnik::datasource_cache::instance().register_datasources(plugins_dir);
+#else
     mapnik::datasource_cache::instance()->register_datasources(plugins_dir);
+#endif
     load_fonts(font_dir, font_dir_recurse);
 }
 
