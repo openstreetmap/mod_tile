@@ -110,7 +110,7 @@ int socket_init(request_rec *r)
 
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path) - sizeof(char));
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s with reason: %s", scfg->renderd_socket_name, strerror(errno));
