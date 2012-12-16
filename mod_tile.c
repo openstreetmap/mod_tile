@@ -580,7 +580,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
             //X-Forwarded-For can be a chain of proxies deliminated by , The first entry in the list is the client, the last entry is the remote address seen by the proxy
             //closest to the tileserver.
-            char ** state;
+            char ** state = NULL;
             const char * tmp = apr_strtok(ip_addrs,", ",state);
             ip_addr = tmp; 
             
@@ -1498,12 +1498,12 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     const char * result;
     char fileExtension[INILINE_MAX];
     char mimeType[INILINE_MAX];
-    char * description;
-    char * attribution;
+    char * description = NULL;
+    char * attribution = NULL;
     char * cors = NULL;
-    char **hostnames;
+    char **hostnames = NULL;
     char **hostnames_tmp;
-    int noHostnames;
+    int noHostnames = 0;
     int tilelayer = 0;
     int minzoom = 0;
     int maxzoom = MAX_ZOOM;
@@ -1528,9 +1528,17 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             if (tilelayer == 1) {
                 result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
                                           description,attribution,noHostnames,hostnames, cors);
-                if (result != NULL) return result;
+                if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                if (result != NULL) {
+                    fclose(hini);
+                    return result;
+                }
             }
-            if (strlen(line) >= XMLCONFIG_MAX){
+            if (strlen(line) >= XMLCONFIG_MAX) {
+                if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                fclose(hini);
                 return "XML name too long";
             }
             sscanf(line, "[%[^]]", xmlname);
@@ -1545,6 +1553,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             strcpy(fileExtension,"png");
             strcpy(mimeType,"image/png");
             description = NULL;
+            cors = NULL;
+            if (attribution) free(attribution);
             attribution = malloc(sizeof(char)*(strlen(DEFAULT_ATTRIBUTION) + 1));
             strcpy(attribution,DEFAULT_ATTRIBUTION);
             hostnames = NULL;
@@ -1556,27 +1566,39 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
             if (!strcmp(key, "URI")){
                 if (strlen(value) >= PATH_MAX){
+                    if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                    if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    fclose(hini);
                     return "URI too long";
                 }
                 strcpy(url, value);
             }
             if (!strcmp(key, "TYPE")){
                 if (strlen(value) >= PATH_MAX){
+                    if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                    if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    fclose(hini);
                     return "TYPE too long";
                 }
                 if (sscanf(value, "%[^ ] %[^;#]", fileExtension, mimeType) != 2) {
+                    if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                    if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    fclose(hini);
                     return "TYPE is not correctly parsable";
                 }
             }
             if (!strcmp(key, "DESCRIPTION")){
+                if (description) free(description);
                 description = malloc(sizeof(char) * (strlen(value) + 1));
                 strcpy(description, value);
             }
             if (!strcmp(key, "ATTRIBUTION")){
+                if (attribution) free(attribution);
                 attribution = malloc(sizeof(char) * (strlen(value) + 1));
                 strcpy(attribution, value);
             }
             if (!strcmp(key, "CORS")){
+                if (cors) free(cors);
                 cors = malloc(sizeof(char) * (strlen(value) + 1));
                 strcpy(cors, value);
             }
@@ -1607,7 +1629,14 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 "Committing tile config %s", xmlname);
         result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
                                   description,attribution,noHostnames,hostnames, cors);
-        if (result != NULL) return result;
+        if (description) free(description);
+        if (attribution) free(description);
+        if (hostnames) free(description);
+        if (cors) free(cors);
+        if (result != NULL) {
+            fclose(hini);
+            return result;
+        }
     }
     fclose(hini);
     return NULL;
