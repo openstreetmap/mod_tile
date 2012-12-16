@@ -90,7 +90,7 @@ static int error_message(request_rec *r, const char *format, ...)
             ap_rputs(msg, r);
         free(msg);
     }
-
+    va_end(ap);
     return OK;
 }
 
