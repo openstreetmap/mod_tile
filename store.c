@@ -212,6 +212,7 @@ void process_meta(const char *tilepath, const char *xmlconfig, int x, int y, int
     xyz_to_meta(meta_path, sizeof(meta_path), tilepath, xmlconfig, x, y, z);
     if (mkdirp(meta_path)) {
         fprintf(stderr, "Error creating directories for: %s\n", meta_path);
+        free(buf);
         return;
     }
     snprintf(tmp, sizeof(tmp), "%s.tmp.%d", meta_path, getpid());
@@ -349,6 +350,7 @@ void process_unpack(const char *tilepath, const char *name)
                 write_tile(tilepath, xmlconfig, x + ox, y + oy, z, buf, len);
         }
     }
+    free(buf);
 
     // Grab timestamp of the meta file and update tile timestamps
     if (stat(name, &s) == 0) {
