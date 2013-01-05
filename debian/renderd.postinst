@@ -3,8 +3,6 @@ set -e
 
 mkdir -p /var/lib/mod_tile
 chown www-data:www-data /var/lib/mod_tile
-chown www-data:www-data /usr/bin/renderd
-chmod u+s /usr/bin/renderd
 
 # automatically install munin plugins if munin is present.
 if [ -d /etc/munin/plugins ]
