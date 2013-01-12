@@ -1630,8 +1630,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
         result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
                                   description,attribution,noHostnames,hostnames, cors);
         if (description) free(description);
-        if (attribution) free(description);
-        if (hostnames) free(description);
+        if (attribution) free(attribution);
+        if (hostnames) free(hostnames);
         if (cors) free(cors);
         if (result != NULL) {
             fclose(hini);
