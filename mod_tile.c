@@ -35,6 +35,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -562,6 +563,37 @@ static int incFreshCounter(int status, request_rec *r) {
     }
 }
 
+static int incTimingCounter(apr_uint64_t duration, int z, request_rec *r) {
+    stats_data *stats;
+
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+    if (!scfg->enableGlobalStats) {
+        /* If tile stats reporting is not enable
+         * pretend we correctly updated the counter to
+         * not fill the logs with warnings about failed
+         * stats
+         */
+        return 1;
+    }
+
+    if (get_global_lock(r, stats_mutex) != 0) {
+        stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+        stats->totalBufferRetrievalTime += duration;
+        stats->zoomBufferRetrievalTime[z] += duration;
+        stats->noTotalBufferRetrieval++;
+        stats->noZoomBufferRetrieval[z]++;
+        apr_global_mutex_unlock(stats_mutex);
+        /* Swallowing the result because what are we going to do with it at
+         * this stage?
+         */
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 static int delay_allowed(request_rec *r, enum tileState state) {
     delaypool * delayp;
     int delay = 0;
@@ -979,6 +1011,13 @@ static int tile_handler_mod_stats(request_rec *r)
     for (i = 0; i <= global_max_zoom; i++) {
         ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
     }
+    ap_rprintf(r, "NoTileBufferReads: %li\n", local_stats.noTotalBufferRetrieval);
+    ap_rprintf(r, "DurationTileBufferReads: %li\n", local_stats.totalBufferRetrievalTime);
+    for (i = 0; i <= global_max_zoom; i++) {
+        ap_rprintf(r, "NoTileBufferReadZoom%02i: %li\n", i, local_stats.noZoomBufferRetrieval[i]);
+        ap_rprintf(r, "DurationTileBufferReadZoom%02i: %li\n", i, local_stats.zoomBufferRetrievalTime[i]);
+    }
+
     for (i = 0; i < scfg->configs->nelts; ++i) {
         tile_config_rec *tile_config = &tile_configs[i];
         ap_rprintf(r,"NoRes200Layer%s: %li\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
@@ -997,6 +1036,7 @@ static int tile_handler_serve(request_rec *r)
     int len;
     int compressed;
     apr_status_t errstatus;
+    struct timeval start, end;
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
@@ -1023,6 +1063,8 @@ static int tile_handler_serve(request_rec *r)
         int resp = add_cors(r, tile_configs[rdata->layerNumber].cors);
         if (resp != DONE) return resp;
     }
+
+    gettimeofday(&start,NULL);
 
     // FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
     buf = malloc(tile_max);
@@ -1064,6 +1106,10 @@ static int tile_handler_serve(request_rec *r)
         ap_set_content_type(r, tile_configs[rdata->layerNumber].mimeType);
         ap_set_content_length(r, len);
         add_expiry(r, cmd);
+
+        gettimeofday(&end,NULL);
+        incTimingCounter((end.tv_sec*1000000 + end.tv_usec) - (start.tv_sec*1000000 + start.tv_usec) , cmd->z, r);
+        
         if ((errstatus = ap_meets_conditions(r)) != OK) {
             free(buf);
             if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
@@ -1265,6 +1311,12 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noResp5XX = 0;
     for (i = 0; i <= global_max_zoom; i++) {
         stats->noRespZoom[i] = 0;
+    }
+    stats->totalBufferRetrievalTime = 0;
+    stats->noTotalBufferRetrieval = 0;
+    for (i = 0; i <= global_max_zoom; i++) {
+        stats->zoomBufferRetrievalTime[i] = 0;
+        stats->noZoomBufferRetrieval[i] = 0;
     }
     stats->noRespOther = 0;
     stats->noFreshCache = 0;
