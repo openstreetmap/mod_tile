@@ -869,7 +869,8 @@ should already be done
 static int tile_handler_status(request_rec *r)
 {
     enum tileState state;
-    char time_str[APR_CTIME_LEN];
+    char mtime_str[APR_CTIME_LEN];
+    char atime_str[APR_CTIME_LEN];
 
     if(strcmp(r->handler, "tile_status"))
         return DECLINED;
@@ -884,9 +885,10 @@ static int tile_handler_status(request_rec *r)
     state = tile_state(r, cmd);
     if (state == tileMissing)
         return error_message(r, "Unable to find a tile at %s\n", r->filename);
-    apr_ctime(time_str, r->finfo.mtime);
+    apr_ctime(mtime_str, r->finfo.mtime);
+    apr_ctime(atime_str, r->finfo.atime);
 
-    return error_message(r, "Tile is %s. Last rendered at %s\n", (state == tileOld) ? "due to be rendered" : "clean", time_str);
+    return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s\n\n(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry. Access times might not be updated on all filesystems)\n", (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str);
 }
 
 /**
