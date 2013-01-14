@@ -337,11 +337,12 @@ int main(int argc, char **argv)
     int touchFrom = -1;
     int doRender = 0;
     int i;
+    static struct tm touchCalendar;
 
     // Initialize touchFrom timestamp
     struct utimbuf touchTime;
-    touchTime.actime = 946681200;
-    touchTime.modtime = 946681200; // Jan 1 00:00 2000
+    touchTime.actime = 315558000;
+    touchTime.modtime = 315558000; // Jan 1 00:00 1980
 
     // excess_zoomlevels is how many zoom levels at the large end
     // we can ignore because their tiles will share one meta tile.
@@ -564,6 +565,19 @@ int main(int argc, char **argv)
                 {
                     if (verbose)
                         printf("touch: %s\n", name);
+
+                    if (!gmtime_r(&(s.st_mtime), &touchCalendar)) { 
+                        touchTime.modtime = 315558000; 
+                    } else { 
+                        if (touchCalendar.tm_year > 105) { // Tile hasn't already been marked as expired 
+                            touchCalendar.tm_year -= 20; //Set back by 20 years, to keep the creation time as reference.   
+                            touchTime.modtime = mktime(&touchCalendar); 
+                        } else { 
+                            touchTime.modtime = s.st_mtime;  
+                        } 
+                    } 
+                    touchTime.actime = s.st_atime; // Don't modify atime, as that is used for tile cache purging
+
                     if (-1 == utime(name, &touchTime))
                     {
                         perror("modifying timestamp failed");
@@ -603,6 +617,7 @@ int main(int argc, char **argv)
     if (doRender) {
         finish_workers(numThreads);
     }
+    
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");
