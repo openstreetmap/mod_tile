@@ -442,8 +442,14 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
     //m.zoom(size+1);
 
     mapnik::image_32 buf(render_size, render_size);
-    mapnik::agg_renderer<mapnik::image_32> ren(m,buf);
-    ren.apply();
+    try {
+      mapnik::agg_renderer<mapnik::image_32> ren(m,buf);
+      ren.apply();
+    } catch (std::exception const& ex) {
+      syslog(LOG_ERR, "ERROR: failed to render TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
+      syslog(LOG_ERR, "   reason: %s", ex.what());
+      return cmdNotDone;
+    }
 
     // Split the meta tile into an NxN grid of tiles
     unsigned int xx, yy;
@@ -454,7 +460,7 @@ static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y
         }
     }
 //    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
-    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
+//    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
     return cmdDone; // OK
 }
 #else
@@ -582,14 +588,14 @@ void *render_thread(void * arg)
                     }
 
                     if (ret == cmdDone) {
-		      try {
-                        tiles.save(maps[i].tile_dir);
-		      } catch (...) {
-			// Treat any error as fatal and request end of processing
-                        syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
-                        ret = cmdNotDone;
-			request_exit();
-		      }
+                        try {
+                            tiles.save(maps[i].tile_dir);
+                        } catch (...) {
+                            // Treat any error as fatal and request end of processing
+                            syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
+                            ret = cmdNotDone;
+                            request_exit();
+                        }
 #ifdef HTCP_EXPIRE_CACHE
                         tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
 #endif
@@ -601,6 +607,7 @@ void *render_thread(void * arg)
 #endif
 #endif
                     send_response(item, ret);
+                    if (ret != cmdDone) sleep(10); //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
                     break;
                }
             }
