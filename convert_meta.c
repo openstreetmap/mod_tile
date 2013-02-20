@@ -100,7 +100,6 @@ int main(int argc, char **argv)
 {
     int z, c;
     const char *map = "default";
-    char *tile_dir = HASH_PATH;
 
     while (1) {
         int option_index = 0;
