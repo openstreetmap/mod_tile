@@ -43,6 +43,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 
 #include "gen_tile.h"
@@ -97,26 +98,78 @@ static int error_message(request_rec *r, const char *format, ...)
 
 int socket_init(request_rec *r)
 {
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    struct sockaddr_un addr;
+    char portnum[16];
+    char ipstring[INET6_ADDRSTRLEN];
+    int fd, s;
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 
-    int fd;
-    struct sockaddr_un addr;
+    if (scfg->renderd_socket_port > 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Connecting to renderd on %s:%i via TCP",scfg->renderd_socket_name, scfg->renderd_socket_port);
 
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "failed to create unix socket");
-        return FD_INVALID;
-    }
+        memset(&hints, 0, sizeof(struct addrinfo));
+        hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+        hints.ai_socktype = SOCK_STREAM; /* TCP socket */
+        hints.ai_flags = 0;
+        hints.ai_protocol = 0;          /* Any protocol */
+        hints.ai_canonname = NULL;
+        hints.ai_addr = NULL;
+        hints.ai_next = NULL;
+        sprintf(portnum,"%i", scfg->renderd_socket_port);
+        
+        s = getaddrinfo(scfg->renderd_socket_name, portnum, &hints, &result);
+        if (s != 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "failed to resolve hostname of rendering daemon");
+            return FD_INVALID;
+        }
+        
+        /* getaddrinfo() returns a list of address structures.
+           Try each address until we successfully connect. */
+        for (rp = result; rp != NULL; rp = rp->ai_next) {
+            inet_ntop(rp->ai_family, rp->ai_family == AF_INET ? &(((struct sockaddr_in *)rp->ai_addr)->sin_addr) : &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr) , ipstring, rp->ai_addrlen);
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Connecting TCP socket to rendering daemon at %s", ipstring);
+            fd = socket(rp->ai_family, rp->ai_socktype,
+                        rp->ai_protocol);
+            if (fd < 0)
+                continue;
+            if (connect(fd, rp->ai_addr, rp->ai_addrlen) != 0) {
+                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "failed to connect to rendering daemon (%s), trying next ip", ipstring);
+                close(fd);
+                fd = -1;
+                continue;
+            } else {
+                break;
+            }
+        }
 
-    bzero(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path) - sizeof(char));
+        freeaddrinfo(result);        
+        
+        if (fd < 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "failed to create tcp socket");
+            return FD_INVALID;
+        }
+        
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Connecting to renderd on Unix socket %s", scfg->renderd_socket_name);
 
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s with reason: %s", scfg->renderd_socket_name, strerror(errno));
-        close(fd);
-        return FD_INVALID;
+        fd = socket(PF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "failed to create unix socket");
+            return FD_INVALID;
+        }
+        
+        bzero(&addr, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, scfg->renderd_socket_name, sizeof(addr.sun_path) - sizeof(char));
+        
+        if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "socket connect failed for: %s with reason: %s", scfg->renderd_socket_name, strerror(errno));
+            close(fd);
+            return FD_INVALID;
+        }
     }
     return fd;
 }
@@ -1596,7 +1649,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 return "XML name too long";
             }
             sscanf(line, "[%[^]]", xmlname);
-            if ((strcmp(xmlname,"mapnik") == 0) || (strcmp(xmlname,"renderd") == 0)) {
+            if ((strcmp(xmlname,"mapnik") == 0) || (strstr(xmlname,"renderd") == xmlname)) {
                 /* These aren't tile layers but configuration sections for renderd */
                 tilelayer = 0;
             } else {
@@ -1751,7 +1804,20 @@ static const char *mod_tile_max_load_missing_config(cmd_parms *cmd, void *mconfi
 static const char *mod_tile_renderd_socket_name_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_name_string)
 {
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
-    strncpy(scfg->renderd_socket_name, renderd_socket_name_string, PATH_MAX-1);
+    strncpy(scfg->renderd_socket_name, renderd_socket_name_string, PATH_MAX-1);    
+    scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    return NULL;
+}
+
+static const char *mod_tile_renderd_socket_addr_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_address_string, const char *renderd_socket_port_string)
+{
+    int port;
+    tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    strncpy(scfg->renderd_socket_name, renderd_socket_address_string, PATH_MAX-1);
+    if (sscanf(renderd_socket_port_string, "%d", &port) != 1) {
+            return "TCP port needs to be an integer argument";
+    }
+    scfg->renderd_socket_port = port;    
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     return NULL;
 }
@@ -1952,6 +2018,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->max_load_missing = MAX_LOAD_MISSING;
     strncpy(scfg->renderd_socket_name, RENDER_SOCKET, PATH_MAX-1);
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    scfg->renderd_socket_port = 0;
     strncpy(scfg->tile_dir, HASH_PATH, PATH_MAX-1);
     scfg->tile_dir[PATH_MAX-1] = 0;
     memset(&(scfg->cache_extended_hostname),0,PATH_MAX);
@@ -1991,6 +2058,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->max_load_missing = scfg_over->max_load_missing;
     strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
+    scfg->renderd_socket_port = scfg_over->renderd_socket_port;
     strncpy(scfg->tile_dir, scfg_over->tile_dir, PATH_MAX-1);
     scfg->tile_dir[PATH_MAX-1] = 0;
     strncpy(scfg->cache_extended_hostname, scfg_over->cache_extended_hostname, PATH_MAX-1);
@@ -2084,6 +2152,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set name of unix domain socket for connecting to rendering daemon"  /* directive description */
+    ),
+    AP_INIT_TAKE2(
+        "ModTileRenderdSocketAddr",      /* directive name */
+        mod_tile_renderd_socket_addr_config, /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "Set address and port of the TCP socket for connecting to rendering daemon"  /* directive description */
     ),
     AP_INIT_TAKE1(
         "ModTileTileDir",                /* directive name */

@@ -94,6 +94,7 @@ typedef struct {
     int cache_level_medium_zoom;
     double cache_duration_last_modified_factor;
     char renderd_socket_name[PATH_MAX];
+    int renderd_socket_port;
     char tile_dir[PATH_MAX];
 	char cache_extended_hostname[PATH_MAX];
     int  cache_extended_duration;
