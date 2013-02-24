@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/select.h>
 #include <sys/stat.h>
@@ -589,34 +590,58 @@ void *stats_writeout_thread(void * arg) {
 }
 
 int client_socket_init(renderd_config * sConfig) {
-    int fd;
+    int fd, s;
     struct sockaddr_un * addrU;
-    struct sockaddr_in * addrI;
-    struct hostent *server;
+    struct addrinfo hints; 
+    struct addrinfo *result, *rp;
+    char portnum[16]; 
+    char ipstring[INET6_ADDRSTRLEN];
+
     if (sConfig->ipport > 0) {
-        syslog(LOG_INFO, "Initialising TCP/IP client socket to %s:%i",
-                sConfig->iphostname, sConfig->ipport);
-        addrI = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
-        fd = socket(PF_INET, SOCK_STREAM, 0);
-        server = gethostbyname(sConfig->iphostname);
-        if (server == NULL) {
-            syslog(LOG_WARNING, "Could not resolve hostname: %s",
-                    sConfig->iphostname);
-            return FD_INVALID;
+        syslog(LOG_INFO, "Initialising TCP/IP client socket to %s:%i", sConfig->iphostname, sConfig->ipport);
+        
+        memset(&hints, 0, sizeof(struct addrinfo)); 
+        hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */ 
+        hints.ai_socktype = SOCK_STREAM; /* TCP socket */ 
+        hints.ai_flags = 0; 
+        hints.ai_protocol = 0;          /* Any protocol */ 
+        hints.ai_canonname = NULL; 
+        hints.ai_addr = NULL; 
+        hints.ai_next = NULL; 
+        sprintf(portnum,"%i", sConfig->ipport);
+
+        s = getaddrinfo(sConfig->iphostname, portnum, &hints, &result); 
+        if (s != 0) { 
+            syslog(LOG_INFO, "failed to resolve hostname of rendering slave"); 
+            return FD_INVALID; 
         }
-        bzero((char *) addrI, sizeof(struct sockaddr_in));
-        addrI->sin_family = AF_INET;
-        bcopy((char *) server->h_addr, (char *) &addrI->sin_addr.s_addr,
-                server->h_length);
-        addrI->sin_port = htons(sConfig->ipport);
-        if (connect(fd, (struct sockaddr *) addrI, sizeof(struct sockaddr_in)) < 0) {
-            syslog(LOG_WARNING, "Could not connect to %s:%i",
-                    sConfig->iphostname, sConfig->ipport);
-            return FD_INVALID;
+        
+        /* getaddrinfo() returns a list of address structures. 
+           Try each address until we successfully connect. */ 
+        for (rp = result; rp != NULL; rp = rp->ai_next) { 
+            inet_ntop(rp->ai_family, rp->ai_family == AF_INET ? &(((struct sockaddr_in *)rp->ai_addr)->sin_addr) : 
+                      &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr) , ipstring, rp->ai_addrlen); 
+            syslog(LOG_DEBUG, "Connecting TCP socket to rendering daemon at %s", ipstring); 
+            fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol); 
+            if (fd < 0) 
+                continue; 
+            if (connect(fd, rp->ai_addr, rp->ai_addrlen) != 0) { 
+                syslog(LOG_INFO, "failed to connect to rendering daemon (%s), trying next ip", ipstring); 
+                close(fd);
+                fd = -1;
+                continue;
+            } else { 
+                break; 
+            } 
         }
-        free(addrI);
-        syslog(LOG_INFO, "socket %s:%i initialised to fd %i", sConfig->iphostname, sConfig->ipport,
-                fd);
+        freeaddrinfo(result);
+        
+        if (fd < 0) { 
+            syslog(LOG_WARNING, "failed to connect to %s:%i", sConfig->iphostname, sConfig->ipport); 
+            return FD_INVALID; 
+        }
+
+        syslog(LOG_INFO, "socket %s:%i initialised to fd %i", sConfig->iphostname, sConfig->ipport, fd);
     } else {
         syslog(LOG_INFO, "Initialising unix client socket on %s",
                 sConfig->socketname);
@@ -646,22 +671,22 @@ int client_socket_init(renderd_config * sConfig) {
 
 int server_socket_init(renderd_config *sConfig) {
     struct sockaddr_un addrU;
-    struct sockaddr_in addrI;
+    struct sockaddr_in6 addrI;
     mode_t old;
     int fd;
 
     if (sConfig->ipport > 0) {
         syslog(LOG_INFO, "Initialising TCP/IP server socket on %s:%i",
                 sConfig->iphostname, sConfig->ipport);
-        fd = socket(PF_INET, SOCK_STREAM, 0);
+        fd = socket(PF_INET6, SOCK_STREAM, 0);
         if (fd < 0) {
             fprintf(stderr, "failed to create IP socket\n");
             exit(2);
         }
         bzero(&addrI, sizeof(addrI));
-        addrI.sin_family = AF_INET;
-        addrI.sin_addr.s_addr = INADDR_ANY;
-        addrI.sin_port = htons(sConfig->ipport);
+        addrI.sin6_family = AF_INET6;
+        addrI.sin6_addr = in6addr_any;
+        addrI.sin6_port = htons(sConfig->ipport);
         if (bind(fd, (struct sockaddr *) &addrI, sizeof(addrI)) < 0) {
             fprintf(stderr, "socket bind failed for: %s:%i\n",
                     sConfig->iphostname, sConfig->ipport);
