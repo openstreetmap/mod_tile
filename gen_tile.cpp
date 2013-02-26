@@ -57,7 +57,7 @@ using namespace mapnik;
 static const int minZoom = 0;
 static const int maxZoom = MAX_ZOOM;
 
-typedef struct {
+struct xmlmapconfig {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
     char tile_dir[PATH_MAX];
@@ -68,7 +68,10 @@ typedef struct {
     char htcphost[PATH_MAX];
     int htcpsock;
     int ok;
-} xmlmapconfig;
+    xmlmapconfig() :
+        prj("+init=epsg:4326"),
+        map(256,256) {}
+};
 
 
 class SphericalProjection
