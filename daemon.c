@@ -238,7 +238,7 @@ struct item * lookup_item_idx(struct item * item) {
     return NULL;
 }
 
-static inline const char *cmdStr(enum protoCmd c)
+static const char *cmdStr(enum protoCmd c)
 {
     switch (c) {
         case cmdIgnore:  return "Ignore";
@@ -1079,7 +1079,7 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
-    for (int i = 0; i < MAX_SLAVES; i++) {
+    for (i = 0; i < MAX_SLAVES; i++) {
         if (config_slaves[i].num_threads == 0) {
             continue;
         }
