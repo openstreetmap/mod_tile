@@ -117,7 +117,7 @@ int process_loop(int fd, const char *mapname, int x, int y, int z)
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
-    strcpy(cmd.xmlname, mapname);
+    strncpy(cmd.xmlname, mapname, XMLCONFIG_MAX - 1);
 
     //printf("Sending request\n");
     ret = send(fd, &cmd, sizeof(cmd), 0);
@@ -260,7 +260,7 @@ void *thread_main(void *arg)
 
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         fprintf(stderr, "socket connect failed for: %s\n", spath);
