@@ -1519,6 +1519,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
                                     const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
                                     int noHostnames, char ** hostnames, char * cors)
 {
+    int i;
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
     }
@@ -1539,6 +1540,9 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     }
 
     if ((minzoom < 0) || (maxzoom > MAX_ZOOM_SERVER)) {
+        for (i = 0; i < noHostnames; i++) free(hostnames[i]);
+        free(hostnames);
+        hostnames = NULL;
         return "The configured zoom level lies outside of the range supported by this server";
     }
     if (maxzoom > global_max_zoom) global_max_zoom = maxzoom;
@@ -1648,7 +1652,12 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 fclose(hini);
                 return "XML name too long";
             }
-            sscanf(line, "[%[^]]", xmlname);
+            if (sscanf(line, "[%[^]]", xmlname) != 1) {
+                if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
+                if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                fclose(hini);
+                return "Malformed config file";
+            }
             if ((strcmp(xmlname,"mapnik") == 0) || (strstr(xmlname,"renderd") == xmlname)) {
                 /* These aren't tile layers but configuration sections for renderd */
                 tilelayer = 0;
