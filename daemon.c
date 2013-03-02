@@ -649,17 +649,19 @@ int client_socket_init(renderd_config * sConfig) {
         fd = socket(PF_UNIX, SOCK_STREAM, 0);
         if (fd < 0) {
             syslog(LOG_WARNING, "Could not obtain socket: %i", fd);
+            free(addrU);
             return FD_INVALID;
         }
 
         bzero(addrU, sizeof(struct sockaddr_un));
         addrU->sun_family = AF_UNIX;
-        strncpy(addrU->sun_path, sConfig->socketname, sizeof(addrU->sun_path));
+        strncpy(addrU->sun_path, sConfig->socketname, sizeof(addrU->sun_path) - 1);
 
         if (connect(fd, (struct sockaddr *) addrU, sizeof(struct sockaddr_un)) < 0) {
             syslog(LOG_WARNING, "socket connect failed for: %s",
                     sConfig->socketname);
             close(fd);
+            free(addrU);
             return FD_INVALID;
         }
         free(addrU);
@@ -705,7 +707,7 @@ int server_socket_init(renderd_config *sConfig) {
 
         bzero(&addrU, sizeof(addrU));
         addrU.sun_family = AF_UNIX;
-        strncpy(addrU.sun_path, sConfig->socketname, sizeof(addrU.sun_path));
+        strncpy(addrU.sun_path, sConfig->socketname, sizeof(addrU.sun_path) - 1);
 
         unlink(addrU.sun_path);
 
@@ -798,6 +800,9 @@ void *slave_thread(void * arg) {
                 if (errno != EPIPE) {
                     syslog(LOG_ERR,
                             "Failed to send cmd to render slave, shutting down thread");
+                    free(resp);
+                    free(req_slave);
+                    close(pfd);
                     return NULL;
                 }
 
@@ -868,6 +873,8 @@ void *slave_thread(void * arg) {
             sleep(1); // TODO: Use an event to indicate there are new requests
         }
     }
+    free(resp);
+    free(req_slave);
     return NULL;
 }
 
@@ -976,44 +983,46 @@ int main(int argc, char **argv)
             }
             /* this is a map section */
             iconf++;
-            if (strlen(name) >= XMLCONFIG_MAX) {
+            if (iconf >= XMLCONFIGS_MAX) {
+                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
+                exit(7);
+            }
+
+            if (strlen(name) >= (XMLCONFIG_MAX - 1)) {
                 fprintf(stderr, "XML name too long: %s\n", name);
                 exit(7);
             }
 
             strcpy(maps[iconf].xmlname, name);
-            if (iconf >= XMLCONFIGS_MAX) {
-                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
-                exit(7);
-            }
+            
             sprintf(buffer, "%s:uri", name);
             char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
-            if (strlen(ini_uri) >= PATH_MAX) {
+            if (strlen(ini_uri) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "URI too long: %s\n", ini_uri);
                 exit(7);
             }
             strcpy(maps[iconf].xmluri, ini_uri);
             sprintf(buffer, "%s:xml", name);
             char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
-            if (strlen(ini_xmlpath) >= PATH_MAX){
+            if (strlen(ini_xmlpath) >= (PATH_MAX - 1)){
                 fprintf(stderr, "XML path too long: %s\n", ini_xmlpath);
                 exit(7);
             }
             sprintf(buffer, "%s:host", name);
             char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
-            if (strlen(ini_hostname) >= PATH_MAX) {
+            if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "Host name too long: %s\n", ini_hostname);
                 exit(7);
             }
 
             sprintf(buffer, "%s:htcphost", name);
             char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
-            if (strlen(ini_htcpip) >= PATH_MAX) {
+            if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "HTCP host name too long: %s\n", ini_htcpip);
                 exit(7);
             }
             strcpy(maps[iconf].xmlfile, ini_xmlpath);
-            strcpy(maps[iconf].tile_dir, config.tile_dir);
+            strncpy(maps[iconf].tile_dir, config.tile_dir, PATH_MAX - 1);
             strcpy(maps[iconf].host, ini_hostname);
             strcpy(maps[iconf].htcpip, ini_htcpip);
         } else if (strncmp(name, "renderd", 7) == 0) {
