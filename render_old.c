@@ -104,7 +104,7 @@ int connect_socket(const char *arg) {
 
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         fprintf(stderr, "socket connect failed for: %s\n", spath);
@@ -128,7 +128,7 @@ int process_loop(int fd, char * xmlname, int x, int y, int z)
     cmd.z = z;
     cmd.x = x;
     cmd.y = y;
-    strcpy(cmd.xmlname, xmlname);
+    strncpy(cmd.xmlname, xmlname, XMLCONFIG_MAX - 1);
     //strcpy(cmd.path, "/tmp/foo.png");
     //printf("Sending request of size %i\n", sizeof(cmd));
     ret = send(fd, &cmd, sizeof(cmd), 0);
@@ -211,7 +211,7 @@ char *fetch(const char * socket, int * fd)
 
     while (qLen == 0) {
         /* If there is nothing to do, close the socket, as it may otherwise timeout */
-        if (fd >= 0) {
+        if (*fd >= 0) {
             close(*fd);
             *fd = -1;
         }
@@ -495,6 +495,7 @@ int main(int argc, char **argv)
                 
                 tm.tm_sec = 0; tm.tm_min = 0; tm.tm_hour = 0; tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
                 planetTime = mktime(&tm);
+                break;
 
             case 'v':   /* -v, --verbose */
                 verbose=1;
@@ -554,7 +555,10 @@ int main(int argc, char **argv)
                     fprintf(stderr, "XML name too long: %s\n", line);
                     exit(7);
                 }
-                sscanf(line, "[%[^]]", value);
+                if (sscanf(line, "[%[^]]", value) != 1) {
+                    fprintf(stderr, "Config: malformed config file on line %s\n", line);
+                    exit(7);
+                };
                 // Skip mapnik & renderd sections which are config, not tile layers
                 if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
                     render_layer(tile_dir, value);
