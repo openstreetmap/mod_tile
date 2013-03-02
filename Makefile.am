@@ -3,14 +3,13 @@ SUBDIRS = iniparser3.0b
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(shell mapnik-config --cflags)
+AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS)
 
 bin_PROGRAMS = render_old render_expired render_list speedtest render_old renderd convert_meta
 
 renderddir = $(sysconfdir)
 renderd_SOURCES = protocol.h store.c daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp dir_utils.c sys_utils.c sys_utils.h render_config.h dir_utils.h store.h iniparser3.0b/libiniparser.la
-renderd_LDFLAGS = $(shell mapnik-config --ldflags --libs --dep-libs)
-renderd_LDADD = $(PTHREAD_CFLAGS) -Liniparser3.0b/.libs -liniparser
+renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 renderd_DATA = renderd.conf
 speedtest_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h speedtest.cpp
 render_list_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h render_list.c sys_utils.c sys_utils.h
