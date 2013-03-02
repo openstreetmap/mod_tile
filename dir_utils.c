@@ -19,7 +19,7 @@ int mkdirp(const char *path) {
     char tmp[PATH_MAX];
     char *p;
 
-    strncpy(tmp, path, sizeof(tmp));
+    strncpy(tmp, path, sizeof(tmp) - 1);
 
     // Look for parent directory
     p = strrchr(tmp, '/');
