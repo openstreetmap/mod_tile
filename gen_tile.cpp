@@ -94,6 +94,13 @@ class SphericalProjection
                 c *=2;
             }
         }
+        ~SphericalProjection(){
+            printf("Delteting SphericalProjection");
+            delete [] Ac;
+            delete [] Bc;
+            delete [] Cc;
+            delete [] zc;
+        }
 
         void fromLLtoPixel(double &x, double &y, int zoom) {
             double d = zc[zoom];
