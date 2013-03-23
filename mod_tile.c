@@ -50,7 +50,6 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include "protocol.h"
 #include "render_config.h"
 #include "store.h"
-#include "dir_utils.h"
 #include "mod_tile.h"
 #include "sys_utils.h"
 
@@ -59,9 +58,6 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include "unixd.h"
 #define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
 #endif
-
-apr_time_t *last_check = 0;
-apr_time_t *planet_timestamp = 0;
 
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
@@ -265,105 +261,75 @@ int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
     return 0;
 }
 
-static apr_time_t getPlanetTime(request_rec *r)
-{
-    static pthread_mutex_t planet_lock = PTHREAD_MUTEX_INITIALIZER;
-    apr_time_t now = r->request_time;
-    struct apr_finfo_t s;
-
-    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
-    if (rdata == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "No per request configuration data");
-        return planet_timestamp[0];
-    }
-    struct protocol * cmd = rdata->cmd;
-
-
-    pthread_mutex_lock(&planet_lock);
-    // Only check for updates periodically
-    if (now < last_check[rdata->layerNumber] + apr_time_from_sec(300)) {
-        pthread_mutex_unlock(&planet_lock);
-        return planet_timestamp[rdata->layerNumber];
-    }
-
-    ap_conf_vector_t *sconf = r->server->module_config;
-    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-
-    char filename[PATH_MAX];
-    snprintf(filename, PATH_MAX-1, "%s/%s%s", scfg->tile_dir, cmd->xmlname, PLANET_TIMESTAMP);
-
-    last_check[rdata->layerNumber] = now;
-    if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "per tile style planet time stamp (%s) missing, trying global one", filename);
-        snprintf(filename, PATH_MAX-1, "%s/%s", scfg->tile_dir, PLANET_TIMESTAMP);
-        if (apr_stat(&s, filename, APR_FINFO_MIN, r->pool) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Global planet time stamp file (%s) is missing. Assuming 3 days old.", filename);
-            // Make something up
-            planet_timestamp[rdata->layerNumber] = now - apr_time_from_sec(3 * 24 * 60 * 60);
-        } else {
-            if (s.mtime != planet_timestamp[rdata->layerNumber]) {
-                planet_timestamp[rdata->layerNumber] = s.mtime;
-                char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
-                    apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
-                ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Global planet file time stamp (%s) updated to %s", filename, timestr);
-            }
-        }
-    } else {
-        if (s.mtime != planet_timestamp[rdata->layerNumber]) {
-            planet_timestamp[rdata->layerNumber] = s.mtime;
-            char * timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
-            apr_rfc822_date(timestr, (planet_timestamp[rdata->layerNumber]));
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Per style planet file time stamp (%s) updated to %s", filename, timestr);
-        }
-    }
-    pthread_mutex_unlock(&planet_lock);
-    return planet_timestamp[rdata->layerNumber];
+static apr_status_t cleanup_storage_backend(void * data) {
+    //TODO: need a proper clean up, calling the storage backend close functions.
+    free(data);
+    return APR_SUCCESS;
 }
 
-static enum tileState tile_state_once(request_rec *r)
-{
-    apr_status_t rv;
-    apr_finfo_t *finfo = &r->finfo;
+static struct storage_backend * get_storage_backend(request_rec *r, int tile_layer) {
+    struct storage_backend ** stores = NULL;
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+    tile_config_rec *tile_config = &tile_configs[tile_layer];
+    apr_pool_t *lifecycle_pool = r->server->process->pool;
+    char * memkey = apr_psprintf(r->pool, "mod_tile_storage_backends");
+    apr_os_thread_t os_thread = apr_os_thread_current();
 
-    if (!(finfo->valid & APR_FINFO_MTIME)) {
-        rv = apr_stat(finfo, r->filename, APR_FINFO_MIN, r->pool);
-        if (rv != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state_once: File %s is missing", r->filename);
-            return tileMissing;
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %li and thread %li",
+            tile_layer, r->server->process->short_name, os_thread);
+
+    if (apr_pool_userdata_get((void **)&stores,memkey, lifecycle_pool) != APR_SUCCESS) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: Failed horribly!", r->server->process->short_name);
+    }
+
+    if (stores == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: No storage backends for this lifecycle %li, creating it in thread %li", lifecycle_pool, os_thread);
+        stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backend *) * scfg->configs->nelts);
+        if (apr_pool_userdata_set(stores, memkey, &cleanup_storage_backend, lifecycle_pool) != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "get_storage_backend: Failed horribly to set user_data!", r->server->process->short_name);
         }
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%li) for this lifecycle %li in thread %li", stores, lifecycle_pool, os_thread);
     }
 
-    if (finfo->mtime < getPlanetTime(r)) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state_once: File %s is old", r->filename);
-        return tileOld;
+    if (stores[tile_layer] == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: No storage backend in current lifecycle %li in thread %li for current tile layer %i",
+                lifecycle_pool, os_thread, tile_layer);
+        stores[tile_layer] = init_storage_backend(tile_config->store);
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Storage backend found in current lifecycle %li for current tile layer %i in thread %li",
+                lifecycle_pool, tile_layer, os_thread);
     }
 
-    return tileCurrent;
+    return stores[tile_layer];
 }
 
 static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 {
-    enum tileState state = tile_state_once(r);
-#ifdef METATILEFALLBACK
-    if (state == tileMissing) {
-        ap_conf_vector_t *sconf = r->server->module_config;
-        tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    struct stat_info stat;
 
-        // Try fallback to plain PNG
-        char path[PATH_MAX];
-        xyz_to_path(path, sizeof(path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-        r->filename = apr_pstrdup(r->pool, path);
-        state = tile_state_once(r);
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "png fallback %d/%d/%d",x,y,z);
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+    struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+    
+    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
+    tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
 
-        if (state == tileMissing) {
-            // PNG not available either, if it gets rendered, it'll now be a .meta
-            xyz_to_meta(path, sizeof(path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-            r->filename = apr_pstrdup(r->pool, path);
-        }
-    }
-#endif
-    return state;
+    stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z);
+
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %li: Tile size: %li, expired: %i created: %li",
+                      cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
+
+    r->finfo.mtime = stat.mtime * 1000000;
+    r->finfo.atime = stat.atime * 1000000;
+    r->finfo.ctime = stat.ctime * 1000000;
+
+    if (stat.size < 0) return tileMissing;
+    if (stat.expired) return tileOld;
+
+    return tileCurrent;
 }
 
 /**
@@ -412,7 +378,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
     enum tileState state = tile_state(r, cmd);
     apr_finfo_t *finfo = &r->finfo;
     char *timestr;
-    long int planetTimestamp, maxAge, minCache, lastModified;
+    long int maxAge, minCache, lastModified;
 
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
@@ -420,8 +386,8 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
     tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
     tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
 
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s), filename(%s), path_info(%s)\n",
-                  r->handler, r->uri, r->filename, r->path_info);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "expires(%s), uri(%s),, path_info(%s)\n",
+                  r->handler, r->uri, r->path_info);
 
     /* If the hostname matches the "extended caching hostname" then set the cache age accordingly */
     if ((scfg->cache_extended_hostname[0] != 0) && (strstr(r->hostname,
@@ -444,8 +410,8 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
                 minCache = scfg->mincachetime[cmd->z];
             }
             // Time to the next known complete rerender
-            planetTimestamp = apr_time_sec(getPlanetTime(r)
-                    + apr_time_from_sec(PLANET_INTERVAL) - r->request_time);
+            //planetTimestamp = apr_time_sec(getPlanetTime(r)
+            //        + apr_time_from_sec(PLANET_INTERVAL) - r->request_time);
             // Time since the last render of this tile
             lastModified = (int) (((double) apr_time_sec(r->request_time
                     - finfo->mtime))
@@ -453,7 +419,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
             // Add a random jitter of 3 hours to space out cache expiry
             holdoff = (3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
 
-            maxAge = MAX(minCache, planetTimestamp);
+            //maxAge = MAX(minCache, planetTimestamp);
             maxAge = MAX(maxAge, lastModified);
             maxAge += holdoff;
 
@@ -462,8 +428,8 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
                     APLOG_DEBUG,
                     0,
                     r,
-                    "caching heuristics: next planet render %ld; zoom level based %ld; last modified %ld\n",
-                    planetTimestamp, minCache, lastModified);
+                    "caching heuristics: zoom level based %ld; last modified %ld\n",
+                    minCache, lastModified);
         }
 
         maxAge = MIN(maxAge, scfg->cache_duration_max);
@@ -812,8 +778,8 @@ static int tile_storage_hook(request_rec *r)
     if (!r->handler)
         return DECLINED;
 
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s), filename(%s), path_info(%s)",
-                  r->handler, r->uri, r->filename, r->path_info);
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "tile_storage_hook: handler(%s), uri(%s)",
+                  r->handler, r->uri);
 
     // Any status request is OK. tile_dirty also doesn't need to be handled, as tile_handler_dirty will take care of it
     if (!strcmp(r->handler, "tile_status") || !strcmp(r->handler, "tile_dirty") || !strcmp(r->handler, "tile_mod_stats")
@@ -828,19 +794,6 @@ static int tile_storage_hook(request_rec *r)
     if (cmd == NULL)
         return DECLINED;
 
-/*
-should already be done
-    // Generate the tile filename
-#ifdef METATILE
-    ap_conf_vector_t *sconf = r->server->module_config;
-    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
-    xyz_to_meta(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-#else
-    xyz_to_path(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-#endif
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "abs_path(%s)", abs_path);
-    r->filename = apr_pstrdup(r->pool, abs_path);
-*/
     avg = get_load_avg();
     state = tile_state(r, cmd);
 
@@ -893,9 +846,7 @@ should already be done
     }
 
     if (request_tile(r, cmd, renderPrio)) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Update file info abs_path(%s)", r->filename);
-        // Need to update fileinfo for new rendered tile
-        apr_stat(&r->finfo, r->filename, APR_FINFO_MIN, r->pool);
+        //TODO: update finfo
         if (!incFreshCounter(FRESH_RENDER, r)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase fresh stats counter");
@@ -924,6 +875,7 @@ static int tile_handler_status(request_rec *r)
     enum tileState state;
     char mtime_str[APR_CTIME_LEN];
     char atime_str[APR_CTIME_LEN];
+    char storage_id[PATH_MAX];
 
     if(strcmp(r->handler, "tile_status"))
         return DECLINED;
@@ -937,11 +889,16 @@ static int tile_handler_status(request_rec *r)
 
     state = tile_state(r, cmd);
     if (state == tileMissing)
-        return error_message(r, "Unable to find a tile at %s\n", r->filename);
+        return error_message(r, "No tile could not be found at storage location: %s\n",
+                rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
     apr_ctime(mtime_str, r->finfo.mtime);
     apr_ctime(atime_str, r->finfo.atime);
 
-    return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s\n\n(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry. Access times might not be updated on all filesystems)\n", (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str);
+    return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s. Stored in %s\n\n" 
+                         "(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
+                         " Access times might not be updated on all file systems)\n",
+                         (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
+                         rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
 }
 
 /**
@@ -1087,6 +1044,7 @@ static int tile_handler_serve(request_rec *r)
 {
     const int tile_max = MAX_SIZE;
     unsigned char err_msg[4096];
+    char id[PATH_MAX];
     unsigned char *buf;
     int len;
     int compressed;
@@ -1132,7 +1090,10 @@ static int tile_handler_serve(request_rec *r)
     }
 
     err_msg[0] = 0;
-    len = tile_read(scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
+
+    len = rdata->store->tile_read(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                  "Read tile of length %i from %s: %s", len, rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, id), err_msg);
     if (len > 0) {
         if (compressed) {
             const char* accept_encoding = apr_table_get(r->headers_in,"Accept-Encoding");
@@ -1267,16 +1228,18 @@ static int tile_translate(request_rec *r)
             // Store a copy for later
             rdata->cmd = cmd;
             rdata->layerNumber = i;
+            rdata->store = get_storage_backend(r, i);
+            if (rdata->store == NULL) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "tile_translate: failed to get valid storage backend");
+                if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
+                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                            "Failed to increase response stats counter");
+                }
+                return HTTP_INTERNAL_SERVER_ERROR;
+            }
             ap_set_module_config(r->request_config, &tile_module, rdata);
 
-            // Generate the tile filename?
-            char abs_path[PATH_MAX];
-#ifdef METATILE
-            xyz_to_meta(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-#else
-            xyz_to_path(abs_path, sizeof(abs_path), scfg->tile_dir, cmd->xmlname, cmd->x, cmd->y, cmd->z);
-#endif
-            r->filename = apr_pstrdup(r->pool, abs_path);
+            r->filename = NULL; 
 
             if (n == 5) {
                 if (!strcmp(option, "status")) r->handler = "tile_status";
@@ -1386,17 +1349,10 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats->noResp404Layer = (apr_uint64_t *) ((char *) stats + sizeof(stats_data));
     stats->noResp200Layer = (apr_uint64_t *) ((char *) stats + sizeof(stats_data) + sizeof(apr_uint64_t) * layerCount);
 
-    /* the last_check and planet_timestamp arrays have a variable size as well,
-     * however they are not in shared memory. */
-    last_check = (apr_time_t *) apr_pcalloc(pconf, sizeof(apr_time_t) * layerCount);
-    planet_timestamp = (apr_time_t *) apr_pcalloc(pconf, sizeof(apr_time_t) * layerCount);
-
     /* zero out all the non-fixed-length stuff */
     for (i=0; i<layerCount; i++) {
         stats->noResp404Layer[i] = 0;
         stats->noResp200Layer[i] = 0;
-        last_check[i] = 0;
-        planet_timestamp[i] = 0;
     }
 
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
@@ -1477,12 +1433,17 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 
 /*
  * This routine gets called when a child inits. We use it to attach
- * to the shared memory segment, and reinitialize the mutex.
+ * to the shared memory segment, and reinitialize the mutex and setup
+ * connections to storage backends.
  */
 
 static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 {
     apr_status_t rs;
+    int i;
+
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
+                     "Initialising a new Apache child instance");
 
      /*
       * Re-open the mutex for the child. Note we're reusing
@@ -1572,6 +1533,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->noHostnames = noHostnames;
     tilecfg->hostnames = hostnames;
     tilecfg->cors = cors;
+    tilecfg->store = scfg->tile_dir; //TODO: Make store configurable per tile layer
 
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
@@ -2019,7 +1981,7 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
     tile_server_conf * scfg = (tile_server_conf *) apr_pcalloc(p, sizeof(tile_server_conf));
-
+    
     scfg->configs = apr_array_make(p, 4, sizeof(tile_config_rec));
     scfg->request_timeout = REQUEST_TIMEOUT;
     scfg->request_timeout_priority = REQUEST_TIMEOUT;

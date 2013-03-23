@@ -1,6 +1,8 @@
 #ifndef MODTILE_H 
 #define MODTILE_H
 
+#include "store.h"
+
 /*Size of the delaypool hashtable*/
 #define DELAY_HASHTABLE_SIZE 100057
 #define DELAY_HASHTABLE_WHITELIST_SIZE 13
@@ -66,6 +68,7 @@ typedef struct stats_data {
 } stats_data;
 
 typedef struct {
+    const char * store;
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
     char fileExtension[PATH_MAX];
@@ -111,6 +114,7 @@ typedef struct {
 
 typedef struct tile_request_data {
 	struct protocol * cmd;
+    struct storage_backend * store;
 	int layerNumber;
 } tile_request_data;
 

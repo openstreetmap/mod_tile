@@ -7,36 +7,36 @@ extern "C" {
 
 #include <stdlib.h>
 #include "render_config.h"
-    int tile_read(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, int sz, int * compressed, unsigned char * err_msg);
 
-#define META_MAGIC "META"
-#define META_MAGIC_COMPRESSED "METZ"
-//static const char meta_magic[4] = { 'M', 'E', 'T', 'A' };
+#define STORE_LOGLVL_DEBUG 0
+#define STORE_LOGLVL_INFO 1
+#define STORE_LOGLVL_WARNING 2
+#define STORE_LOGLVL_ERR 3
 
-struct entry {
-    int offset;
-    int size;
-};
+    struct stat_info {
+        off_t     size;    /* total size, in bytes */
+        time_t    atime;   /* time of last access */
+        time_t    mtime;   /* time of last modification */
+        time_t    ctime;   /* time of last status change */
+        int       expired;  /* has the tile expired */
+    };
 
-struct meta_layout {
-    char magic[4];
-    int count; // METATILE ^ 2
-    int x, y, z; // lowest x,y of this metatile, plus z
-    struct entry index[]; // count entries
-    // Followed by the tile data
-    // The index offsets are measured from the start of the file
-};
+    struct storage_backend {
+        int (*tile_read)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char *buf, size_t sz, int * compressed, char * err_msg);
+        struct stat_info (*tile_stat)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z);
+        int (*metatile_write)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, const char *buf, int sz);
+        int (*metatile_delete)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z);
+        int (*metatile_expire)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z);
+        char * (*tile_storage_id)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char * string);
+        int (*close_storage)(struct storage_backend * store);
 
+        void * storage_ctx;
+    };
 
-int read_from_file(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz);
-
-#ifdef METATILE
-    int read_from_meta(const char *tilepath, const char *xmlconfig, int x, int y, int z, unsigned char *buf, size_t sz, int * compressed, unsigned char * log_msg);
-    void process_meta(const char *tilepath, const char *xmlconfig, int x, int y, int z);
-    void process_pack(const char *tilepath, const char *name);
-    void process_unpack(const char *tilepath, const char *name);
-#endif
-
+    void log_message(int log_lvl, const char *format, ...);
+    
+    struct storage_backend * init_storage_backend(const char * options);
+        
 #ifdef __cplusplus
 }
 #endif
