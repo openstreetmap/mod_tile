@@ -41,6 +41,12 @@ AC_SEARCH_LIBS(pow,m)
 AX_BOOST_BASE
 AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
+AX_ENABLE_LIBMEMCACHED
+AC_CHECK_LIB(rados, rados_version, [
+    AC_DEFINE([HAVE_LIBRADOS], [1], [Have found librados])
+    LIBRADOS_LDFLAGS='-lrados'
+    AC_SUBST(LIBRADOS_LDFLAGS)
+][])
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
 

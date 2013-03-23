@@ -17,7 +17,8 @@
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
-#include "dir_utils.h"
+#include "render_submit_queue.h"
+
 
 #define DEG_TO_RAD (M_PI/180)
 #define RAD_TO_DEG (180/M_PI)
@@ -176,11 +177,13 @@ int main(int argc, char **argv)
     int num, num_all = 0;
     const char * mapname = "default";
     int verbose = 0;
+    int numThreads = 1;
 
     while (1) {
         int option_index = 0;
         static struct option long_options[] = {
             {"socket", 1, 0, 's'},
+            {"num-threads", 1, 0, 'n'},
             {"map", 1, 0, 'm'},
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
@@ -201,10 +204,18 @@ int main(int argc, char **argv)
             case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
+            case 'n':   /* -n, --num-threads */
+                numThreads=atoi(optarg);
+                if (numThreads <= 0) {
+                    fprintf(stderr, "Invalid number of threads, must be at least 1\n");
+                    return 1;
+                }
+                break;
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: speedtest [OPTION] ...\n");
                 fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
                 fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
+                fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
                 return -1;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
@@ -217,28 +228,14 @@ int main(int argc, char **argv)
     
     fprintf(stderr, "Rendering client\n");
 
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
-        exit(2);
-    }
-
-    bzero(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
-
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
-        close(fd);
-        exit(3);
-    }
+    spawn_workers(numThreads, spath, 1000);
 
     // Render something to counter act the startup costs
     // of obtaining the Postgis table extents
 
     printf("Initial startup costs\n");
     gettimeofday(&start, NULL);
-    process_loop(fd, 0,0,0,mapname);
+    enqueue(mapname, 0, 0, 0);
     gettimeofday(&end, NULL);
     display_rate(start, end, 1);
 
@@ -272,25 +269,20 @@ int main(int argc, char **argv)
 
         for (x=xmin; x<=xmax; x++) {
             for (y=ymin; y<=ymax; y++) {
-                struct stat s;
-                xyz_to_meta(name, sizeof(name), HASH_PATH, XMLCONFIG_DEFAULT, x, y, z);
-                if (stat(name, &s) < 0) {
-                // File doesn't exist
-                    ret = process_loop(fd, x, y, z, mapname);
-                }
-                //printf(".");
-                fflush(NULL);
+                enqueue(mapname, x, y, z);
             }
         }
+        wait_for_empty_queue();
         //printf("\n");
         gettimeofday(&end, NULL);
         display_rate(start, end, num);
     }
+    finish_workers();
+
     gettimeofday(&end_all, NULL);
     printf("\nTotal for all tiles rendered\n");
     display_rate(start_all, end_all, num_all);
 
-    close(fd);
     return ret;
 }
 #endif
