@@ -178,6 +178,7 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
     int fd;
     char meta_path[PATH_MAX];
     char * tmp;
+    int res;
  
     xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
     log_message(STORE_LOGLVL_DEBUG, "Creating and writing a metatile to %s\n", meta_path);
@@ -196,7 +197,7 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
         return -1;
     }
     
-    int res = write(fd, buf, sz);
+    res = write(fd, buf, sz);
     if (res != sz) {
         log_message(STORE_LOGLVL_WARNING, "Error writing file %s: %s\n", meta_path, strerror(errno));
         close(fd);
