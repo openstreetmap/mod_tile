@@ -47,6 +47,7 @@ void log_message(int log_lvl, const char *format, ...) {
             break;
         }
         free(msg);
+        fflush(stderr);
     }
     va_end(ap);
 }
