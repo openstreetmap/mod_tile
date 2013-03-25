@@ -21,6 +21,7 @@
 #endif
 
 #include "store.h"
+#include "store_rados.h"
 #include "metatile.h"
 #include "render_config.h"
 #include "protocol.h"
@@ -267,11 +268,15 @@ static int rados_metatile_expire(struct storage_backend * store, const char *xml
 
 
 static int rados_close_storage(struct storage_backend * store) {
+    struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+
+    log_message(STORE_LOGLVL_DEBUG,"rados_close_storage: Closing rados backend for pool %s", ctx->pool);
     rados_ioctx_destroy(((struct rados_ctx *) store->storage_ctx)->io);
     rados_shutdown(((struct rados_ctx *) store->storage_ctx)->cluster);
     free(((struct rados_ctx *) store->storage_ctx)->metadata_cache.data);
     free(((struct rados_ctx *) store->storage_ctx)->pool);
     free(store->storage_ctx);
+    log_message(STORE_LOGLVL_DEBUG,"rados_close_storage: !!!Closed rados backend", ctx->pool);
     return 0;
 }
 
@@ -289,7 +294,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
     struct rados_ctx * ctx = malloc(sizeof(struct rados_ctx));
     struct storage_backend * store = malloc(sizeof(struct storage_backend));
     char * conf = NULL;
-    char * tmp;
+    const char * tmp;
     int err;
     int i;
 
