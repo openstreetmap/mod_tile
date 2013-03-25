@@ -59,6 +59,11 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
 #endif
 
+#ifdef APLOG_USE_MODULE
+APLOG_USE_MODULE(tile);
+#define APACHE24 1
+#endif
+
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
 char *shmfilename;
@@ -624,11 +629,19 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
 
+#ifdef APACHE24
+    ip_addr = r->useragent_ip;
+#else
     ip_addr = r->connection->remote_ip;
+#endif
     if (scfg->enableTileThrottlingXForward){
         const char * ip_addrs = apr_table_get(r->headers_in,"X-Forwarded-For");
         if (ip_addrs) {
+#ifdef APACHE24
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->client_ip);
+#else
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
+#endif
             //X-Forwarded-For can be a chain of proxies deliminated by , The first entry in the list is the client, the last entry is the remote address seen by the proxy
             //closest to the tileserver.
             char ** state = NULL;
@@ -642,8 +655,11 @@ static int delay_allowed(request_rec *r, enum tileState state) {
                     ip_addr = tmp;
                 }
             }
-            
+#ifdef APACHE24
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->client_ip);
+#else
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->remote_ip);
+#endif
         }
     }
 
@@ -1391,7 +1407,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     }
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-    rs = unixd_set_global_mutex_perms(stats_mutex);
+    rs = ap_unixd_set_global_mutex_perms(stats_mutex);
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
                      "Parent could not set permissions on mod_tile "
@@ -1418,7 +1434,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     }
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-    rs = unixd_set_global_mutex_perms(delay_mutex);
+    rs = ap_unixd_set_global_mutex_perms(delay_mutex);
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
                      "Parent could not set permissions on mod_tile "
