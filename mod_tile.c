@@ -99,7 +99,7 @@ static int error_message(request_rec *r, const char *format, ...)
     return OK;
 }
 
-int socket_init(request_rec *r)
+static int socket_init(request_rec *r)
 {
     struct addrinfo hints;
     struct addrinfo *result, *rp;
@@ -177,7 +177,7 @@ int socket_init(request_rec *r)
     return fd;
 }
 
-int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
+static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 {
     int fd;
     int ret = 0;
@@ -284,29 +284,29 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
     char * memkey = apr_psprintf(r->pool, "mod_tile_storage_backends");
     apr_os_thread_t os_thread = apr_os_thread_current();
 
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %li and thread %li",
-            tile_layer, r->server->process->short_name, os_thread);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %pp and thread %li",
+            tile_layer, lifecycle_pool, os_thread);
 
     if (apr_pool_userdata_get((void **)&stores,memkey, lifecycle_pool) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: Failed horribly!", r->server->process->short_name);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: Failed horribly!");
     }
 
     if (stores == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: No storage backends for this lifecycle %li, creating it in thread %li", lifecycle_pool, os_thread);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backends for this lifecycle %pp, creating it in thread %li", lifecycle_pool, os_thread);
         stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backend *) * scfg->configs->nelts);
         if (apr_pool_userdata_set(stores, memkey, &cleanup_storage_backend, lifecycle_pool) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "get_storage_backend: Failed horribly to set user_data!", r->server->process->short_name);
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "get_storage_backend: Failed horribly to set user_data!");
         }
     } else {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%li) for this lifecycle %li in thread %li", stores, lifecycle_pool, os_thread);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, os_thread);
     }
 
     if (stores[tile_layer] == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: No storage backend in current lifecycle %li in thread %li for current tile layer %i",
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backend in current lifecycle %pp in thread %li for current tile layer %i",
                 lifecycle_pool, os_thread, tile_layer);
         stores[tile_layer] = init_storage_backend(tile_config->store);
     } else {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Storage backend found in current lifecycle %li for current tile layer %i in thread %li",
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Storage backend found in current lifecycle %pp for current tile layer %i in thread %li",
                 lifecycle_pool, tile_layer, os_thread);
     }
 
@@ -316,17 +316,11 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 {
     struct stat_info stat;
-
-    ap_conf_vector_t *sconf = r->server->module_config;
-    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
-    
-    tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
-    tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
 
     stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z);
 
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %li: Tile size: %li, expired: %i created: %li",
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %li, expired: %i created: %li",
                       cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
 
     r->finfo.mtime = stat.mtime * 1000000;
@@ -428,6 +422,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
             holdoff = (3 * 60 * 60) * (rand() / (RAND_MAX + 1.0));
 
             //maxAge = MAX(minCache, planetTimestamp);
+            maxAge = minCache;
             maxAge = MAX(maxAge, lastModified);
             maxAge += holdoff;
 
@@ -661,7 +656,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
             //Use the last entry in the chain of X-Forwarded-For instead of the client, i.e. the entry added by the proxy closest to the tileserver
             //If this is a reverse proxy under our control, its X-Forwarded-For can be trusted.
             if (scfg->enableTileThrottlingXForward == 2) {
-                while (tmp = apr_strtok(NULL,", ",strtok_state)) {
+                while ((tmp = apr_strtok(NULL,", ",strtok_state)) != NULL) {
                     ip_addr = tmp;
                 }
             }
@@ -943,9 +938,8 @@ static int tile_handler_status(request_rec *r)
  */
 static int tile_handler_json(request_rec *r)
 {
-    unsigned char *buf;
+    char *buf;
     int len;
-    enum tileState state;
     char *timestr;
     long int maxAge = 7*24*60*60;
     apr_table_t *t = r->headers_out;
@@ -1088,9 +1082,9 @@ static int tile_handler_mod_stats(request_rec *r)
 static int tile_handler_serve(request_rec *r)
 {
     const int tile_max = MAX_SIZE;
-    unsigned char err_msg[4096];
+    char err_msg[4096];
     char id[PATH_MAX];
-    unsigned char *buf;
+    char *buf;
     int len;
     int compressed;
     apr_status_t errstatus;
