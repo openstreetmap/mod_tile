@@ -340,6 +340,9 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
     if (ctx->metadata_cache.data == NULL) {
         return NULL;
     }
+
+    free(conf);
+
     ctx->metadata_cache.x = -1;
     ctx->metadata_cache.y = -1;
     ctx->metadata_cache.z = -1;

@@ -74,6 +74,11 @@ char *mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
+struct storage_backends {
+    struct storage_backend ** stores;
+    int noBackends;
+};
+
 static int error_message(request_rec *r, const char *format, ...)
                  __attribute__ ((format (printf, 2, 3)));
 
@@ -269,13 +274,18 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 }
 
 static apr_status_t cleanup_storage_backend(void * data) {
-    //TODO: need a proper clean up, calling the storage backend close functions.
-    free(data);
+    struct storage_backends * stores = (struct storage_backends *)data;
+    int i;
+    for (i = 0; i < stores->noBackends; i++) {
+        if (stores->stores[i]) {
+            stores->stores[i]->close_storage(stores->stores[i]);
+        }
+    }
     return APR_SUCCESS;
 }
 
 static struct storage_backend * get_storage_backend(request_rec *r, int tile_layer) {
-    struct storage_backend ** stores = NULL;
+    struct storage_backends * stores = NULL;
     ap_conf_vector_t *sconf = r->server->module_config;
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
@@ -293,7 +303,9 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 
     if (stores == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backends for this lifecycle %pp, creating it in thread %li", lifecycle_pool, os_thread);
-        stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backend *) * scfg->configs->nelts);
+        stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backends));
+        stores->stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backend *) * scfg->configs->nelts);
+        stores->noBackends = scfg->configs->nelts;
         if (apr_pool_userdata_set(stores, memkey, &cleanup_storage_backend, lifecycle_pool) != APR_SUCCESS) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "get_storage_backend: Failed horribly to set user_data!");
         }
@@ -301,16 +313,16 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, os_thread);
     }
 
-    if (stores[tile_layer] == NULL) {
+    if (stores->stores[tile_layer] == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backend in current lifecycle %pp in thread %li for current tile layer %i",
                 lifecycle_pool, os_thread, tile_layer);
-        stores[tile_layer] = init_storage_backend(tile_config->store);
+        stores->stores[tile_layer] = init_storage_backend(tile_config->store);
     } else {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Storage backend found in current lifecycle %pp for current tile layer %i in thread %li",
                 lifecycle_pool, tile_layer, os_thread);
     }
 
-    return stores[tile_layer];
+    return stores->stores[tile_layer];
 }
 
 static enum tileState tile_state(request_rec *r, struct protocol *cmd)
