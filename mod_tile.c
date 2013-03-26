@@ -1448,7 +1448,12 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     }
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
+#ifdef APACHE24
     rs = ap_unixd_set_global_mutex_perms(stats_mutex);
+#else
+    rs = unixd_set_global_mutex_perms(stats_mutex);
+#endif
+
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
                      "Parent could not set permissions on mod_tile "
@@ -1475,7 +1480,11 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     }
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
+#ifdef APACHE24
     rs = ap_unixd_set_global_mutex_perms(delay_mutex);
+#else
+    rs = unixd_set_global_mutex_perms(delay_mutex);
+#endif
     if (rs != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
                      "Parent could not set permissions on mod_tile "

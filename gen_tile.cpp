@@ -336,6 +336,7 @@ class metaTile {
             struct meta_layout m;
             struct entry offsets[METATILE * METATILE];
             char * metatilebuffer;
+            char tmp[PATH_MAX];
 
             memset(&m, 0, sizeof(m));
             memset(&offsets, 0, sizeof(offsets));
@@ -374,7 +375,9 @@ class metaTile {
                 }
             }
             
-            store->metatile_write(store, xmlconfig_.c_str(),x_,y_,z_,metatilebuffer, offset);
+            if (store->metatile_write(store, xmlconfig_.c_str(),x_,y_,z_,metatilebuffer, offset) != offset) {
+                syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(),x_,y_,z_, tmp));
+            }
 
         }
 

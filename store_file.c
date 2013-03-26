@@ -186,9 +186,11 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
     tmp = malloc(sizeof(char) * strlen(meta_path) + 12);
     sprintf(tmp, "%s.%lu", meta_path, pthread_self());
 
-    if (mkdirp(tmp))
+    if (mkdirp(tmp)) {
         free(tmp);
         return -1;
+    }
+
 
     fd = open(tmp, O_WRONLY | O_TRUNC | O_CREAT, 0666);
     if (fd < 0) {
