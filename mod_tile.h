@@ -80,6 +80,8 @@ typedef struct {
     int noHostnames;
     int minzoom;
     int maxzoom;
+    int aspect_x;
+    int aspect_y;
 } tile_config_rec;
 
 typedef struct {
