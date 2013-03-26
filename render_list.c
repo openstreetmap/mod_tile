@@ -304,8 +304,12 @@ int main(int argc, char **argv)
     finish_workers();
 
     free(spath);
-    free(mapname);
-    free(tile_dir);
+    if (mapname != XMLCONFIG_DEFAULT) {
+        free(mapname);
+    }
+    if (tile_dir != HASH_PATH) {
+        free(tile_dir);
+    }
 
 
     gettimeofday(&end, NULL);
