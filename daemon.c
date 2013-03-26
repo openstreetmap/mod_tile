@@ -300,23 +300,6 @@ enum protoCmd pending(struct item *test)
     return cmdRender;
 }
 
-static int check_xyz(int x, int y, int z)
-{
-    int oob, limit;
-
-    // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
-    if (!oob) {
-         // valid x/y for tiles are 0 ... 2^zoom-1
-        limit = (1 << z) - 1;
-        oob =  (x < 0 || x > limit || y < 0 || y > limit);
-    }
-
-    if (oob)
-        fprintf(stderr, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
-
-    return oob;
-}
 
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
@@ -341,9 +324,6 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk))
         return cmdIgnore;
-
-    if (check_xyz(req->x, req->y, req->z))
-        return cmdNotDone;
 
     item = (struct item *)malloc(sizeof(*item));
     if (!item) {
@@ -1037,6 +1017,15 @@ int main(int argc, char **argv)
                 fprintf(stderr, "HTCP host name too long: %s\n", ini_htcpip);
                 exit(7);
             }
+
+            sprintf(buffer, "%s:tilesize", name);
+            char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
+            maps[iconf].tile_px_size = atoi(ini_tilesize);
+            if (maps[iconf].tile_px_size < 1) {
+                fprintf(stderr, "Tile size is invalid: %s\n", ini_tilesize);
+                exit(7);
+            }
+
             strcpy(maps[iconf].xmlfile, ini_xmlpath);
             strncpy(maps[iconf].tile_dir, config.tile_dir, PATH_MAX - 1);
             strcpy(maps[iconf].host, ini_hostname);

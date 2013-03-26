@@ -1267,8 +1267,9 @@ static int tile_translate(request_rec *r)
             oob = (cmd->z < tile_config->minzoom || cmd->z > tile_config->maxzoom);
             if (!oob) {
                  // valid x/y for tiles are 0 ... 2^zoom-1
-                 limit = (1 << cmd->z) - 1;
-                 oob =  (cmd->x < 0 || cmd->x > limit || cmd->y < 0 || cmd->y > limit);
+                 limit = (1 << cmd->z);
+                 oob =  (cmd->x < 0 || cmd->x > (limit*tile_config->aspect_x - 1) || cmd->y < 0 || cmd->y > (limit * tile_config->aspect_y - 1));
+                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: request for %s was %i %i %i", tile_config->xmlname, cmd->x, cmd->y, limit);
             }
 
             if (oob) {
@@ -1587,6 +1588,8 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
+    tilecfg->aspect_x = 2;
+    tilecfg->aspect_y = 1;
     tilecfg->description = description;
     tilecfg->attribution = attribution;
     tilecfg->noHostnames = noHostnames;
