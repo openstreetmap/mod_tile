@@ -379,6 +379,7 @@ class metaTile {
                 syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(),x_,y_,z_, tmp));
             }
 
+            free(metatilebuffer);
         }
 
 #ifdef HTCP_EXPIRE_CACHE

@@ -183,8 +183,8 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
     xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
     log_message(STORE_LOGLVL_DEBUG, "Creating and writing a metatile to %s\n", meta_path);
 
-    tmp = malloc(sizeof(char) * strlen(meta_path) + 12);
-    sprintf(tmp, "%s.%lu", meta_path, pthread_self());
+    tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
+    sprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, pthread_self());
 
     if (mkdirp(tmp)) {
         free(tmp);
