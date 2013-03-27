@@ -54,7 +54,7 @@ void log_message(int log_lvl, const char *format, ...) {
 
 struct storage_backend * init_storage_backend(const char * options) {
     struct stat st;
-    struct storage_backend * store;
+    struct storage_backend * store = NULL;
 
     //Determine the correct storage backend based on the options string
     if (strlen(options) == 0) {
@@ -69,6 +69,7 @@ struct storage_backend * init_storage_backend(const char * options) {
         if (S_ISDIR(st.st_mode)) {
             log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising file storage backend at: %s", options);
             store = init_storage_file(options);
+            return store;
         } else {
             log_message(STORE_LOGLVL_ERR, "init_storage_backend: %s is not a directory", options, strerror(errno));
             return NULL;
@@ -77,12 +78,15 @@ struct storage_backend * init_storage_backend(const char * options) {
     if (strstr(options,"rados://") == options) {
         log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising rados storage backend at: %s", options);
         store = init_storage_rados(options);
+        return store;
     }
     if (strstr(options,"memcached://") == options) {
         log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising memcached storage backend at: %s", options);
         store = init_storage_memcached(options);
+        return store;
     }
 
+    log_message(STORE_LOGLVL_ERR, "init_storage_backend: No valid storage backend found for options: %s", options);
 
     return store;
 }
