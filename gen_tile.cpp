@@ -87,7 +87,7 @@ static struct projectionconfig * get_projection(const char * srs) {
     struct projectionconfig * prj;
 
     if (strstr(srs,"+proj=merc +a=6378137 +b=6378137") != NULL) {
-        syslog(LOG_DEBUG, "Using web mercartor projection settings");
+        syslog(LOG_DEBUG, "Using web mercator projection settings");
         prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
         prj->bound_x0 = -20037508.3428;
         prj->bound_x1 =  20037508.3428;
