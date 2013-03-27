@@ -1094,7 +1094,7 @@ static int tile_handler_mod_stats(request_rec *r)
 static int tile_handler_serve(request_rec *r)
 {
     const int tile_max = MAX_SIZE;
-    char err_msg[4096];
+    char err_msg[PATH_MAX];
     char id[PATH_MAX];
     char *buf;
     int len;

@@ -116,6 +116,7 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
 
     if (rc != MEMCACHED_SUCCESS) {
         tile_stat.size = -1;
+        tile_stat.expired = 0;
         tile_stat.mtime = 0;
         tile_stat.atime = 0;
         tile_stat.ctime = 0;
@@ -152,6 +153,7 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
     }
 
     tile_stat.expired = 0;
+    tile_stat.size = sz;
     tile_stat.mtime = time(NULL);
     tile_stat.atime = tile_stat.mtime;
     tile_stat.ctime = tile_stat.mtime;
@@ -242,6 +244,7 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
     ctx = memcached(connection_str, strlen(connection_str));
     if (ctx == NULL) {
         log_message(STORE_LOGLVL_ERR,"init_storage_memcached: Failed to create memcached ctx");
+        free(store);
         return NULL;
     }
     store->storage_ctx = ctx;

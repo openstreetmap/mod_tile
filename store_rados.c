@@ -82,7 +82,7 @@ static char * read_meta_data(struct storage_backend * store, const char *xmlconf
         ctx->metadata_cache.x = x;
         ctx->metadata_cache.y = y;
         ctx->metadata_cache.z = z;
-        strcpy(ctx->metadata_cache.xmlname, xmlconfig);
+        strncpy(ctx->metadata_cache.xmlname, xmlconfig, XMLCONFIG_MAX - 1);
         return ctx->metadata_cache.data;
     }
 }
@@ -107,6 +107,7 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
     buf_raw = read_meta_data(store, xmlconfig, x, y, z);
     if (buf_raw == NULL) {
         snprintf(log_msg,1024, "Failed to read metadata of tile\n");
+        free(m);
         return -3;
     }
 
@@ -144,7 +145,6 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
 
     if (err < 0) {
         snprintf(log_msg, 1024, "Failed to read tile data from rados: %s\n", strerror(-err));
-        free(m);
         return -1;
     }
 
@@ -163,6 +163,7 @@ static struct stat_info rados_tile_stat(struct storage_backend * store, const ch
     buf = read_meta_data(store, xmlconfig, x, y, z);
     if (buf == NULL) {
         tile_stat.size = -1;
+        tile_stat.expired = 0;
         tile_stat.mtime = 0;
         tile_stat.atime = 0;
         tile_stat.ctime = 0;
@@ -193,6 +194,7 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
     int err;
 
     tile_stat.expired = 0;
+    tile_stat.size = sz;
     tile_stat.mtime = time(NULL);
     tile_stat.atime = tile_stat.mtime;
     tile_stat.ctime = tile_stat.mtime;
@@ -270,13 +272,12 @@ static int rados_metatile_expire(struct storage_backend * store, const char *xml
 static int rados_close_storage(struct storage_backend * store) {
     struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
 
-    log_message(STORE_LOGLVL_DEBUG,"rados_close_storage: Closing rados backend for pool %s", ctx->pool);
-    rados_ioctx_destroy(((struct rados_ctx *) store->storage_ctx)->io);
-    rados_shutdown(((struct rados_ctx *) store->storage_ctx)->cluster);
-    free(((struct rados_ctx *) store->storage_ctx)->metadata_cache.data);
-    free(((struct rados_ctx *) store->storage_ctx)->pool);
-    free(store->storage_ctx);
-    log_message(STORE_LOGLVL_DEBUG,"rados_close_storage: !!!Closed rados backend", ctx->pool);
+    rados_ioctx_destroy(ctx->io);
+    rados_shutdown(ctx->cluster);
+    log_message(STORE_LOGLVL_DEBUG,"rados_close_storage: Closed rados backend");
+    free(ctx->metadata_cache.data);
+    free(ctx->pool);
+    free(ctx);
     return 0;
 }
 
@@ -312,18 +313,24 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
     err = rados_create(&(ctx->cluster), NULL);
     if (err < 0) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: cannot create a cluster handle: %s", strerror(-err));
+        free(ctx);
+        free(store);
         return NULL;
     }
 
     err = rados_conf_read_file(ctx->cluster, conf);
     if (err < 0) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to read rados config file %s: %s", conf, strerror(-err));
+        free(ctx);
+        free(store);
         return NULL;
     }
 
     err = rados_connect(ctx->cluster);
     if (err < 0) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to connect to rados cluster: %s", strerror(-err));
+        free(ctx);
+        free(store);
         return NULL;
     }
 
@@ -331,6 +338,8 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
     if (err < 0) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to initialise rados io context to pool %s: %s", ctx->pool, strerror(-err));
         rados_shutdown(ctx->cluster);
+        free(ctx);
+        free(store);
         return NULL;
     }
 
@@ -338,6 +347,10 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
 
     ctx->metadata_cache.data = malloc(sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE*METATILE*sizeof(struct entry));
     if (ctx->metadata_cache.data == NULL) {
+        rados_ioctx_destroy(ctx->io);
+        rados_shutdown(ctx->cluster);
+        free(ctx);
+        free(store);
         return NULL;
     }
 

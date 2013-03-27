@@ -56,7 +56,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
 
     fd = open(path, O_RDONLY);
     if (fd < 0) {
-        snprintf(log_msg,1024, "Could not open metatile %s. Reason: %s\n", path, strerror(errno));
+        snprintf(log_msg,PATH_MAX - 1, "Could not open metatile %s. Reason: %s\n", path, strerror(errno));
         free(m);
         return -1;
     }
@@ -66,7 +66,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
         size_t len = header_len - pos;
         int got = read(fd, ((unsigned char *) m) + pos, len);
         if (got < 0) {
-            snprintf(log_msg,1024, "Failed to read complete header for metatile %s Reason: %s\n", path, strerror(errno));
+            snprintf(log_msg,PATH_MAX - 1, "Failed to read complete header for metatile %s Reason: %s\n", path, strerror(errno));
             close(fd);
             free(m);
             return -2;
@@ -76,15 +76,15 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
             break;
         }
     }
-    if (pos < sizeof(struct meta_layout)) {
-        snprintf(log_msg,1024, "Meta file %s too small to contain header\n", path);
+    if (pos < header_len) {
+        snprintf(log_msg,PATH_MAX - 1, "Meta file %s too small to contain header\n", path);
         close(fd);
         free(m);
         return -3;
     }
     if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) {
         if (memcmp(m->magic, META_MAGIC_COMPRESSED, strlen(META_MAGIC_COMPRESSED))) {
-            snprintf(log_msg,1024, "Meta file %s header magic mismatch\n", path);
+            snprintf(log_msg,PATH_MAX - 1, "Meta file %s header magic mismatch\n", path);
             close(fd);
             free(m);
             return -4;
@@ -95,7 +95,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
 
     // Currently this code only works with fixed metatile sizes (due to xyz_to_meta above)
     if (m->count != (METATILE * METATILE)) {
-        snprintf(log_msg, 1024, "Meta file %s header bad count %d != %d\n", path, m->count, METATILE * METATILE);
+        snprintf(log_msg, PATH_MAX - 1, "Meta file %s header bad count %d != %d\n", path, m->count, METATILE * METATILE);
         free(m);
         close(fd);
         return -5;
@@ -107,14 +107,14 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
     free(m);
 
     if (tile_size > sz) {
-        snprintf(log_msg, 1024, "Truncating tile %zd to fit buffer of %zd\n", tile_size, sz);
+        snprintf(log_msg, PATH_MAX - 1, "Truncating tile %zd to fit buffer of %zd\n", tile_size, sz);
         tile_size = sz;
         close(fd);
         return -6;
     }
 
     if (lseek(fd, file_offset, SEEK_SET) < 0) {
-        snprintf(log_msg, 1024, "Meta file %s seek error %d\n", path, m->count);
+        snprintf(log_msg, PATH_MAX - 1, "Meta file %s seek error: %s\n", path, strerror(errno));
         close(fd);
         return -7;
     }
@@ -124,7 +124,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
         size_t len = tile_size - pos;
         int got = read(fd, buf + pos, len);
         if (got < 0) {
-            snprintf(log_msg, 1024, "Failed to read data from file %s. Reason: %s\n", path, strerror(errno));
+            snprintf(log_msg, PATH_MAX - 1, "Failed to read data from file %s. Reason: %s\n", path, strerror(errno));
             close(fd);
             return -8;
         } else if (got > 0) {
@@ -184,7 +184,7 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
     log_message(STORE_LOGLVL_DEBUG, "Creating and writing a metatile to %s\n", meta_path);
 
     tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
-    sprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, pthread_self());
+    snprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, pthread_self());
 
     if (mkdirp(tmp)) {
         free(tmp);
