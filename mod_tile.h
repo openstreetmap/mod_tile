@@ -1,6 +1,8 @@
 #ifndef MODTILE_H 
 #define MODTILE_H
 
+#include "store.h"
+
 /*Size of the delaypool hashtable*/
 #define DELAY_HASHTABLE_SIZE 100057
 #define DELAY_HASHTABLE_WHITELIST_SIZE 13
@@ -55,11 +57,18 @@ typedef struct stats_data {
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
 	apr_uint64_t noRespZoom[MAX_ZOOM_SERVER + 1];
+    apr_uint64_t totalBufferRetrievalTime;
+    apr_uint64_t noTotalBufferRetrieval;
+    apr_uint64_t zoomBufferRetrievalTime[MAX_ZOOM_SERVER + 1];
+    apr_uint64_t noZoomBufferRetrieval[MAX_ZOOM_SERVER + 1];
+
     apr_uint64_t *noResp200Layer;
     apr_uint64_t *noResp404Layer;
+
 } stats_data;
 
 typedef struct {
+    const char * store;
     char xmlname[XMLCONFIG_MAX];
     char baseuri[PATH_MAX];
     char fileExtension[PATH_MAX];
@@ -71,6 +80,8 @@ typedef struct {
     int noHostnames;
     int minzoom;
     int maxzoom;
+    int aspect_x;
+    int aspect_y;
 } tile_config_rec;
 
 typedef struct {
@@ -88,6 +99,7 @@ typedef struct {
     int cache_level_medium_zoom;
     double cache_duration_last_modified_factor;
     char renderd_socket_name[PATH_MAX];
+    int renderd_socket_port;
     char tile_dir[PATH_MAX];
 	char cache_extended_hostname[PATH_MAX];
     int  cache_extended_duration;
@@ -104,6 +116,7 @@ typedef struct {
 
 typedef struct tile_request_data {
 	struct protocol * cmd;
+    struct storage_backend * store;
 	int layerNumber;
 } tile_request_data;
 

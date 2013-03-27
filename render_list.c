@@ -20,8 +20,9 @@
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
-#include "dir_utils.h"
+#include "store.h"
 #include "sys_utils.h"
+#include "render_submit_queue.h"
 
 char *tile_dir = HASH_PATH;
 
@@ -55,266 +56,9 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static time_t getPlanetTime(char *tile_dir)
-{
-    static time_t last_check;
-    static time_t planet_timestamp;
-    time_t now = time(NULL);
-    struct stat buf;
-    char filename[PATH_MAX];
-
-    snprintf(filename, PATH_MAX-1, "%s/%s", tile_dir, PLANET_TIMESTAMP);
-
-    // Only check for updates periodically
-    if (now < last_check + 300)
-        return planet_timestamp;
-
-    last_check = now;
-    if (stat(filename, &buf)) {
-        fprintf(stderr, "Planet timestamp file (%s) is missing\n", filename);
-        // Make something up
-        planet_timestamp = now - 3 * 24 * 60 * 60;
-    } else {
-        if (buf.st_mtime != planet_timestamp) {
-            printf("Planet file updated at %s", ctime(&buf.st_mtime));
-            planet_timestamp = buf.st_mtime;
-        }
-    }
-    return planet_timestamp;
-}
-
-
-
-int process_loop(int fd, const char *mapname, int x, int y, int z)
-{
-    struct protocol cmd, rsp;
-    //struct pollfd fds[1];
-    int ret = 0;
-
-    bzero(&cmd, sizeof(cmd));
-
-    cmd.ver = 2;
-    cmd.cmd = cmdRenderBulk;
-    cmd.z = z;
-    cmd.x = x;
-    cmd.y = y;
-    strcpy(cmd.xmlname, mapname);
-
-    //printf("Sending request\n");
-    ret = send(fd, &cmd, sizeof(cmd), 0);
-    if (ret != sizeof(cmd)) {
-        perror("send error");
-    }
-
-    //printf("Waiting for response\n");
-    bzero(&rsp, sizeof(rsp));
-    ret = recv(fd, &rsp, sizeof(rsp), 0);
-    if (ret != sizeof(rsp)) {
-        perror("recv error");
-        return 0;
-    }
-    //printf("Got response\n");
-
-    if (rsp.cmd != cmdDone) {
-        printf("rendering failed, pausing\n");
-        sleep(10);
-    }
-
-    if (!ret)
-        perror("Socket send error");
-    return ret;
-}
-
-void process(const char *tilepath, int fd, const char *name)
-{
-    char xmlconfig[XMLCONFIG_MAX];
-    int x, y, z;
-
-    if (path_to_xyz(tilepath, name, xmlconfig, &x, &y, &z))
-        return;
-
-    printf("Requesting xml(%s) x(%d) y(%d) z(%d)\n", xmlconfig, x, y, z);
-    process_loop(fd, xmlconfig, x, y, z);
-}
-
-static void check_load(void)
-{
-    double avg = get_load_avg();
-
-    while (avg >= maxLoad) {
-        /* printf("Load average %d, sleeping\n", avg); */
-        sleep(5);
-        avg = get_load_avg();
-    }
-}
-
-#define QMAX 32
-
-pthread_mutex_t qLock;
-pthread_cond_t qCondNotEmpty;
-pthread_cond_t qCondNotFull;
-
-unsigned int qLen;
-struct qItem {
-    char *path;
-    struct qItem *next;
-};
-
-struct qItem *qHead, *qTail;
-
-char *fetch(void)
-{
-    // Fetch path to render from queue or NULL on work completion
-    // Must free() pointer after use
-    char *path;
-
-    pthread_mutex_lock(&qLock);
-
-    while (qLen == 0) {
-        if (work_complete) {
-            pthread_mutex_unlock(&qLock);
-            return NULL;
-        }
-        pthread_cond_wait(&qCondNotEmpty, &qLock);
-    }
-
-    // Fetch item from queue
-    if (!qHead) {
-        fprintf(stderr, "Queue failure, null qHead with %d items in list\n", qLen);
-        exit(1);
-    }
-    path = qHead->path;
-
-    if (qHead == qTail) {
-        free(qHead);
-        qHead = NULL;
-        qTail = NULL;
-        qLen = 0;
-    } else {
-        struct qItem *e = qHead;
-        qHead = qHead->next;
-        free(e);
-        if (qLen == QMAX)
-            pthread_cond_signal(&qCondNotFull);
-        qLen--;
-    }
-
-    pthread_mutex_unlock(&qLock);
-    return path;
-}
-
-void enqueue(const char *path)
-{
-    // Add this path in the local render queue
-    struct qItem *e = malloc(sizeof(struct qItem));
-
-    e->path = strdup(path);
-    e->next = NULL;
-
-    if (!e->path) {
-        fprintf(stderr, "Malloc failure\n");
-        exit(1);
-    }
-
-    pthread_mutex_lock(&qLock);
-
-    while (qLen == QMAX) {
-        pthread_cond_wait(&qCondNotFull, &qLock);
-    }
-
-    // Append item to end of queue
-    if (qTail)
-        qTail->next = e;
-    else
-        qHead = e;
-    qTail = e;
-    pthread_cond_signal(&qCondNotEmpty);
-    qLen++;
-
-    pthread_mutex_unlock(&qLock);
-}
-
-
-void *thread_main(void *arg)
-{
-    const char *spath = (const char *)arg;
-    int fd;
-    struct sockaddr_un addr;
-    char *tile;
-
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
-        exit(2);
-    }
-
-    bzero(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
-
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
-        close(fd);
-        return NULL;
-    }
-
-    while((tile = fetch())) {
-        process(tile_dir, fd, tile);
-        free(tile);
-        check_load();
-    }
-
-    close(fd);
-
-    return NULL;
-}
-
-
-pthread_t *workers;
-
-void spawn_workers(int num, const char *spath)
-{
-    int i;
-
-    // Setup request queue
-    pthread_mutex_init(&qLock, NULL);
-    pthread_cond_init(&qCondNotEmpty, NULL);
-    pthread_cond_init(&qCondNotFull, NULL);
-
-    printf("Starting %d rendering threads\n", num);
-    workers = calloc(sizeof(pthread_t), num);
-    if (!workers) {
-        perror("Error allocating worker memory");
-        exit(1);
-    }
-    for(i=0; i<num; i++) {
-        if (pthread_create(&workers[i], NULL, thread_main, (void *)spath)) {
-            perror("Thread creation failed");
-            exit(1);
-        }
-    }
-}
-
-void finish_workers(int num)
-{
-    int i;
-
-    printf("Waiting for rendering threads to finish\n");
-    pthread_mutex_lock(&qLock);
-    work_complete = 1;
-    pthread_mutex_unlock(&qLock);
-    pthread_cond_broadcast(&qCondNotEmpty);
-
-    for(i=0; i<num; i++)
-        pthread_join(workers[i], NULL);
-    free(workers);
-    workers = NULL;
-}
-
-
 int main(int argc, char **argv)
 {
-    char *spath = RENDER_SOCKET;
+    char *spath = strdup(RENDER_SOCKET);
     char *mapname = XMLCONFIG_DEFAULT;
     int minX=-1, maxX=-1, minY=-1, maxY=-1;
     int x, y, z;
@@ -326,6 +70,8 @@ int main(int argc, char **argv)
     int all=0;
     int numThreads = 1;
     int force=0;
+    struct storage_backend * store;
+    struct stat_info s;
 
     while (1) {
         int option_index = 0;
@@ -357,6 +103,7 @@ int main(int argc, char **argv)
                 all=1;
                 break;
             case 's':   /* -s, --socket */
+                free(spath);
                 spath = strdup(optarg);
                 break;
             case 't':   /* -t, --tile-dir */
@@ -443,6 +190,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    store = init_storage_backend(tile_dir);
+    if (store == NULL) {
+        fprintf(stderr, "Failed to initialise storage backend %s\n", tile_dir);
+        return 1;
+    }
+
     if (all) {
         if ((minX != -1 || minY != -1 || maxX != -1 || maxY != -1) && minZoom != maxZoom) {
             fprintf(stderr, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options\n");
@@ -472,11 +225,9 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "Rendering client\n");
 
-    planetTime = getPlanetTime(tile_dir);
-
     gettimeofday(&start, NULL);
 
-    spawn_workers(numThreads, spath);
+    spawn_workers(numThreads, spath, maxLoad);
 
     if (all) {
         int x, y, z;
@@ -487,18 +238,22 @@ int main(int argc, char **argv)
             printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
-                    xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
-                    enqueue(name);
-                    //process_loop(fd, mapname, x, y, z);
+                    if (!force) s = store->tile_stat(store, mapname, x, y, z);
+                    if (force || (s.size < 0) || (s.expired)) {
+                        enqueue(mapname, x, y, z);
+                        num_render++;
+                    }
                     num_all++;
-                    num_render++;
+
                 }
             }
         }
     } else {
         while(!feof(stdin)) {
-            struct stat s;
             int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
+
+            if (verbose)
+
 
             if (n != 3) {
                 // Discard input line
@@ -506,11 +261,12 @@ int main(int argc, char **argv)
                 char *r = fgets(tmp, sizeof(tmp), stdin);
                 if (!r)
                     continue;
-                // fprintf(stderr, "bad line %d: %s", num_all, tmp);
+                fprintf(stderr, "bad line %d: %s", num_all, tmp);
                 continue;
             }
 
-            //printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
+            if (verbose)
+                printf("got: x(%d) y(%d) z(%d)\n", x, y, z);
 
             if (z < minZoom || z > maxZoom) {
                 printf("Ignoring tile, zoom %d outside valid range (%d..%d)\n", z, minZoom, maxZoom);
@@ -518,29 +274,43 @@ int main(int argc, char **argv)
             }
 
             num_all++;
-            xyz_to_meta(name, sizeof(name), tile_dir, mapname, x, y, z);
 
-            if (force || (stat(name, &s) < 0) || (planetTime > s.st_mtime)) {
+            if (!force) s = store->tile_stat(store, mapname, x, y, z);
+            if (force || (s.size < 0) || (s.expired)) {
                 // missing or old, render it
                 //ret = process_loop(fd, mapname, x, y, z);
-                enqueue(name);
+                enqueue(mapname, x, y, z);
                 num_render++;
                 // Attempts to adjust the stats for the QMAX tiles which are likely in the queue
-                if ((num_render > QMAX) && !((num_render - QMAX) % 10)) {
+                if (!(num_render % 10)) {
                     gettimeofday(&end, NULL);
                     printf("\n");
                     printf("Meta tiles rendered: ");
-                    display_rate(start, end, num_render - QMAX);
+                    display_rate(start, end, num_render);
                     printf("Total tiles rendered: ");
-                    display_rate(start, end, (num_render - QMAX) * METATILE * METATILE);
+                    display_rate(start, end, (num_render) * METATILE * METATILE);
                     printf("Total tiles handled from input: ");
                     display_rate(start, end, num_all);
                 }
+            } else {
+                if (verbose)
+                    printf("Tile %s is clean, ignoring\n", store->tile_storage_id(store, mapname, x, y, z, name));
             }
         }
     }
 
-    finish_workers(numThreads);
+    store->close_storage(store);
+    free(store);
+    finish_workers();
+
+    free(spath);
+    if (mapname != XMLCONFIG_DEFAULT) {
+        free(mapname);
+    }
+    if (tile_dir != HASH_PATH) {
+        free(tile_dir);
+    }
+
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");

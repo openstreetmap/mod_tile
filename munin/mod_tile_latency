@@ -1,0 +1,178 @@
+#!/bin/sh
+#
+# Plugin to monitor the state / freshness  of the tiles returned by mod_tile
+#
+# Parameters: 
+#
+# 	config   (required)
+# 	autoconf (optional - used by munin-config)
+#
+
+if [ "$1" = "config" ]; then
+
+	echo 'graph_title avg latency of tile retrival from disk'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel latency in s'
+	echo 'graph_category mod_tile'
+	echo 'total.label All served tiles'
+	echo 'total.draw LINE2'
+	echo 'total.type GAUGE'
+	echo 'total.min 0'
+    echo 'z1.label z1-8'
+	echo 'z1.draw LINE1'
+	echo 'z1.type GAUGE'
+	echo 'z1.min 0'
+    echo 'z2.label z9-12'
+	echo 'z2.draw LINE1'
+	echo 'z2.type GAUGE'
+	echo 'z2.min 0'
+    echo 'z3.label z13-14'
+	echo 'z3.draw LINE1'
+	echo 'z3.type GAUGE'
+	echo 'z3.min 0'
+    echo 'z4.label z15-16'
+	echo 'z4.draw LINE1'
+	echo 'z4.type GAUGE'
+	echo 'z4.min 0'
+    echo 'z5.label z17-18'
+	echo 'z5.draw LINE1'
+	echo 'z5.type GAUGE'
+	echo 'z5.min 0'
+	exit 0
+fi
+
+#MUNIN_STATEFILE=latency.state
+
+data=`wget -q http://localhost/mod_tile -O -`
+
+
+totalDuration=`expr match "$data" '.*DurationTileBufferReads: \([0-9]*\)'`
+noTotal=`expr match "$data" '.*NoTileBufferReads: \([0-9]*\)'`
+totalDurationPrev=`sed -e '/^DurationTileBufferReads/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+noTotalPrev=`sed -e '/^NoTileBufferReads/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+
+z0Duration=`expr match "$data" '.*DurationTileBufferReadZoom00: \([0-9]*\)'`
+z1Duration=`expr match "$data" '.*DurationTileBufferReadZoom01: \([0-9]*\)'`
+z2Duration=`expr match "$data" '.*DurationTileBufferReadZoom02: \([0-9]*\)'`
+z3Duration=`expr match "$data" '.*DurationTileBufferReadZoom03: \([0-9]*\)'`
+z4Duration=`expr match "$data" '.*DurationTileBufferReadZoom04: \([0-9]*\)'`
+z5Duration=`expr match "$data" '.*DurationTileBufferReadZoom05: \([0-9]*\)'`
+z6Duration=`expr match "$data" '.*DurationTileBufferReadZoom06: \([0-9]*\)'`
+z7Duration=`expr match "$data" '.*DurationTileBufferReadZoom07: \([0-9]*\)'`
+z8Duration=`expr match "$data" '.*DurationTileBufferReadZoom08: \([0-9]*\)'`
+z9Duration=`expr match "$data" '.*DurationTileBufferReadZoom09: \([0-9]*\)'`
+z10Duration=`expr match "$data" '.*DurationTileBufferReadZoom10: \([0-9]*\)'`
+z11Duration=`expr match "$data" '.*DurationTileBufferReadZoom11: \([0-9]*\)'`
+z12Duration=`expr match "$data" '.*DurationTileBufferReadZoom12: \([0-9]*\)'`
+z13Duration=`expr match "$data" '.*DurationTileBufferReadZoom13: \([0-9]*\)'`
+z14Duration=`expr match "$data" '.*DurationTileBufferReadZoom14: \([0-9]*\)'`
+z15Duration=`expr match "$data" '.*DurationTileBufferReadZoom15: \([0-9]*\)'`
+z16Duration=`expr match "$data" '.*DurationTileBufferReadZoom16: \([0-9]*\)'`
+z17Duration=`expr match "$data" '.*DurationTileBufferReadZoom17: \([0-9]*\)'`
+z18Duration=`expr match "$data" '.*DurationTileBufferReadZoom18: \([0-9]*\)'`
+
+z0NoServed=`expr match "$data" '.*NoTileBufferReadZoom00: \([0-9]*\)'`
+z1NoServed=`expr match "$data" '.*NoTileBufferReadZoom01: \([0-9]*\)'`
+z2NoServed=`expr match "$data" '.*NoTileBufferReadZoom02: \([0-9]*\)'`
+z3NoServed=`expr match "$data" '.*NoTileBufferReadZoom03: \([0-9]*\)'`
+z4NoServed=`expr match "$data" '.*NoTileBufferReadZoom04: \([0-9]*\)'`
+z5NoServed=`expr match "$data" '.*NoTileBufferReadZoom05: \([0-9]*\)'`
+z6NoServed=`expr match "$data" '.*NoTileBufferReadZoom06: \([0-9]*\)'`
+z7NoServed=`expr match "$data" '.*NoTileBufferReadZoom07: \([0-9]*\)'`
+z8NoServed=`expr match "$data" '.*NoTileBufferReadZoom08: \([0-9]*\)'`
+z9NoServed=`expr match "$data" '.*NoTileBufferReadZoom09: \([0-9]*\)'`
+z10NoServed=`expr match "$data" '.*NoTileBufferReadZoom10: \([0-9]*\)'`
+z11NoServed=`expr match "$data" '.*NoTileBufferReadZoom11: \([0-9]*\)'`
+z12NoServed=`expr match "$data" '.*NoTileBufferReadZoom12: \([0-9]*\)'`
+z13NoServed=`expr match "$data" '.*NoTileBufferReadZoom13: \([0-9]*\)'`
+z14NoServed=`expr match "$data" '.*NoTileBufferReadZoom14: \([0-9]*\)'`
+z15NoServed=`expr match "$data" '.*NoTileBufferReadZoom15: \([0-9]*\)'`
+z16NoServed=`expr match "$data" '.*NoTileBufferReadZoom16: \([0-9]*\)'`
+z17NoServed=`expr match "$data" '.*NoTileBufferReadZoom17: \([0-9]*\)'`
+z18NoServed=`expr match "$data" '.*NoTileBufferReadZoom18: \([0-9]*\)'`
+
+zl1Duration=`expr $z0Duration + $z1Duration + $z2Duration + $z3Duration + $z4Duration + $z5Duration + $z6Duration + $z7Duration + $z8Duration`
+zl1NoServed=`expr $z0NoServed + $z1NoServed + $z2NoServed + $z3NoServed + $z4NoServed + $z5NoServed + $z6NoServed + $z7NoServed + $z8NoServed`
+zl2Duration=`expr $z9Duration + $z10Duration + $z11Duration + $z12Duration`
+zl2NoServed=`expr $z9NoServed + $z10NoServed + $z11NoServed + $z12NoServed`
+zl3Duration=`expr $z13Duration + $z14Duration`
+zl3NoServed=`expr $z13NoServed + $z14NoServed`
+zl4Duration=`expr $z15Duration + $z16Duration`
+zl4NoServed=`expr $z15NoServed + $z16NoServed`
+zl5Duration=`expr $z17Duration + $z18Duration`
+zl5NoServed=`expr $z17NoServed + $z18NoServed`
+
+zl1DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup1/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl1NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup1/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl2DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup2/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl2NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup2/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl3DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup3/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl3NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup3/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl4DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup4/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl4NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup4/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl5DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup5/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl5NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup5/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+
+
+echo "DurationTileBufferReads: $totalDuration" > $MUNIN_STATEFILE
+echo "NoTileBufferReads: $noTotal" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup1: $zl1Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup1: $zl1NoServed" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup2: $zl2Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup2: $zl2NoServed" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup3: $zl3Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup3: $zl3NoServed" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup4: $zl4Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup4: $zl4NoServed" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup5: $zl5Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup5: $zl5NoServed" >> $MUNIN_STATEFILE
+
+
+if [ "$noTotal" = "$noTotalPrev" ];
+then
+    totalLatency=0
+else
+    totalLatency=$(echo "$totalDuration $totalDurationPrev $noTotal $noTotalPrev" | awk '{ totalLat = ($1 - $2) / ($3 - $4) / 1000000.0; print totalLat}' )
+fi
+
+if [ "$zl1NoServed" = "$zl1NoServedPrev" ];
+then
+    zl1Latency=0
+else
+    zl1Latency=$(echo "$zl1Duration $zl1DurationPrev $zl1NoServed $zl1NoServedPrev" | awk '{ zl1Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl1Lat}' )
+fi
+
+if [ "$zl2NoServed" = "$zl2NoServedPrev" ];
+then
+    zl2Latency=0
+else
+    zl2Latency=$(echo "$zl2Duration $zl2DurationPrev $zl2NoServed $zl2NoServedPrev" | awk '{ zl2Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl2Lat}' )
+fi
+
+if [ "$zl3NoServed" = "$zl3NoServedPrev" ];
+then
+    zl3Latency=0
+else
+    zl3Latency=$(echo "$zl3Duration $zl3DurationPrev $zl3NoServed $zl3NoServedPrev" | awk '{ zl3Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl3Lat}' )
+fi
+
+if [ "$zl4NoServed" = "$zl4NoServedPrev" ];
+then
+    zl4Latency=0
+else
+    zl4Latency=$(echo "$zl4Duration $zl4DurationPrev $zl4NoServed $zl4NoServedPrev" | awk '{ zl4Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl4Lat}' )
+fi
+
+if [ "$zl5NoServed" = "$zl5NoServedPrev" ];
+then
+    zl5Latency=0
+else
+    zl5Latency=$(echo "$zl5Duration $zl5DurationPrev $zl5NoServed $zl5NoServedPrev" | awk '{ zl5Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl5Lat}' )
+fi
+
+echo "total.value " $totalLatency
+echo "z1.value " $zl1Latency
+echo "z2.value " $zl2Latency
+echo "z3.value " $zl3Latency
+echo "z4.value " $zl4Latency
+echo "z5.value " $zl5Latency

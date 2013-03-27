@@ -20,9 +20,9 @@
 #include "gen_tile.h"
 #include "render_config.h"
 #include "daemon.h"
-#include "protocol.h"
-#include "dir_utils.h"
 #include "store.h"
+#include "metatile.h"
+#include "protocol.h"
 
 #ifdef HTCP_EXPIRE_CACHE
 #include <sys/socket.h>
@@ -57,66 +57,66 @@ using namespace mapnik;
 static const int minZoom = 0;
 static const int maxZoom = MAX_ZOOM;
 
-typedef struct {
+struct projectionconfig {
+    double bound_x0;
+    double bound_y0;
+    double bound_x1;
+    double bound_y1;
+    int    aspect_x;
+    int    aspect_y;
+};
+
+struct xmlmapconfig {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
-    char tile_dir[PATH_MAX];
+    struct storage_backend * store;
     Map map;
-    projection prj;
+    struct projectionconfig * prj;
     char xmluri[PATH_MAX];
     char host[PATH_MAX];
     char htcphost[PATH_MAX];
     int htcpsock;
+    int tilesize;
     int ok;
-} xmlmapconfig;
-
-
-class SphericalProjection
-{
-    double *Ac, *Bc, *Cc, *zc;
-
-    public:
-        SphericalProjection(int levels=MAX_ZOOM) {
-            Ac = new double[levels];
-            Bc = new double[levels];
-            Cc = new double[levels];
-            zc = new double[levels];
-            int d, c = 256;
-            for (d=0; d<levels; d++) {
-                int e = c/2;
-                Bc[d] = c/360.0;
-                Cc[d] = c/(2 * M_PI);
-                zc[d] = e;
-                Ac[d] = c;
-                c *=2;
-            }
-        }
-
-        void fromLLtoPixel(double &x, double &y, int zoom) {
-            double d = zc[zoom];
-            double f = minmax(sin(DEG_TO_RAD * y),-0.9999,0.9999);
-            x = round(d + x * Bc[zoom]);
-            y = round(d + 0.5*log((1+f)/(1-f))*-Cc[zoom]);
-        }
-        void fromPixelToLL(double &x, double &y, int zoom) {
-            double e = zc[zoom];
-            double g = (y - e)/-Cc[zoom];
-            x = (x - e)/Bc[zoom];
-            y = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * M_PI);
-        }
-
-    private:
-        double minmax(double a, double b, double c)
-        {
-            #define MIN(x,y) ((x)<(y)?(x):(y))
-            #define MAX(x,y) ((x)>(y)?(x):(y))
-            a = MAX(a,b);
-            a = MIN(a,c);
-            return a;
-        }
+    xmlmapconfig() :
+        map(256,256) {}
 };
 
-static SphericalProjection tiling(maxZoom+1);
+
+static struct projectionconfig * get_projection(const char * srs) {
+    struct projectionconfig * prj;
+
+    if (strstr(srs,"+proj=merc +a=6378137 +b=6378137") != NULL) {
+        syslog(LOG_DEBUG, "Using web mercator projection settings");
+        prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+        prj->bound_x0 = -20037508.3428;
+        prj->bound_x1 =  20037508.3428;
+        prj->bound_y0 = -20037508.3428;
+        prj->bound_y1 =  20037508.3428;
+        prj->aspect_x = 1;
+        prj->aspect_y = 1;
+    } else if (strcmp(srs, "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") == 0) {
+        syslog(LOG_DEBUG, "Using plate carree projection settings");
+        prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+        prj->bound_x0 = -20037508.3428;
+        prj->bound_x1 =  20037508.3428;
+        prj->bound_y0 = -10018754.1714;
+        prj->bound_y1 =  10018754.1714;
+        prj->aspect_x = 2;
+        prj->aspect_y = 1;
+    } else {
+        syslog(LOG_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
+        prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+        prj->bound_x0 = -20037508.3428;
+        prj->bound_x1 =  20037508.3428;
+        prj->bound_y0 = -20037508.3428;
+        prj->bound_y1 =  20037508.3428;
+        prj->aspect_x = 1;
+        prj->aspect_y = 1;
+    }
+
+    return prj;
+}
 
 static void load_fonts(const char *font_dir, int recurse)
 {
@@ -329,88 +329,76 @@ class metaTile {
             return (x & mask) * METATILE + (y & mask);
         }
 
-        void save(const char *tile_dir)
+        void save(struct storage_backend * store)
         {
             int ox, oy, limit;
             size_t offset;
             struct meta_layout m;
-            char meta_path[PATH_MAX];
             struct entry offsets[METATILE * METATILE];
+            char * metatilebuffer;
+            char tmp[PATH_MAX];
 
             memset(&m, 0, sizeof(m));
             memset(&offsets, 0, sizeof(offsets));
 
-            xyz_to_meta(meta_path, sizeof(meta_path), tile_dir, xmlconfig_.c_str(), x_, y_, z_);
-            std::stringstream ss;
-            ss << std::string(meta_path) << "." << pthread_self();
-            std::string tmp(ss.str());
-
-            if (mkdirp(tmp.c_str()))
-	      throw std::runtime_error("An error when creating tile directory");
-
-	    try {
-	      std::ofstream file;
-	      file.exceptions(std::ios_base::failbit | std::ios_base::badbit);
-	      file.open(tmp.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
-
-	      // Create and write header
-	      m.count = METATILE * METATILE;
-	      memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
-	      m.x = x_;
-	      m.y = y_;
-	      m.z = z_;
-	      file.write((const char *)&m, sizeof(m));
-	      
-	      offset = header_size;
-	      limit = (1 << z_);
-	      limit = MIN(limit, METATILE);
-	      
-	      // Generate offset table
-	      for (ox=0; ox < limit; ox++) {
-                for (oy=0; oy < limit; oy++) {
-		  int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
-		  offsets[mt].offset = offset;
-		  offsets[mt].size   = tile[ox][oy].size();
-		  offset += offsets[mt].size;
-                }
-	      }
-	      file.write((const char *)&offsets, sizeof(offsets));
-	      
-	      // Write tiles
-	      for (ox=0; ox < limit; ox++) {
-                for (oy=0; oy < limit; oy++) {
-		  file.write((const char *)tile[ox][oy].data(), tile[ox][oy].size());
-                }
-	      }
-	      
-	      file.close();
-	      
-	      rename(tmp.c_str(), meta_path);
-	    } catch (std::ios_base::failure) {
-	      // Remove the temporary file
-	      unlink(tmp.c_str());
-	      throw std::runtime_error("An error occured when writing a metatile\n");
-	    }
-            //printf("Produced .meta: %s\n", meta_path);
-        }
-
-#ifdef HTCP_EXPIRE_CACHE
-        void expire_tiles(int sock, char * host, char * uri) {
-            if (sock < 0) {
-                return;
-            }
-            syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
-            int ox, oy;
-            int limit = (1 << z_);
+            // Create and write header
+            m.count = METATILE * METATILE;
+            memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
+            m.x = x_;
+            m.y = y_;
+            m.z = z_;
+            
+            offset = header_size;
+            limit = (1 << z_);
             limit = MIN(limit, METATILE);
-
+            limit = METATILE;
+            
             // Generate offset table
             for (ox=0; ox < limit; ox++) {
                 for (oy=0; oy < limit; oy++) {
-                    cache_expire(sock, host, uri, (x_ + ox), (y_ + oy), z_);
+                    int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
+                    offsets[mt].offset = offset;
+                    offsets[mt].size   = tile[ox][oy].size();
+                    offset += offsets[mt].size;
                 }
             }
+
+            metatilebuffer = (char *) malloc(offset);
+            memset(metatilebuffer, 0, offset);
+            memcpy(metatilebuffer,&m,sizeof(m));
+            memcpy(metatilebuffer + sizeof(m), &offsets, sizeof(offsets));
+            
+            // Write tiles
+            for (ox=0; ox < limit; ox++) {
+                for (oy=0; oy < limit; oy++) {
+                    memcpy(metatilebuffer + offsets[xyz_to_meta_offset(x_ + ox, y_ + oy, z_)].offset, (const void *)tile[ox][oy].data(), tile[ox][oy].size());
+                }
+            }
+            
+            if (store->metatile_write(store, xmlconfig_.c_str(),x_,y_,z_,metatilebuffer, offset) != offset) {
+                syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(),x_,y_,z_, tmp));
+            }
+
+            free(metatilebuffer);
         }
+
+#ifdef HTCP_EXPIRE_CACHE
+    void expire_tiles(int sock, char * host, char * uri) {
+        if (sock < 0) {
+            return;
+        }
+        syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
+        int ox, oy;
+        int limit = (1 << z_);
+        limit = MIN(limit, METATILE);
+        
+        // Generate offset table
+        for (ox=0; ox < limit; ox++) {
+            for (oy=0; oy < limit; oy++) {
+                cache_expire(sock, host, uri, (x_ + ox), (y_ + oy), z_);
+            }
+        }
+    }
 #endif
         int x_, y_, z_;
         std::string xmlconfig_;
@@ -418,46 +406,62 @@ class metaTile {
         static const int header_size = sizeof(struct meta_layout) + (sizeof(struct entry) * (METATILE * METATILE));
 };
 
+static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
+    int oob, limit;
 
-static enum protoCmd render(Map &m, char *xmlname, projection &prj, int x, int y, int z, unsigned int size, metaTile &tiles)
+    // Validate tile co-ordinates
+    oob = (z < 0 || z > MAX_ZOOM);
+    if (!oob) {
+         // valid x/y for tiles are 0 ... 2^zoom-1
+        limit = (1 << z);
+        oob =  (x < 0 || x > (limit * map->prj->aspect_x - 1) || y < 0 || y > (limit * map->prj->aspect_y - 1));
+    }
+
+    if (oob)
+        syslog(LOG_INFO, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
+
+    return !oob;
+}
+
+static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, metaTile &tiles)
 {
-    int render_size = 256 * size;
-    double p0x = x * 256;
-    double p0y = (y + size) * 256;
-    double p1x = (x + size) * 256;
-    double p1y = y * 256;
+    int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
+    int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
-    //std::cout << "META TILE " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
-
-    tiling.fromPixelToLL(p0x, p0y, z);
-    tiling.fromPixelToLL(p1x, p1y, z);
-
-    prj.forward(p0x, p0y);
-    prj.forward(p1x, p1y);
+    double p0x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* ((double)x / (double)(map->prj->aspect_x * 1<<z));
+    double p0y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* (((double)y + render_size_ty) / (double)(map->prj->aspect_y * 1<<z)));
+    double p1x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* (((double)x + render_size_tx) / (double)(map->prj->aspect_x * 1<<z));
+    double p1y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* ((double)y / (double)(map->prj->aspect_y * 1<<z)));
 
     mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
-    m.resize(render_size, render_size);
-    m.zoom_to_box(bbox);
-    m.set_buffer_size(128);
+    map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
+    map->map.zoom_to_box(bbox);
+    map->map.set_buffer_size(128);
     //m.zoom(size+1);
 
-    mapnik::image_32 buf(render_size, render_size);
-    mapnik::agg_renderer<mapnik::image_32> ren(m,buf);
-    ren.apply();
+    mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
+    try {
+      mapnik::agg_renderer<mapnik::image_32> ren(map->map,buf);
+      ren.apply();
+    } catch (std::exception const& ex) {
+      syslog(LOG_ERR, "ERROR: failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x+render_size_tx-1, y, y+render_size_ty-1);
+      syslog(LOG_ERR, "   reason: %s", ex.what());
+      return cmdNotDone;
+    }
 
     // Split the meta tile into an NxN grid of tiles
     unsigned int xx, yy;
-    for (yy = 0; yy < size; yy++) {
-        for (xx = 0; xx < size; xx++) {
-            mapnik::image_view<mapnik::image_data_32> vw(xx * 256, yy * 256, 256, 256, buf.data());
+    for (yy = 0; yy < render_size_ty; yy++) {
+        for (xx = 0; xx < render_size_tx; xx++) {
+            mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
 //    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
-    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
+//    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
     return cmdDone; // OK
 }
-#else
+#else //METATILE
 static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z)
 {
     char filename[PATH_MAX];
@@ -497,12 +501,12 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
     return cmdDone; // OK
 }
-#endif
+#endif //METATILE
 
 
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
-    syslog(LOG_INFO, "Renderd is using mapnik version %i.%i.%i", (MAPNIK_VERSION / 100000), ((MAPNIK_VERSION / 100) % 1000), (MAPNIK_VERSION % 100));
+  syslog(LOG_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
 #if MAPNIK_VERSION >= 200200
     mapnik::datasource_cache::instance().register_datasources(plugins_dir);
 #else
@@ -521,35 +525,45 @@ void *render_thread(void * arg)
         if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) break;
         strcpy(maps[iMaxConfigs].xmlname, parentxmlconfig[iMaxConfigs].xmlname);
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
-        strcpy(maps[iMaxConfigs].tile_dir, parentxmlconfig[iMaxConfigs].tile_dir);
-        maps[iMaxConfigs].map = mapnik::Map(RENDER_SIZE, RENDER_SIZE);
-        maps[iMaxConfigs].ok = 1;
-	try {
-	  mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
-	} catch (std::exception const& ex) {
-	  syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
-	  maps[iMaxConfigs].ok = 0;
-	} catch (...) {
-	  syslog(LOG_ERR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
-	  maps[iMaxConfigs].ok = 0;
-	}
-        maps[iMaxConfigs].prj = projection(maps[iMaxConfigs].map.srs());
-#ifdef HTCP_EXPIRE_CACHE
-        strcpy(maps[iMaxConfigs].xmluri, parentxmlconfig[iMaxConfigs].xmluri);
-        strcpy(maps[iMaxConfigs].host, parentxmlconfig[iMaxConfigs].host);
-        strcpy(maps[iMaxConfigs].htcphost, parentxmlconfig[iMaxConfigs].htcpip);
-        if (strlen(maps[iMaxConfigs].htcphost) > 0) {
-            maps[iMaxConfigs].htcpsock = init_cache_expire(
-                    maps[iMaxConfigs].htcphost);
-            if (maps[iMaxConfigs].htcpsock > 0) {
-                syslog(LOG_INFO, "Successfully opened socket for HTCP cache expiry");
-            } else {
-                syslog(LOG_ERR, "Failed to opened socket for HTCP cache expiry");
+        maps[iMaxConfigs].store = init_storage_backend(parentxmlconfig[iMaxConfigs].tile_dir);
+        maps[iMaxConfigs].tilesize  = parentxmlconfig[iMaxConfigs].tile_px_size;
+
+
+        if (maps[iMaxConfigs].store) {
+            maps[iMaxConfigs].ok = 1;
+
+            maps[iMaxConfigs].map = mapnik::Map(RENDER_SIZE, RENDER_SIZE);
+
+            try {
+                mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+                maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
+            } catch (std::exception const& ex) {
+                syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
+                maps[iMaxConfigs].ok = 0;
+            } catch (...) {
+                syslog(LOG_ERR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
+                maps[iMaxConfigs].ok = 0;
             }
-        } else {
-            maps[iMaxConfigs].htcpsock = -1;
-        }
+
+#ifdef HTCP_EXPIRE_CACHE
+            strcpy(maps[iMaxConfigs].xmluri, parentxmlconfig[iMaxConfigs].xmluri);
+            strcpy(maps[iMaxConfigs].host, parentxmlconfig[iMaxConfigs].host);
+            strcpy(maps[iMaxConfigs].htcphost, parentxmlconfig[iMaxConfigs].htcpip);
+            if (strlen(maps[iMaxConfigs].htcphost) > 0) {
+                maps[iMaxConfigs].htcpsock = init_cache_expire(
+                        maps[iMaxConfigs].htcphost);
+                if (maps[iMaxConfigs].htcpsock > 0) {
+                    syslog(LOG_INFO, "Successfully opened socket for HTCP cache expiry");
+                } else {
+                    syslog(LOG_ERR, "Failed to opened socket for HTCP cache expiry");
+                }
+            } else {
+                maps[iMaxConfigs].htcpsock = -1;
+            }
+
 #endif
+        } else
+            maps[iMaxConfigs].ok = 0;
     }
 
     while (1) {
@@ -562,45 +576,52 @@ void *render_thread(void * arg)
             unsigned int size = MIN(METATILE, 1 << req->z);
             for (i = 0; i < iMaxConfigs; ++i) {
                 if (!strcmp(maps[i].xmlname, req->xmlname)) {
-                    metaTile tiles(req->xmlname, item->mx, item->my, req->z);
-                    
-                    if (maps[i].ok) {
-                        timeval tim;
-                        gettimeofday(&tim, NULL);
-                        long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
+                    if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
 
-                        ret = render(maps[i].map, req->xmlname, maps[i].prj, item->mx, item->my, req->z, size, tiles);
+                        metaTile tiles(req->xmlname, item->mx, item->my, req->z);
 
-                        gettimeofday(&tim, NULL);
-                        long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
-                        syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds", 
-                               req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
-                        statsRenderFinish(req->z, t2 - t1);
-                    } else {
-                        syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
-                        ret = cmdNotDone;
-                    }
+                        if (maps[i].ok) {
+                            timeval tim;
+                            gettimeofday(&tim, NULL);
+                            long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
 
-                    if (ret == cmdDone) {
-		      try {
-                        tiles.save(maps[i].tile_dir);
-		      } catch (...) {
-			// Treat any error as fatal and request end of processing
-                        syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
-                        ret = cmdNotDone;
-			request_exit();
-		      }
+                            ret = render(&(maps[i]), item->mx, item->my, req->z, tiles);
+
+                            gettimeofday(&tim, NULL);
+                            long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
+                            syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
+                                    req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
+                            statsRenderFinish(req->z, t2 - t1);
+                        } else {
+                            syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
+                            ret = cmdNotDone;
+                        }
+
+                        if (ret == cmdDone) {
+                            try {
+                                tiles.save(maps[i].store);
+                            } catch (...) {
+                                // Treat any error as fatal and request end of processing
+                                syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
+                                ret = cmdNotDone;
+                                request_exit();
+                            }
 #ifdef HTCP_EXPIRE_CACHE
-                        tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
+                            tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
 #endif
-                    }
+                        }
 #else
-                    ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
+                        ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
 #ifdef HTCP_EXPIRE_CACHE
-                    cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
+                        cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
 #endif
 #endif
+                    } else {
+                        syslog(LOG_ERR, "WHY AM I HERE!");
+                        ret = cmdIgnore;
+                    }
                     send_response(item, ret);
+                    if (ret != cmdDone) sleep(10); //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
                     break;
                }
             }

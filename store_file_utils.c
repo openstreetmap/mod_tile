@@ -9,7 +9,7 @@
 
 #include "protocol.h"
 #include "render_config.h"
-#include "dir_utils.h"
+#include "store_file_utils.h"
 
 // Build parent directories for the specified file name
 // Note: the part following the trailing / is ignored
@@ -19,7 +19,7 @@ int mkdirp(const char *path) {
     char tmp[PATH_MAX];
     char *p;
 
-    strncpy(tmp, path, sizeof(tmp));
+    strncpy(tmp, path, sizeof(tmp) - 1);
 
     // Look for parent directory
     p = strrchr(tmp, '/');
@@ -65,6 +65,23 @@ int mkdirp(const char *path) {
  * to work
  */
 
+static int check_xyz(int x, int y, int z) {
+    int oob, limit;
+
+    // Validate tile co-ordinates
+    oob = (z < 0 || z > MAX_ZOOM);
+    if (!oob) {
+         // valid x/y for tiles are 0 ... 2^zoom-1
+        limit = (1 << z) - 1;
+        oob =  (x < 0 || x > limit || y < 0 || y > limit);
+    }
+
+    if (oob)
+        fprintf(stderr, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
+
+    return oob;
+}
+
 void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
 {
 #ifdef DIRECTORY_HASH
@@ -84,25 +101,6 @@ void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlco
 #endif
     return;
 }
-
-int check_xyz(int x, int y, int z)
-{
-    int oob, limit;
-
-    // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
-    if (!oob) {
-         // valid x/y for tiles are 0 ... 2^zoom-1
-        limit = (1 << z) - 1;
-        oob =  (x < 0 || x > limit || y < 0 || y > limit);
-    }
-
-    if (oob)
-        fprintf(stderr, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
-
-    return oob;
-}
-
 
 int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px, int *py, int *pz)
 {

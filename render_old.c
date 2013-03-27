@@ -22,7 +22,8 @@
 #include "gen_tile.h"
 #include "protocol.h"
 #include "render_config.h"
-#include "dir_utils.h"
+#include "store_file_utils.h"
+#include "render_submit_queue.h"
 #include "sys_utils.h"
 
 
@@ -91,91 +92,6 @@ static time_t getPlanetTime(char *tile_dir)
     return planet_timestamp;
 }
 
-int connect_socket(const char *arg) {
-    int fd;
-    struct sockaddr_un addr;
-    const char *spath = arg;
-
-    fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        fprintf(stderr, "failed to create unix socket\n");
-        exit(2);
-    }
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, spath, sizeof(addr.sun_path));
-
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-
-int process_loop(int fd, char * xmlname, int x, int y, int z)
-{
-    struct protocol cmd, rsp;
-    //struct pollfd fds[1];
-    int ret = 0;
-
-    memset(&cmd, 0, sizeof(cmd));
-
-    cmd.ver = 2;
-    cmd.cmd = cmdRenderBulk;
-    cmd.z = z;
-    cmd.x = x;
-    cmd.y = y;
-    strcpy(cmd.xmlname, xmlname);
-    //strcpy(cmd.path, "/tmp/foo.png");
-    //printf("Sending request of size %i\n", sizeof(cmd));
-    ret = send(fd, &cmd, sizeof(cmd), 0);
-    if (ret != sizeof(cmd)) {
-        perror("send error");
-    }
-        //printf("Waiting for response\n");
-    memset(&rsp, 0, sizeof(rsp));
-    ret = recv(fd, &rsp, sizeof(rsp), MSG_WAITALL);
-    if (ret != sizeof(rsp)) {
-        if (ret == 0) {
-            printf("rendering socket closed, pausing\n");
-            sleep(10);
-            return 0;
-        } else {
-            perror("recv error");
-            return -1;
-        }
-    }
-        //printf("Got response\n");
-
-    if (rsp.cmd != cmdDone) {
-        printf("rendering failed, pausing\n");
-        sleep(10);
-    }
-
-    if (!ret)
-        perror("Socket send error");
-    return ret;
-}
-
-int process(const char *tilepath, int fd, const char *name)
-{
-    char xmlconfig[XMLCONFIG_MAX];
-    int x, y, z;
-    struct stat b;
-
-    if (stat(name, &b))
-        return 1;
-
-    if (path_to_xyz(tilepath, name, xmlconfig, &x, &y, &z))
-        return 1;
-
-    printf("Requesting xml(%s) x(%d) y(%d) z(%d) as last modified at %s\n", xmlconfig, x, y, z, ctime(&b.st_mtime));
-    return process_loop(fd, xmlconfig, x, y, z);
-}
-
 static void check_load(void)
 {
     double avg = get_load_avg();
@@ -187,105 +103,13 @@ static void check_load(void)
     }
 }
 
-#define QMAX 32
-
-pthread_mutex_t qLock;
-pthread_cond_t qCondNotEmpty;
-pthread_cond_t qCondNotFull;
-
-unsigned int qLen;
-struct qItem {
-    char *path;
-    struct qItem *next;
-};
-
-struct qItem *qHead, *qTail;
-
-char *fetch(const char * socket, int * fd)
-{
-    // Fetch path to render from queue or NULL on work completion
-    // Must free() pointer after use
-    char *path;
-
-    pthread_mutex_lock(&qLock);
-
-    while (qLen == 0) {
-        /* If there is nothing to do, close the socket, as it may otherwise timeout */
-        if (fd >= 0) {
-            close(*fd);
-            *fd = -1;
-        }
-        if (work_complete) {
-            pthread_mutex_unlock(&qLock);
-            return NULL;
-        }
-        pthread_cond_wait(&qCondNotEmpty, &qLock);
-    }
-    if (*fd < 0) {
-        *fd = connect_socket(socket);
-    }
-
-    // Fetch item from queue
-    if (!qHead) {
-        fprintf(stderr, "Queue failure, null qHead with %d items in list\n", qLen);
-        exit(1);
-    }
-    path = qHead->path;
-
-    if (qHead == qTail) {
-        free(qHead);
-        qHead = NULL;
-        qTail = NULL;
-        qLen = 0;
-    } else {
-        struct qItem *e = qHead;
-        qHead = qHead->next;
-        free(e);
-        if (qLen == QMAX)
-            pthread_cond_signal(&qCondNotFull);
-        qLen--;
-    }
-    pthread_mutex_unlock(&qLock);
-    return path;
-}
-
-void enqueue(const char *path)
-{
-    // Add this path in the local render queue
-    struct qItem *e = malloc(sizeof(struct qItem));
-
-    e->path = strdup(path);
-    e->next = NULL;
-
-    if (!e->path) {
-        fprintf(stderr, "Malloc failure\n");
-        exit(1);
-    }
-
-    pthread_mutex_lock(&qLock);
-
-    while (qLen == QMAX) {
-        pthread_cond_wait(&qCondNotFull, &qLock);
-    }
-
-    // Append item to end of queue
-    if (qTail)
-        qTail->next = e;
-    else
-        qHead = e;
-    qTail = e;
-    pthread_cond_signal(&qCondNotEmpty);
-    qLen++;
-
-    pthread_mutex_unlock(&qLock);
-    sleep(10);
-}
-
 static void descend(const char *search)
 {
     DIR *tiles = opendir(search);
     struct dirent *entry;
     char path[PATH_MAX];
+    char mapname[XMLCONFIG_MAX];
+    int x, y, z;
 
     if (!tiles) {
         fprintf(stderr, "Unable to open directory: %s\n", search);
@@ -312,48 +136,12 @@ static void descend(const char *search)
             num_all++;
             if (planetTime > b.st_mtime) {
                 // request rendering of  old tile
-                enqueue(path);
+                path_to_xyz(tile_dir, path, mapname, &x, &y, &z);
+                enqueue(mapname, x, y, z);
             }
         }
     }
     closedir(tiles);
-}
-
-
-
-void *thread_main(void *arg)
-{
-    int fd;
-    char * spath = (char *) arg;
-    char *tile;
-
-    fd = connect_socket(spath);
-
-    while((tile = fetch(spath, &fd))) {
-        int ret = process(tile_dir, fd, tile);
-        if (ret == 0) {
-            printf("Reconnecting closed socket\n");
-            close(fd);
-            fd = connect_socket(spath);
-        }
-        num_render++;
-        if (!(num_render % 10)) {
-            gettimeofday(&end, NULL);
-            printf("\n");
-            printf("Meta tiles rendered: ");
-            display_rate(start, end, num_render);
-            printf("Total tiles rendered: ");
-            display_rate(start, end, num_render * METATILE * METATILE);
-            printf("Number of Metatiles tested for expiry: ");
-            display_rate(start, end, num_all);
-            printf("\n");
-        }
-        free(tile);
-    }
-
-    close(fd);
-
-    return NULL;
 }
 
 void render_layer(const char *tilepath, const char *name)
@@ -366,48 +154,6 @@ void render_layer(const char *tilepath, const char *name)
         descend(path);
     }
 }
-
-pthread_t *workers;
-
-void spawn_workers(int num, const char *spath)
-{
-    int i;
-
-    // Setup request queue
-    pthread_mutex_init(&qLock, NULL);
-    pthread_cond_init(&qCondNotEmpty, NULL);
-    pthread_cond_init(&qCondNotFull, NULL);
-
-    printf("Starting %d rendering threads\n", num);
-    workers = calloc(sizeof(pthread_t), num);
-    if (!workers) {
-        perror("Error allocating worker memory");
-        exit(1);
-    }
-    for(i=0; i<num; i++) {
-        if (pthread_create(&workers[i], NULL, thread_main, (void *)spath)) {
-            perror("Thread creation failed");
-            exit(1);
-        }
-    }
-}
-
-void finish_workers(int num)
-{
-    int i;
-
-    printf("Waiting for rendering threads to finish\n");
-    pthread_mutex_lock(&qLock);
-    work_complete = 1;
-    pthread_mutex_unlock(&qLock);
-    pthread_cond_broadcast(&qCondNotEmpty);
-
-    for(i=0; i<num; i++)
-        pthread_join(workers[i], NULL);
-    free(workers);
-    workers = NULL;
-}
-
 
 int main(int argc, char **argv)
 {
@@ -493,8 +239,10 @@ int main(int argc, char **argv)
                 if (yy > 100) yy -= 1900;
                 if (yy < 70) yy += 100;
                 
-                tm.tm_sec = 0; tm.tm_min = 0; tm.tm_hour = 0; tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
+                memset(&tm,0,sizeof(tm));
+                tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
                 planetTime = mktime(&tm);
+                break;
 
             case 'v':   /* -v, --verbose */
                 verbose=1;
@@ -543,7 +291,7 @@ int main(int argc, char **argv)
         exit(7);
     }
 
-    spawn_workers(numThreads, spath);
+    spawn_workers(numThreads, spath, max_load);
 
     if (map) {
         render_layer(tile_dir, map);
@@ -554,7 +302,10 @@ int main(int argc, char **argv)
                     fprintf(stderr, "XML name too long: %s\n", line);
                     exit(7);
                 }
-                sscanf(line, "[%[^]]", value);
+                if (sscanf(line, "[%[^]]", value) != 1) {
+                    fprintf(stderr, "Config: malformed config file on line %s\n", line);
+                    exit(7);
+                };
                 // Skip mapnik & renderd sections which are config, not tile layers
                 if (strcmp(value,"mapnik") && strncmp(value, "renderd", 7))
                     render_layer(tile_dir, value);
@@ -562,6 +313,8 @@ int main(int argc, char **argv)
         }
     }
     fclose(hini);
+    free(map);
+    free(tile_dir);
 
     finish_workers(numThreads);
 

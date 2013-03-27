@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/select.h>
 #include <sys/stat.h>
@@ -22,7 +23,6 @@
 #include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
-#include "dir_utils.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
@@ -237,7 +237,7 @@ struct item * lookup_item_idx(struct item * item) {
     return NULL;
 }
 
-static inline const char *cmdStr(enum protoCmd c)
+static const char *cmdStr(enum protoCmd c)
 {
     switch (c) {
         case cmdIgnore:  return "Ignore";
@@ -324,9 +324,6 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk))
         return cmdIgnore;
-
-    if (check_xyz(req->x, req->y, req->z))
-        return cmdNotDone;
 
     item = (struct item *)malloc(sizeof(*item));
     if (!item) {
@@ -589,34 +586,58 @@ void *stats_writeout_thread(void * arg) {
 }
 
 int client_socket_init(renderd_config * sConfig) {
-    int fd;
+    int fd, s;
     struct sockaddr_un * addrU;
-    struct sockaddr_in * addrI;
-    struct hostent *server;
+    struct addrinfo hints; 
+    struct addrinfo *result, *rp;
+    char portnum[16]; 
+    char ipstring[INET6_ADDRSTRLEN];
+
     if (sConfig->ipport > 0) {
-        syslog(LOG_INFO, "Initialising TCP/IP client socket to %s:%i",
-                sConfig->iphostname, sConfig->ipport);
-        addrI = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
-        fd = socket(PF_INET, SOCK_STREAM, 0);
-        server = gethostbyname(sConfig->iphostname);
-        if (server == NULL) {
-            syslog(LOG_WARNING, "Could not resolve hostname: %s",
-                    sConfig->iphostname);
-            return FD_INVALID;
+        syslog(LOG_INFO, "Initialising TCP/IP client socket to %s:%i", sConfig->iphostname, sConfig->ipport);
+        
+        memset(&hints, 0, sizeof(struct addrinfo)); 
+        hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */ 
+        hints.ai_socktype = SOCK_STREAM; /* TCP socket */ 
+        hints.ai_flags = 0; 
+        hints.ai_protocol = 0;          /* Any protocol */ 
+        hints.ai_canonname = NULL; 
+        hints.ai_addr = NULL; 
+        hints.ai_next = NULL; 
+        sprintf(portnum,"%i", sConfig->ipport);
+
+        s = getaddrinfo(sConfig->iphostname, portnum, &hints, &result); 
+        if (s != 0) { 
+            syslog(LOG_INFO, "failed to resolve hostname of rendering slave"); 
+            return FD_INVALID; 
         }
-        bzero((char *) addrI, sizeof(struct sockaddr_in));
-        addrI->sin_family = AF_INET;
-        bcopy((char *) server->h_addr, (char *) &addrI->sin_addr.s_addr,
-                server->h_length);
-        addrI->sin_port = htons(sConfig->ipport);
-        if (connect(fd, (struct sockaddr *) addrI, sizeof(struct sockaddr_in)) < 0) {
-            syslog(LOG_WARNING, "Could not connect to %s:%i",
-                    sConfig->iphostname, sConfig->ipport);
-            return FD_INVALID;
+        
+        /* getaddrinfo() returns a list of address structures. 
+           Try each address until we successfully connect. */ 
+        for (rp = result; rp != NULL; rp = rp->ai_next) { 
+            inet_ntop(rp->ai_family, rp->ai_family == AF_INET ? &(((struct sockaddr_in *)rp->ai_addr)->sin_addr) : 
+                      &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr) , ipstring, rp->ai_addrlen); 
+            syslog(LOG_DEBUG, "Connecting TCP socket to rendering daemon at %s", ipstring); 
+            fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol); 
+            if (fd < 0) 
+                continue; 
+            if (connect(fd, rp->ai_addr, rp->ai_addrlen) != 0) { 
+                syslog(LOG_INFO, "failed to connect to rendering daemon (%s), trying next ip", ipstring); 
+                close(fd);
+                fd = -1;
+                continue;
+            } else { 
+                break; 
+            } 
         }
-        free(addrI);
-        syslog(LOG_INFO, "socket %s:%i initialised to fd %i", sConfig->iphostname, sConfig->ipport,
-                fd);
+        freeaddrinfo(result);
+        
+        if (fd < 0) { 
+            syslog(LOG_WARNING, "failed to connect to %s:%i", sConfig->iphostname, sConfig->ipport); 
+            return FD_INVALID; 
+        }
+
+        syslog(LOG_INFO, "socket %s:%i initialised to fd %i", sConfig->iphostname, sConfig->ipport, fd);
     } else {
         syslog(LOG_INFO, "Initialising unix client socket on %s",
                 sConfig->socketname);
@@ -624,17 +645,19 @@ int client_socket_init(renderd_config * sConfig) {
         fd = socket(PF_UNIX, SOCK_STREAM, 0);
         if (fd < 0) {
             syslog(LOG_WARNING, "Could not obtain socket: %i", fd);
+            free(addrU);
             return FD_INVALID;
         }
 
         bzero(addrU, sizeof(struct sockaddr_un));
         addrU->sun_family = AF_UNIX;
-        strncpy(addrU->sun_path, sConfig->socketname, sizeof(addrU->sun_path));
+        strncpy(addrU->sun_path, sConfig->socketname, sizeof(addrU->sun_path) - 1);
 
         if (connect(fd, (struct sockaddr *) addrU, sizeof(struct sockaddr_un)) < 0) {
             syslog(LOG_WARNING, "socket connect failed for: %s",
                     sConfig->socketname);
             close(fd);
+            free(addrU);
             return FD_INVALID;
         }
         free(addrU);
@@ -646,22 +669,22 @@ int client_socket_init(renderd_config * sConfig) {
 
 int server_socket_init(renderd_config *sConfig) {
     struct sockaddr_un addrU;
-    struct sockaddr_in addrI;
+    struct sockaddr_in6 addrI;
     mode_t old;
     int fd;
 
     if (sConfig->ipport > 0) {
         syslog(LOG_INFO, "Initialising TCP/IP server socket on %s:%i",
                 sConfig->iphostname, sConfig->ipport);
-        fd = socket(PF_INET, SOCK_STREAM, 0);
+        fd = socket(PF_INET6, SOCK_STREAM, 0);
         if (fd < 0) {
             fprintf(stderr, "failed to create IP socket\n");
             exit(2);
         }
         bzero(&addrI, sizeof(addrI));
-        addrI.sin_family = AF_INET;
-        addrI.sin_addr.s_addr = INADDR_ANY;
-        addrI.sin_port = htons(sConfig->ipport);
+        addrI.sin6_family = AF_INET6;
+        addrI.sin6_addr = in6addr_any;
+        addrI.sin6_port = htons(sConfig->ipport);
         if (bind(fd, (struct sockaddr *) &addrI, sizeof(addrI)) < 0) {
             fprintf(stderr, "socket bind failed for: %s:%i\n",
                     sConfig->iphostname, sConfig->ipport);
@@ -680,7 +703,7 @@ int server_socket_init(renderd_config *sConfig) {
 
         bzero(&addrU, sizeof(addrU));
         addrU.sun_family = AF_UNIX;
-        strncpy(addrU.sun_path, sConfig->socketname, sizeof(addrU.sun_path));
+        strncpy(addrU.sun_path, sConfig->socketname, sizeof(addrU.sun_path) - 1);
 
         unlink(addrU.sun_path);
 
@@ -773,6 +796,9 @@ void *slave_thread(void * arg) {
                 if (errno != EPIPE) {
                     syslog(LOG_ERR,
                             "Failed to send cmd to render slave, shutting down thread");
+                    free(resp);
+                    free(req_slave);
+                    close(pfd);
                     return NULL;
                 }
 
@@ -843,6 +869,8 @@ void *slave_thread(void * arg) {
             sleep(1); // TODO: Use an event to indicate there are new requests
         }
     }
+    free(resp);
+    free(req_slave);
     return NULL;
 }
 
@@ -951,44 +979,55 @@ int main(int argc, char **argv)
             }
             /* this is a map section */
             iconf++;
-            if (strlen(name) >= XMLCONFIG_MAX) {
+            if (iconf >= XMLCONFIGS_MAX) {
+                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
+                exit(7);
+            }
+
+            if (strlen(name) >= (XMLCONFIG_MAX - 1)) {
                 fprintf(stderr, "XML name too long: %s\n", name);
                 exit(7);
             }
 
             strcpy(maps[iconf].xmlname, name);
-            if (iconf >= XMLCONFIGS_MAX) {
-                fprintf(stderr, "Config: more than %d configurations found\n", XMLCONFIGS_MAX);
-                exit(7);
-            }
+            
             sprintf(buffer, "%s:uri", name);
             char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
-            if (strlen(ini_uri) >= PATH_MAX) {
+            if (strlen(ini_uri) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "URI too long: %s\n", ini_uri);
                 exit(7);
             }
             strcpy(maps[iconf].xmluri, ini_uri);
             sprintf(buffer, "%s:xml", name);
             char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
-            if (strlen(ini_xmlpath) >= PATH_MAX){
+            if (strlen(ini_xmlpath) >= (PATH_MAX - 1)){
                 fprintf(stderr, "XML path too long: %s\n", ini_xmlpath);
                 exit(7);
             }
             sprintf(buffer, "%s:host", name);
             char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
-            if (strlen(ini_hostname) >= PATH_MAX) {
+            if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "Host name too long: %s\n", ini_hostname);
                 exit(7);
             }
 
             sprintf(buffer, "%s:htcphost", name);
             char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
-            if (strlen(ini_htcpip) >= PATH_MAX) {
+            if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "HTCP host name too long: %s\n", ini_htcpip);
                 exit(7);
             }
+
+            sprintf(buffer, "%s:tilesize", name);
+            char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
+            maps[iconf].tile_px_size = atoi(ini_tilesize);
+            if (maps[iconf].tile_px_size < 1) {
+                fprintf(stderr, "Tile size is invalid: %s\n", ini_tilesize);
+                exit(7);
+            }
+
             strcpy(maps[iconf].xmlfile, ini_xmlpath);
-            strcpy(maps[iconf].tile_dir, config.tile_dir);
+            strncpy(maps[iconf].tile_dir, config.tile_dir, PATH_MAX - 1);
             strcpy(maps[iconf].host, ini_hostname);
             strcpy(maps[iconf].htcpip, ini_htcpip);
         } else if (strncmp(name, "renderd", 7) == 0) {
@@ -1054,7 +1093,7 @@ int main(int argc, char **argv)
     syslog(LOG_INFO, "config mapnik:  plugins_dir=%s\n", config.mapnik_plugins_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir=%s\n", config.mapnik_font_dir);
     syslog(LOG_INFO, "config mapnik:  font_dir_recurse=%d\n", config.mapnik_font_dir_recurse);
-    for (int i = 0; i < MAX_SLAVES; i++) {
+    for (i = 0; i < MAX_SLAVES; i++) {
         if (config_slaves[i].num_threads == 0) {
             continue;
         }
