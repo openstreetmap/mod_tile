@@ -290,7 +290,12 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
     tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
     tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
     tile_config_rec *tile_config = &tile_configs[tile_layer];
+#ifdef APACHE24
+    apr_thread_t * current_thread = r->connection->current_thread;
+    apr_pool_t *lifecycle_pool = apr_thread_pool_get(current_thread);
+#else
     apr_pool_t *lifecycle_pool = r->server->process->pool;
+#endif
     char * memkey = apr_psprintf(r->pool, "mod_tile_storage_backends");
     apr_os_thread_t os_thread = apr_os_thread_current();
 
