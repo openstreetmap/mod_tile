@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <errno.h>
+#include <pthread.h>
 
 #ifdef HAVE_LIBRADOS
 #include <rados/librados.h>
@@ -28,6 +29,8 @@
 
 
 #ifdef HAVE_LIBRADOS
+
+static pthread_mutex_t qLock;
 
 struct metadata_cache {
     char * data;
@@ -65,9 +68,11 @@ static char * read_meta_data(struct storage_backend * store, const char *xmlconf
     x &= ~mask;
     y &= ~mask;
 
-    if ((ctx->metadata_cache.x = x) && (ctx->metadata_cache.y = y) && (ctx->metadata_cache.x = x) && (strcmp(ctx->metadata_cache.xmlname, xmlconfig) == 0)) {
+    if ((ctx->metadata_cache.x == x) && (ctx->metadata_cache.y == y) && (ctx->metadata_cache.z == z) && (strcmp(ctx->metadata_cache.xmlname, xmlconfig) == 0)) {
+        //log_message(STORE_LOGLVL_DEBUG, "Returning cached data for %s %i %i %i", ctx->metadata_cache.xmlname, ctx->metadata_cache.x, ctx->metadata_cache.y, ctx->metadata_cache.z);
         return ctx->metadata_cache.data;
     } else {
+        //log_message(STORE_LOGLVL_DEBUG, "Retrieving fresh metadata");
         rados_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
         err = rados_read(ctx->io, meta_path, ctx->metadata_cache.data, header_len, 0);
 
@@ -77,6 +82,9 @@ static char * read_meta_data(struct storage_backend * store, const char *xmlconf
             } else {
                 log_message(STORE_LOGLVL_ERR, "cannot read data from rados pool %s: %s\n", ctx->pool, strerror(-err));
             }
+            ctx->metadata_cache.x = -1;
+            ctx->metadata_cache.y = -1;
+            ctx->metadata_cache.z = -1;
             return NULL;
         }
         ctx->metadata_cache.x = x;
@@ -144,7 +152,7 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
     err = rados_read(((struct rados_ctx *)store->storage_ctx)->io, meta_path, buf, tile_size, file_offset);
 
     if (err < 0) {
-        snprintf(log_msg, 1024, "Failed to read tile data from rados: %s\n", strerror(-err));
+        snprintf(log_msg, 1024, "Failed to read tile data from rados %s offset: %li length: %li: %s\n", meta_path, file_offset, tile_size, strerror(-err));
         return -1;
     }
 
@@ -325,8 +333,9 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         free(store);
         return NULL;
     }
-
+    pthread_mutex_lock(&qLock);
     err = rados_connect(ctx->cluster);
+    pthread_mutex_unlock(&qLock);
     if (err < 0) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to connect to rados cluster: %s", strerror(-err));
         free(ctx);
