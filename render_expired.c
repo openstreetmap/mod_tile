@@ -110,7 +110,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 int main(int argc, char **argv)
 {
-    char *spath = RENDER_SOCKET;
+    char *spath = strdup(RENDER_SOCKET);
     char *mapname = XMLCONFIG_DEFAULT;
     int x, y, z;
     struct timeval start, end;
@@ -394,8 +394,12 @@ int main(int argc, char **argv)
     }
     
     free(spath);
-    free(mapname);
-    free(tile_dir);
+    if (mapname != XMLCONFIG_DEFAULT) {
+        free(mapname);
+    }
+    if (tile_dir != HASH_PATH) {
+        free(tile_dir);
+    }
     store->close_storage(store);
     free(store);
 
