@@ -15,6 +15,13 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CC_C99
 
+dnl Find C++ compiler 
+AC_CHECK_PROG(HAVE_CXX, $CXX, yes, no) 
+if test "$HAVE_CXX" = "no"  
+then 
+  AC_MSG_ERROR([Could not find a c++ compiler]); 
+fi
+
 # Checks for libraries.
 
 # Checks for header files.
@@ -54,14 +61,14 @@ AC_ARG_WITH(apxs,
     [  --with-apxs=PATH        path to Apache apxs],
     [
         if test "$withval" = "yes"; then
-            AC_CHECK_PROGS(APXS, apxs2 /usr/sbin/apxs2, reject)
+            AC_CHECK_PROGS(APXS, apxs apxs2 /opt/local/apache2/bin/apxs, reject)
         else
             APXS=$withval
             AC_SUBST(APXS)
         fi
     ],
     [
-        AC_CHECK_PROGS(APXS, apxs2 /usr/sbin/apxs2, reject)
+        AC_CHECK_PROGS(APXS, apxs apxs2 /opt/local/apache2/bin/apxs, reject)
     ])
 if test "$APXS" = "reject"; then
   AC_MSG_ERROR([Could not find apxs on the path.])
