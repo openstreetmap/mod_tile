@@ -9,6 +9,7 @@ STORE_SOURCES = store.c store_file.c store_file_utils.c store_memcached.c store_
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS)
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
+man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
 renderd_SOURCES = protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c sys_utils.h render_config.h $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
