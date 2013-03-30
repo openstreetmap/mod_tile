@@ -1548,7 +1548,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
                                     const char *baseuri, const char *name, int minzoom, int maxzoom,
                                     const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
-                                    int noHostnames, char ** hostnames, char * cors)
+                                    int noHostnames, char ** hostnames, const char * cors, const char * tile_dir)
 {
     int i;
     int urilen;
@@ -1574,6 +1574,10 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
         noHostnames = 1;
     }
 
+    if (attribution == NULL) {
+        attribution = strdup(DEFAULT_ATTRIBUTION);
+    }
+
     if ((minzoom < 0) || (maxzoom > MAX_ZOOM_SERVER)) {
         for (i = 0; i < noHostnames; i++) free(hostnames[i]);
         free(hostnames);
@@ -1585,6 +1589,9 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 
     scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
     tilecfg = apr_array_push(scfg->configs);
+
+    if (tile_dir == NULL)
+        tile_dir = strdup(scfg->tile_dir);
 
     // Ensure URI string ends with a trailing slash
     urilen = strlen(baseuri);
@@ -1609,11 +1616,11 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->noHostnames = noHostnames;
     tilecfg->hostnames = hostnames;
     tilecfg->cors = cors;
-    tilecfg->store = scfg->tile_dir; //TODO: Make store configurable per tile layer
+    tilecfg->store = tile_dir;
 
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
-                 name, baseuri, minzoom, maxzoom, scfg->tile_dir, fileExtension, mimeType);
+                 name, baseuri, minzoom, maxzoom, tile_dir, fileExtension, mimeType);
 
     layerCount++;
     return NULL;
@@ -1622,17 +1629,17 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
     if (strcmp(fileExtension,"png") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,NULL,0,NULL,NULL,NULL);
     }
     if (strcmp(fileExtension,"js") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,DEFAULT_ATTRIBUTION,0,NULL,"*");
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,NULL,0,NULL,"*", NULL);
     }
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,NULL,0,NULL,NULL, NULL);
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
 {
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,DEFAULT_ATTRIBUTION,0,NULL,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,NULL,0,NULL,NULL,NULL);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
@@ -1650,6 +1657,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     char * description = NULL;
     char * attribution = NULL;
     char * cors = NULL;
+    char * tile_dir = NULL;
     char **hostnames = NULL;
     char **hostnames_tmp;
     int noHostnames = 0;
@@ -1676,9 +1684,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             /*Add the previous section to the configuration */
             if (tilelayer == 1) {
                 result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
-                                          description,attribution,noHostnames,hostnames, cors);
-                if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
-                if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                                          description,attribution,noHostnames,hostnames, cors, tile_dir);
                 if (result != NULL) {
                     fclose(hini);
                     return result;
@@ -1708,9 +1714,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             strcpy(mimeType,"image/png");
             description = NULL;
             cors = NULL;
-            if (attribution) free(attribution);
-            attribution = malloc(sizeof(char)*(strlen(DEFAULT_ATTRIBUTION) + 1));
-            strcpy(attribution,DEFAULT_ATTRIBUTION);
+            attribution = NULL;
+            tile_dir = NULL;
             hostnames = NULL;
             noHostnames = 0;
             minzoom = 0;
@@ -1722,6 +1727,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 if (strlen(value) >= PATH_MAX){
                     if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
                     if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    if (tile_dir) {free(tile_dir); tile_dir = NULL; }
                     fclose(hini);
                     return "URI too long";
                 }
@@ -1731,12 +1737,14 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 if (strlen(value) >= PATH_MAX){
                     if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
                     if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    if (tile_dir) {free(tile_dir); tile_dir = NULL; }
                     fclose(hini);
                     return "TYPE too long";
                 }
                 if (sscanf(value, "%[^ ] %[^;#]", fileExtension, mimeType) != 2) {
                     if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
                     if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
+                    if (tile_dir) {free(tile_dir); tile_dir = NULL; }
                     fclose(hini);
                     return "TYPE is not correctly parsable";
                 }
@@ -1770,6 +1778,10 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                 hostnames[noHostnames - 1] = malloc(sizeof(char)*(strlen(value) + 1));
                 strcpy(hostnames[noHostnames - 1], value);
             }
+            if (!strcmp(key, "TILEDIR")){
+                if (tile_dir) free(tile_dir);
+                tile_dir = strdup(value);
+            }
             if (!strcmp(key, "MINZOOM")){
                 minzoom = atoi(value);
             }
@@ -1779,14 +1791,10 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
         }
     }
     if (tilelayer == 1) {
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
-                "Committing tile config %s", xmlname);
+        //ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server,
+        //        "Committing tile config %s", xmlname);
         result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
-                                  description,attribution,noHostnames,hostnames, cors);
-        if (description) free(description);
-        if (attribution) free(attribution);
-        if (hostnames) free(hostnames);
-        if (cors) free(cors);
+                                  description,attribution,noHostnames,hostnames, cors, tile_dir);
         if (result != NULL) {
             fclose(hini);
             return result;

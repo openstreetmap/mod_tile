@@ -998,18 +998,22 @@ int main(int argc, char **argv)
                 exit(7);
             }
             strcpy(maps[iconf].xmluri, ini_uri);
+
             sprintf(buffer, "%s:xml", name);
             char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
             if (strlen(ini_xmlpath) >= (PATH_MAX - 1)){
                 fprintf(stderr, "XML path too long: %s\n", ini_xmlpath);
                 exit(7);
             }
+            strcpy(maps[iconf].xmlfile, ini_xmlpath);
+
             sprintf(buffer, "%s:host", name);
             char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
             if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
                 fprintf(stderr, "Host name too long: %s\n", ini_hostname);
                 exit(7);
             }
+            strcpy(maps[iconf].host, ini_hostname);
 
             sprintf(buffer, "%s:htcphost", name);
             char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
@@ -1017,6 +1021,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "HTCP host name too long: %s\n", ini_htcpip);
                 exit(7);
             }
+            strcpy(maps[iconf].htcpip, ini_htcpip);
 
             sprintf(buffer, "%s:tilesize", name);
             char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
@@ -1026,10 +1031,13 @@ int main(int argc, char **argv)
                 exit(7);
             }
 
-            strcpy(maps[iconf].xmlfile, ini_xmlpath);
-            strncpy(maps[iconf].tile_dir, config.tile_dir, PATH_MAX - 1);
-            strcpy(maps[iconf].host, ini_hostname);
-            strcpy(maps[iconf].htcpip, ini_htcpip);
+            sprintf(buffer, "%s:tiledir", name);
+            char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
+            if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
+                fprintf(stderr, "Tiledir too long: %s\n", ini_tiledir);
+                exit(7);
+            }
+            strcpy(maps[iconf].tile_dir, ini_tiledir);
         } else if (strncmp(name, "renderd", 7) == 0) {
             int render_sec = 0;
             if (sscanf(name, "renderd%i", &render_sec) != 1) {
