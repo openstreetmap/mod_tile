@@ -19,6 +19,8 @@
 #include "store_file.h"
 #include "store_memcached.h"
 #include "store_rados.h"
+#include "store_ro_http_proxy.h"
+#include "store_ro_composite.h"
 
 //TODO: Make this function handle different logging backends, depending on if on compiles it from apache or something else
 void log_message(int log_lvl, const char *format, ...) {
@@ -83,6 +85,16 @@ struct storage_backend * init_storage_backend(const char * options) {
     if (strstr(options,"memcached://") == options) {
         log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising memcached storage backend at: %s", options);
         store = init_storage_memcached(options);
+        return store;
+    }
+    if (strstr(options,"ro_http_proxy://") == options) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising ro_http_proxy storage backend at: %s", options);
+        store = init_storage_ro_http_proxy(options);
+        return store;
+    }
+    if (strstr(options,"composite:{") == options) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising ro_composite storage backend at: %s", options);
+        store = init_storage_ro_composite(options);
         return store;
     }
 

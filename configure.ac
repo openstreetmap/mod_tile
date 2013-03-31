@@ -49,11 +49,18 @@ AX_BOOST_BASE
 AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
 AX_ENABLE_LIBMEMCACHED
+LIBCURL_CHECK_CONFIG
 AC_CHECK_LIB(rados, rados_version, [
     AC_DEFINE([HAVE_LIBRADOS], [1], [Have found librados])
     LIBRADOS_LDFLAGS='-lrados'
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
+
+PKG_CHECK_MODULES(CAIRO, cairo >= 1.8.0, have_cairo=true, have_cairo=false)
+if $have_cairo; then
+    AC_DEFINE(HAVE_CAIRO, 1, [Have cairo graphics library])
+fi
+
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
 
