@@ -27,7 +27,7 @@
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
 // extern "C" {
-#include "iniparser3.0b/src/iniparser.h"
+#include <iniparser.h>
 // }
 
 static pthread_t *render_threads;

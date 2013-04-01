@@ -81,5 +81,5 @@ if test "$APXS" = "reject"; then
   AC_MSG_ERROR([Could not find apxs on the path.])
 fi
 
-AC_CONFIG_FILES(Makefile iniparser3.0b/Makefile)
+AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
