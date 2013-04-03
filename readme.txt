@@ -18,10 +18,13 @@ development headers for APR module development.
 iniParser
 =========
 renderd uses the ini config file parser from
-http://ndevilla.free.fr/iniparser/ . To make it easier to
-compile, the full distribution is included in the
-subdirectory "iniparser3.0b". Go there and type "make"
-to generate the library before compiling renderd.
+<http://ndevilla.free.fr/iniparser/>.  You will need to either compile
+and install iniParser yourself or install a distribution
+package. Fedora and related distributions can install iniParser using
+the following command:
+
+yum install iniparser-devel
+
 
 Updating From Previous Version
 ==============================
