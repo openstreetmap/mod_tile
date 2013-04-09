@@ -576,11 +576,11 @@ void *render_thread(void * arg)
             unsigned int size = MIN(METATILE, 1 << req->z);
             for (i = 0; i < iMaxConfigs; ++i) {
                 if (!strcmp(maps[i].xmlname, req->xmlname)) {
-                    if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
+                    if (maps[i].ok) {
+                        if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
 
-                        metaTile tiles(req->xmlname, item->mx, item->my, req->z);
+                            metaTile tiles(req->xmlname, item->mx, item->my, req->z);
 
-                        if (maps[i].ok) {
                             timeval tim;
                             gettimeofday(&tim, NULL);
                             long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
@@ -592,36 +592,37 @@ void *render_thread(void * arg)
                             syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
                                     req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
                             statsRenderFinish(req->z, t2 - t1);
-                        } else {
-                            syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
-                            ret = cmdNotDone;
-                        }
 
-                        if (ret == cmdDone) {
-                            try {
-                                tiles.save(maps[i].store);
-                            } catch (...) {
-                                // Treat any error as fatal and request end of processing
-                                syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
-                                ret = cmdNotDone;
-                                request_exit();
-                            }
+                            if (ret == cmdDone) {
+                                try {
+                                    tiles.save(maps[i].store);
+                                } catch (...) {
+                                    // Treat any error as fatal and request end of processing
+                                    syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
+                                    ret = cmdNotDone;
+                                    request_exit();
+                                }
 #ifdef HTCP_EXPIRE_CACHE
-                            tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
+                                tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
 #endif
-                        }
+                            }
 #else
                         ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
 #ifdef HTCP_EXPIRE_CACHE
                         cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
 #endif
 #endif
+                        } else {
+                            syslog(LOG_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
+                                    req->xmlname, req->z, req->x, req->y);
+                            ret = cmdIgnore;
+                        }
                     } else {
-                        syslog(LOG_ERR, "WHY AM I HERE!");
-                        ret = cmdIgnore;
+                        syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
+                        ret = cmdNotDone;
                     }
                     send_response(item, ret);
-                    if (ret != cmdDone) sleep(10); //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
+                    if ((ret != cmdDone) && (ret != cmdIgnore)) sleep(10); //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
                     break;
                }
             }
