@@ -57,6 +57,7 @@ AC_CHECK_LIB(rados, rados_version, [
 ][])
 
 PKG_CHECK_MODULES(CAIRO, cairo >= 1.8.0, have_cairo=true, have_cairo=false)
+PKG_CHECK_MODULES(CAIROMM, cairomm-1.0, have_cairomm=true, have_cairomm=false)
 if $have_cairo; then
     AC_DEFINE(HAVE_CAIRO, 1, [Have cairo graphics library])
 fi
