@@ -874,7 +874,7 @@ void *slave_thread(void * arg) {
     return NULL;
 }
 
-
+#ifndef MAIN_ALREADY_DEFINED
 int main(int argc, char **argv)
 {
     int fd, i, j, k;
@@ -1206,3 +1206,4 @@ int main(int argc, char **argv)
     close(fd);
     return 0;
 }
+#endif
