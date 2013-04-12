@@ -46,18 +46,21 @@ TEST_CASE( "renderd", "tile generation" ) {
 
       SECTION("renderd startup --help", "should start and show help message") {
           int ret = system("./renderd -h");
+          ret = WEXITSTATUS(ret);
           //CAPTURE( ret );
           REQUIRE( ret == 0 );
       }
 
       SECTION("renderd startup unrecognized option", "should return 1") {
           int ret = system("./renderd --doesnotexit");
+          ret = WEXITSTATUS(ret);
           //CAPTURE( ret );
           REQUIRE( ret == 1 );
       }
 
       SECTION("renderd startup invalid option", "should return 1") {
           int ret = system("./renderd -doesnotexit");
+          ret = WEXITSTATUS(ret);
           //CAPTURE( ret );
           REQUIRE( ret == 1 );
       }
