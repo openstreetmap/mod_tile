@@ -28,6 +28,8 @@ gen_tile_test_SOURCES = gen_tile_test.cpp catch.hpp protocol.h daemon.h daemon.c
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
 gen_tile_test_LDADD = $(FT2_LIBS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 
+CLEANFILES=*.slo mod_tile.la stderr.out
+
 test: gen_tile_test
 	./gen_tile_test
 
