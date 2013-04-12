@@ -8,7 +8,7 @@ AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS) 
 STORE_SOURCES = store.c store_file.c store_file_utils.c store_memcached.c store_rados.c store_ro_http_proxy.c store_ro_composite.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(CAIRO_LIBS)
 
-bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
+bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old gen_tile_test
 man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
@@ -24,6 +24,12 @@ render_expired_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
 render_old_SOURCES = render_config.h protocol.h store_file_utils.c render_old.c sys_utils.c sys_utils.h render_submit_queue.c
 render_old_LDADD = $(PTHREAD_CFLAGS)
 #convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.c convert_meta.c
+gen_tile_test_SOURCES = gen_tile_test.cpp catch.hpp protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c sys_utils.h render_config.h $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
+gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
+gen_tile_test_LDADD = $(FT2_LIBS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
+
+test: gen_tile_test
+	./gen_tile_test
 
 all-local:
 	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(AM_LDFLAGS) $(STORE_LDFLAGS) @srcdir@/mod_tile.c  @srcdir@/sys_utils.c @srcdir@/store.c @srcdir@/store_file.c @srcdir@/store_file_utils.c @srcdir@/store_memcached.c @srcdir@/store_rados.c @srcdir@/store_ro_http_proxy.c @srcdir@/store_ro_composite.c
