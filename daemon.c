@@ -23,6 +23,7 @@
 #include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
+#include "request_queue.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
@@ -34,208 +35,14 @@ static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
 
-static struct item reqHead, reqPrioHead, reqBulkHead, dirtyHead, renderHead;
-static struct item_idx * item_hashidx;
-static int reqNum, reqPrioNum, reqBulkNum, dirtyNum;
-static pthread_mutex_t qLock;
-static pthread_cond_t qCond;
 static int exit_pipe_fd;
 
-static stats_struct stats;
 static pthread_t stats_thread;
 
 static renderd_config config;
 
 int noSlaveRenders;
-int hashidxSize;
 
-void statsRenderFinish(int z, long time) {
-    pthread_mutex_lock(&qLock);
-    if ((z >= 0) && (z <= MAX_ZOOM)) {
-        stats.noZoomRender[z]++;
-        stats.timeZoomRender[z] += time;
-    }
-    pthread_mutex_unlock(&qLock);
-}
-
-struct item *fetch_request(void)
-{
-    struct item *item = NULL;
-
-    pthread_mutex_lock(&qLock);
-
-    while ((reqNum == 0) && (dirtyNum == 0) && (reqPrioNum == 0) && (reqBulkNum == 0)) {
-        pthread_cond_wait(&qCond, &qLock);
-    }
-    if (reqPrioNum) {
-        item = reqPrioHead.next;
-        reqPrioNum--;
-        stats.noReqPrioRender++;
-    } else if (reqNum) {
-        item = reqHead.next;
-        reqNum--;
-        stats.noReqRender++;
-    } else if (dirtyNum) {
-        item = dirtyHead.next;
-        dirtyNum--;
-        stats.noDirtyRender++;
-    } else if (reqBulkNum) {
-        item = reqBulkHead.next;
-        reqBulkNum--;
-        stats.noReqBulkRender++;
-    }
-    if (item) {
-        item->next->prev = item->prev;
-        item->prev->next = item->next;
-
-        item->prev = &renderHead;
-        item->next = renderHead.next;
-        renderHead.next->prev = item;
-        renderHead.next = item;
-        item->inQueue = queueRender;
-    }
-
-
-    pthread_mutex_unlock(&qLock);
-
-    return item;
-}
-
-void clear_requests(int fd)
-{
-    struct item *item, *dupes, *queueHead;
-
-    /**Only need to look up on the shorter request and render queue
-      * so using the linear list shouldn't be a problem
-      */
-    pthread_mutex_lock(&qLock);
-    for (int i = 0; i < 4; i++) {
-        switch (i) {
-        case 0: { queueHead = &reqHead; break;}
-        case 1: { queueHead = &renderHead; break;}
-        case 2: { queueHead = &reqPrioHead; break;}
-        case 3: { queueHead = &reqBulkHead; break;}
-        }
-
-        item = queueHead->next;
-        while (item != queueHead) {
-            if (item->fd == fd)
-                item->fd = FD_INVALID;
-
-            dupes = item->duplicates;
-            while (dupes) {
-                if (dupes->fd == fd)
-                    dupes->fd = FD_INVALID;
-                dupes = dupes->duplicates;
-            }
-            item = item->next;
-        }
-    }
-
-    pthread_mutex_unlock(&qLock);
-}
-
-
-static int calcHashKey(struct item *item) {
-    uint64_t xmlnameHash = 0;
-    uint64_t key;
-    for (int i = 0; item->req.xmlname[i] != 0; i++) {
-        xmlnameHash += item->req.xmlname[i];
-    }
-    key = ((uint64_t)(xmlnameHash & 0x1FF) << 52) + ((uint64_t)(item->req.z) << 48) + ((uint64_t)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
-    return key % hashidxSize;
-}
-
-void insert_item_idx(struct item *item) {
-    struct item_idx * nextItem;
-    struct item_idx * prevItem;
-
-    int key = calcHashKey(item);
-
-    if (item_hashidx[key].item == NULL) {
-        item_hashidx[key].item = item;
-    } else {
-        prevItem = &(item_hashidx[key]);
-        nextItem = item_hashidx[key].next;
-        while(nextItem) {
-            prevItem = nextItem;
-            nextItem = nextItem->next;
-        }
-        nextItem = (struct item_idx *)malloc(sizeof(struct item_idx));
-        nextItem->item = item;
-        nextItem->next = NULL;
-        prevItem->next = nextItem;
-    }
-}
-
-void remove_item_idx(struct item * item) {
-    int key = calcHashKey(item);
-    struct item_idx * nextItem;
-    struct item_idx * prevItem;
-    struct item * test;
-    if (item_hashidx[key].item == NULL) {
-        //item not in index;
-        return;
-    }
-    prevItem = &(item_hashidx[key]);
-    nextItem = &(item_hashidx[key]);
-
-    while (nextItem != NULL) {
-        test = nextItem->item;
-        if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z
-                == test->req.z) && (!strcmp(item->req.xmlname,
-                test->req.xmlname))) {
-            /*
-             * Found item, removing it from list
-             */
-            nextItem->item = NULL;
-            if (nextItem->next != NULL) {
-                if (nextItem == &(item_hashidx[key])) {
-                    prevItem = nextItem->next;
-                    memcpy(&(item_hashidx[key]), nextItem->next,
-                            sizeof(struct item_idx));
-                    free(prevItem);
-                } else {
-                    prevItem->next = nextItem->next;
-                }
-            } else {
-                prevItem->next = NULL;
-            }
-
-            if (nextItem != &(item_hashidx[key])) {
-                free(nextItem);
-            }
-            return;
-        } else {
-            prevItem = nextItem;
-            nextItem = nextItem->next;
-        }
-    }
-}
-
-struct item * lookup_item_idx(struct item * item) {
-    struct item_idx * nextItem;
-    struct item * test;
-
-    int key = calcHashKey(item);
-
-    if (item_hashidx[key].item == NULL) {
-        return NULL;
-    } else {
-        nextItem = &(item_hashidx[key]);
-        while (nextItem != NULL) {
-            test = nextItem->item;
-            if ((item->mx == test->mx) && (item->my == test->my)
-                    && (item->req.z == test->req.z) && (!strcmp(
-                    item->req.xmlname, test->req.xmlname))) {
-                return test;
-            } else {
-                nextItem = nextItem->next;
-            }
-        }
-    }
-    return NULL;
-}
 
 static const char *cmdStr(enum protoCmd c)
 {
@@ -251,19 +58,14 @@ static const char *cmdStr(enum protoCmd c)
     }
 }
 
-void send_response(struct item *item, enum protoCmd rsp)
-{
+void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
+    struct item *prev;
     int ret;
 
-    pthread_mutex_lock(&qLock);
-    item->next->prev = item->prev;
-    item->prev->next = item->next;
-    remove_item_idx(item);
-    pthread_mutex_unlock(&qLock);
+    request_queue_remove_request(render_request_queue, item, render_time);
 
     while (item) {
-        struct item *prev = item;
         req = &item->req;
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
@@ -272,39 +74,16 @@ void send_response(struct item *item, enum protoCmd rsp)
             if (ret != sizeof(*req))
                 perror("send error during send_done");
         }
+        prev = item;
         item = item->duplicates;
         free(prev);
     }
 }
 
-
-enum protoCmd pending(struct item *test)
-{
-    // check all queues and render list to see if this request already queued
-    // If so, add this new request as a duplicate
-    // call with qLock held
-    struct item *item;
-
-    item = lookup_item_idx(test);
-    if (item != NULL) {
-        if ((item->inQueue == queueRender) || (item->inQueue == queueRequest) || (item->inQueue == queueRequestPrio)) {
-            test->duplicates = item->duplicates;
-            item->duplicates = test;
-            test->inQueue = queueDuplicate;
-            return cmdIgnore;
-        } else if ((item->inQueue == queueDirty) || (item->inQueue == queueRequestBulk)){
-            return cmdNotDone;
-        }
-    }
-
-    return cmdRender;
-}
-
-
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
     struct protocol *reqnew;
-    struct item *list = NULL, *item;
+    struct item  *item;
     enum protoCmd pend;
 
     // Upgrade version 1 to version 2
@@ -347,65 +126,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     item->my = item->req.y;
 #endif
 
-    pthread_mutex_lock(&qLock);
-
-    // Check for a matching request in the current rendering or dirty queues
-    pend = pending(item);
-    if (pend == cmdNotDone) {
-        // We found a match in the dirty queue, can not wait for it
-        pthread_mutex_unlock(&qLock);
-        free(item);
-        return cmdNotDone;
-    }
-    if (pend == cmdIgnore) {
-        // Found a match in render queue, item added as duplicate
-        pthread_mutex_unlock(&qLock);
-        return cmdIgnore;
-    }
-
-    // New request, add it to render or dirty queue
-    if ((req->cmd == cmdRender) && (reqNum < REQ_LIMIT)) {
-        list = &reqHead;
-        item->inQueue = queueRequest;
-        reqNum++;
-    } else if ((req->cmd == cmdRenderPrio) && (reqPrioNum < REQ_LIMIT)) {
-        list = &reqPrioHead;
-        item->inQueue = queueRequestPrio;
-        reqPrioNum++;
-    } else if ((req->cmd == cmdRenderBulk) && (reqBulkNum < REQ_LIMIT)) {
-        list = &reqBulkHead;
-        item->inQueue = queueRequestBulk;
-        reqBulkNum++;
-    } else if (dirtyNum < DIRTY_LIMIT) {
-        list = &dirtyHead;
-        item->inQueue = queueDirty;
-        dirtyNum++;
-        item->fd = FD_INVALID; // No response after render
-    } else {
-        // The queue is severely backlogged. Drop request
-        stats.noReqDroped++;
-        pthread_mutex_unlock(&qLock);
-        free(item);
-        return cmdNotDone;
-    }
-
-    if (list) {
-        item->next = list;
-        item->prev = list->prev;
-        item->prev->next = item;
-        list->prev = item;
-        /* In addition to the linked list, add item to a hash table index
-         * for faster lookup of pending requests.
-         */
-        insert_item_idx(item);
-
-        pthread_cond_signal(&qCond);
-    } else
-        free(item);
-
-    pthread_mutex_unlock(&qLock);
-
-    return (list == &reqHead)?cmdIgnore:cmdNotDone;
+    return request_queue_add_request(render_request_queue, item);
 }
 
 void request_exit(void)
@@ -502,7 +223,7 @@ void process_loop(int listen_fd)
                         syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
                         for (j=i; j < num_connections; j++)
                             connections[j] = connections[j+1];
-                        clear_requests(fd);
+                        request_queue_clear_requests_by_fd(render_request_queue, fd);
                         close(fd);
                     } else {
                         syslog(LOG_ERR, "Recv Error on fd %d", fd);
@@ -535,13 +256,12 @@ void *stats_writeout_thread(void * arg) {
 
     syslog(LOG_DEBUG, "Starting stats thread");
     while (1) {
-        pthread_mutex_lock(&qLock);
-        memcpy(&lStats, &stats, sizeof(stats_struct));
-        dirtQueueLength = dirtyNum;
-        reqQueueLength = reqNum;
-        reqPrioQueueLength = reqPrioNum;
-        reqBulkQueueLength = reqBulkNum;
-        pthread_mutex_unlock(&qLock);
+        request_queue_copy_stats(render_request_queue, &lStats);
+
+        reqPrioQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRenderPrio);
+        reqQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRender);
+        dirtQueueLength = request_queue_no_requests_queued(render_request_queue, cmdDirty);
+        reqBulkQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRenderBulk);
 
         FILE * statfile = fopen(tmpName, "w");
         if (statfile == NULL) {
@@ -560,9 +280,13 @@ void *stats_writeout_thread(void * arg) {
             fprintf(statfile, "DirtQueueLength: %i\n", dirtQueueLength);
             fprintf(statfile, "DropedRequest: %li\n", lStats.noReqDroped);
             fprintf(statfile, "ReqRendered: %li\n", lStats.noReqRender);
+            fprintf(statfile, "TimeRendered: %li\n", lStats.timeReqRender);
             fprintf(statfile, "ReqPrioRendered: %li\n", lStats.noReqPrioRender);
+            fprintf(statfile, "TimePrioRendered: %li\n", lStats.timeReqPrioRender);
             fprintf(statfile, "ReqBulkRendered: %li\n", lStats.noReqBulkRender);
+            fprintf(statfile, "TimeBulkRendered: %li\n", lStats.timeReqBulkRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);
+            fprintf(statfile, "TimeDirtyRendered: %li\n", lStats.timeReqDirty);
             for (i = 0; i <= MAX_ZOOM; i++) {
                 fprintf(statfile,"ZoomRendered%02i: %li\n", i, lStats.noZoomRender[i]);
             }
@@ -771,7 +495,7 @@ void *slave_thread(void * arg) {
         }
 
         enum protoCmd ret;
-        struct item *item = fetch_request();
+        struct item *item = request_queue_fetch_request(render_request_queue);
         if (item) {
             struct protocol *req = &item->req;
             req_slave->ver = PROTO_VER;
@@ -809,7 +533,7 @@ void *slave_thread(void * arg) {
                     syslog(LOG_ERR,
                             "Failed to re-connect to render slave, dropping request");
                     ret = cmdNotDone;
-                    send_response(item, ret);
+                    send_response(item, ret, -1);
                     break;
                 }
             } while (retry--);
@@ -843,11 +567,11 @@ void *slave_thread(void * arg) {
                 }
 
                 ret = cmdNotDone;
-                send_response(item, ret);
+                send_response(item, ret, -1);
                 sleep(30);
             } else {
                 ret = resp->cmd;
-                send_response(item, ret);
+                send_response(item, ret, -1);
                 if (resp->cmd != cmdDone) {
                     if (sConfig->ipport > 0) {
                         syslog( LOG_ERR,
@@ -936,22 +660,12 @@ int main(int argc, char **argv)
 
     syslog(LOG_INFO, "Rendering daemon started");
 
-    pthread_mutex_init(&qLock, NULL);
-    pthread_cond_init(&qCond, NULL);
-    reqHead.next = reqHead.prev = &reqHead;
-    reqPrioHead.next = reqPrioHead.prev = &reqPrioHead;
-    reqBulkHead.next = reqBulkHead.prev = &reqBulkHead;
-    dirtyHead.next = dirtyHead.prev = &dirtyHead;
-    renderHead.next = renderHead.prev = &renderHead;
-    hashidxSize = HASHIDX_SIZE;
-    item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * hashidxSize);
-    bzero(item_hashidx, sizeof(struct item_idx) * hashidxSize);
-
-    stats.noDirtyRender = 0;
-    stats.noReqDroped = 0;
-    stats.noReqRender = 0;
-    stats.noReqPrioRender = 0;
-    stats.noReqBulkRender = 0;
+    render_request_queue = request_queue_init();
+    if (render_request_queue == NULL ) {
+        syslog(LOG_ERR, "Failed to initialise request queue");
+        exit(1);
+    }
+    syslog(LOG_ERR, "Initiating reqyest_queue");
 
     xmlconfigitem maps[XMLCONFIGS_MAX];
     bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);

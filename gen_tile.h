@@ -22,16 +22,10 @@ struct item {
     enum queueEnum inQueue;
 };
 
-struct item_idx {
-    struct item_idx *next;
-    struct item *item;
-};
-
 //int render(Map &m, int x, int y, int z, const char *filename);
 void *render_thread(void *);
 struct item *fetch_request(void);
 void delete_request(struct item *item);
-void send_response(struct item *item, enum protoCmd);
 void render_init(const char *plugins_dir, const char* font_dir, int font_recurse);
 
 #ifdef __cplusplus

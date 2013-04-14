@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 #include <limits.h> /* for PATH_MAX */
-
+#include "gen_tile.h"
 #include "protocol.h"
 
 #define INILINE_MAX 256
@@ -38,21 +38,13 @@ typedef struct {
     int tile_px_size;
 } xmlconfigitem;
 
-typedef struct {
-    long noDirtyRender;
-    long noReqRender;
-    long noReqPrioRender;
-    long noReqBulkRender;
-    long noReqDroped;
-    long noZoomRender[MAX_ZOOM + 1];
-    long timeReqRender;
-    long timeReqPrioRender;
-    long timeReqBulkRender;
-    long timeZoomRender[MAX_ZOOM + 1];
-} stats_struct;
+
+
+struct request_queue * render_request_queue;
 
 void statsRenderFinish(int z, long time);
 void request_exit(void);
+void send_response(struct item *item, enum protoCmd rsp, int render_time);
 
 #ifdef __cplusplus
 }

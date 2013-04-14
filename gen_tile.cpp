@@ -16,6 +16,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <string>
 
 #include "gen_tile.h"
 #include "render_config.h"
@@ -23,6 +24,7 @@
 #include "store.h"
 #include "metatile.h"
 #include "protocol.h"
+#include "request_queue.h"
 
 #ifdef HTCP_EXPIRE_CACHE
 #include <sys/socket.h>
@@ -520,6 +522,7 @@ void *render_thread(void * arg)
     xmlconfigitem * parentxmlconfig = (xmlconfigitem *)arg;
     xmlmapconfig maps[XMLCONFIGS_MAX];
     int i,iMaxConfigs;
+    int render_time;
 
     for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
         if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) break;
@@ -568,7 +571,8 @@ void *render_thread(void * arg)
 
     while (1) {
         enum protoCmd ret;
-        struct item *item = fetch_request();
+        struct item *item = request_queue_fetch_request(render_request_queue);
+        render_time = -1;
         if (item) {
             struct protocol *req = &item->req;
 #ifdef METATILE
@@ -591,7 +595,7 @@ void *render_thread(void * arg)
                             long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
                             syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
                                     req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
-                            statsRenderFinish(req->z, t2 - t1);
+                            render_time = t2 - t1;
 
                             if (ret == cmdDone) {
                                 try {
@@ -621,7 +625,7 @@ void *render_thread(void * arg)
                         syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
                         ret = cmdNotDone;
                     }
-                    send_response(item, ret);
+                    send_response(item, ret, render_time);
                     if ((ret != cmdDone) && (ret != cmdIgnore)) sleep(10); //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
                     break;
                }
