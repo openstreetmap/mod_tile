@@ -5,30 +5,47 @@
 #include <sys/un.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <errno.h>
 
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 #include "protocol.h"
+#include "render_config.h"
 
 #define QMAX 32
 
 pthread_mutex_t qLock;
-pthread_cond_t qCondNotEmpty;
-pthread_cond_t qCondNotFull;
+pthread_mutex_t qStatsLock;
+static pthread_cond_t qCondNotEmpty;
+static pthread_cond_t qCondNotFull;
 
 static int maxLoad = 0;
 
-unsigned int qLen;
+static unsigned int qLen;
 struct qItem {
     char *mapname;
     int x,y,z;
     struct qItem *next;
 };
 
-struct qItem *qHead, *qTail;
+struct speed_stat {
+    time_t time_min;
+    time_t time_max;
+    time_t time_total;
+    int    noRendered;
+};
 
-int no_workers;
-pthread_t *workers;
+struct speed_stats {
+    struct speed_stat stat[MAX_ZOOM + 1];
+};
+
+struct speed_stats performance_stats;
+
+static struct qItem *qHead, *qTail;
+
+static int no_workers;
+static pthread_t *workers;
 
 static void check_load(void)
 {
@@ -41,10 +58,16 @@ static void check_load(void)
     }
 }
 
-int process(struct protocol * cmd, int fd)
+static int process(struct protocol * cmd, int fd)
 {
+    struct timeval tim;
+    time_t t1;
+    time_t t2;
     int ret = 0;
     struct protocol rsp;
+
+    gettimeofday(&tim, NULL);
+    t1 = tim.tv_sec*1000+(tim.tv_usec/1000);
 
     //printf("Sending request\n");
     ret = send(fd, cmd, sizeof(*cmd), 0);
@@ -66,6 +89,18 @@ int process(struct protocol * cmd, int fd)
     {
         printf("rendering failed, pausing\n");
         sleep(10);
+    } else {
+        gettimeofday(&tim, NULL);
+        t2 = tim.tv_sec*1000+(tim.tv_usec/1000);
+        pthread_mutex_lock(&qStatsLock);
+        t1 = t2 - t1;
+        performance_stats.stat[cmd->z].noRendered++;
+        performance_stats.stat[cmd->z].time_total += t1;
+        if ((performance_stats.stat[cmd->z].time_min > t1) || (performance_stats.stat[cmd->z].time_min == 0))
+            performance_stats.stat[cmd->z].time_min = t1;
+        if (performance_stats.stat[cmd->z].time_max < t1)
+            performance_stats.stat[cmd->z].time_max = t1;
+        pthread_mutex_unlock(&qStatsLock);
     }
 
     if (!ret)
@@ -138,7 +173,10 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
     while (qLen == QMAX)
     {
-        pthread_cond_wait(&qCondNotFull, &qLock);
+        int ret = pthread_cond_wait(&qCondNotFull, &qLock);
+        if( ret != 0 ) {
+            fprintf(stderr,"pthread_cond_wait(qCondNotFull): %s\n", strerror(ret));
+        }
     }
 
     // Append item to end of queue
@@ -197,6 +235,7 @@ void spawn_workers(int num, const char *spath, int max_load)
 
     // Setup request queue
     pthread_mutex_init(&qLock, NULL);
+    pthread_mutex_init(&qStatsLock, NULL);
     pthread_cond_init(&qCondNotEmpty, NULL);
     pthread_cond_init(&qCondNotFull, NULL);
 
@@ -212,6 +251,19 @@ void spawn_workers(int num, const char *spath, int max_load)
             exit(1);
         }
     }
+}
+
+void print_statistics() {
+    int i;
+    printf("*****************************************************\n");
+    for (i = 0; i <= MAX_ZOOM; i++) {
+        if (performance_stats.stat[i].noRendered == 0) continue;
+        printf("Zoom %02i: min: %4.1f    avg: %4.1f     max: %4.1f     over a total of %8.1fs in %i requests\n",
+                i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total /  performance_stats.stat[i].noRendered) / 1000.0,
+                performance_stats.stat[i].time_max / 1000.0, performance_stats.stat[i].time_total / 1000.0, performance_stats.stat[i].noRendered);
+    }
+    printf("*****************************************************\n");
+    printf("*****************************************************\n");
 }
 
 void wait_for_empty_queue() {

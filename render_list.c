@@ -313,13 +313,16 @@ int main(int argc, char **argv)
 
 
     gettimeofday(&end, NULL);
-    printf("\nTotal for all tiles rendered\n");
+    printf("\n*****************************************************\n");
+    printf("*****************************************************\n");
+    printf("Total for all tiles rendered\n");
     printf("Meta tiles rendered: ");
     display_rate(start, end, num_render);
     printf("Total tiles rendered: ");
     display_rate(start, end, num_render * METATILE * METATILE);
     printf("Total tiles handled: ");
     display_rate(start, end, num_all);
+    print_statistics();
 
     return 0;
 }
