@@ -314,8 +314,11 @@ int main(int argc, char **argv)
     }
     fclose(hini);
     free(map);
-    free(tile_dir);
 
+    if (tile_dir != HASH_PATH) {
+        free(tile_dir);
+    }
+	
     finish_workers(numThreads);
 
     gettimeofday(&end, NULL);
