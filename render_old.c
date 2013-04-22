@@ -149,6 +149,8 @@ void render_layer(const char *tilepath, const char *name)
     int z;
 
     for (z=minZoom; z<=maxZoom; z++) {
+		if (verbose)
+			printf("Rendering zoom %d\n", z);				
         char path[PATH_MAX];
         snprintf(path, PATH_MAX, "%s/%s/%d", tilepath, name, z);
         descend(path);
