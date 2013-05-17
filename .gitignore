@@ -2,7 +2,6 @@ Makefile*
 *.o
 *.la
 *.lo
-*.m4
 *.slo
 .deps/
 .libs/
@@ -29,3 +28,9 @@ render_old
 render_speedtest
 renderd
 stamp-h1
+aclocal.m4
+m4/libtool.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
