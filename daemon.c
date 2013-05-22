@@ -80,20 +80,6 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     }
 }
 
-void item_load(struct item *item, const struct protocol *req) {
-    char path[PATH_MAX];
-    struct stat buf;
-    xyz_to_meta(path, sizeof(path), HASH_PATH, req->xmlname, req->x, req->y, req->z);
-    if(!stat(path, &buf)) {
-	// save time of old tile
-	item->old_mtime=buf.st_mtime;
-    }
-    else {
-	// no tile
-	item->old_mtime=0;
-    }
-}
-
 enum protoCmd rx_request(const struct protocol *req, int fd)
 {
     struct protocol *reqnew;
@@ -127,8 +113,6 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     item->req = *req;
     item->duplicates = NULL;
     item->fd = (req->cmd == cmdDirty) ? FD_INVALID : fd;
-
-    item_load(item, req);
 
 #ifdef METATILE
     /* Round down request co-ordinates to the neareast N (should be a power of 2)
