@@ -459,8 +459,6 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, meta
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
-//    std::cout << "DONE TILE " << xmlname << " " << z << " " << x << "-" << x+size-1 << " " << y << "-" << y+size-1 << "\n";
-//    syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d", xmlname, z, x, x+size-1, y, y+size-1);
     return cmdDone; // OK
 }
 #else //METATILE
@@ -589,12 +587,22 @@ void *render_thread(void * arg)
                             gettimeofday(&tim, NULL);
                             long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
 
+                            if(item->old_mtime==0)
+                                syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, new metatile",
+                                       req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1);
+                            else
+                                syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, age %.3f days",
+                                       req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1,
+                                   (tim.tv_sec-item->old_mtime)/86400.0);
+
                             ret = render(&(maps[i]), item->mx, item->my, req->z, tiles);
 
                             gettimeofday(&tim, NULL);
                             long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
+
                             syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
                                     req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1, (t2 - t1)/1000.0);
+
                             render_time = t2 - t1;
 
                             if (ret == cmdDone) {
