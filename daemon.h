@@ -1,5 +1,5 @@
 #ifndef DAEMON_H
-#define DEEMON_H
+#define DAEMON_H
 
 #ifdef __cplusplus
 extern "C" {
