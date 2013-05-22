@@ -20,6 +20,7 @@ struct item {
     int fd;
     struct item *duplicates;
     enum queueEnum inQueue;
+    time_t old_mtime;
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);
