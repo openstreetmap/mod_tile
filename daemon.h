@@ -36,6 +36,8 @@ typedef struct {
     char htcpip[PATH_MAX];
     char tile_dir[PATH_MAX];
     int tile_px_size;
+    int bleed_x;
+    int bleed_y;
 } xmlconfigitem;
 
 
