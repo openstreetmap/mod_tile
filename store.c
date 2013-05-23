@@ -55,6 +55,12 @@ void log_message(int log_lvl, const char *format, ...) {
     va_end(ap);
 }
 
+/**
+ * In Apache 2.2, we call the init_storage_backend once per process. For mpm_worker and mpm_event multiple threads therefore use the same
+ * storage context, and all storage backends need to be thread-safe in order not to cause issues with these mpm's
+ *
+ * In Apache 2.4, we call the init_storage_backend once per thread, and therefore each thread has its own storage context to work with.
+ */
 struct storage_backend * init_storage_backend(const char * options) {
     struct stat st;
     struct storage_backend * store = NULL;

@@ -70,6 +70,8 @@ char *shmfilename;
 char *shmfilename_delaypool;
 apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delay_mutex;
+apr_global_mutex_t *storage_mutex;
+
 char *mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
@@ -302,6 +304,12 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %pp and thread %li",
             tile_layer, lifecycle_pool, os_thread);
 
+    /* In Apache 2.2, we are using the process memory pool, but with mpm_event and mpm_worker, each process has multiple threads.
+     * As apache's memory pool operations are not thread-safe, we need to wrap everything into a mutex to protect against
+     * segfaults. Apache 2.4 provides access to the per thread pool, in which case access to a specific pool is always single threaded.*/
+#ifndef APACHE24
+    apr_global_mutex_lock(storage_mutex);
+#endif
     if (apr_pool_userdata_get((void **)&stores,memkey, lifecycle_pool) != APR_SUCCESS) {
         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: Failed horribly!");
     }
@@ -317,6 +325,9 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
     } else {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, os_thread);
     }
+#ifndef APACHE24
+    apr_global_mutex_unlock(storage_mutex);
+#endif
 
     if (stores->stores[tile_layer] == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backend in current lifecycle %pp in thread %li for current tile layer %i",
@@ -1497,6 +1508,37 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 #endif /* MOD_TILE_SET_MUTEX_PERMS */
+
+    /*
+         * Create another unique filename to lock upon. Note that
+         * depending on OS and locking mechanism of choice, the file
+         * may or may not be actually created.
+         */
+        mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_storage.%ld",
+                                     (long int) getpid());
+
+        rs = apr_global_mutex_create(&storage_mutex, (const char *) mutexfilename,
+                                     APR_LOCK_DEFAULT, pconf);
+        if (rs != APR_SUCCESS) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
+                         "Failed to create mutex on file %s",
+                         mutexfilename);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+    #ifdef MOD_TILE_SET_MUTEX_PERMS
+    #ifdef APACHE24
+        rs = ap_unixd_set_global_mutex_perms(storage_mutex);
+    #else
+        rs = unixd_set_global_mutex_perms(storage_mutex);
+    #endif
+        if (rs != APR_SUCCESS) {
+            ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
+                         "Parent could not set permissions on mod_tile "
+                         "mutex: check User and Group directives");
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+    #endif /* MOD_TILE_SET_MUTEX_PERMS */
 
     return OK;
 }
