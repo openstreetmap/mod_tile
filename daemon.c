@@ -745,6 +745,22 @@ int main(int argc, char **argv)
                 exit(7);
             }
 
+            sprintf(buffer, "%s:bleed_x", name);
+            char *ini_bleed_x = iniparser_getstring(ini, buffer, (char *) "0");
+            maps[iconf].bleed_x = atoi(ini_bleed_x);
+            if (maps[iconf].bleed_x < 0) {
+                fprintf(stderr, "Bleed X is invalid: %s\n", ini_bleed_x);
+                exit(7);
+            }
+
+            sprintf(buffer, "%s:bleed_y", name);
+            char *ini_bleed_y = iniparser_getstring(ini, buffer, (char *) "0");
+            maps[iconf].bleed_y = atoi(ini_bleed_y);
+            if (maps[iconf].bleed_y < 0) {
+                fprintf(stderr, "Bleed Y is invalid: %s\n", ini_bleed_y);
+                exit(7);
+            }
+
             sprintf(buffer, "%s:tiledir", name);
             char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
             if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
