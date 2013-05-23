@@ -438,7 +438,9 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, meta
     mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
     map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     map->map.zoom_to_box(bbox);
-    map->map.set_buffer_size(128);
+    if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
+        map->map.set_buffer_size(128);
+    }
     //m.zoom(size+1);
 
     mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
