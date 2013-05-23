@@ -427,23 +427,30 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
 
 static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, metaTile &tiles)
 {
+    int px_bleed_x = 256;
+    int px_bleed_y = 128;
+    double bleed_x = (double)px_bleed_x / map->tilesize;
+    double bleed_y = (double)px_bleed_y / map->tilesize;
     int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
     int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
-    double p0x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* ((double)x / (double)(map->prj->aspect_x * 1<<z));
-    double p0y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* (((double)y + render_size_ty) / (double)(map->prj->aspect_y * 1<<z)));
-    double p1x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* (((double)x + render_size_tx) / (double)(map->prj->aspect_x * 1<<z));
-    double p1y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* ((double)y / (double)(map->prj->aspect_y * 1<<z)));
+    double p0x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* (((double)x - bleed_x) / (double)(map->prj->aspect_x * 1<<z));
+    double p0y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* (((double)y + render_size_ty + bleed_y) / (double)(map->prj->aspect_y * 1<<z)));
+    double p1x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* (((double)x + render_size_tx + bleed_x) / (double)(map->prj->aspect_x * 1<<z));
+    double p1y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* (((double)y - bleed_y) / (double)(map->prj->aspect_y * 1<<z)));
+    syslog(LOG_DEBUG, "DEBUG: p0 %f %f p1 %f %f", p0x, p0y, p1x, p1y);
 
     mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
-    map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
+    map->map.resize(render_size_tx * map->tilesize + px_bleed_x * 2,
+                    render_size_ty * map->tilesize + px_bleed_y * 2);
     map->map.zoom_to_box(bbox);
     if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
         map->map.set_buffer_size(128);
     }
     //m.zoom(size+1);
 
-    mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
+    mapnik::image_32 buf(render_size_tx * map->tilesize + px_bleed_x * 2,
+                         render_size_ty * map->tilesize + px_bleed_y * 2);
     try {
       mapnik::agg_renderer<mapnik::image_32> ren(map->map,buf);
       ren.apply();
@@ -457,7 +464,10 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, meta
     unsigned int xx, yy;
     for (yy = 0; yy < render_size_ty; yy++) {
         for (xx = 0; xx < render_size_tx; xx++) {
-            mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
+            mapnik::image_view<mapnik::image_data_32> vw(
+                xx * map->tilesize + px_bleed_x,
+                yy * map->tilesize + px_bleed_y,
+                map->tilesize, map->tilesize, buf.data());
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
