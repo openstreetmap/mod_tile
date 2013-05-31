@@ -12,7 +12,7 @@ bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old ge
 man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
-renderd_SOURCES = protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c sys_utils.h render_config.h request_queue.c $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
+renderd_SOURCES = protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c sys_utils.h render_config.h request_queue.c cache_expire.c metatile.cpp $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
 renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 renderd_DATA = renderd.conf
 render_speedtest_SOURCES = render_config.h protocol.h speedtest.cpp render_submit_queue.c sys_utils.c
@@ -24,7 +24,7 @@ render_expired_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
 render_old_SOURCES = render_config.h protocol.h store_file_utils.c render_old.c sys_utils.c sys_utils.h render_submit_queue.c
 render_old_LDADD = $(PTHREAD_CFLAGS)
 #convert_meta_SOURCES = render_config.h protocol.h dir_utils.c dir_utils.h store.c convert_meta.c
-gen_tile_test_SOURCES = gen_tile_test.cpp request_queue.c catch.hpp protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c sys_utils.h render_config.h $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
+gen_tile_test_SOURCES = gen_tile_test.cpp metatile.cpp request_queue.c catch.hpp protocol.h daemon.h daemon.c daemon_compat.c gen_tile.h gen_tile.cpp sys_utils.c cache_expire.c sys_utils.h render_config.h $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
 gen_tile_test_LDADD = $(FT2_LIBS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 

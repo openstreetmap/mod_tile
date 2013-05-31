@@ -7,8 +7,6 @@
 extern "C" {
 #endif
 
-#define HTCP_EXPIRE_CACHE 1
-#define HTCP_EXPIRE_CACHE_PORT "4827"
 
 enum queueEnum {queueRequest, queueRequestPrio, queueRequestBulk, queueDirty, queueRender,  queueDuplicate};
 
