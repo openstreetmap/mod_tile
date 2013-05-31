@@ -755,11 +755,24 @@ int main(int argc, char **argv)
 
             sprintf(buffer, "%s:maxzoom", name);
             char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
-            int maxzoom = atoi(ini_maxzoom);
-            if (maxzoom > MAX_ZOOM) {
-                fprintf(stderr, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i\n", maxzoom, MAX_ZOOM);
+            maps[iconf].max_zoom = atoi(ini_maxzoom);
+            if (maps[iconf].max_zoom > MAX_ZOOM) {
+                fprintf(stderr, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i\n", maps[iconf].max_zoom, MAX_ZOOM);
                 exit(7);
             }
+
+            sprintf(buffer, "%s:minzoom", name);
+            char *ini_minzoom = iniparser_getstring(ini, buffer, "0");
+            maps[iconf].min_zoom = atoi(ini_minzoom);
+            if (maps[iconf].min_zoom < 0) {
+                fprintf(stderr, "Specified min zoom (%i) is to small. Minimum zoom level has to be greater or equal to 0\n", maps[iconf].min_zoom);
+                exit(7);
+            }
+            if (maps[iconf].min_zoom > maps[iconf].max_zoom) {
+                fprintf(stderr, "Specified min zoom (%i) is larger than max zoom (%i).\n", maps[iconf].min_zoom, maps[iconf].max_zoom);
+                exit(7);
+            }
+
         } else if (strncmp(name, "renderd", 7) == 0) {
             int render_sec = 0;
             if (sscanf(name, "renderd%i", &render_sec) != 1) {

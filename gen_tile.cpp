@@ -57,9 +57,6 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
-static const int minZoom = 0;
-static const int maxZoom = MAX_ZOOM;
-
 struct projectionconfig {
     double bound_x0;
     double bound_y0;
@@ -80,6 +77,8 @@ struct xmlmapconfig {
     char htcphost[PATH_MAX];
     int htcpsock;
     int tilesize;
+    int minzoom;
+    int maxzoom;
     int ok;
     xmlmapconfig() :
         map(256,256) {}
@@ -164,7 +163,7 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
     int oob, limit;
 
     // Validate tile co-ordinates
-    oob = (z < 0 || z > MAX_ZOOM);
+    oob = (z < map->minzoom || z > map->maxzoom);
     if (!oob) {
          // valid x/y for tiles are 0 ... 2^zoom-1
         limit = (1 << z);
@@ -283,6 +282,8 @@ void *render_thread(void * arg)
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
         maps[iMaxConfigs].store = init_storage_backend(parentxmlconfig[iMaxConfigs].tile_dir);
         maps[iMaxConfigs].tilesize  = parentxmlconfig[iMaxConfigs].tile_px_size;
+        maps[iMaxConfigs].minzoom = parentxmlconfig[iMaxConfigs].min_zoom;
+        maps[iMaxConfigs].maxzoom = parentxmlconfig[iMaxConfigs].max_zoom;
 
 
         if (maps[iMaxConfigs].store) {

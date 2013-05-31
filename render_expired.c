@@ -84,10 +84,10 @@ unsigned int **tile_requested;
 
 // "two raised to the power of [...]" - don't trust pow() to be efficient 
 // for base 2
-unsigned long long twopow[18];
+unsigned long long twopow[MAX_ZOOM];
 
 static int minZoom = 0;
-static int maxZoom = MAX_ZOOM;
+static int maxZoom = 18;
 static int verbose = 0;
 int work_complete;
 static int maxLoad = MAX_LOAD_OLD;
@@ -136,23 +136,6 @@ int main(int argc, char **argv)
         mt >>= 1; 
     }
 
-    // initialise arrays for tile markings
-
-    tile_requested = (unsigned int **) malloc((maxZoom - excess_zoomlevels + 1)*sizeof(unsigned int *));
-
-    for (i=0; i<=maxZoom - excess_zoomlevels; i++)
-    {
-        // initialize twopow array
-        twopow[i] = (i==0) ? 1 : twopow[i-1]*2;
-        unsigned long long fourpow=twopow[i]*twopow[i];
-        tile_requested[i] = (unsigned int *) malloc((fourpow / METATILE) + 1);
-        if (NULL == tile_requested[i])
-        {
-            fprintf(stderr, "not enough memory available.\n");
-            return 1;
-        }
-        memset(tile_requested[i], 0, (fourpow / METATILE) + 1);
-    }
 
     while (1) 
     {
@@ -173,7 +156,7 @@ int main(int argc, char **argv)
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvz:Z:s:m:t:n:l:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvz:Z:s:m:t:n:l:T:d:", long_options, &option_index);
 
         if (c == -1)
             break;
@@ -241,7 +224,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
                 fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
                 fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
-                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
+                fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
                 fprintf(stderr, "  -d, --delete-from=ZOOM  when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "  -T, --touch-from=ZOOM   when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
                 fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
@@ -265,6 +248,25 @@ int main(int argc, char **argv)
     }
 
     if (minZoom < excess_zoomlevels) minZoom = excess_zoomlevels;
+
+    // initialise arrays for tile markings
+
+    tile_requested = (unsigned int **) malloc((maxZoom - excess_zoomlevels + 1)*sizeof(unsigned int *));
+
+    for (i=0; i<=maxZoom - excess_zoomlevels; i++)
+    {
+        // initialize twopow array
+        twopow[i] = (i==0) ? 1 : twopow[i-1]*2;
+        unsigned long long fourpow=twopow[i]*twopow[i];
+        tile_requested[i] = (unsigned int *) malloc((fourpow / METATILE) + 1);
+        if (NULL == tile_requested[i])
+        {
+            fprintf(stderr, "not enough memory available.\n");
+            return 1;
+        }
+        memset(tile_requested[i], 0, (fourpow / METATILE) + 1);
+    }
+
 
     fprintf(stderr, "Rendering client\n");
 
