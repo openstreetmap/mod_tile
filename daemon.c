@@ -752,6 +752,14 @@ int main(int argc, char **argv)
                 exit(7);
             }
             strcpy(maps[iconf].tile_dir, ini_tiledir);
+
+            sprintf(buffer, "%s:maxzoom", name);
+            char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
+            int maxzoom = atoi(ini_maxzoom);
+            if (maxzoom > MAX_ZOOM) {
+                fprintf(stderr, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i\n", maxzoom, MAX_ZOOM);
+                exit(7);
+            }
         } else if (strncmp(name, "renderd", 7) == 0) {
             int render_sec = 0;
             if (sscanf(name, "renderd%i", &render_sec) != 1) {
