@@ -27,19 +27,25 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "metatile.h"
 #include "gen_tile.h"
 #include "render_config.h"
 #include "request_queue.h"
+#include "store.h"
 #include <syslog.h>
 #include <sstream>
 #include "string.h"
 #include <string>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
 
+#define NO_QUEUE_REQUESTS 9
+#define NO_TEST_REPEATS 100
+#define NO_THREADS 100
 
 std::string get_current_stderr() {
     FILE * input = fopen("stderr.out", "r+");
@@ -73,9 +79,12 @@ void *addition_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
     enum protoCmd res;
+    struct timespec time;
     unsigned int seed = syscall(SYS_gettid);
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time);
+    seed *= (unsigned int)time.tv_nsec;
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
         item->mx = rand_r(&seed);
         res = request_queue_add_request(queue, item);
@@ -87,7 +96,7 @@ void *fetch_thread(void * arg) {
     struct item * item;
     enum protoCmd res;
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = request_queue_fetch_request(queue);
     }
 }
@@ -261,12 +270,14 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         pthread_t * addition_threads;
         request_queue * queue;
 
-        for (int j = 0; j < 20; j++) { //As we are looking for race conditions, repeat this test many times
-            addition_threads = (pthread_t *)calloc(100,sizeof(pthread_t));
+        REQUIRE ( (NO_THREADS * NO_QUEUE_REQUESTS) < DIRTY_LIMIT );
+
+        for (int j = 0; j < NO_TEST_REPEATS; j++) { //As we are looking for race conditions, repeat this test many times
+            addition_threads = (pthread_t *)calloc(NO_THREADS,sizeof(pthread_t));
             queue = request_queue_init();
             void *status;
 
-            for (int i = 0; i  < 90; i++) {
+            for (int i = 0; i < NO_THREADS; i++) {
                 if (pthread_create(&addition_threads[i], NULL, addition_thread,
                         (void *) queue)) {
                     INFO("Failed to create thread");
@@ -274,12 +285,12 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                 }
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < NO_THREADS; i++) {
                 pthread_join(addition_threads[i], &status);
             }
 
             INFO("Itteration " << j);
-            REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == 900 );
+            REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == (NO_THREADS * NO_QUEUE_REQUESTS) );
 
             request_queue_close(queue);
             free(addition_threads);
@@ -291,20 +302,20 @@ TEST_CASE( "renderd/queueing", "request queueing") {
             struct request_queue * queue;
             struct item * item;
 
-            for (int j = 0; j < 20; j++) { //As we are looking for race conditions, repeat this test many times
-                fetch_threads = (pthread_t *)calloc(100,sizeof(pthread_t));
+            for (int j = 0; j < NO_TEST_REPEATS; j++) { //As we are looking for race conditions, repeat this test many times
+                fetch_threads = (pthread_t *)calloc(NO_THREADS,sizeof(pthread_t));
                 queue = request_queue_init();
                 void *status;
 
-                for (int i = 0; i < 900; i++) {
+                for (int i = 0; i < (NO_THREADS * NO_QUEUE_REQUESTS); i++) {
                     item = init_render_request(cmdDirty);
                     request_queue_add_request(queue, item);
                 }
 
-                REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == 900 );
+                REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == (NO_THREADS*NO_QUEUE_REQUESTS) );
 
 
-                for (int i = 0; i  < 90; i++) {
+                for (int i = 0; i  < NO_THREADS; i++) {
                     if (pthread_create(&fetch_threads[i], NULL, fetch_thread,
                             (void *) queue)) {
                         INFO("Failed to create thread");
@@ -312,7 +323,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                     }
                 }
 
-                for (int i = 0; i < 100; i++) {
+                for (int i = 0; i < NO_THREADS; i++) {
                     pthread_join(fetch_threads[i], &status);
                 }
 
@@ -330,13 +341,13 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         struct request_queue * queue;
         struct item * item;
 
-        for (int j = 0; j < 50; j++) { //As we are looking for race conditions, repeat this test many times
-            fetch_threads = (pthread_t *)calloc(100,sizeof(pthread_t));
-            addition_threads = (pthread_t *)calloc(100,sizeof(pthread_t));
+        for (int j = 0; j < NO_TEST_REPEATS; j++) { //As we are looking for race conditions, repeat this test many times
+            fetch_threads = (pthread_t *)calloc(NO_THREADS,sizeof(pthread_t));
+            addition_threads = (pthread_t *)calloc(NO_THREADS,sizeof(pthread_t));
             queue = request_queue_init();
             void *status;
 
-            for (int i = 0; i  < 90; i++) {
+            for (int i = 0; i  < NO_THREADS; i++) {
                 if (pthread_create(&fetch_threads[i], NULL, fetch_thread,
                         (void *) queue)) {
                     INFO("Failed to create thread");
@@ -344,7 +355,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                 }
             }
 
-            for (int i = 0; i  < 90; i++) {
+            for (int i = 0; i  < NO_THREADS; i++) {
                 if (pthread_create(&addition_threads[i], NULL, addition_thread,
                         (void *) queue)) {
                     INFO("Failed to create thread");
@@ -352,7 +363,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                 }
             }
 
-            for (int i = 0; i < 90; i++) {
+            for (int i = 0; i < NO_THREADS; i++) {
                 pthread_join(fetch_threads[i], &status);
                 pthread_join(addition_threads[i], &status);
             }
@@ -448,6 +459,288 @@ TEST_CASE( "renderd", "tile generation" ) {
           //CAPTURE( ret );
           REQUIRE( ret == 1 );
       }
+}
+
+TEST_CASE( "storage-backend", "Tile storage backend" ) {
+
+    /* Setting up directory where to test the tiles in */
+    char * tmp;
+    char * tile_dir;
+
+    tmp = getenv("TMPDIR");
+    if (tmp == NULL) {
+        tmp = P_tmpdir;
+    }
+    tile_dir = (char *) malloc(sizeof(char) * (strlen(tmp) + 15));
+    sprintf(tile_dir,"%s/mod_tile_test",tmp);
+    mkdir(tile_dir, 0777);
+
+    SECTION("storage/initialise", "should return 1") {
+        struct storage_backend * store = NULL;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        store->close_storage(store);
+        
+    }
+
+    SECTION("storage/stat/non existent", "should return 0 size") {
+        struct storage_backend * store = NULL;
+        struct stat_info sinfo;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        sinfo = store->tile_stat(store, "default", 0, 0, 0);
+        REQUIRE( sinfo.size < 0 );
+        store->close_storage(store);
+        
+    }
+
+    SECTION("storage/read/non existent", "should return 0 size") {
+        struct storage_backend * store = NULL;
+        int size;
+        char * buf = (char *)malloc(10000);
+        int compressed;
+        char * err_msg = (char *)malloc(10000);
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        size = store->tile_read(store, "default", 0, 0, 0, buf, 10000, &compressed, err_msg);
+        REQUIRE( size < 0 );
+        
+        store->close_storage(store);
+        free(buf);
+        free(err_msg);
+        
+    }
+
+    SECTION("storage/write/full metatile", "should complete") {
+        struct storage_backend * store = NULL;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024, 1024, 10);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                std::string tile_data = "DEADBEAF";
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        store->close_storage(store);
+
+
+    }
+
+    SECTION("storage/stat/full metatile", "should complete") {
+        struct storage_backend * store = NULL;
+        struct stat_info sinfo;
+        
+        time_t before_write, after_write;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024 + METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                std::string tile_data = "DEADBEAF";
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sinfo = store->tile_stat(store, "default", 1024 + METATILE + yy, 1024 + xx, 10);
+                REQUIRE( sinfo.size > 0 );
+                REQUIRE( sinfo.expired == 0 );
+                REQUIRE( sinfo.atime > 0 );
+                REQUIRE( sinfo.mtime >= before_write);
+                REQUIRE( sinfo.mtime <= before_write);
+            }
+        }
+
+        store->close_storage(store);
+
+
+    }
+
+    SECTION("storage/read/full metatile", "should complete") {
+        struct storage_backend * store = NULL;
+        char * buf;
+        char * buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char *)malloc(8196);
+        buf_tmp = (char *)malloc(8196);
+
+        time_t before_write, after_write;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024 + METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEAF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                tile_size = store->tile_read(store, "default", 1024 + METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                REQUIRE ( tile_size == 12 );
+                sprintf(buf_tmp, "DEADBEAF %i %i", xx, yy);
+                REQUIRE ( memcmp(buf_tmp, buf, 11) == 0 );
+            }
+        }
+
+        store->close_storage(store);
+
+
+    }
+
+    SECTION("storage/read/partial metatile", "should return correct data") {
+        struct storage_backend * store = NULL;
+        char * buf;
+        char * buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char *)malloc(8196);
+        buf_tmp = (char *)malloc(8196);
+
+        time_t before_write, after_write;
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024 + 2*METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < (METATILE >> 1); xx++) {
+                sprintf(buf, "DEADBEAF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                tile_size = store->tile_read(store, "default", 1024 + 2*METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                if (xx >= (METATILE >> 1)) {
+                    REQUIRE ( tile_size == 0 );
+                } else {
+                    REQUIRE ( tile_size == 12 );
+                    sprintf(buf_tmp, "DEADBEAF %i %i", xx, yy);
+                    REQUIRE ( memcmp(buf_tmp, buf, 11) == 0 );
+                }
+            }
+        }
+
+        store->close_storage(store);
+    }
+
+     SECTION("storage/expire/delete metatile", "should delete tile from disk") {
+        struct storage_backend * store = NULL;
+        struct stat_info sinfo;
+        char * buf;
+        char * buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char *)malloc(8196);
+        buf_tmp = (char *)malloc(8196);
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024 + 3*METATILE, 1024, 10);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEAF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        sinfo = store->tile_stat(store, "default", 1024 + 3*METATILE, 1024, 10);
+
+        REQUIRE ( sinfo.size > 0 );
+
+        store->metatile_delete(store, "default", 1024 + 3*METATILE, 1024, 10);
+
+        sinfo = store->tile_stat(store, "default", 1024 + 3*METATILE, 1024, 10);
+
+        REQUIRE ( sinfo.size < 0 );
+
+
+        store->close_storage(store);
+    }
+
+     SECTION("storage/expire/expiremetatile", "should expire the tile") {
+        struct storage_backend * store = NULL;
+        struct stat_info sinfo;
+        char * buf;
+        char * buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char *)malloc(8196);
+        buf_tmp = (char *)malloc(8196);
+
+        store = init_storage_backend(tile_dir);
+        REQUIRE( store != NULL );
+        
+        metaTile tiles("default", 1024 + 4*METATILE, 1024, 10);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEAF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        sinfo = store->tile_stat(store, "default", 1024 + 4*METATILE, 1024, 10);
+
+        REQUIRE ( sinfo.size > 0 );
+
+        store->metatile_expire(store, "default", 1024 + 4*METATILE, 1024, 10);
+
+        sinfo = store->tile_stat(store, "default", 1024 + 4*METATILE, 1024, 10);
+
+        REQUIRE ( sinfo.size > 0 );
+        REQUIRE ( sinfo.expired > 0 );
+
+
+        store->close_storage(store);
+    }
+
+    rmdir(tile_dir);
+
 }
 
 int main (int argc, char* const argv[])
