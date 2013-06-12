@@ -6,6 +6,8 @@
 #include <mapnik/graphics.hpp>
 #include <mapnik/image_util.hpp>
 
+#include <boost/variant.hpp>
+
 #include <exception>
 #include <iostream>
 #include <fstream>
@@ -17,6 +19,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <string>
+#include <stdlib.h>
 
 #include "gen_tile.h"
 #include "render_config.h"
@@ -154,9 +157,28 @@ static void load_fonts(const char *font_dir, int recurse)
     closedir(fonts);
 }
 
-
-
-
+/**
+ * Set the connection pool size of mapnik's datasources  to correspond to the number of
+ * rendering threads used in renderd
+ **/
+static void parameterize_map_max_connections(Map &m, int num_threads) {
+    int i;
+    char * tmp = (char *)malloc(20);
+    for (i = 0; i < m.layer_count(); i++) {
+        layer& l = m.getLayer(i);
+        parameters params = l.datasource()->params();
+        if (params.find("max_size") == params.end()) {
+            sprintf(tmp, "%i", num_threads + 2);
+            params["max_size"] = tmp;
+        }
+#if MAPNIK_VERSION >= 200200
+        boost::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
+#else
+        boost::shared_ptr<datasource> ds = datasource_cache::instance()->create(params);
+#endif
+        l.set_datasource(ds);
+    }
+}
 
 
 static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
@@ -293,6 +315,13 @@ void *render_thread(void * arg)
 
             try {
                 mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+                /* If we have more than 10 rendering threads configured, we need to fix
+                 * up the mapnik datasources to support larger postgres connection pools
+                 */
+                if (parentxmlconfig[iMaxConfigs].num_threads > 10) {
+                    syslog(LOG_INFO, "Updating max_connection parameter for mapnik layers to reflect thread count");
+                    parameterize_map_max_connections(maps[iMaxConfigs].map, parentxmlconfig[iMaxConfigs].num_threads);
+                }
                 maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
             } catch (std::exception const& ex) {
                 syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());

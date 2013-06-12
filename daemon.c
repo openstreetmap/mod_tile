@@ -773,6 +773,11 @@ int main(int argc, char **argv)
                 exit(7);
             }
 
+            /* Pass this information into the rendering threads,
+             * as it is needed to configure mapniks number of connections
+             */
+            maps[iconf].num_threads = config.num_threads;
+
         } else if (strncmp(name, "renderd", 7) == 0) {
             int render_sec = 0;
             if (sscanf(name, "renderd%i", &render_sec) != 1) {

@@ -38,6 +38,7 @@ typedef struct {
     int tile_px_size;
     int min_zoom;
     int max_zoom;
+    int num_threads;
 } xmlconfigitem;
 
 
