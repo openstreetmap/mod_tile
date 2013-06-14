@@ -383,5 +383,8 @@ struct request_queue * request_queue_init() {
 }
 
 void request_queue_close(struct request_queue * queue) {
-    //TODO: clean up queue
+    //TODO: Free items if the queues are not empty at closing time
+    pthread_mutex_destroy(&(queue->qLock));
+    free(queue->item_hashidx);
+    free(queue);
 }
