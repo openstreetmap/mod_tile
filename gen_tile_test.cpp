@@ -83,9 +83,11 @@ void *addition_thread(void * arg) {
     unsigned int seed = syscall(SYS_gettid);
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time);
     seed *= (unsigned int)time.tv_nsec;
+    pthread_t tid = pthread_self();
 
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
+        item->my = tid;
         item->mx = rand_r(&seed);
         res = request_queue_add_request(queue, item);
     }
