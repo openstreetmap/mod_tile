@@ -233,17 +233,19 @@ int main(int argc, char **argv)
                  break;
             case 'T':
                 
-                if (sscanf(optarg,"%d/%d/%d", &dd, &mm, &yy) < 3) {
-                    fprintf(stderr, "Invalid planet time stamp, must be in the format dd/mm/yyyy\n");
+                if (sscanf(optarg,"%d/%d/%d", &dd, &mm, &yy) == 3) {
+                    if (yy > 100) yy -= 1900;
+                    if (yy < 70) yy += 100;
+                
+                    memset(&tm,0,sizeof(tm));
+                    tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
+                    planetTime = mktime(&tm);
+                } else if (sscanf(optarg,"%d", &dd) == 1) {
+                    planetTime = dd;
+                } else {
+                    fprintf(stderr, "Invalid planet time stamp, must be a unix timestamp or in the format dd/mm/yyyy\n");
                     return 1;
                 }
-                
-                if (yy > 100) yy -= 1900;
-                if (yy < 70) yy += 100;
-                
-                memset(&tm,0,sizeof(tm));
-                tm.tm_mday = dd; tm.tm_mon = mm - 1; tm.tm_year =  yy;
-                planetTime = mktime(&tm);
                 break;
 
             case 'v':   /* -v, --verbose */
