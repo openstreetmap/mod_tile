@@ -8,7 +8,8 @@ AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS) 
 STORE_SOURCES = store.c store_file.c store_file_utils.c store_memcached.c store_rados.c store_ro_http_proxy.c store_ro_composite.c store_null.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(CAIRO_LIBS)
 
-bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old gen_tile_test
+bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
+noinst_PROGRAMS = gen_tile_test
 man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
