@@ -1,0 +1,25 @@
+#!/bin/bash
+STATE=/var/lib/mod_tile/.osmosis/state.txt
+
+rep=`cat ${STATE} |\
+        grep 'timestamp' |\
+        awk '{split($0, a, "="); print a[2]}' |\
+        tr 'T' ' ' |\
+        xargs -I{} ${BINPATH}date --utc --date "{}" +%s`
+is=`date --utc +%s`
+
+lag=$(($is - $rep))
+
+if [ "$1" = "-h" ]; then
+
+  if [ $lag -gt 86400 ]; then echo $(($lag / 86400)) "day(s) and" $((($lag % 86400) / 3600)) "hour(s)";
+  elif [ $lag -gt 3600 ]; then echo $(($lag / 3600)) "hour(s)";
+  elif [ $lag -gt 60 ]; then echo $(($lag / 60)) "minute(s)";
+  else echo $lag "second(s)";
+  fi
+
+else
+
+  echo $lag;
+
+fi

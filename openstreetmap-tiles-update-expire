@@ -2,41 +2,122 @@
 
 set -e
 
+#*************************************************************************
+#*************************************************************************
+OSMOSIS_BIN=osmosis
+OSM2PGSQL_BIN=osm2pgsql
+OSM2PGSQL_OPTIONS=
+#OSM2PGSQL_OPTIONS="--flat-nodes /path/to/flatnodes --hstore"
+
 BASE_DIR=/var/lib/mod_tile
+LOG_DIR=/var/log/tiles/
 WORKOSM_DIR=$BASE_DIR/.osmosis
-LOCKFILE=/tmp/openstreetmap-update-expire-lock.txt
+
+LOCK_FILE=/tmp/openstreetmap-update-expire-lock.txt
 CHANGE_FILE=$BASE_DIR/changes.osc.gz
 EXPIRY_FILE=$BASE_DIR/dirty_tiles
+STOP_FILE=$BASE_DIR/stop.txt
+
+OSMOSISLOG=$LOG_DIR/osmosis.log
+PGSQLLOG=$LOG_DIR/osm2pgsql.log
+EXPIRYLOG=$LOG_DIR/expiry.log
+RUNLOG=$LOG_DIR/run.log
+
+EXPIRY_MINZOOM=10
+EXPIRY_MAXZOOM=18
+
+#*************************************************************************
+#*************************************************************************
+
+m_info()
+{
+        echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ $1" >> "$RUNLOG"
+}
+
+m_error()
+{
+    echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ [error] $1" >> "$RUNLOG"
+    
+    m_info "resetting state"
+    /bin/cp $WORKOSM_DIR/last.state.txt $WORKOSM_DIR/state.txt || true
+    
+    rm "$CHANGE_FILE" || true
+    rm "$EXPIRY_FILE.$$" || true
+    rm "$LOCK_FILE"
+    exit
+}
+
+m_ok()
+{
+    echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ $1" >> "$RUNLOG"
+}
+
+getlock()
+{
+    if [ -s $1 ]; then
+        if [ "$(ps -p `cat $1` | wc -l)" -gt 1 ]; then
+            return 1 #false
+        fi
+    fi
+    
+    echo $$ >"$1"
+    return 0 #true
+}
+
+freelock()
+{
+    rm "$1"
+    rm "$CHANGE_FILE"
+}
+
 
 if [ $# -eq 1 ] ; then
-    echo "Initialising Osmosis replication system to " $1
+    m_info "Initialising Osmosis replication system to $1"
     mkdir $WORKOSM_DIR
-    osmosis --read-replication-interval-init workingDirectory=$WORKOSM_DIR
-    wget "http://toolserver.org/~mazder/replicate-sequences/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
+    $OSMOSIS_BIN --read-replication-interval-init workingDirectory=$WORKOSM_DIR 1>&2 2> "$OSMOSISLOG"
+    wget "http://osm.personalwerk.de/replicate-sequences/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
 else
-    echo "Updating tile server at " `date`
-
-    if [ -e ${LOCKFILE} ] && kill -0 `cat ${LOCKFILE}`; then
-        echo "already running"
-        exit
-    fi
-    
 # make sure the lockfile is removed when we exit and then claim it
-    trap "rm -f ${LOCKFILE}; exit" INT TERM EXIT
-    echo $$ > ${LOCKFILE}
-    
-    
-    
-    rm $EXPIRY_FILE || true
-    touch $EXPIRY_FILE
-    
-    if [ ! -f ${CHANGE_FILE} ] ; then
-        osmosis --read-replication-interval workingDirectory=$WORKOSM_DIR --simplify-change --write-xml-change $CHANGE_FILE
+
+    if ! getlock "$LOCK_FILE"; then
+        m_info "pid `cat $LOCK_FILE` still running"
+        exit 3
     fi
-    osm2pgsql -a --slim -e 15:15 -o $EXPIRY_FILE $CHANGE_FILE
-    render_expired --min-zoom=10 --max-zoom=18 --touch-from=10 -s /var/run/renderd.sock < $EXPIRY_FILE
+
+    if [ -e $STOP_FILE ]; then
+        m_info "stopped"
+        exit 2
+    fi
+
+    seq=`cat $WORKOSM_DIR/state.txt | grep sequenceNumber | cut -d= -f2`
+
+    m_ok "start import from seq-nr $seq, replag is `./replag -h`"
+
+    /bin/cp $WORKOSM_DIR/state.txt $WORKOSM_DIR/last.state.txt
+    m_ok "downloading diff"
     
-    rm $CHANGE_FILE
-    rm -f ${LOCKFILE}
+    if ! $OSMOSIS_BIN --read-replication-interval workingDirectory=$WORKOSM_DIR --simplify-change --write-xml-change $CHANGE_FILE 1>&2 2> "$OSMOSISLOG"; then
+        m_error "Osmosis error"
+    fi
     
+    m_ok "importing diff"
+    EXPIRY_METAZOOM=`expr $EXPIRY_MAXZOOM - 3`
+    if ! $OSM2PGSQL_BIN -a --slim -e$EXPIRY_METAZOOM:$EXPIRY_METAZOOM $OSM2PGSQL_OPTIONS -o "$EXPIRY_FILE.$$" $CHANGE_FILE 1>&2 2> "$PGSQLLOG"; then
+        m_error "osm2pgsql error"
+    fi
+
+    freelock "$LOCK_FILE"
+
+    m_ok "expiring tiles"
+    if ! render_expired --min-zoom=$EXPIRY_MINZOOM --max-zoom=$EXPIRY_MAXZOOM --touch-from=$EXPIRY_MINZOOM -s /var/run/renderd.sock < "$EXPIRY_FILE.$$" 2>&1 | tail -8 >> "$EXPIRYLOG"; then
+        m_info "Expiry failed"
+    fi
+
+    rm "$EXPIRY_FILE.$$"
+    
+    m_ok "Done with import"
+    
+
+    
+
 fi
