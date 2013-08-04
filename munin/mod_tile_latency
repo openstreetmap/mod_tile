@@ -38,6 +38,11 @@ if [ "$1" = "config" ]; then
 	echo 'z5.draw LINE1'
 	echo 'z5.type GAUGE'
 	echo 'z5.min 0'
+    echo 'z6.label z19-20'
+	echo 'z6.draw LINE1'
+	echo 'z6.type GAUGE'
+	echo 'z6.min 0'
+
 	exit 0
 fi
 
@@ -70,6 +75,11 @@ z15Duration=`expr match "$data" '.*DurationTileBufferReadZoom15: \([0-9]*\)'`
 z16Duration=`expr match "$data" '.*DurationTileBufferReadZoom16: \([0-9]*\)'`
 z17Duration=`expr match "$data" '.*DurationTileBufferReadZoom17: \([0-9]*\)'`
 z18Duration=`expr match "$data" '.*DurationTileBufferReadZoom18: \([0-9]*\)'`
+z19Duration=`expr match "$data" '.*DurationTileBufferReadZoom19: \([0-9]*\)'`
+z20Duration=`expr match "$data" '.*DurationTileBufferReadZoom20: \([0-9]*\)'`
+
+if [ -z "$z19Duration" ]; then z19Duration=0; fi;
+if [ -z "$z20Duration" ]; then z20Duration=0; fi;
 
 z0NoServed=`expr match "$data" '.*NoTileBufferReadZoom00: \([0-9]*\)'`
 z1NoServed=`expr match "$data" '.*NoTileBufferReadZoom01: \([0-9]*\)'`
@@ -90,6 +100,11 @@ z15NoServed=`expr match "$data" '.*NoTileBufferReadZoom15: \([0-9]*\)'`
 z16NoServed=`expr match "$data" '.*NoTileBufferReadZoom16: \([0-9]*\)'`
 z17NoServed=`expr match "$data" '.*NoTileBufferReadZoom17: \([0-9]*\)'`
 z18NoServed=`expr match "$data" '.*NoTileBufferReadZoom18: \([0-9]*\)'`
+z19NoServed=`expr match "$data" '.*NoTileBufferReadZoom19: \([0-9]*\)'`
+z20NoServed=`expr match "$data" '.*NoTileBufferReadZoom20: \([0-9]*\)'`
+
+if [ -z "$z19NoServed" ]; then z19NoServed=0; fi;
+if [ -z "$z20NoServed" ]; then z20NoServed=0; fi;
 
 zl1Duration=`expr $z0Duration + $z1Duration + $z2Duration + $z3Duration + $z4Duration + $z5Duration + $z6Duration + $z7Duration + $z8Duration`
 zl1NoServed=`expr $z0NoServed + $z1NoServed + $z2NoServed + $z3NoServed + $z4NoServed + $z5NoServed + $z6NoServed + $z7NoServed + $z8NoServed`
@@ -101,6 +116,8 @@ zl4Duration=`expr $z15Duration + $z16Duration`
 zl4NoServed=`expr $z15NoServed + $z16NoServed`
 zl5Duration=`expr $z17Duration + $z18Duration`
 zl5NoServed=`expr $z17NoServed + $z18NoServed`
+zl6Duration=`expr $z19Duration + $z20Duration`
+zl6NoServed=`expr $z19NoServed + $z20NoServed`
 
 zl1DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup1/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
 zl1NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup1/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
@@ -112,6 +129,8 @@ zl4DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup4/!d' -e 's/.*: //' -e
 zl4NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup4/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
 zl5DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup5/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
 zl5NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup5/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl6DurationPrev=`sed -e '/^DurationTileBufferReadZoomGroup6/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
+zl6NoServedPrev=`sed -e '/^NoTileBufferReadZoomGroup6/!d' -e 's/.*: //' -e q $MUNIN_STATEFILE`
 
 
 echo "DurationTileBufferReads: $totalDuration" > $MUNIN_STATEFILE
@@ -126,6 +145,8 @@ echo "DurationTileBufferReadZoomGroup4: $zl4Duration" >> $MUNIN_STATEFILE
 echo "NoTileBufferReadZoomGroup4: $zl4NoServed" >> $MUNIN_STATEFILE
 echo "DurationTileBufferReadZoomGroup5: $zl5Duration" >> $MUNIN_STATEFILE
 echo "NoTileBufferReadZoomGroup5: $zl5NoServed" >> $MUNIN_STATEFILE
+echo "DurationTileBufferReadZoomGroup6: $zl6Duration" >> $MUNIN_STATEFILE
+echo "NoTileBufferReadZoomGroup6: $zl6NoServed" >> $MUNIN_STATEFILE
 
 
 if [ "$noTotal" = "$noTotalPrev" ];
@@ -170,9 +191,17 @@ else
     zl5Latency=$(echo "$zl5Duration $zl5DurationPrev $zl5NoServed $zl5NoServedPrev" | awk '{ zl5Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl5Lat}' )
 fi
 
+if [ "$zl6NoServed" = "$zl6NoServedPrev" ];
+then
+    zl6Latency=0
+else
+    zl6Latency=$(echo "$zl6Duration $zl6DurationPrev $zl6NoServed $zl6NoServedPrev" | awk '{ zl6Lat = ($1 - $2) / ($3 - $4) / 1000000.0; print zl6Lat}' )
+fi
+
 echo "total.value " $totalLatency
 echo "z1.value " $zl1Latency
 echo "z2.value " $zl2Latency
 echo "z3.value " $zl3Latency
 echo "z4.value " $zl4Latency
 echo "z5.value " $zl5Latency
+echo "z6.value " $zl6Latency

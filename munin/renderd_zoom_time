@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Plugin to monitor the rendering throughput of Renderd
+# Plugin to monitor the time spent rendering per zoom by Renderd
 #
 # Parameters: 
 #
@@ -45,6 +45,13 @@ if [ "$1" = "config" ]; then
 	echo 'zoomtime5.cdef zoomtime5,1000,/'
 	echo 'zoomtime5.draw STACK'
 	echo 'zoomtime5.info Time for Metatiles for z17 - z18'
+	echo 'zoomtime6.label zoom z19 - z20'
+	echo 'zoomtime6.type DERIVE'
+	echo 'zoomtime6.min 0'
+	echo 'zoomtime6.cdef zoomtime5,1000,/'
+	echo 'zoomtime6.draw STACK'
+	echo 'zoomtime6.info Time for Metatiles for z19 - z20'
+
 
 	exit 0
 fi
@@ -68,9 +75,16 @@ req15=`sed -e '/^TimeRenderedZoom15/!d' -e 's/.*: //' -e q /var/run/renderd/rend
 req16=`sed -e '/^TimeRenderedZoom16/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 req17=`sed -e '/^TimeRenderedZoom17/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 req18=`sed -e '/^TimeRenderedZoom18/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req19=`sed -e '/^TimeRenderedZoom19/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req20=`sed -e '/^TimeRenderedZoom20/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+
+if [ -z "$req19" ]; then req19=0; fi
+if [ -z "$req20" ]; then req20=0; fi
+
 
 echo "zoomtime1.value " `expr $req0 + $req1 + + $req2 + $req3 + $req4 + $req5 + $req6 + $req7 + $req8`
 echo "zoomtime2.value " `expr $req9 + $req10 + + $req11 + $req12`
 echo "zoomtime3.value " `expr $req13 + $req14`
 echo "zoomtime4.value " `expr $req15 + $req16`
 echo "zoomtime5.value " `expr $req17 + $req18`
+echo "zoomtime6.value " `expr $req19 + $req20`

@@ -34,6 +34,10 @@ if [ "$1" = "config" ]; then
 	echo 'z5.draw STACK'
 	echo 'z5.type DERIVE'
 	echo 'z5.min 0'
+    echo 'z6.label z19-20'
+	echo 'z6.draw STACK'
+	echo 'z6.type DERIVE'
+	echo 'z6.min 0'
 	exit 0
 fi
 
@@ -59,6 +63,16 @@ resp_15=`expr match "$data" '.*NoRespZoom15: \([0-9]*\)'`
 resp_16=`expr match "$data" '.*NoRespZoom16: \([0-9]*\)'`
 resp_17=`expr match "$data" '.*NoRespZoom17: \([0-9]*\)'`
 resp_18=`expr match "$data" '.*NoRespZoom18: \([0-9]*\)'`
+resp_19=`expr match "$data" '.*NoRespZoom19: \([0-9]*\)'`
+resp_20=`expr match "$data" '.*NoRespZoom20: \([0-9]*\)'`
+
+if [ -z "$resp_19" ]; then
+    resp_19=0;
+fi
+if [ -z "$resp_20" ]; then
+    resp_20=0;
+fi
+
 
 
 echo "z1.value " `expr $resp_0 + $resp_1 + + $resp_2 + $resp_3 + $resp_4 + $resp_5 + $resp_6 + $resp_7 + $resp_8`
@@ -66,3 +80,4 @@ echo "z2.value " `expr $resp_9 + $resp_10 + + $resp_11 + $resp_12`
 echo "z3.value " `expr $resp_13 + $resp_14`
 echo "z4.value " `expr $resp_15 + $resp_16`
 echo "z5.value " `expr $resp_17 + $resp_18`
+echo "z6.value " `expr $resp_19 + $resp_20`

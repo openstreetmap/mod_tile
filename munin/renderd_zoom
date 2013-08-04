@@ -40,6 +40,11 @@ if [ "$1" = "config" ]; then
 	echo 'z5.min 0'
 	echo 'z5.draw STACK'
 	echo 'z5.info Throughput of Metatiles for z17 - z18'
+	echo 'z6.label zoom z19 - z20'
+	echo 'z6.type DERIVE'
+	echo 'z6.min 0'
+	echo 'z6.draw STACK'
+	echo 'z6.info Throughput of Metatiles for z19 - z20'
 
 	exit 0
 fi
@@ -63,6 +68,11 @@ req15=`sed -e '/^ZoomRendered15/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.
 req16=`sed -e '/^ZoomRendered16/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 req17=`sed -e '/^ZoomRendered17/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 req18=`sed -e '/^ZoomRendered18/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req19=`sed -e '/^ZoomRendered19/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+req20=`sed -e '/^ZoomRendered20/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+
+if [ -z req19 ]; then req19=0; fi
+if [ -z req20 ]; then req20=0; fi
 
 
 echo "z1.value " `expr $req0 + $req1 + + $req2 + $req3 + $req4 + $req5 + $req6 + $req7 + $req8`
@@ -70,3 +80,4 @@ echo "z2.value " `expr $req9 + $req10 + + $req11 + $req12`
 echo "z3.value " `expr $req13 + $req14`
 echo "z4.value " `expr $req15 + $req16`
 echo "z5.value " `expr $req17 + $req18`
+echo "z6.value " `expr $req19 + $req20`
