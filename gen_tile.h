@@ -18,6 +18,7 @@ struct item {
     int fd;
     struct item *duplicates;
     enum queueEnum inQueue;
+    enum queueEnum originatedQueue;
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);

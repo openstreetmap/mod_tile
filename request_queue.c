@@ -260,18 +260,22 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
     if ((req->cmd == cmdRender) && (queue->reqNum < REQ_LIMIT)) {
         list = &(queue->reqHead);
         item->inQueue = queueRequest;
+        item->originatedQueue = queueRequest;
         queue->reqNum++;
     } else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < REQ_LIMIT)) {
         list = &(queue->reqPrioHead);
         item->inQueue = queueRequestPrio;
+        item->originatedQueue = queueRequestPrio;
         queue->reqPrioNum++;
     } else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < REQ_LIMIT)) {
         list = &(queue->reqBulkHead);
         item->inQueue = queueRequestBulk;
+        item->originatedQueue = queueRequestBulk;
         queue->reqBulkNum++;
     } else if (queue->dirtyNum < DIRTY_LIMIT) {
         list = &(queue->dirtyHead);
         item->inQueue = queueDirty;
+        item->originatedQueue = queueDirty;
         queue->dirtyNum++;
         item->fd = FD_INVALID; // No response after render
     } else {
@@ -307,6 +311,12 @@ void request_queue_remove_request(struct request_queue * queue, struct item * re
         syslog(LOG_WARNING, "Removing request from queue, even though not on rendering queue");
     }
     if (render_time > 0) {
+        switch (request->originatedQueue) {
+        case queueRequestPrio: { queue->stats.timeReqPrioRender += render_time; break;}
+        case queueRequest: { queue->stats.timeReqRender += render_time; break;}
+        case queueDirty: { queue->stats.timeReqDirty += render_time; break;}
+        case queueRequestBulk: { queue->stats.timeReqBulkRender += render_time; break;}
+        }
         queue->stats.noZoomRender[request->req.z]++;
         queue->stats.timeZoomRender[request->req.z] += render_time;
     }
