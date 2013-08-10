@@ -6,8 +6,8 @@ AX_CONFIG_NICE
 AC_INIT(mod_tile, 0.1, http://trac.openstreetmap.org)
 AM_INIT_AUTOMAKE(mod_tile,0.1)
 LT_INIT
-AC_CONFIG_SRCDIR([convert_meta.c])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_SRCDIR([src/convert_meta.c])
+AC_CONFIG_HEADERS([includes/config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
