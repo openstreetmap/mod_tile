@@ -45,6 +45,7 @@ AC_SEARCH_LIBS(socket, socket)
 AC_SEARCH_LIBS(inet_ntoa, nsl)
 AC_SEARCH_LIBS(gethostbyname, resolv nsl)
 AC_SEARCH_LIBS(pow,m)
+AC_SEARCH_LIBS(clock_gettime,[rt posix4])
 AX_BOOST_BASE
 #AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
