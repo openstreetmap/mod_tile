@@ -50,11 +50,12 @@ static const char *cmdStr(enum protoCmd c)
         case cmdIgnore:  return "Ignore";
         case cmdRender:  return "Render";
         case cmdRenderPrio:  return "RenderPrio";
+        case cmdRenderLow:  return "RenderLow";
         case cmdRenderBulk:  return "RenderBulk";
         case cmdDirty:   return "Dirty";
         case cmdDone:    return "Done";
         case cmdNotDone: return "NotDone";
-        default:         return "unknown";
+        default:         return "unknown " + c;
     }
 }
 
@@ -101,8 +102,11 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
             cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
 
-    if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk))
+    if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdRenderLow) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk)) {
+        syslog(LOG_WARNING, "WARNING: Ignoring unknown command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
+                    cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
         return cmdIgnore;
+    }
 
     item = (struct item *)malloc(sizeof(*item));
     if (!item) {
@@ -246,6 +250,7 @@ void *stats_writeout_thread(void * arg) {
     int dirtQueueLength;
     int reqQueueLength;
     int reqPrioQueueLength;
+    int reqLowQueueLength;
     int reqBulkQueueLength;
 	int i;
 
@@ -260,6 +265,7 @@ void *stats_writeout_thread(void * arg) {
 
         reqPrioQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRenderPrio);
         reqQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRender);
+        reqLowQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRenderLow);
         dirtQueueLength = request_queue_no_requests_queued(render_request_queue, cmdDirty);
         reqBulkQueueLength = request_queue_no_requests_queued(render_request_queue, cmdRenderBulk);
 
@@ -276,6 +282,7 @@ void *stats_writeout_thread(void * arg) {
             noFailedAttempts = 0;
             fprintf(statfile, "ReqQueueLength: %i\n", reqQueueLength);
             fprintf(statfile, "ReqPrioQueueLength: %i\n", reqPrioQueueLength);
+            fprintf(statfile, "ReqLowQueueLength: %i\n", reqLowQueueLength);
             fprintf(statfile, "ReqBulkQueueLength: %i\n", reqBulkQueueLength);
             fprintf(statfile, "DirtQueueLength: %i\n", dirtQueueLength);
             fprintf(statfile, "DropedRequest: %li\n", lStats.noReqDroped);
@@ -283,6 +290,8 @@ void *stats_writeout_thread(void * arg) {
             fprintf(statfile, "TimeRendered: %li\n", lStats.timeReqRender);
             fprintf(statfile, "ReqPrioRendered: %li\n", lStats.noReqPrioRender);
             fprintf(statfile, "TimePrioRendered: %li\n", lStats.timeReqPrioRender);
+            fprintf(statfile, "ReqLowRendered: %li\n", lStats.noReqLowRender);
+            fprintf(statfile, "TimeLowRendered: %li\n", lStats.timeReqLowRender);
             fprintf(statfile, "ReqBulkRendered: %li\n", lStats.noReqBulkRender);
             fprintf(statfile, "TimeBulkRendered: %li\n", lStats.timeReqBulkRender);
             fprintf(statfile, "DirtyRendered: %li\n", lStats.noDirtyRender);

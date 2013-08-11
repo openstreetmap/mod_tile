@@ -34,11 +34,13 @@ typedef struct {
     long noDirtyRender;
     long noReqRender;
     long noReqPrioRender;
+    long noReqLowRender;
     long noReqBulkRender;
     long noReqDroped;
     long noZoomRender[MAX_ZOOM + 1];
     long timeReqRender;
     long timeReqPrioRender;
+    long timeReqLowRender;
     long timeReqBulkRender;
     long timeReqDirty;
     long timeZoomRender[MAX_ZOOM + 1];
@@ -51,9 +53,9 @@ struct item_idx {
 
 struct request_queue {
     int hashidxSize;
-    struct item reqHead, reqPrioHead, reqBulkHead, dirtyHead, renderHead;
+    struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
     struct item_idx * item_hashidx;
-    int reqNum, reqPrioNum, reqBulkNum, dirtyNum;
+    int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
     pthread_mutex_t qLock;
     pthread_cond_t qCond;
     stats_struct stats;

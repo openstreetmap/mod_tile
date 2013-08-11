@@ -44,6 +44,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <inttypes.h>
 
 
 #include "gen_tile.h"
@@ -205,8 +206,9 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
     cmd->ver = PROTO_VER;
     switch (renderImmediately) {
     case 0: { cmd->cmd = cmdDirty; break;}
-    case 1: { cmd->cmd = cmdRender; break;}
-    case 2: { cmd->cmd = cmdRenderPrio; break;}
+    case 1: { cmd->cmd = cmdRenderLow; break;}
+    case 2: { cmd->cmd = cmdRender; break;}
+    case 3: { cmd->cmd = cmdRenderPrio; break;}
     }
 
     if (scfg->bulkMode) cmd->cmd = cmdRenderBulk; 
@@ -233,7 +235,7 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
     } while (retry--);
 
     if (renderImmediately) {
-        struct timeval tv = {(renderImmediately > 1?scfg->request_timeout_priority:scfg->request_timeout), 0 };
+        struct timeval tv = {(renderImmediately > 2?scfg->request_timeout_priority:scfg->request_timeout), 0 };
         fd_set rx;
         int s;
 
@@ -343,6 +345,9 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 
 static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 {
+    ap_conf_vector_t *sconf = r->server->module_config;
+    tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
     struct stat_info stat;
     struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
 
@@ -356,7 +361,14 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
     r->finfo.ctime = stat.ctime * 1000000;
 
     if (stat.size < 0) return tileMissing;
-    if (stat.expired) return tileOld;
+    if (stat.expired) {
+        if ((r->request_time - r->finfo.mtime) < scfg->veryold_threshold ) {
+            return tileOld;
+        }
+        else {
+            return tileVeryOld;
+        }
+    }
 
     return tileCurrent;
 }
@@ -598,10 +610,19 @@ static int incFreshCounter(int status, request_rec *r) {
             stats->noOldCache++;
             break;
         }
+        case VERYOLD: {
+            stats->noVeryOldCache++;
+            break;
+        }
         case OLD_RENDER: {
             stats->noOldRender++;
             break;
         }
+        case VERYOLD_RENDER: {
+            stats->noVeryOldRender++;
+            break;
+        }
+
         }
         apr_global_mutex_unlock(stats_mutex);
         /* Swallowing the result because what are we going to do with it at
@@ -874,19 +895,20 @@ static int tile_storage_hook(request_rec *r)
             return OK;
             break;
         case tileOld:
+        case tileVeryOld:
             if (scfg->bulkMode) {
                 return OK;
             } else if (avg > scfg->max_load_old) {
                // Too much load to render it now, mark dirty but return old tile
                request_tile(r, cmd, 0);
                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) larger max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
-               if (!incFreshCounter(OLD, r)) {
+               if (!incFreshCounter((state == tileVeryOld)?VERYOLD:OLD, r)) {
                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                         "Failed to increase fresh stats counter");
                }
                return OK;
             }
-            renderPrio = 1;
+            renderPrio = (state==tileVeryOld)?2:1;
             break;
         case tileMissing:
             if (avg > scfg->max_load_missing) {
@@ -898,7 +920,7 @@ static int tile_storage_hook(request_rec *r)
                }
                return HTTP_NOT_FOUND;
             }
-            renderPrio = 2;
+            renderPrio = 3;
             break;
     }
 
@@ -913,6 +935,13 @@ static int tile_storage_hook(request_rec *r)
 
     if (state == tileOld) {
         if (!incFreshCounter(OLD_RENDER, r)) {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                    "Failed to increase fresh stats counter");
+        }
+        return OK;
+    }
+    if (state == tileVeryOld) {
+        if (!incFreshCounter(VERYOLD_RENDER, r)) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                     "Failed to increase fresh stats counter");
         }
@@ -1085,8 +1114,10 @@ static int tile_handler_mod_stats(request_rec *r)
     ap_rprintf(r, "NoRespOther: %li\n", local_stats.noRespOther);
     ap_rprintf(r, "NoFreshCache: %li\n", local_stats.noFreshCache);
     ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
+    ap_rprintf(r, "NoVeryOldCache: %li\n", local_stats.noVeryOldCache);
     ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
     ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
+    ap_rprintf(r, "NoVeryOldRender: %li\n", local_stats.noVeryOldRender);
     for (i = 0; i <= global_max_zoom; i++) {
         ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
     }
@@ -1902,6 +1933,20 @@ static const char *mod_tile_max_load_missing_config(cmd_parms *cmd, void *mconfi
     return NULL;
 }
 
+static const char *mod_tile_veryold_threshold_config(cmd_parms *cmd, void *mconfig, const char *veryold_threshold_string)
+{
+    apr_time_t veryold_threshold;
+    tile_server_conf *scfg;
+
+    if (sscanf(veryold_threshold_string, "%" SCNd64, &veryold_threshold) != 1) {
+        return "ModTileVeryoldThreshold needs integer argument";
+    }
+
+    scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+    scfg->veryold_threshold = veryold_threshold;
+    return NULL;
+}
+
 static const char *mod_tile_renderd_socket_name_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_name_string)
 {
     tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
@@ -2117,6 +2162,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
     scfg->request_timeout_priority = REQUEST_TIMEOUT;
     scfg->max_load_old = MAX_LOAD_OLD;
     scfg->max_load_missing = MAX_LOAD_MISSING;
+    scfg->veryold_threshold = VERYOLD_THRESHOLD;
     strncpy(scfg->renderd_socket_name, RENDER_SOCKET, PATH_MAX-1);
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     scfg->renderd_socket_port = 0;
@@ -2157,6 +2203,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
     scfg->request_timeout_priority = scfg_over->request_timeout_priority;
     scfg->max_load_old = scfg_over->max_load_old;
     scfg->max_load_missing = scfg_over->max_load_missing;
+    scfg->veryold_threshold = scfg_over->veryold_threshold;
     strncpy(scfg->renderd_socket_name, scfg_over->renderd_socket_name, PATH_MAX-1);
     scfg->renderd_socket_name[PATH_MAX-1] = 0;
     scfg->renderd_socket_port = scfg_over->renderd_socket_port;
@@ -2246,6 +2293,13 @@ static const command_rec tile_cmds[] =
         NULL,                            /* argument to include in call */
         OR_OPTIONS,                      /* where available */
         "Set max load for rendering missing tiles"  /* directive description */
+    ),
+    AP_INIT_TAKE1(
+        "ModTileVeryOldThreshold",   /* directive name */
+        mod_tile_veryold_threshold_config,      /* config action routine */
+        NULL,                            /* argument to include in call */
+        OR_OPTIONS,                      /* where available */
+        "set the time threshold from when an outdated tile ist considered very old and rendered with slightly higher priority."  /* directive description */
     ),
     AP_INIT_TAKE1(
         "ModTileRenderdSocketName",      /* directive name */

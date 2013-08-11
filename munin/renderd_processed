@@ -20,6 +20,11 @@ if [ "$1" = "config" ]; then
 	echo 'req.min 0'
 	echo 'req.draw AREA'
 	echo 'req.info Throughput of Metatiles submitted for on the fly rendering'
+	echo 'reqLow.label Low priority request Queue'
+    echo 'reqLow.type DERIVE'
+    echo 'reqLow.min 0'
+    echo 'reqLow.draw STACK'
+    echo 'reqLow.info Throughput of Metatiles submitted low priority for on the fly rendering'
 	echo 'reqPrio.label Priority request Queue'
 	echo 'reqPrio.type DERIVE'
 	echo 'reqPrio.min 0'
@@ -46,11 +51,13 @@ fi
 
 reqprocessed=`sed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqprioprocessed=`sed -e '/^ReqPrioRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqpriolowprocessed=`sed -e '/^ReqLowRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dirtprocessed=`sed -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqbulkprocessed=`sed -e '/^ReqBulkRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dropped=`sed -e '/^DropedRequest/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 echo "req.value " $reqprocessed
+echo "reqLow.value " $reqpriolowprocessed
 echo "reqPrio.value " $reqprioprocessed
 echo "dirty.value " $dirtprocessed
 echo "reqBulk.value " $reqbulkprocessed

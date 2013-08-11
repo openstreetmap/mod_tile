@@ -23,6 +23,10 @@
 // MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
 #define MAX_LOAD_ANY 100
 
+//VERYOLD_THRESHOLD: defines how old a tile needs to be (in microseconds) to get rendering priority rather than renderingLow priority
+//1000000*3600*24*365 = 31536000000000
+#define VERYOLD_THRESHOLD 31536000000000
+
 // Location of osm.xml file
 #define RENDERD_CONFIG "/etc/renderd.conf"
 // The XML configuration used if one is not provided

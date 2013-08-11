@@ -20,7 +20,7 @@ extern "C" {
 #define RENDER_SOCKET "/var/run/renderd/renderd.sock"
 #define XMLCONFIG_MAX 41
 
-enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk };
+enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
 
 struct protocol {
     int ver;

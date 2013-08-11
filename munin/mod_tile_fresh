@@ -30,6 +30,14 @@ if [ "$1" = "config" ]; then
 	echo 'oldrender.draw STACK'
 	echo 'oldrender.type DERIVE'
 	echo 'oldrender.min 0'
+	echo 'outdated.label Outdated from disk'
+    echo 'outdated.draw STACK'
+    echo 'outdated.type DERIVE'
+    echo 'outdated.min 0'
+    echo 'outdatedrender.label Outdated tile, attempted render'
+    echo 'outdatedrender.draw STACK'
+    echo 'outdatedrender.type DERIVE'
+    echo 'outdatedrender.min 0'
 
 	exit 0
 fi
@@ -40,8 +48,13 @@ fresh=`expr match "$data" '.*NoFreshCache: \([0-9]*\)'`
 freshRender=`expr match "$data" '.*NoFreshRender: \([0-9]*\)'`
 old=`expr match "$data" '.*NoOldCache: \([0-9]*\)'`
 oldRender=`expr match "$data" '.*NoOldRender: \([0-9]*\)'`
+outdated=`expr match "$data" '.*NoVeryOldCache: \([0-9]*\)'`
+outdatedRender=`expr match "$data" '.*NoVeryOldRender: \([0-9]*\)'`
+
 
 echo "fresh.value " $fresh
 echo "freshrender.value " $freshRender
 echo "old.value " $old
 echo "oldrender.value " $oldRender
+echo "outdated.value " $outdated
+echo "outdatedrender.value " $outdatedRender

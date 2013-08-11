@@ -20,6 +20,11 @@ if [ "$1" = "config" ]; then
     echo 'req.cdef req,1000,/'
     echo 'req.draw AREA'
     echo 'req.info Time for Request queue'
+    echo 'reqLow.label Low priority request queue'
+    echo 'reqLow.type DERIVE'
+    echo 'reqLow.cdef reqLow,1000,/'
+    echo 'reqLow.draw AREA'
+    echo 'reqLow.info Time for low priority request queue'
     echo 'reqPrio.label Priority request queue'
 	echo 'reqPrio.type DERIVE'
     echo 'reqPrio.cdef reqPrio,1000,/'
@@ -40,11 +45,13 @@ fi
 
 reqTime=`sed -e '/^TimeRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqprioTime=`sed -e '/^TimePrioRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqpriolowTime=`sed -e '/^TimeLowRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqbulkTime=`sed -e '/^TimeBulkRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dirtyTime=`sed -e '/^TimeDirtyRendered/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
 
 echo "req.value " $reqTime
+echo "reqLow.value " $reqpriolowTime
 echo "reqPrio.value " $reqprioTime
 echo "dirty.value " $dirtyTime
 echo "reqBulk.value " $reqbulkTime

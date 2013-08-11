@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 
-enum queueEnum {queueRequest, queueRequestPrio, queueRequestBulk, queueDirty, queueRender,  queueDuplicate};
+enum queueEnum {queueRequest, queueRequestPrio, queueRequestBulk, queueDirty, queueRender,  queueDuplicate, queueRequestLow};
 
 struct item {
     struct item *next;

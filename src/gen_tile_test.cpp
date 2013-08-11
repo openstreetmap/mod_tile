@@ -127,36 +127,86 @@ TEST_CASE( "renderd/queueing", "request queueing") {
 
         REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 0 );
         REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 0 );
         REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 0 );
         REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0 );
         item = init_render_request(cmdRender);
         res = request_queue_add_request(queue, item);
         REQUIRE ( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0 );
         item = init_render_request(cmdRenderPrio);
         res = request_queue_add_request(queue, item);
         REQUIRE ( res == cmdIgnore );
         REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0 );
+        item = init_render_request(cmdRenderLow);
+        res = request_queue_add_request(queue, item);
+        REQUIRE ( res == cmdIgnore );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 0 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0 );
+
         item = init_render_request(cmdRenderBulk);
         res = request_queue_add_request(queue, item);
         REQUIRE ( res == cmdIgnore );
         REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0 );
+
         item = init_render_request(cmdDirty);
         res = request_queue_add_request(queue, item);
         REQUIRE ( res == cmdNotDone );
         REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
+        REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 1 );
+
 
         request_queue_close(queue);
     }
 
     SECTION("renderd/queueing/simple request fetch", "test the fetching of a single request") {
         request_queue * queue = request_queue_init();
+
         struct item * item = init_render_request(cmdRender);
-
         request_queue_add_request(queue, item);
-
         struct item *item2 = request_queue_fetch_request(queue);
+        REQUIRE( item == item2 );
+        free(item2);
 
+        item = init_render_request(cmdRenderPrio);
+        request_queue_add_request(queue, item);
+        item2 = request_queue_fetch_request(queue);
+        REQUIRE( item == item2 );
+        free(item2);
+
+        item = init_render_request(cmdRenderLow);
+        request_queue_add_request(queue, item);
+        item2 = request_queue_fetch_request(queue);
+        REQUIRE( item == item2 );
+        free(item2);
+
+        item = init_render_request(cmdRenderBulk);
+        request_queue_add_request(queue, item);
+        item2 = request_queue_fetch_request(queue);
+        REQUIRE( item == item2 );
+        free(item2);
+
+        item = init_render_request(cmdDirty);
+        request_queue_add_request(queue, item);
+        item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
         free(item2);
 
@@ -176,16 +226,21 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         request_queue_add_request(queue, itemD);
         struct item * itemRP = init_render_request(cmdRenderPrio);
         request_queue_add_request(queue, itemRP);
+        struct item * itemL = init_render_request(cmdRenderLow);
+        request_queue_add_request(queue, itemL);
 
         //We should be retrieving items in the order RenderPrio, Render, Dirty, Bulk
         item2 = request_queue_fetch_request(queue);
         INFO("itemRP: " << itemRP);
         INFO("itemR: " << itemR);
+        INFO("itemL: " << itemL);
         INFO("itemD: " << itemD);
         INFO("itemB: " << itemB);
-        //REQUIRE( itemRP == item2 );
+        REQUIRE( itemRP == item2 );
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemR == item2 );
+        item2 = request_queue_fetch_request(queue);
+        REQUIRE( itemL == item2 );
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemD == item2 );
         item2 = request_queue_fetch_request(queue);
@@ -195,6 +250,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         free(itemB);
         free(itemD);
         free(itemRP);
+        free(itemL);
 
         request_queue_close(queue);
         }
@@ -204,42 +260,76 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         struct item * item;
         request_queue * queue = request_queue_init();
 
+        //Submitting initial request
         item = init_render_request(cmdRender);
         item->mx = 0;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
 
+        //Submit duplicate request, check that queue length hasn't increased
         item = init_render_request(cmdRender);
         item->mx = 0;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 1 );
 
+        //Submit second request
         item = init_render_request(cmdRender);
         item->mx = 1;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 2 );
 
+        //Submit first request to render prio
         item = init_render_request(cmdRenderPrio);
         item->mx = 2;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
 
+        //Submit duplicate to render prio
         item = init_render_request(cmdRenderPrio);
         item->mx = 2;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
 
+        //Submit duplicate to dirty, check that de-duplication works across queues
         item = init_render_request(cmdDirty);
         item->mx = 2;
         res = request_queue_add_request(queue, item);
         REQUIRE( res == cmdIgnore );
         REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
         REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == 0 );
+
+        //Submit duplicate to request low, check that de-duplication works across queues
+        item = init_render_request(cmdRenderLow);
+        item->mx = 2;
+        res = request_queue_add_request(queue, item);
+        REQUIRE( res == cmdIgnore );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRenderLow) == 0 );
+
+        //Submit duplicate to request low, check that de-duplication works across queues
+        item = init_render_request(cmdRender);
+        item->mx = 2;
+        res = request_queue_add_request(queue, item);
+        REQUIRE( res == cmdIgnore );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        //There were 2 render request submitted earlier in the test, so a
+        //number of 2 is the same as before.
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRender) == 2 );
+
+        //Submit duplicate to bulk, check that de-duplication works across queues
+        item = init_render_request(cmdRenderBulk);
+        item->mx = 2;
+        res = request_queue_add_request(queue, item);
+        REQUIRE( res == cmdIgnore );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == 1 );
+        REQUIRE( request_queue_no_requests_queued(queue, cmdRenderBulk) == 0 );
+
+
 
         request_queue_close(queue);
     }

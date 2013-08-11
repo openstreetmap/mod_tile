@@ -14,12 +14,15 @@ if [ "$1" = "config" ]; then
 	echo 'graph_args --base 1000 -l 0'
 	echo 'graph_vlabel metatiles'
 	echo 'graph_category renderd'
+	echo 'reqPrio.label Priority request Queue'
+    echo 'reqPrio.type GAUGE'
+    echo 'reqPrio.max 100'
 	echo 'req.label Request Queue'
 	echo 'req.type GAUGE'
 	echo 'req.max 100'
-	echo 'reqPrio.label Priority request Queue'
-	echo 'reqPrio.type GAUGE'
-	echo 'reqPrio.max 100'
+	echo 'reqLow.label Low priority request Queue'
+    echo 'reqLow.type GAUGE'
+    echo 'reqLow.max 100'
 	echo 'dirty.label Dirty Queue'
 	echo 'dirty.type GAUGE'
 	echo 'dirty.max 1000'
@@ -31,10 +34,12 @@ fi
 
 reqlength=`sed -e '/^ReqQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqpriolength=`sed -e '/^ReqPrioQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
+reqpriolowlength=`sed -e '/^ReqLowQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 reqbulklength=`sed -e '/^ReqBulkQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 dirtlength=`sed -e '/^DirtQueueLength/!d' -e 's/.*: //' -e q /var/run/renderd/renderd.stats`
 
-echo "req.value " $reqlength
 echo "reqPrio.value " $reqpriolength
+echo "req.value " $reqlength
+echo "reqLow.value " $reqpriolowlength
 echo "dirty.value " $dirtlength
 echo "reqBulk.value " $reqbulklength

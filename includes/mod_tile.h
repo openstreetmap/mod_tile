@@ -23,6 +23,9 @@
 #define OLD 2
 #define FRESH_RENDER 3
 #define OLD_RENDER 4
+#define VERYOLD_RENDER 5
+#define VERYOLD 6
+
 
 /* Number of microseconds to camp out on the mutex */
 #define CAMPOUT 10
@@ -56,6 +59,8 @@ typedef struct stats_data {
     apr_uint64_t noFreshRender;
     apr_uint64_t noOldCache;
     apr_uint64_t noOldRender;
+    apr_uint64_t noVeryOldCache;
+    apr_uint64_t noVeryOldRender;
 	apr_uint64_t noRespZoom[MAX_ZOOM_SERVER + 1];
     apr_uint64_t totalBufferRetrievalTime;
     apr_uint64_t noTotalBufferRetrieval;
@@ -90,6 +95,7 @@ typedef struct {
 	int request_timeout_priority;
     int max_load_old;
     int max_load_missing;
+    apr_time_t veryold_threshold;
     int cache_duration_dirty;
     int cache_duration_max;
     int cache_duration_minimum;
@@ -120,7 +126,7 @@ typedef struct tile_request_data {
 	int layerNumber;
 } tile_request_data;
 
-enum tileState { tileMissing, tileOld, tileCurrent };
+enum tileState { tileMissing, tileOld, tileVeryOld, tileCurrent };
 
 
 #endif
