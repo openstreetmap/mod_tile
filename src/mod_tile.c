@@ -395,17 +395,19 @@ static int add_cors(request_rec *r, const char * cors) {
                                apr_psprintf(r->pool, "%s", "Origin"));
                 
             }
-            headers = apr_table_get(r->headers_in,"Access-Control-Request-Headers");
-            apr_table_setn(r->headers_out, "Access-Control-Allow-Headers",
-                           apr_psprintf(r->pool, "%s", headers));
-            if (headers) {
+            if (strcmp(r->method, "OPTIONS") == 0 &&
+                apr_table_get(r->headers_in, "Access-Control-Request-Method")) {
+                headers = apr_table_get(r->headers_in, "Access-Control-Request-Headers");
+                if (headers) {
+                    apr_table_setn(r->headers_out, "Access-Control-Allow-Headers",
+                                   apr_psprintf(r->pool, "%s", headers));
+                }
                 apr_table_setn(r->headers_out, "Access-Control-Max-Age",
                                apr_psprintf(r->pool, "%i", 604800));
-            }
-            //If this is an OPTIONS cors pre-flight request, no need to return the body as the actual request will follow
-            if (strcmp(r->method, "OPTIONS") == 0)
                 return OK;
-            else return DONE;
+            } else {
+                return DONE;
+            }
         } else {
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s)is NOT allowed under the CORS policy(%s). Rejecting request", origin, cors);
             return HTTP_FORBIDDEN;
