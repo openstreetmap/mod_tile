@@ -1691,7 +1691,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->cors = cors;
     tilecfg->store = tile_dir;
 
-    ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
+    ap_log_error(APLOG_MARK, APLOG_INFO, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
                  name, baseuri, minzoom, maxzoom, tile_dir, fileExtension, mimeType);
 
