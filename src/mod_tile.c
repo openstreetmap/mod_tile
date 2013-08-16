@@ -1621,7 +1621,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 }
 
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
-                                    const char *baseuri, const char *name, int minzoom, int maxzoom,
+                                    const char *baseuri, const char *name, int minzoom, int maxzoom, int aspect_x, int aspect_y,
                                     const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
                                     int noHostnames, char ** hostnames, const char * cors, const char * tile_dir)
 {
@@ -1684,8 +1684,8 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->xmlname[XMLCONFIG_MAX-1] = 0;
     tilecfg->minzoom = minzoom;
     tilecfg->maxzoom = maxzoom;
-    tilecfg->aspect_x = 2;
-    tilecfg->aspect_y = 1;
+    tilecfg->aspect_x = aspect_x;
+    tilecfg->aspect_y = aspect_y;
     tilecfg->description = description;
     tilecfg->attribution = attribution;
     tilecfg->noHostnames = noHostnames;
@@ -1704,17 +1704,17 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
     if (strcmp(fileExtension,"png") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,NULL,0,NULL,NULL,NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL,NULL);
     }
     if (strcmp(fileExtension,"js") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "text/javascript",NULL,NULL,0,NULL,"*", NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "text/javascript",NULL,NULL,0,NULL,"*", NULL);
     }
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, fileExtension, "image/png",NULL,NULL,0,NULL,NULL, NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL, NULL);
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
 {
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, "png", "image/png",NULL,NULL,0,NULL,NULL,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, "png", "image/png",NULL,NULL,0,NULL,NULL,NULL);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
@@ -1739,6 +1739,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     int tilelayer = 0;
     int minzoom = 0;
     int maxzoom = MAX_ZOOM;
+    int aspect_x = 1;
+    int aspect_y = 1;
 
     if (strlen(conffile) == 0) {
         strcpy(filename, RENDERD_CONFIG);
@@ -1758,7 +1760,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
         if (line[0] == '[') {
             /*Add the previous section to the configuration */
             if (tilelayer == 1) {
-                result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
+                result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, aspect_x, aspect_y, fileExtension, mimeType,
                                           description,attribution,noHostnames,hostnames, cors, tile_dir);
                 if (result != NULL) {
                     fclose(hini);
@@ -1795,6 +1797,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             noHostnames = 0;
             minzoom = 0;
             maxzoom = MAX_ZOOM;
+            aspect_x = 1;
+            aspect_y = 1;
         } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
                ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
 
@@ -1863,12 +1867,18 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             if (!strcmp(key, "MAXZOOM")){
                 maxzoom = atoi(value);
             }
+            if (!strcmp(key, "ASPECTX")){
+                aspect_x = atoi(value);
+            }
+            if (!strcmp(key, "ASPECTY")){
+                aspect_y = atoi(value);
+            }
         }
     }
     if (tilelayer == 1) {
         //ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server,
         //        "Committing tile config %s", xmlname);
-        result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, fileExtension, mimeType,
+        result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, aspect_x, aspect_y, fileExtension, mimeType,
                                   description,attribution,noHostnames,hostnames, cors, tile_dir);
         if (result != NULL) {
             fclose(hini);
