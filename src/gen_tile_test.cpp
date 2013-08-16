@@ -43,9 +43,24 @@
 #include <sys/syscall.h>
 #include <stdlib.h>
 
+#include <mapnik/version.hpp>
+#if MAPNIK_VERSION < 200000
+#include <mapnik/envelope.hpp>
+#define image_32 Image32
+#define image_data_32 ImageData32
+#define box2d Envelope
+#define zoom_to_box zoomToBox
+#else
+#include <mapnik/box2d.hpp>
+#endif
+
+
 #define NO_QUEUE_REQUESTS 9
 #define NO_TEST_REPEATS 100
 #define NO_THREADS 100
+
+extern struct projectionconfig * get_projection(const char * srs);
+extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z);
 
 std::string get_current_stderr() {
     FILE * input = fopen("stderr.out", "r+");
@@ -847,6 +862,66 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
 
     rmdir(tile_dir);
 
+}
+
+TEST_CASE( "projections", "Test projections" ) {
+
+    SECTION("projections/bounds/spherical", "should return 1") {
+        mapnik::box2d<double> bbox;
+        struct projectionconfig * prj = get_projection("+proj=merc +a=6378137 +b=6378137");
+        bbox = tile2prjbounds(prj, 0,0,0);
+        REQUIRE (bbox.minx() == -20037508.3428);
+        REQUIRE (bbox.miny() == -20037508.3428);
+        REQUIRE (bbox.maxx() ==  20037508.3428);
+        REQUIRE (bbox.maxy() ==  20037508.3428);
+        bbox = tile2prjbounds(prj, 0,0,10);
+        //313086.06785625 = 2*20037508.3428 / (2^10 / 8)
+        REQUIRE (bbox.minx() == -20037508.3428);
+        REQUIRE (round(bbox.miny()) == 19724422.0);
+        REQUIRE (round(bbox.maxx()) ==  -19724422.0);
+        REQUIRE (bbox.maxy() ==  20037508.3428);
+        bbox = tile2prjbounds(prj, ((1<<10) - METATILE),((1<<10) - METATILE),10);
+        REQUIRE (round(bbox.minx()) == 19724422.0);
+        REQUIRE (bbox.miny() == -20037508.3428);
+        REQUIRE (bbox.maxx() ==  20037508.3428);
+        REQUIRE (round(bbox.maxy()) == -19724422.0);
+
+        prj = get_projection("+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs");
+        bbox = tile2prjbounds(prj, 0,0,0);
+        REQUIRE (bbox.minx() == -20037508.3428);
+        REQUIRE (bbox.miny() == -10018754.1714);
+        REQUIRE (bbox.maxx() ==  20037508.3428);
+        REQUIRE (bbox.maxy() ==  10018754.1714);
+        bbox = tile2prjbounds(prj, 0,0,10);
+        //156543.033928125 = 2*20037508.3428 / (2^10 / 8 * 2) 
+        REQUIRE (bbox.minx() == -20037508.3428);
+        REQUIRE (round(bbox.miny()) == 9862211.0 );
+        REQUIRE (round(bbox.maxx()) == -19880965.0);
+        REQUIRE (bbox.maxy() ==  10018754.1714);
+        bbox = tile2prjbounds(prj, (2*(1<<10) - METATILE),((1<<10) - METATILE),10);
+        REQUIRE (round(bbox.minx()) == 19880965.0);
+        REQUIRE (bbox.miny() == -10018754.1714);
+        REQUIRE (bbox.maxx() ==  20037508.3428);
+        REQUIRE (round(bbox.maxy()) == -9862211.0);
+
+        prj = get_projection("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs");
+        bbox = tile2prjbounds(prj, 0,0,0);
+        REQUIRE (bbox.minx() == 0.0);
+        REQUIRE (bbox.miny() == 0.0);
+        REQUIRE (bbox.maxx() ==   700000.0);
+        REQUIRE (bbox.maxy() ==  1400000.0);
+        bbox = tile2prjbounds(prj, 0,0,10);
+        //5468.75 = 700000 / (2^10 / 8) 
+        REQUIRE (bbox.minx() == 0);
+        REQUIRE (round(bbox.miny()) == 1394531.0 );
+        REQUIRE (round(bbox.maxx()) == 5469.0);
+        REQUIRE (bbox.maxy() ==  1400000.0);
+        bbox = tile2prjbounds(prj, ((1<<10) - METATILE),(2*(1<<10) - METATILE),10);
+        REQUIRE (round(bbox.minx()) == 694531.0);
+        REQUIRE (bbox.miny() == 0.0);
+        REQUIRE (bbox.maxx() ==  700000.0);
+        REQUIRE (round(bbox.maxy()) == 5469.0);
+    }
 }
 
 int main (int argc, char* const argv[])

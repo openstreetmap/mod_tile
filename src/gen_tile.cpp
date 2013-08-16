@@ -88,7 +88,7 @@ struct xmlmapconfig {
 };
 
 
-static struct projectionconfig * get_projection(const char * srs) {
+struct projectionconfig * get_projection(const char * srs) {
     struct projectionconfig * prj;
 
     if (strstr(srs,"+proj=merc +a=6378137 +b=6378137") != NULL) {
@@ -109,6 +109,15 @@ static struct projectionconfig * get_projection(const char * srs) {
         prj->bound_y1 =  10018754.1714;
         prj->aspect_x = 2;
         prj->aspect_y = 1;
+    } else if (strcmp(srs, "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs") == 0) {
+        syslog(LOG_DEBUG, "Using bng projection settings");
+        prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+        prj->bound_x0 = 0;
+        prj->bound_y0 = 0;
+        prj->bound_x1 = 700000;
+        prj->bound_y1 = 1400000;
+        prj->aspect_x = 1;
+        prj->aspect_y = 2;
     } else {
         syslog(LOG_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
         prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
@@ -199,19 +208,29 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
 }
 
 #ifdef METATILE
+mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z) {
+
+    int render_size_tx = MIN(METATILE, prj->aspect_x * (1 << z));
+    int render_size_ty = MIN(METATILE, prj->aspect_y * (1 << z));
+
+    double p0x = prj->bound_x0 + (prj->bound_x1 - prj->bound_x0)* ((double)x / (double)(prj->aspect_x * 1<<z));
+    double p0y = (prj->bound_y1 - (prj->bound_y1 - prj->bound_y0)* (((double)y + render_size_ty) / (double)(prj->aspect_y * 1<<z)));
+    double p1x = prj->bound_x0 + (prj->bound_x1 - prj->bound_x0)* (((double)x + render_size_tx) / (double)(prj->aspect_x * 1<<z));
+    double p1y = (prj->bound_y1 - (prj->bound_y1 - prj->bound_y0)* ((double)y / (double)(prj->aspect_y * 1<<z)));
+
+    syslog(LOG_DEBUG, "Rendering projected coordinates %i %i %i -> %f|%f %f|%f to a %i x %i tile\n", z, x, y, p0x, p0y, p1x, p1y, render_size_tx, render_size_ty);
+
+    mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
+    return  bbox;
+}
+
 static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, metaTile &tiles)
 {
     int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
     int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
-    double p0x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* ((double)x / (double)(map->prj->aspect_x * 1<<z));
-    double p0y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* (((double)y + render_size_ty) / (double)(map->prj->aspect_y * 1<<z)));
-    double p1x = map->prj->bound_x0 + (map->prj->bound_x1 - map->prj->bound_x0)* (((double)x + render_size_tx) / (double)(map->prj->aspect_x * 1<<z));
-    double p1y = -1*(map->prj->bound_y0 + (map->prj->bound_y1 - map->prj->bound_y0)* ((double)y / (double)(map->prj->aspect_y * 1<<z)));
-
-    mapnik::box2d<double> bbox(p0x, p0y, p1x,p1y);
     map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
-    map->map.zoom_to_box(bbox);
+    map->map.zoom_to_box(tile2prjbounds(map->prj, x, y, z));
     if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
         map->map.set_buffer_size(128);
     }
