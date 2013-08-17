@@ -414,22 +414,26 @@ void *render_thread(void * arg)
                             if (ret == cmdDone) {
                                 try {
                                     tiles.save(maps[i].store);
+#ifdef HTCP_EXPIRE_CACHE
+                                    tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
+#endif
+
+                                } catch (std::exception const& ex) {
+                                    syslog(LOG_ERR, "Received exception when writing metatile to disk: %s", ex.what());
+                                    ret = cmdNotDone;
                                 } catch (...) {
                                     // Treat any error as fatal and request end of processing
-                                    syslog(LOG_ERR, "Received error when writing metatile to disk, requesting exit.");
+                                    syslog(LOG_ERR, "Failed writing metatile to disk with unknown error, requesting exit.");
                                     ret = cmdNotDone;
                                     request_exit();
                                 }
-#ifdef HTCP_EXPIRE_CACHE
-                                tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
-#endif
                             }
-#else
+#else //METATILE
                         ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
 #ifdef HTCP_EXPIRE_CACHE
                         cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
 #endif
-#endif
+#endif //METATILE
                         } else {
                             syslog(LOG_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
                                     req->xmlname, req->z, req->x, req->y);

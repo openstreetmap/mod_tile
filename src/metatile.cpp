@@ -64,7 +64,7 @@ void metaTile::save(struct storage_backend * store) {
     struct meta_layout m;
     struct entry offsets[METATILE * METATILE];
     char * metatilebuffer;
-    char tmp[PATH_MAX];
+    char *tmp;
 
     memset(&m, 0, sizeof(m));
     memset(&offsets, 0, sizeof(offsets));
@@ -92,6 +92,10 @@ void metaTile::save(struct storage_backend * store) {
     }
     
     metatilebuffer = (char *) malloc(offset);
+    if (metatilebuffer == 0) {
+        syslog(LOG_WARNING, "Failed to write metatile. Out of memory");
+        return;
+    }
     memset(metatilebuffer, 0, offset);
     memcpy(metatilebuffer,&m,sizeof(m));
     memcpy(metatilebuffer + sizeof(m), &offsets, sizeof(offsets));
@@ -104,7 +108,9 @@ void metaTile::save(struct storage_backend * store) {
     }
     
     if (store->metatile_write(store, xmlconfig_.c_str(),x_,y_,z_,metatilebuffer, offset) != offset) {
+        tmp = (char *)malloc(sizeof(char) * PATH_MAX);
         syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(),x_,y_,z_, tmp));
+        free(tmp);
     }
     
     free(metatilebuffer);
