@@ -48,7 +48,7 @@ if [ "$1" = "config" ]; then
 	echo 'zoomtime6.label zoom z19 - z20'
 	echo 'zoomtime6.type DERIVE'
 	echo 'zoomtime6.min 0'
-	echo 'zoomtime6.cdef zoomtime5,1000,/'
+	echo 'zoomtime6.cdef zoomtime6,1000,/'
 	echo 'zoomtime6.draw STACK'
 	echo 'zoomtime6.info Time for Metatiles for z19 - z20'
 
