@@ -96,7 +96,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     }
     else if (req->ver != 2) {
         syslog(LOG_ERR, "Bad protocol version %d", req->ver);
-        return cmdIgnore;
+        return cmdNotDone;
     }
 
     syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
@@ -105,7 +105,7 @@ enum protoCmd rx_request(const struct protocol *req, int fd)
     if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdRenderLow) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk)) {
         syslog(LOG_WARNING, "WARNING: Ignoring unknown command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
                     cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
-        return cmdIgnore;
+        return cmdNotDone;
     }
 
     item = (struct item *)malloc(sizeof(*item));
@@ -213,7 +213,7 @@ void process_loop(int listen_fd)
                     if (ret == sizeof(cmd)) {
                         enum protoCmd rsp = rx_request(&cmd, fd);
 
-                        if ((cmd.cmd == cmdRender) && (rsp == cmdNotDone)) {
+                        if (rsp == cmdNotDone) {
                             cmd.cmd = rsp;
                             syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
                             ret = send(fd, &cmd, sizeof(cmd), 0);
