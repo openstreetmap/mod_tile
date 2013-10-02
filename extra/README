@@ -1,5 +1,11 @@
-meta2tile.c is a small utility to convert meta tiles into normal tiles.
-It is similar to convert_meta.c, but convert_meta.c creates individual 
-tiles in a "hashed" directory structure whereas meta2tile.c creates them
-in a simple z/x/y directory structure.
+meta2tile is a small utility to convert meta tiles into normal tiles
+or MBTiles.
 
+When converting to normal tiles, it is similar to convert_meta.c, but 
+convert_meta.c creates individual tiles in a "hashed" directory structure 
+whereas meta2tile creates them in a simple z/x/y directory structure.
+
+When converting to MBTiles, meta2tile essentially does what you would get
+when you first created normal tiles and then packed them using mbutil. 
+If you need MBTiles, then the direct way from metatiles to MBTiles will
+save a lot of time over going via individual tiles.
