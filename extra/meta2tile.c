@@ -25,6 +25,10 @@
 #include "store_file.h"
 #include "metatile.h"
 
+#ifdef WITH_SHAPE
+#include "ogr_api.h"
+#include "geos_c.h"
+#endif
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define META_MAGIC "META"
@@ -37,9 +41,22 @@ static struct timeval start, end;
 const char *source;
 const char *target;
 
+#ifdef WITH_SHAPE
+// linked list of targets 
+struct target
+{
+    const char *pathname;
+    const GEOSPreparedGeometry *prepgeom;
+    struct target *next;
+} *target_list = NULL;
+GEOSSTRtree *target_tree;
+#endif
+
 #ifdef WITH_MBTILES
 sqlite3 *sqlite_db;
 sqlite3_stmt *sqlite_tile_insert;
+
+// linked list of mbtiles metadata items
 struct metadata 
 {
     char *key;
@@ -526,12 +543,78 @@ int handle_meta(char *arg)
     return 1;
 }
 
+#ifdef WITH_SHAPE
+int load_shape(const char *file)
+{
+    OGRDataSourceH hDS;
+    hDS = OGROpen(file, FALSE, NULL);
+    if (hDS == NULL)
+    {
+        fprintf(stderr, "cannot open shape file %s for reading.\n", file);
+        return 0;
+    }
+    OGRLayerH hLayer;
+    hLayer = OGR_DS_GetLayer(hDS, 0);
+    OGRFeatureH hFeature;
+
+    OGRFeatureDefnH hFDefn = OGR_L_GetLayerDefn(hLayer);
+    int target_index = OGR_FD_GetFieldIndex(hFDefn, "target");
+    if (target_index == -1)
+    {
+        fprintf(stderr, "shape file has no column named 'target'.\n", file);
+        return 0;
+    }
+    OGRFieldDefnH hFieldDefn = OGR_FD_GetFieldDefn(hFDefn, target_index);
+    if (OGR_Fld_GetType(hFieldDefn) != OFTString)
+    {
+        fprintf(stderr, "'target' column in shape is not a string column.\n", file);
+        return 0;
+    }
+    OGR_L_ResetReading(hLayer);
+    while ((hFeature = OGR_L_GetNextFeature(hLayer)) != NULL)
+    {
+        OGRGeometryH hGeometry;
+        hGeometry = OGR_F_GetGeometryRef(hFeature);
+        const char *path = OGR_F_GetFieldAsString(hFeature, target_index);
+        if (hGeometry != NULL && wkbFlatten(OGR_G_GetGeometryType(hGeometry)) == wkbPolygon)
+        {
+            // make a GEOS geometry from this by way of WKB
+            size_t wkbsz = OGR_G_WkbSize(hGeometry);
+            unsigned char *buf = (unsigned char *) malloc(wkbsz);
+            OGR_G_ExportToWkb(hGeometry, wkbXDR, buf);
+            GEOSGeometry *gg = GEOSGeomFromWKB_buf(buf, wkbsz);
+            free(buf);
+            const GEOSPreparedGeometry *gpg = GEOSPrepare(gg);
+            struct target *tgt = (struct target *) malloc(sizeof(struct target));
+            tgt->pathname = strdup(path);
+            tgt->prepgeom = gpg;
+            tgt->next = target_list;
+            target_list = tgt;
+            GEOSSTRtree_insert(target_tree, gg, tgt);
+        }
+        else
+        {
+            fprintf(stderr, "target '%s' in shape file has non-polygon geometry, ignored.\n", path);
+        }
+        OGR_F_Destroy (hFeature);
+    }
+    OGR_DS_Destroy( hDS );
+}
+#endif
+
 int main(int argc, char **argv)
 {
     int c;
     int list = 0;
     for (int i=0; i<=MAXZOOM; i++) zoom[i]=0;
     int zoomset = 0;
+    int shape = 0;
+
+#ifdef WITH_SHAPE
+    OGRRegisterAll();
+    initGEOS(NULL, NULL);
+    target_tree = GEOSSTRtree_create(10);
+#endif
 
     while (1) 
     {
@@ -553,10 +636,10 @@ int main(int argc, char **argv)
         };
 
         c = getopt_long(argc, argv, "vhlb:m:z:"
-#ifdef MBTILES
+#ifdef WITH_MBTILES
         "ta:"
 #endif
-#ifdef SHAPE
+#ifdef WITH_SHAPE
         "s"
 #endif
         , long_options, &option_index);
@@ -571,9 +654,11 @@ int main(int argc, char **argv)
             case 'l':
                 list=1;
                 break;
+#ifdef WITH_MBTILES
             case 't':
                 mbtiles=1;
                 break;
+#endif
             case 'h':
                 usage();
                 return -1;
@@ -616,7 +701,11 @@ int main(int argc, char **argv)
                     return -1;
                 }
                 break;
-
+#if defined WITH_SHAPE
+            case 's': 
+                shape = 1;
+                break;
+#endif
             default:
                 break;
         }
@@ -633,21 +722,18 @@ int main(int argc, char **argv)
     source=argv[optind++];
     target=argv[optind++];
 
-#ifndef WITH_MBTILES
-    if (mbtiles)
-    {
-        fprintf(stderr, "MBTiles support is not compiled in.\n");
-        exit(1);
-    }
-#endif
-
     fprintf(stderr, "Converting tiles from directory %s to %s %s\n", 
         source, 
-        mbtiles ? "mbtiles file" : "directoy", 
+        mbtiles ? (shape ? "mbtiles files defined in shape file" : "mbtiles file") 
+                : (shape ? "directories defined in shape file" : "directoy"), 
         target);
 
     gettimeofday(&start, NULL);
 
+#ifdef WITH_SHAPE
+    if (shape) load_shape(target);
+#endif
+    
 #ifdef WITH_MBTILES
     if (mbtiles) setup_mbtiles();
 #endif
