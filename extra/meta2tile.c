@@ -14,11 +14,13 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <ctype.h>
 #include <math.h>
 #include <getopt.h>
 #include <string.h>
 
-#include "store.h"
+#include "store_file.h"
+#include "metatile.h"
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define META_MAGIC "META"
@@ -29,6 +31,15 @@ static struct timeval start, end;
 
 const char *source;
 const char *target;
+
+#define MODE_STAT 1
+#define MODE_GLOB 2
+#define MAXZOOM 20
+
+int mode = MODE_GLOB;
+
+int zoom[MAXZOOM+1];
+float bbox[4] = {-180.0, -90.0, 180.0, 90.0};
 
 int path_to_xyz(const char *path, int *px, int *py, int *pz)
 {
@@ -71,6 +82,27 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
     return 0;
 }
 
+int long2tilex(double lon, int z) 
+{ 
+    return (int)(floor((lon + 180.0) / 360.0 * pow(2.0, z))); 
+}
+ 
+int lat2tiley(double lat, int z)
+{ 
+    return (int)(floor((1.0 - log( tan(lat * M_PI/180.0) + 1.0 / cos(lat * M_PI/180.0)) / M_PI) / 2.0 * pow(2.0, z))); 
+}
+ 
+double tilex2long(int x, int z) 
+{
+    return x / pow(2.0, z) * 360.0 - 180;
+}
+ 
+double tiley2lat(int y, int z) 
+{
+    double n = M_PI - 2.0 * M_PI * y / pow(2.0, z);
+    return 180.0 / M_PI * atan(0.5 * (exp(n) - exp(-n)));
+}
+
 int expand_meta(const char *name)
 {
     int fd;
@@ -83,6 +115,17 @@ int expand_meta(const char *name)
 
     int limit = (1 << z);
     limit = MIN(limit, METATILE);
+
+    float fromlat = tiley2lat(y+8, z);
+    float tolat = tiley2lat(y, z);
+    float fromlon = tilex2long(x, z);
+    float tolon = tilex2long(x+8, z);
+
+    if (tolon < bbox[0] || fromlon > bbox[2] || tolat < bbox[1] || fromlat > bbox[3])
+    {
+        if (verbose) printf("z=%d x=%d y=%d is out of bbox\n", z, x, y);
+        return -8;
+    }
 
     fd = open(name, O_RDONLY);
     if (fd < 0) 
@@ -196,18 +239,21 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static void descend(const char *search)
+static void descend(const char *search, int zoomdone)
 {
     DIR *tiles = opendir(search);
     struct dirent *entry;
     char path[PATH_MAX];
+    int this_is_zoom = -1;
 
-    if (!tiles) {
+    if (!tiles) 
+    {
         //fprintf(stderr, "Unable to open directory: %s\n", search);
         return;
     }
 
-    while ((entry = readdir(tiles))) {
+    while ((entry = readdir(tiles))) 
+    {
         struct stat b;
         char *p;
 
@@ -215,11 +261,30 @@ static void descend(const char *search)
 
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
+
+        if (this_is_zoom == -1)
+        {
+            if (!zoomdone && isdigit(*(entry->d_name)) && atoi(entry->d_name) >= 0 && atoi(entry->d_name) <= MAXZOOM)
+            {
+                this_is_zoom = 1;
+            }
+            else
+            {
+                this_is_zoom = 0;
+            }
+        }
+
+        if (this_is_zoom)
+        {
+            int z = atoi(entry->d_name);
+            if (z<0 || z>MAXZOOM || !zoom[z]) continue;
+        }
+
         snprintf(path, sizeof(path), "%s/%s", search, entry->d_name);
         if (stat(path, &b))
             continue;
         if (S_ISDIR(b.st_mode)) {
-            descend(path);
+            descend(path, zoomdone || this_is_zoom);
             continue;
         }
         p = strrchr(path, '.');
@@ -228,27 +293,64 @@ static void descend(const char *search)
     closedir(tiles);
 }
 
+
 void usage()
 {
-    fprintf(stderr, "Usage: m2t sourcedir targetdir\n");
+    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] sourcedir targetdir\n");
     fprintf(stderr, "Convert .meta files found in source dir to .png in target dir,\n");
     fprintf(stderr, "using the standard \"hash\" type directory (5-level) for meta\n");
-    fprintf(stderr, "tiles and the x/y/z.png structure (3-level) for output.\n");
+    fprintf(stderr, "tiles and the z/x/y.png structure (3-level) for output.\n");
+}
+
+int handle_bbox(char *arg)
+{
+    char *token = strtok(arg, ",");
+    int bbi = 0;
+    while(token && bbi<4)
+    {
+        bbox[bbi++] = atof(token);
+        token = strtok(NULL, ",");
+    }
+    return (bbi==4 && token==NULL);
+}
+
+int handle_zoom(char *arg)
+{
+    char *token = strtok(arg, ",");
+    while(token)
+    {
+        int fromz = atoi(token);
+        int toz = atoi(token);
+        char *minus = strchr(token, '-');
+        if (minus)
+        {
+            toz = atoi(minus+1);
+        }
+        if (fromz<0 || toz<0 || fromz>MAXZOOM || toz>MAXZOOM || toz<fromz || !isdigit(*token)) return 0;
+        for (int i=fromz; i<=toz; i++) zoom[i]=1;
+        token = strtok(NULL, ",");
+    }
+    return 1;
 }
 
 int main(int argc, char **argv)
 {
     int c;
+    for (int i=0; i<=MAXZOOM; i++) zoom[i]=0;
+    int zoomset = 0;
     while (1) {
         int option_index = 0;
         static struct option long_options[] = 
         {
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
+            {"bbox", 1, 0, 'b'},
+            {"mode", 1, 0, 'm'},
+            {"zoom", 1, 0, 'z'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "vh", long_options, &option_index);
+        c = getopt_long(argc, argv, "vhb:m:z:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -260,11 +362,45 @@ int main(int argc, char **argv)
             case 'h':
                 usage();
                 return -1;
+            case 'b':
+                if (!handle_bbox(optarg))
+                {
+                    fprintf(stderr, "invalid bbox argument - must be of the form east,south,west,north\n");
+                    return -1;
+                }
+                break;
+            case 'z':
+                zoomset = 1;
+                if (!handle_zoom(optarg))
+                {
+                    fprintf(stderr, "invalid zoom argument - must be of the form zoom or z0,z1,z2... or z0-z1\n");
+                    return -1;
+                }
+                break;
+            case 'm': 
+                if (!strcmp(optarg, "glob"))
+                {
+                    mode = MODE_GLOB;
+                }
+                else if (!strcmp(optarg, "stat"))
+                {
+                    mode = MODE_STAT;
+                    fprintf(stderr, "mode=stat not yet implemented\n");
+                    return -1;
+                }
+                else
+                {
+                    fprintf(stderr, "mode argument must be either 'glob' or 'stat'\n");
+                    return -1;
+                }
+                break;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
                 break;
         }
     }
+
+    if (!zoomset) for (int i=0; i<=MAXZOOM; i++) zoom[i]=1;
 
     if (optind >= argc-1)
     {
@@ -279,7 +415,7 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    descend(source);
+    descend(source, 0);
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles converted\n");
