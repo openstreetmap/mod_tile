@@ -2,9 +2,18 @@
 // written by Frederik Ramm <frederik@remote.org>
 // License: GPL because this is based on other work in mod_tile
 
+// if you define WITH_SHAPE, you need GEOS and OGR libraries.
+// WITH_SHAPE lets you sort tiles into various target directories
+// or target mbtiles files depending on their geometry.
+
+// if you define WITH_MBTILES, you need sqlite.
+// WITH_MBTILES lets you generate mbtiles files instead of simple
+// tile directories.
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
+#include <assert.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -35,27 +44,38 @@
 
 static int verbose = 0;
 static int mbtiles = 0;
+static int shape = 0;
 static int num_render = 0;
 static struct timeval start, end;
 
 const char *source;
 const char *target;
 
-#ifdef WITH_SHAPE
-// linked list of targets 
+// linked list of targets. targets are directories
+// or mbtiles files, and in WITH_SHAPE mode may be 
+// associated with a polygon area.
 struct target
 {
     const char *pathname;
+#ifdef WITH_SHAPE
     const GEOSPreparedGeometry *prepgeom;
+#endif
     struct target *next;
+#ifdef WITH_MBTILES
+    sqlite3 *sqlite_db;
+    sqlite3_stmt *sqlite_tile_insert;
+#endif
 } *target_list = NULL;
+
+struct target *matched_target;
+
+// in WITH_SHAPE mode, we select the right target geometry
+// with the help of an R-Tree.
+#ifdef WITH_SHAPE
 GEOSSTRtree *target_tree;
 #endif
 
 #ifdef WITH_MBTILES
-sqlite3 *sqlite_db;
-sqlite3_stmt *sqlite_tile_insert;
-
 // linked list of mbtiles metadata items
 struct metadata 
 {
@@ -116,84 +136,104 @@ int path_to_xyz(const char *path, int *px, int *py, int *pz)
 }
 
 #ifdef WITH_MBTILES
+// this creates the mbtiles file(s) and sets them up for inserting.
 void setup_mbtiles()
 {
+
+    struct target *t = target_list;
     char *errmsg;
-    if (sqlite3_open(target, &sqlite_db) != SQLITE_OK)
-    {
-        fprintf(stderr, "Cannot open '%s': %s\n", target, sqlite3_errmsg(sqlite_db));
-        exit(1);
-    }
 
-    if (sqlite3_exec(sqlite_db, "create table tiles ("
-        "zoom_level integer, tile_column integer, tile_row integer, "
-        "tile_data blob)", NULL, NULL, &errmsg) != SQLITE_OK)
+    while(t)
     {
-        fprintf(stderr, "Cannot create tile table: %s\n", errmsg);
-        exit(1);
-    }
-
-    if (sqlite3_prepare_v2(sqlite_db, 
-        "insert into tiles (zoom_level, tile_row, tile_column, tile_data) "
-        "values (?, ?, ?, ?)", -1, &sqlite_tile_insert, NULL) != SQLITE_OK)
-    {
-        fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(sqlite_db));
-        exit(1);
-    }
-
-    if (sqlite3_exec(sqlite_db, "create table metadata ("
-        "name text, value text)", NULL, NULL, &errmsg) != SQLITE_OK)
-    {
-        fprintf(stderr, "Cannot create metadata table: %s\n", errmsg);
-        exit(1);
-    }
-
-    sqlite3_stmt *sqlite_meta_insert;
-    if (sqlite3_prepare_v2(sqlite_db, 
-        "insert into metadata (name, value) values (?, ?)",
-            -1, &sqlite_meta_insert, NULL) != SQLITE_OK)
-    {
-        fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(sqlite_db));
-        exit(1);
-    }
-
-    sqlite3_exec(sqlite_db, "begin transaction", NULL, NULL, &errmsg);
-    sqlite3_exec(sqlite_db, "pragma synchronous=off", NULL, NULL, &errmsg);
-    sqlite3_exec(sqlite_db, "pragma journal_mode=memory", NULL, NULL, &errmsg);
-
-    struct metadata *md = metadata;
-    while (md)
-    {
-        sqlite3_reset(sqlite_meta_insert);
-        sqlite3_bind_text(sqlite_meta_insert, 1, md->key, -1, NULL);
-        sqlite3_bind_text(sqlite_meta_insert, 2, md->value, -1, NULL);
-        if (sqlite3_step(sqlite_meta_insert) != SQLITE_DONE)
+        if (sqlite3_open(t->pathname, &(t->sqlite_db)) != SQLITE_OK)
         {
-            fprintf(stderr, "Cannot insert metadata %s=%s: %s\n", md->key, md->value, sqlite3_errmsg(sqlite_db));
+            fprintf(stderr, "Cannot open '%s': %s\n", t->pathname, sqlite3_errmsg(t->sqlite_db));
             exit(1);
         }
-        md = md->next;
-    }
+        if (verbose) fprintf(stderr, "opened '%s' for mbtiles output\n", t->pathname);
 
-    if (sqlite3_exec(sqlite_db, "create unique index name on metadata(name)", NULL, NULL, &errmsg))
-    {
-        fprintf(stderr, "Cannot create metadata index: %s\n", errmsg);
-        exit(1);
+        if (sqlite3_exec(t->sqlite_db, "create table tiles ("
+            "zoom_level integer, tile_column integer, tile_row integer, "
+            "tile_data blob)", NULL, NULL, &errmsg) != SQLITE_OK)
+        {
+            fprintf(stderr, "Cannot create tile table: %s\n", errmsg);
+            exit(1);
+        }
+
+        if (sqlite3_prepare_v2(t->sqlite_db, 
+            "insert into tiles (zoom_level, tile_row, tile_column, tile_data) "
+            "values (?, ?, ?, ?)", -1, &(t->sqlite_tile_insert), NULL) != SQLITE_OK)
+        {
+            fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
+            exit(1);
+        }
+
+        if (sqlite3_exec(t->sqlite_db, "create table metadata ("
+            "name text, value text)", NULL, NULL, &errmsg) != SQLITE_OK)
+        {
+            fprintf(stderr, "Cannot create metadata table: %s\n", errmsg);
+            exit(1);
+        }
+
+        sqlite3_stmt *sqlite_meta_insert;
+        if (sqlite3_prepare_v2(t->sqlite_db, 
+            "insert into metadata (name, value) values (?, ?)",
+                -1, &sqlite_meta_insert, NULL) != SQLITE_OK)
+        {
+            fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
+            exit(1);
+        }
+
+        sqlite3_exec(t->sqlite_db, "begin transaction", NULL, NULL, &errmsg);
+        sqlite3_exec(t->sqlite_db, "pragma synchronous=off", NULL, NULL, &errmsg);
+        sqlite3_exec(t->sqlite_db, "pragma journal_mode=memory", NULL, NULL, &errmsg);
+
+        struct metadata *md = metadata;
+        while (md)
+        {
+            sqlite3_reset(sqlite_meta_insert);
+            sqlite3_bind_text(sqlite_meta_insert, 1, md->key, -1, NULL);
+            sqlite3_bind_text(sqlite_meta_insert, 2, md->value, -1, NULL);
+            if (sqlite3_step(sqlite_meta_insert) != SQLITE_DONE)
+            {
+                fprintf(stderr, "Cannot insert metadata %s=%s: %s\n", md->key, md->value, sqlite3_errmsg(t->sqlite_db));
+                exit(1);
+            }
+            md = md->next;
+        }
+
+        if (sqlite3_exec(t->sqlite_db, "create unique index name on metadata(name)", NULL, NULL, &errmsg))
+        {
+            fprintf(stderr, "Cannot create metadata index: %s\n", errmsg);
+            exit(1);
+        }
+
+        // process next target
+        t = t->next;
     }
 }
 
+// closes mbtiles files.
 void shutdown_mbtiles()
 {
     char *errmsg;
-    if (sqlite3_exec(sqlite_db, "end transaction", NULL, NULL, &errmsg) != SQLITE_OK)
+    struct target *t = target_list;
+
+    while(t)
     {
-        fprintf(stderr, "Cannot end transaction: %s\n", errmsg);
-        exit(1);
-    }
-    if (sqlite3_exec(sqlite_db, "create unique index tile_index on tiles(zoom_level,tile_column,tile_row)", NULL, NULL, &errmsg)) 
-    {
-        fprintf(stderr, "Cannot create tile index: %s\n", errmsg);
-        exit(1);
+        if (sqlite3_exec(t->sqlite_db, "end transaction", NULL, NULL, &errmsg) != SQLITE_OK)
+        {
+            fprintf(stderr, "Cannot end transaction: %s\n", errmsg);
+            exit(1);
+        }
+        if (sqlite3_exec(t->sqlite_db, "create unique index tile_index on tiles(zoom_level,tile_column,tile_row)", NULL, NULL, &errmsg)) 
+        {
+            fprintf(stderr, "Cannot create tile index: %s\n", errmsg);
+            exit(1);
+        }
+        if (verbose) fprintf(stderr, "finalised '%s'\n", t->pathname);
+        // process next target
+        t = t->next;
     }
 }
 #endif
@@ -219,6 +259,22 @@ double tiley2lat(int y, int z)
     return 180.0 / M_PI * atan(0.5 * (exp(n) - exp(-n)));
 }
 
+#ifdef WITH_SHAPE
+// callback function for tree search. We don't currently support multiple
+// matches - last one wins.
+void tree_query_callback(void *item, void *userdata)
+{
+    // this is called on a bbox match but is it a *real* match?
+    struct target *t = (struct target *) item;
+    GEOSGeometry *g = (GEOSGeometry *) userdata;
+    if (GEOSPreparedIntersects(t->prepgeom, g))
+    {
+        matched_target = (struct target *) item;
+    }
+}
+#endif
+
+// main workhorse - opens meta tile and does something with it.
 int expand_meta(const char *name)
 {
     int fd;
@@ -226,6 +282,8 @@ int expand_meta(const char *name)
     int x, y, z;
     size_t pos;
     void *buf;
+
+    if (verbose>1) fprintf(stderr, "expand_meta %s\n", name);
 
     if (path_to_xyz(name, &x, &y, &z)) return -1;
 
@@ -239,7 +297,7 @@ int expand_meta(const char *name)
 
     if (tolon < bbox[0] || fromlon > bbox[2] || tolat < bbox[1] || fromlat > bbox[3])
     {
-        if (verbose) printf("z=%d x=%d y=%d is out of bbox\n", z, x, y);
+        if (verbose>1) printf("z=%d x=%d y=%d is out of bbox\n", z, x, y);
         return -8;
     }
 
@@ -288,6 +346,8 @@ int expand_meta(const char *name)
         }
     }
 
+    int create_dir = 0;
+
     for (int meta = 0; meta < METATILE*METATILE; meta++)
     {
         int tx = x + (meta / METATILE);
@@ -295,21 +355,72 @@ int expand_meta(const char *name)
         int ty = y + (meta % METATILE);
         if (ty >= 1<<z) continue;
         int output;
+        if (ty==y) create_dir = 1;
+
+        struct target *t;
+#ifdef WITH_SHAPE
+        if (shape)
+        {
+            matched_target = NULL;
+
+            double x0 = tilex2long(tx,z);
+            double x1 = tilex2long(tx+1,z);
+            double y0 = tiley2lat(ty,z);
+            double y1 = tiley2lat(ty+1,z);
+
+            // build a geometry object for the tile
+            GEOSCoordSequence *seq = GEOSCoordSeq_create(5, 2);
+            GEOSCoordSeq_setX(seq, 0, x0);
+            GEOSCoordSeq_setX(seq, 1, x0);
+            GEOSCoordSeq_setX(seq, 2, x1);
+            GEOSCoordSeq_setX(seq, 3, x1);
+            GEOSCoordSeq_setX(seq, 4, x0);
+            GEOSCoordSeq_setY(seq, 0, y0);
+            GEOSCoordSeq_setY(seq, 1, y1);
+            GEOSCoordSeq_setY(seq, 2, y1);
+            GEOSCoordSeq_setY(seq, 3, y0);
+            GEOSCoordSeq_setY(seq, 4, y0);
+            GEOSGeometry *ring = GEOSGeom_createLinearRing(seq);
+            if (!ring) continue; // really shouldn't happen
+            GEOSGeometry *poly = GEOSGeom_createPolygon(ring, NULL, 0);
+            if (!poly) continue; // really shouldn't happen
+            assert(poly);
+
+            GEOSSTRtree_query(target_tree, poly, tree_query_callback, (void *) poly);
+            GEOSGeom_destroy(poly);
+            if (!matched_target) 
+            {
+                if (verbose > 1) fprintf(stderr, "no matching polygon for tile %d/%d/%d\n", z, tx, ty);
+                continue;
+            }
+            t = matched_target;
+        }
+        else
+        {
+#endif
+        // if not in SHAPE mode, simply use the one existing target
+        t = target_list;
+#ifdef WITH_SHAPE
+        }
+#endif
 
         if (!mbtiles)
         {
-            if (ty==y)
+            // this is a small optimisation intended to reduce the amount of 
+            // mkdir calls
+            if (create_dir)
             {
-                sprintf(path, "%s/%d/%d", target, z, tx);
+                sprintf(path, "%s/%d/%d", t->pathname, z, tx);
                 if (mkdir(path, 0755) && (errno != EEXIST))
                 {
                     fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
                     close(fd);            
                     return -1;
                 }
+                create_dir = 0;
             }
 
-            sprintf(path, "%s/%d/%d/%d.png", target, z, tx, ty);
+            sprintf(path, "%s/%d/%d/%d.png", t->pathname, z, tx, ty);
             output = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
             if (output == -1)
             {
@@ -317,26 +428,7 @@ int expand_meta(const char *name)
                 close(fd);            
                 return -1;
             }
-        }
 
-#ifdef WITH_MBTILES
-        if (mbtiles)
-        {
-            sqlite3_reset(sqlite_tile_insert);
-            if (meta==0) sqlite3_bind_int(sqlite_tile_insert, 1, z);
-            if (meta%METATILE==0) sqlite3_bind_int(sqlite_tile_insert, 3, tx);
-            sqlite3_bind_int(sqlite_tile_insert, 2, ty);
-            sqlite3_bind_blob(sqlite_tile_insert, 4, buf + m->index[meta].offset, m->index[meta].size, SQLITE_STATIC);
-            if (sqlite3_step(sqlite_tile_insert) != SQLITE_DONE)
-            {
-                fprintf(stderr, "Failed to insert tile z=%d x=%d y=%d: %s\n", z, tx, ty, sqlite3_errmsg(sqlite_db));
-                close(fd);
-                return -7;
-            }
-        }
-        else
-#endif
-        {
             pos = 0;
             while (pos < m->index[meta].size) 
             {
@@ -360,6 +452,23 @@ int expand_meta(const char *name)
             close(output);
             if (verbose) printf("Produced tile: %s\n", path);
         }
+        else
+        {
+#ifdef WITH_MBTILES
+            sqlite3_reset(t->sqlite_tile_insert);
+            sqlite3_bind_int(t->sqlite_tile_insert, 1, z);
+            sqlite3_bind_int(t->sqlite_tile_insert, 3, tx);
+            sqlite3_bind_int(t->sqlite_tile_insert, 2, ty);
+            sqlite3_bind_blob(t->sqlite_tile_insert, 4, buf + m->index[meta].offset, m->index[meta].size, SQLITE_STATIC);
+            if (sqlite3_step(t->sqlite_tile_insert) != SQLITE_DONE)
+            {
+                fprintf(stderr, "Failed to insert tile z=%d x=%d y=%d: %s\n", z, tx, ty, sqlite3_errmsg(t->sqlite_db));
+                close(fd);
+                return -7;
+            }
+            if (verbose) printf("Inserted tile %d/%d/%d into %s\n", z, tx, ty, t->pathname);
+#endif
+        }
     }
 
     munmap(buf, st.st_size);
@@ -382,6 +491,10 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
+// recurive directory processing. 
+// zoomdone signals whether we might still have to 
+// exclude certain directories based on zoom selection,
+// or whether we're already past that.
 static void descend(const char *search, int zoomdone)
 {
     DIR *tiles = opendir(search);
@@ -389,9 +502,11 @@ static void descend(const char *search, int zoomdone)
     char path[PATH_MAX];
     int this_is_zoom = -1;
 
+    if (verbose>1) fprintf(stderr, "descend to %s\n", search);
+
     if (!tiles) 
     {
-        //fprintf(stderr, "Unable to open directory: %s\n", search);
+        fprintf(stderr, "Unable to open directory: %s\n", search);
         return;
     }
 
@@ -399,8 +514,6 @@ static void descend(const char *search, int zoomdone)
     {
         struct stat b;
         char *p;
-
-        //check_load();
 
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
@@ -420,18 +533,33 @@ static void descend(const char *search, int zoomdone)
         if (this_is_zoom)
         {
             int z = atoi(entry->d_name);
-            if (z<0 || z>MAXZOOM || !zoom[z]) continue;
+            if (z<0 || z>MAXZOOM || !zoom[z]) 
+            {
+                if (verbose > 1) fprintf(stderr, "zoom %d not requested\n", z);
+                continue;
+            }
         }
 
         snprintf(path, sizeof(path), "%s/%s", search, entry->d_name);
         if (stat(path, &b))
+        {
+            fprintf(stderr, "cannot stat %s\n", path);
             continue;
-        if (S_ISDIR(b.st_mode)) {
+        }
+        if (S_ISDIR(b.st_mode)) 
+        {
             descend(path, zoomdone || this_is_zoom);
             continue;
         }
         p = strrchr(path, '.');
-        if (p && !strcmp(p, ".meta")) expand_meta(path);
+        if (p && !strcmp(p, ".meta")) 
+        {
+            expand_meta(path);
+        }
+        else
+        {
+            fprintf(stderr, "unknown file type: %s\n", path);
+        }
     }
     closedir(tiles);
 }
@@ -465,7 +593,7 @@ void usage()
     fprintf(stderr, "--list     instead of converting all meta tiles in input directory,\n");
     fprintf(stderr, "           convert only those given (one per line) on stdin.\n");
 #ifdef WITH_MBTILES
-    fprintf(stderr, "--mbtiles  instead of writing single tiles to ouptut directory,\n");
+    fprintf(stderr, "--mbtiles  instead of writing single tiles to output directory,\n");
     fprintf(stderr, "           write a MBTiles file (\"target\" is a file name then.)\n");
     fprintf(stderr, "--meta k=v set k=v in the MBTiles metadata table (MBTiles spec\n");
     fprintf(stderr, "           mandates use of name, type, version, description, format).\n");
@@ -524,6 +652,7 @@ int handle_zoom(char *arg)
     return 1;
 }
 
+#ifdef WITH_MBTILES
 int handle_meta(char *arg)
 {
     char *eq = strchr(arg, '=');
@@ -542,6 +671,7 @@ int handle_meta(char *arg)
     m->value = eq;
     return 1;
 }
+#endif
 
 #ifdef WITH_SHAPE
 int load_shape(const char *file)
@@ -576,7 +706,9 @@ int load_shape(const char *file)
         OGRGeometryH hGeometry;
         hGeometry = OGR_F_GetGeometryRef(hFeature);
         const char *path = OGR_F_GetFieldAsString(hFeature, target_index);
-        if (hGeometry != NULL && wkbFlatten(OGR_G_GetGeometryType(hGeometry)) == wkbPolygon)
+        if (hGeometry != NULL && 
+            (wkbFlatten(OGR_G_GetGeometryType(hGeometry)) == wkbPolygon ||
+            wkbFlatten(OGR_G_GetGeometryType(hGeometry)) == wkbMultiPolygon))
         {
             // make a GEOS geometry from this by way of WKB
             size_t wkbsz = OGR_G_WkbSize(hGeometry);
@@ -608,7 +740,6 @@ int main(int argc, char **argv)
     int list = 0;
     for (int i=0; i<=MAXZOOM; i++) zoom[i]=0;
     int zoomset = 0;
-    int shape = 0;
 
 #ifdef WITH_SHAPE
     OGRRegisterAll();
@@ -631,7 +762,7 @@ int main(int argc, char **argv)
             {"bbox", 1, 0, 'b'},
             {"mode", 1, 0, 'm'},
             {"zoom", 1, 0, 'z'},
-            {"shape", 1, 0, 's'},
+            {"shape", 0, 0, 's'},
             {0, 0, 0, 0}
         };
 
@@ -649,7 +780,7 @@ int main(int argc, char **argv)
         switch (c) 
         {
             case 'v':
-                verbose=1;
+                verbose++;
                 break;
             case 'l':
                 list=1;
@@ -657,6 +788,13 @@ int main(int argc, char **argv)
 #ifdef WITH_MBTILES
             case 't':
                 mbtiles=1;
+                break;
+            case 'a':
+                if (!handle_meta(optarg))
+                {
+                    fprintf(stderr, "invalid meta argument '%s' - must be of the form key=value\n", optarg);
+                    return -1;
+                }
                 break;
 #endif
             case 'h':
@@ -666,13 +804,6 @@ int main(int argc, char **argv)
                 if (!handle_bbox(optarg))
                 {
                     fprintf(stderr, "invalid bbox argument - must be of the form east,south,west,north\n");
-                    return -1;
-                }
-                break;
-            case 'a':
-                if (!handle_meta(optarg))
-                {
-                    fprintf(stderr, "invalid meta argument '%s' - must be of the form key=value\n", optarg);
                     return -1;
                 }
                 break;
@@ -733,6 +864,15 @@ int main(int argc, char **argv)
 #ifdef WITH_SHAPE
     if (shape) load_shape(target);
 #endif
+
+    // if multi-destination not used, initialize destination list
+    // with single entry.
+    if (!shape)
+    {
+        target_list = (struct target *) malloc(sizeof(struct target));
+        target_list->next = NULL;
+        target_list->pathname = target;
+    }
     
 #ifdef WITH_MBTILES
     if (mbtiles) setup_mbtiles();

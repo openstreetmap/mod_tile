@@ -9,3 +9,11 @@ When converting to MBTiles, meta2tile essentially does what you would get
 when you first created normal tiles and then packed them using mbutil. 
 If you need MBTiles, then the direct way from metatiles to MBTiles will
 save a lot of time over going via individual tiles.
+
+meta2tile also has the capability of sorting your tiles by area, e.g. if
+you have a directory with a world-wide set of tiles but only want to
+extract Europe and Australia or so. For this, create a shape file that 
+contains the areas you want to run the export for, each with a column 
+named "target" that has the output file name or path for that area. 
+
+Written by Frederik Ramm <frederik@remote.org>. GPL 2.0 and above.
