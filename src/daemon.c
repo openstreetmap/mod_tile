@@ -818,6 +818,14 @@ int main(int argc, char **argv)
                 exit(7);
             }
 
+            sprintf(buffer, "%s:parameterize_style", name);
+            char *ini_parameterize = iniparser_getstring(ini, buffer, "");
+            if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
+                fprintf(stderr, "Parameterize_style too long: %s\n", ini_parameterize);
+                exit(7);
+            }
+            strcpy(maps[iconf].parameterization, ini_parameterize);
+
             /* Pass this information into the rendering threads,
              * as it is needed to configure mapniks number of connections
              */

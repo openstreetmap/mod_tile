@@ -56,8 +56,8 @@
 
 
 #define NO_QUEUE_REQUESTS 9
-#define NO_TEST_REPEATS 10
-#define NO_THREADS 10
+#define NO_TEST_REPEATS 100
+#define NO_THREADS 100
 
 extern struct projectionconfig * get_projection(const char * srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z);
