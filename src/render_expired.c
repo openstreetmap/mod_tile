@@ -342,7 +342,7 @@ int main(int argc, char **argv)
             //check_load();
 
             num_all++;
-            s = store->tile_stat(store, mapname, x, y, z);
+            s = store->tile_stat(store, mapname, "", x, y, z);
 
             if (s.size > 0) // Tile exists
             {
@@ -350,20 +350,20 @@ int main(int argc, char **argv)
                 if (deleteFrom != -1 && z >= deleteFrom)
                 {
                     if (verbose)
-                        printf("deleting: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                        printf("deleting: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     store->metatile_delete(store, mapname, x, y, z);
                     num_unlink++;
                 }
                 else if (touchFrom != -1 && z >= touchFrom)
                 {
                     if (verbose)
-                        printf("touch: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                        printf("touch: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     store->metatile_expire(store, mapname, x, y, z);
                     num_touch++;
                 }
                 else if (doRender)
                 {
-                    printf("render: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                    printf("render: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     enqueue(mapname, x, y, z);
                     num_render++;
                 }
@@ -385,7 +385,7 @@ int main(int argc, char **argv)
             else
             {
                 if (verbose)
-                    printf("not on disk: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                    printf("not on disk: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                 num_ignore++;
             }
         }

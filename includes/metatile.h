@@ -33,7 +33,7 @@ extern "C" {
 
 class metaTile {
  public:
-    metaTile(const std::string &xmlconfig, int x, int y, int z);
+    metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z);
     void clear();
     void set(int x, int y, const std::string &data);
     const std::string get(int x, int y);
@@ -43,6 +43,7 @@ class metaTile {
  private:
     int x_, y_, z_;
     std::string xmlconfig_;
+    std::string options_;
     std::string tile[METATILE][METATILE];
     static const int header_size = sizeof(struct meta_layout) + (sizeof(struct entry) * (METATILE * METATILE));
     

@@ -357,7 +357,7 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
     struct stat_info stat;
     struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
 
-    stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z);
+    stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z);
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %li, expired: %i created: %li",
                       cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
@@ -986,7 +986,7 @@ static int tile_handler_status(request_rec *r)
     state = tile_state(r, cmd);
     if (state == tileMissing)
         return error_message(r, "No tile could not be found at storage location: %s\n",
-                rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
+                             rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
     apr_ctime(mtime_str, r->finfo.mtime);
     apr_ctime(atime_str, r->finfo.atime);
 
@@ -994,7 +994,7 @@ static int tile_handler_status(request_rec *r)
                          "(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
                          " Access times might not be updated on all file systems)\n",
                          (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
-                         rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
+                         rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
 }
 
 /**
@@ -1201,9 +1201,9 @@ static int tile_handler_serve(request_rec *r)
 
     err_msg[0] = 0;
 
-    len = rdata->store->tile_read(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
+    len = rdata->store->tile_read(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                  "Read tile of length %i from %s: %s", len, rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, id), err_msg);
+                  "Read tile of length %i from %s: %s", len, rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, id), err_msg);
     if (len > 0) {
         if (compressed) {
             const char* accept_encoding = apr_table_get(r->headers_in,"Accept-Encoding");

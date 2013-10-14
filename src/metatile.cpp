@@ -33,8 +33,8 @@
 #include "request_queue.h"
 
 
-metaTile::metaTile(const std::string &xmlconfig, int x, int y, int z):
-    x_(x), y_(y), z_(z), xmlconfig_(xmlconfig) {
+metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z):
+    x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options) {
     clear();
 }
 
@@ -107,9 +107,9 @@ void metaTile::save(struct storage_backend * store) {
         }
     }
     
-    if (store->metatile_write(store, xmlconfig_.c_str(),x_,y_,z_,metatilebuffer, offset) != offset) {
+    if (store->metatile_write(store, xmlconfig_.c_str(), options_.c_str(), x_,y_,z_, metatilebuffer, offset) != offset) {
         tmp = (char *)malloc(sizeof(char) * PATH_MAX);
-        syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(),x_,y_,z_, tmp));
+        syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_,y_,z_, tmp));
         free(tmp);
     }
     

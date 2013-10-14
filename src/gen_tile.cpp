@@ -385,13 +385,13 @@ void *render_thread(void * arg)
                     if (maps[i].ok) {
                         if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
 
-                            metaTile tiles(req->xmlname, item->mx, item->my, req->z);
+                            metaTile tiles(req->xmlname, req->options, item->mx, item->my, req->z);
 
                             timeval tim;
                             gettimeofday(&tim, NULL);
                             long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
 
-                            struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, item->mx, item->my, req->z);
+                            struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
 
                             if(sinfo.size > 0)
                                 syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, age %.2f days",
