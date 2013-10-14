@@ -71,9 +71,25 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
-            ret = send(item->fd, req, sizeof(*req), 0);
-            if (ret != sizeof(*req))
-                perror("send error during send_done");
+            syslog(LOG_DEBUG, "DEBUG: Sending reply with protocol version %i\n", req->ver);
+            switch (req->ver) {
+            case 1:
+                ret = send(item->fd, req, sizeof(struct protocol_v1), 0);
+                if (ret != sizeof(struct protocol_v1))
+                    perror("send error during send_done");
+                break;
+            case 2:
+                ret = send(item->fd, req, sizeof(struct protocol_v2), 0);
+                if (ret != sizeof(struct protocol_v2))
+                    perror("send error during send_done");
+                break;
+            case 3:
+                ret = send(item->fd, req, sizeof(*req), 0);
+                if (ret != sizeof(*req))
+                    perror("send error during send_done");
+                break;
+            }
+            
         }
         prev = item;
         item = item->duplicates;
@@ -81,20 +97,20 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     }
 }
 
-enum protoCmd rx_request(const struct protocol *req, int fd)
+enum protoCmd rx_request(struct protocol *req, int fd)
 {
     struct protocol *reqnew;
     struct item  *item;
     enum protoCmd pend;
 
-    // Upgrade version 1 to version 2
+    // Upgrade version 1 and 2 to  version 3
     if (req->ver == 1) {
-        reqnew = (struct protocol *)malloc(sizeof(struct protocol));
-        memcpy(reqnew, req, sizeof(struct protocol_v1));
-        reqnew->xmlname[0] = 0;
-        req = reqnew;
-    }
-    else if (req->ver != 2) {
+        strcpy(req->xmlname, "default");
+    } 
+    if (req->ver < 3) {
+        strcpy(req->mimetype,"image/png"); 
+        strcpy(req->options,"");
+    } else if (req->ver != 3) {
         syslog(LOG_ERR, "Bad protocol version %d", req->ver);
         return cmdNotDone;
     }
@@ -206,21 +222,12 @@ void process_loop(int listen_fd)
                 int fd = connections[i];
                 if (FD_ISSET(fd, &rd)) {
                     struct protocol cmd;
-                    int ret;
+                    int ret = 0;
+                    memset(&cmd,0,sizeof(cmd));
 
                     // TODO: to get highest performance we should loop here until we get EAGAIN
-                    ret = recv(fd, &cmd, sizeof(cmd), MSG_DONTWAIT);
-                    if (ret == sizeof(cmd)) {
-                        enum protoCmd rsp = rx_request(&cmd, fd);
-
-                        if (rsp == cmdNotDone) {
-                            cmd.cmd = rsp;
-                            syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
-                            ret = send(fd, &cmd, sizeof(cmd), 0);
-                            if (ret != sizeof(cmd))
-                                perror("response send error");
-                        }
-                    } else if (!ret) {
+                    ret = recv(fd, &cmd, sizeof(struct protocol_v1), MSG_DONTWAIT);
+                    if (ret < 1) {
                         int j;
 
                         num_connections--;
@@ -230,8 +237,37 @@ void process_loop(int listen_fd)
                         request_queue_clear_requests_by_fd(render_request_queue, fd);
                         close(fd);
                     } else {
-                        syslog(LOG_ERR, "Recv Error on fd %d", fd);
-                        break;
+                        syslog(LOG_DEBUG, "DEBUG: Got incoming request with protocol version %i\n", cmd.ver);
+                        switch (cmd.ver) {
+                        case 2: ret += recv(fd, ((void*)&cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) + 1 - sizeof(struct protocol_v1), MSG_DONTWAIT);
+                            break;
+                        case 3: ret += recv(fd, ((void*)&cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), MSG_DONTWAIT);
+                            break;
+                        }
+                        if ((ret == sizeof(cmd)) || (ret == sizeof(struct protocol_v1)) || (ret == sizeof(struct protocol_v2))) {
+                            enum protoCmd rsp = rx_request(&cmd, fd);
+                            
+                            if (rsp == cmdNotDone) {
+                                cmd.cmd = rsp;
+                                syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
+                                ret = send(fd, &cmd, sizeof(cmd), 0);
+                                if (ret != sizeof(cmd))
+                                    perror("response send error");
+                            }
+                        } else if (!ret) {
+                            int j;
+                            
+                            num_connections--;
+                            syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
+                            for (j=i; j < num_connections; j++)
+                                connections[j] = connections[j+1];
+                            request_queue_clear_requests_by_fd(render_request_queue, fd);
+                            close(fd);
+                        } else {
+                            
+                            syslog(LOG_ERR, "Recv Error on fd %d (%s). Read %i bytes", fd, strerror(errno), ret);
+                            break;
+                        }
                     }
                 }
             }

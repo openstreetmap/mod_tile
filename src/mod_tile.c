@@ -203,7 +203,7 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
     }
 
     // cmd has already been partial filled, fill in the rest
-    cmd->ver = PROTO_VER;
+    cmd->ver = 2; //PROTO_VER;
     switch (renderImmediately) {
     case 0: { cmd->cmd = cmdDirty; break;}
     case 1: { cmd->cmd = cmdRenderLow; break;}
@@ -215,9 +215,9 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting style(%s) z(%d) x(%d) y(%d) from renderer with priority %d", cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->cmd);
     do {
-        ret = send(fd, cmd, sizeof(struct protocol), 0);
+        ret = send(fd, cmd, sizeof(struct protocol_v2), 0);
 
-        if (ret == sizeof(struct protocol))
+        if (ret == sizeof(struct protocol_v2))
             break;
         
         if (errno != EPIPE) {
@@ -245,8 +245,8 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
             s = select(fd+1, &rx, NULL, NULL, &tv);
             if (s == 1) {
                 bzero(&resp, sizeof(struct protocol));
-                ret = recv(fd, &resp, sizeof(struct protocol), 0);
-                if (ret != sizeof(struct protocol)) {
+                ret = recv(fd, &resp, sizeof(struct protocol_v2), 0);
+                if (ret != sizeof(struct protocol_v2)) {
                     ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket %s",
                                   strerror(errno));
                     break;

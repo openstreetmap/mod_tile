@@ -16,7 +16,7 @@ extern "C" {
  * causing responses to get slightly out of step with requests.
  */
 #define TILE_PATH_MAX (256)
-#define PROTO_VER (2)
+#define PROTO_VER (3)
 #define RENDER_SOCKET "/var/run/renderd/renderd.sock"
 #define XMLCONFIG_MAX 41
 
@@ -29,6 +29,8 @@ struct protocol {
     int y;
     int z;
     char xmlname[XMLCONFIG_MAX];
+    char mimetype[XMLCONFIG_MAX]; 
+    char options[XMLCONFIG_MAX]; 
 };
 
 struct protocol_v1 {
@@ -37,6 +39,15 @@ struct protocol_v1 {
     int x;
     int y;
     int z;
+}; 
+
+struct protocol_v2 { 
+    int ver; 
+    enum protoCmd cmd; 
+    int x; 
+    int y; 
+    int z; 
+    char xmlname[XMLCONFIG_MAX]; 
 };
 
 #ifdef __cplusplus
