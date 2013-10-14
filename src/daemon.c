@@ -115,8 +115,8 @@ enum protoCmd rx_request(struct protocol *req, int fd)
         return cmdNotDone;
     }
 
-    syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
-            cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
+    syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d), mime(%s), options(%s)",
+           cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y, req->mimetype, req->options);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdRenderLow) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk)) {
         syslog(LOG_WARNING, "WARNING: Ignoring unknown command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
