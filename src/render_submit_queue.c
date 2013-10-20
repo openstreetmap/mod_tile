@@ -11,6 +11,7 @@
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 #include "protocol.h"
+#include "protocol_helper.h"
 #include "render_config.h"
 
 #define QMAX 32
@@ -70,19 +71,14 @@ static int process(struct protocol * cmd, int fd)
     t1 = tim.tv_sec*1000+(tim.tv_usec/1000);
 
     //printf("Sending request\n");
-    ret = send(fd, cmd, sizeof(*cmd), 0);
-    if (ret != sizeof(*cmd)) {
+    if (send_cmd(cmd, fd) < 1) {
         perror("send error");
-    }
+    };
 
     //printf("Waiting for response\n");
     bzero(&rsp, sizeof(rsp));
-    ret = recv(fd, &rsp, sizeof(rsp), 0);
-    if (ret != sizeof(rsp))
-    {
-        perror("recv error");
-        return 0;
-    }
+    ret = recv_cmd(&rsp, fd);
+    if (ret < 1) return 0;
     //printf("Got response\n");
 
     if (rsp.cmd != cmdDone)

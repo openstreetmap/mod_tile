@@ -23,6 +23,7 @@
 #include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
+#include "protocol_helper.h"
 #include "request_queue.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
@@ -59,6 +60,9 @@ static const char *cmdStr(enum protoCmd c)
     }
 }
 
+
+
+
 void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
     struct item *prev;
@@ -71,24 +75,8 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
-            syslog(LOG_DEBUG, "DEBUG: Sending reply with protocol version %i\n", req->ver);
-            switch (req->ver) {
-            case 1:
-                ret = send(item->fd, req, sizeof(struct protocol_v1), 0);
-                if (ret != sizeof(struct protocol_v1))
-                    perror("send error during send_done");
-                break;
-            case 2:
-                ret = send(item->fd, req, sizeof(struct protocol_v2), 0);
-                if (ret != sizeof(struct protocol_v2))
-                    perror("send error during send_done");
-                break;
-            case 3:
-                ret = send(item->fd, req, sizeof(*req), 0);
-                if (ret != sizeof(*req))
-                    perror("send error during send_done");
-                break;
-            }
+            
+            send_cmd(req, item->fd);
             
         }
         prev = item;
@@ -226,7 +214,7 @@ void process_loop(int listen_fd)
                     memset(&cmd,0,sizeof(cmd));
 
                     // TODO: to get highest performance we should loop here until we get EAGAIN
-                    ret = recv(fd, &cmd, sizeof(struct protocol_v1), MSG_DONTWAIT);
+                    ret = recv_cmd(&cmd, fd);
                     if (ret < 1) {
                         int j;
 
@@ -236,37 +224,13 @@ void process_loop(int listen_fd)
                             connections[j] = connections[j+1];
                         request_queue_clear_requests_by_fd(render_request_queue, fd);
                         close(fd);
-                    } else {
-                        syslog(LOG_DEBUG, "DEBUG: Got incoming request with protocol version %i\n", cmd.ver);
-                        switch (cmd.ver) {
-                        case 2: ret += recv(fd, ((void*)&cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) + 1 - sizeof(struct protocol_v1), MSG_DONTWAIT);
-                            break;
-                        case 3: ret += recv(fd, ((void*)&cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), MSG_DONTWAIT);
-                            break;
-                        }
-                        if ((ret == sizeof(cmd)) || (ret == sizeof(struct protocol_v1)) || (ret == sizeof(struct protocol_v2))) {
-                            enum protoCmd rsp = rx_request(&cmd, fd);
+                    } else  {
+                        enum protoCmd rsp = rx_request(&cmd, fd);
                             
-                            if (rsp == cmdNotDone) {
-                                cmd.cmd = rsp;
-                                syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
-                                ret = send(fd, &cmd, sizeof(cmd), 0);
-                                if (ret != sizeof(cmd))
-                                    perror("response send error");
-                            }
-                        } else if (!ret) {
-                            int j;
-                            
-                            num_connections--;
-                            syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
-                            for (j=i; j < num_connections; j++)
-                                connections[j] = connections[j+1];
-                            request_queue_clear_requests_by_fd(render_request_queue, fd);
-                            close(fd);
-                        } else {
-                            
-                            syslog(LOG_ERR, "Recv Error on fd %d (%s). Read %i bytes", fd, strerror(errno), ret);
-                            break;
+                        if (rsp == cmdNotDone) {
+                            cmd.cmd = rsp;
+                            syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
+                            ret = send_cmd(&cmd, fd);
                         }
                     }
                 }
@@ -555,7 +519,7 @@ void *slave_thread(void * arg) {
             syslog(LOG_INFO,
                     "Dispatching request to slave thread on fd %i", pfd);
             do {
-                ret_size = send(pfd, req_slave, sizeof(struct protocol), 0);
+                ret_size = send_cmd(req_slave, pfd);
 
                 if (ret_size == sizeof(struct protocol)) {
                     //correctly sent command to slave

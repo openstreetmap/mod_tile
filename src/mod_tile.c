@@ -257,6 +257,9 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
                                   strerror(errno));
                     break;
                 }
+                if (resp.ver == 3) {
+                    ret += recv(fd, ((void*)&resp) + sizeof(struct protocol_v2), sizeof(struct protocol) - sizeof(struct protocol_v2), 0); 
+                }
 
                 if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
                     close(fd);
