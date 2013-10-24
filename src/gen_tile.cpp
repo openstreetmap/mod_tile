@@ -189,6 +189,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
 #endif
         l.set_datasource(ds);
     }
+    free(tmp);
 }
 
 
