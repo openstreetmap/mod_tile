@@ -106,9 +106,10 @@ void *addition_thread(void * arg) {
         item->mx = rand_r(&seed);
         res = request_queue_add_request(queue, item);
     }
+    return NULL;
 }
 
-void *fetch_thread(void * arg) {
+void * fetch_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
     enum protoCmd res;
@@ -116,6 +117,7 @@ void *fetch_thread(void * arg) {
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = request_queue_fetch_request(queue);
     }
+    return NULL;
 }
 
 TEST_CASE( "renderd/queueing", "request queueing") {
@@ -699,7 +701,6 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         }
 
         store->close_storage(store);
-        free(tile_dir);
     }
 
     SECTION("storage/read/full metatile", "should complete") {
@@ -876,7 +877,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
     }
 
     rmdir(tile_dir);
-
+    free(tile_dir);
 }
 
 TEST_CASE( "projections", "Test projections" ) {
@@ -900,6 +901,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == -20037508.3428);
         REQUIRE (bbox.maxx() ==  20037508.3428);
         REQUIRE (round(bbox.maxy()) == -19724422.0);
+        free(prj);
 
         prj = get_projection("+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs");
         bbox = tile2prjbounds(prj, 0,0,0);
@@ -918,6 +920,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == -10018754.1714);
         REQUIRE (bbox.maxx() ==  20037508.3428);
         REQUIRE (round(bbox.maxy()) == -9862211.0);
+        free(prj);
 
         prj = get_projection("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs");
         bbox = tile2prjbounds(prj, 0,0,0);
@@ -936,6 +939,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == 0.0);
         REQUIRE (bbox.maxx() ==  700000.0);
         REQUIRE (round(bbox.maxy()) == 5469.0);
+        free(prj);
     }
 }
 
