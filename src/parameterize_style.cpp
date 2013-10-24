@@ -30,7 +30,8 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter) {
         } 
         tok = strtok(NULL, ","); 
         
-    } 
+    }
+    free(data);
     name_replace[strlen(name_replace) - 1] = 0; 
     strncat(name_replace,") as name", 255); 
     for (i = 0; i < m.layer_count(); i++) { 
