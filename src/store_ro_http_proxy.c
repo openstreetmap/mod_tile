@@ -217,6 +217,8 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 
     if (!store || !ctx) {
         log_message(STORE_LOGLVL_ERR,"init_storage_ro_http_proxy: failed to allocate memory for context");
+        if (store) free(store); 
+        if (ctx) free(ctx); 
         return NULL;
     }
 

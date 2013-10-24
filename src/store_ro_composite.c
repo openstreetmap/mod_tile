@@ -199,6 +199,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 
     if (!store || !ctx) {
         log_message(STORE_LOGLVL_ERR,"init_storage_ro_composite: failed to allocate memory for context");
+        if (store) free(store);
+        if (ctx) free(ctx);
         return NULL;
     }
 
