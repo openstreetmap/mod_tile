@@ -1314,19 +1314,19 @@ static int tile_translate(request_rec *r)
             char parameters[XMLCONFIG_MAX];
             if (tile_config->enableOptions) {
                 cmd->ver = PROTO_VER;
-                n = sscanf(r->uri+strlen(tile_config->baseuri),"%[^/]/%d/%d/%d.%[a-z]/%10s", parameters,&(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
+                n = sscanf(r->uri+strlen(tile_config->baseuri),"%40[^/]/%d/%d/%d.%255[a-z]/%10s", parameters,&(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
                 if (n < 5) { 
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s with options", tile_config->xmlname); 
                     return DECLINED; 
                 } 
             } else { 
                 cmd->ver = 2;
-                n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
+                n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%255[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
                 if (n < 4) { 
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s without options", tile_config->xmlname); 
                     return DECLINED; 
-                } 
-                parameters[0] = 0; 
+                }
+                parameters[0] = 0;
             }
             if (strcmp(extension, tile_config->fileExtension) != 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid file extension (%s) for tilelayer %s, required %s",
