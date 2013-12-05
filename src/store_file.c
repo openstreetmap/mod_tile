@@ -22,6 +22,7 @@
 #include "store.h"
 #include "metatile.h"
 #include "render_config.h"
+#include "store_file.h"
 #include "store_file_utils.h"
 #include "protocol.h"
 

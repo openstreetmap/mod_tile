@@ -9,6 +9,7 @@
 
 #include "protocol.h"
 #include "render_config.h"
+#include "store_file.h"
 #include "store_file_utils.h"
 
 // Build parent directories for the specified file name
