@@ -26,8 +26,8 @@
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 
-
-char *tile_dir = HASH_PATH;
+const char * tile_dir_default = HASH_PATH;
+const char *tile_dir = tile_dir_default;
 
 #ifndef METATILE
 #warning("render_old not implemented for non-metatile mode. Feel free to submit fix")
@@ -319,7 +319,7 @@ int main(int argc, char **argv)
     fclose(hini);
     free(map);
 
-    if (tile_dir != HASH_PATH) {
+    if (tile_dir != tile_dir_default) {
         free(tile_dir);
     }
 	
