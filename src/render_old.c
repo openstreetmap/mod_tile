@@ -27,7 +27,6 @@
 #include "sys_utils.h"
 
 const char * tile_dir_default = HASH_PATH;
-const char *tile_dir = tile_dir_default;
 
 #ifndef METATILE
 #warning("render_old not implemented for non-metatile mode. Feel free to submit fix")
@@ -64,7 +63,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static time_t getPlanetTime(char *tile_dir)
+static time_t getPlanetTime(const char *tile_dir)
 {
     static time_t last_check;
     static time_t planet_timestamp;
@@ -103,7 +102,7 @@ static void check_load(void)
     }
 }
 
-static void descend(const char *search)
+static void descend(const char *tile_dir, const char *search)
 {
     DIR *tiles = opendir(search);
     struct dirent *entry;
@@ -128,7 +127,7 @@ static void descend(const char *search)
         if (stat(path, &b))
             continue;
         if (S_ISDIR(b.st_mode)) {
-            descend(path);
+            descend(tile_dir, path);
             continue;
         }
         p = strrchr(path, '.');
@@ -153,7 +152,7 @@ void render_layer(const char *tilepath, const char *name)
 			printf("Rendering zoom %d\n", z);				
         char path[PATH_MAX];
         snprintf(path, PATH_MAX, "%s/%s/%d", tilepath, name, z);
-        descend(path);
+        descend(tilepath, path);
     }
 }
 
@@ -161,6 +160,7 @@ int main(int argc, char **argv)
 {
     char spath[PATH_MAX] = RENDER_SOCKET;
     char *config_file = RENDERD_CONFIG;
+    const char *tile_dir = tile_dir_default;
     char *map = NULL;
     int c;
     int numThreads = 1;
@@ -320,10 +320,10 @@ int main(int argc, char **argv)
     free(map);
 
     if (tile_dir != tile_dir_default) {
-        free(tile_dir);
+        free((void *)tile_dir);
     }
 	
-    finish_workers(numThreads);
+    finish_workers();
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles rendered\n");

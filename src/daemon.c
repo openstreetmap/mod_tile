@@ -32,13 +32,14 @@
 #include "iniparser3.0b/src/iniparser.h"
 // }
 
+#ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
+static pthread_t stats_thread;
+#endif
 
 static int exit_pipe_fd;
-
-static pthread_t stats_thread;
 
 static renderd_config config;
 
@@ -66,7 +67,6 @@ static const char *cmdStr(enum protoCmd c)
 void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
     struct item *prev;
-    int ret;
 
     request_queue_remove_request(render_request_queue, item, render_time);
 
@@ -87,9 +87,7 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
 
 enum protoCmd rx_request(struct protocol *req, int fd)
 {
-    struct protocol *reqnew;
     struct item  *item;
-    enum protoCmd pend;
 
     // Upgrade version 1 and 2 to  version 3
     if (req->ver == 1) {

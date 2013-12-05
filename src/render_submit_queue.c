@@ -249,7 +249,7 @@ void spawn_workers(int num, const char *spath, int max_load)
     }
 }
 
-void print_statistics() {
+void print_statistics(void) {
     int i;
     printf("*****************************************************\n");
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -271,7 +271,7 @@ void wait_for_empty_queue() {
     pthread_mutex_unlock(&qLock);
 }
 
-void finish_workers()
+void finish_workers(void)
 {
     int i;
 

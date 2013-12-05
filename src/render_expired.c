@@ -57,7 +57,6 @@
 #include "render_submit_queue.h"
 
 const char * tile_dir_default = HASH_PATH;
-const char *tile_dir = tile_dir_default;
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the repsective zoom level; since we only
@@ -114,11 +113,11 @@ int main(int argc, char **argv)
     char *spath = strdup(RENDER_SOCKET);
     const char *mapname_default = XMLCONFIG_DEFAULT;
     const char *mapname = mapname_default;
+    const char *tile_dir = tile_dir_default;
     int x, y, z;
     struct timeval start, end;
     int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0, num_touch = 0;
     int c;
-    int all=0;
     int numThreads = 1;
     int deleteFrom = -1;
     int touchFrom = -1;
@@ -164,9 +163,6 @@ int main(int argc, char **argv)
             break;
 
         switch (c) {
-            case 'a':   /* -a, --all */
-                all=1;
-                break;
             case 's':   /* -s, --socket */
                 spath = strdup(optarg);
                 break;
@@ -399,10 +395,10 @@ int main(int argc, char **argv)
     
     free(spath);
     if (mapname != mapname_default) {
-        free(mapname);
+        free((void *)mapname);
     }
     if (tile_dir != tile_dir_default) {
-        free(tile_dir);
+        free((void *)tile_dir);
     }
     store->close_storage(store);
     free(store);

@@ -25,7 +25,6 @@
 #include "render_submit_queue.h"
 
 const char * tile_dir_default = HASH_PATH;
-const char *tile_dir = tile_dir_default;
 
 #ifndef METATILE
 #warning("render_list not implemented for non-metatile mode. Feel free to submit fix")
@@ -62,12 +61,12 @@ int main(int argc, char **argv)
     char *spath = strdup(RENDER_SOCKET);
     const char *mapname_default = XMLCONFIG_DEFAULT;
     const char *mapname = mapname_default;
+    const char *tile_dir = tile_dir_default;
     int minX=-1, maxX=-1, minY=-1, maxY=-1;
     int x, y, z;
     char name[PATH_MAX];
     struct timeval start, end;
     int num_render = 0, num_all = 0;
-    time_t planetTime;
     int c;
     int all=0;
     int numThreads = 1;
@@ -307,10 +306,10 @@ int main(int argc, char **argv)
 
     free(spath);
     if (mapname != mapname_default) {
-        free(mapname);
+        free((void *)mapname);
     }
     if (tile_dir != tile_dir_default) {
-        free(tile_dir);
+        free((void *)tile_dir);
     }
 
 
