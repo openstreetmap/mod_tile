@@ -27,7 +27,7 @@ render_old_LDADD = $(PTHREAD_CFLAGS)
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 gen_tile_test_SOURCES = src/gen_tile_test.cpp src/metatile.cpp src/request_queue.c src/protocol_helper.c src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/cache_expire.c src/parameterize_style.cpp $(STORE_SOURCES) iniparser3.0b/libiniparser.la 
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
-gen_tile_test_LDADD = $(FT2_LIBS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
+gen_tile_test_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -Liniparser3.0b/.libs -liniparser
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
