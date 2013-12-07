@@ -256,13 +256,12 @@ int main(int argc, char **argv)
         // initialize twopow array
         twopow[i] = (i==0) ? 1 : twopow[i-1]*2;
         unsigned long long fourpow=twopow[i]*twopow[i];
-        tile_requested[i] = (unsigned int *) malloc((fourpow / METATILE) + 1);
+        tile_requested[i] = (unsigned int *) calloc((fourpow / METATILE) + 1, 1);
         if (NULL == tile_requested[i])
         {
             fprintf(stderr, "not enough memory available.\n");
             return 1;
         }
-        memset(tile_requested[i], 0, (fourpow / METATILE) + 1);
     }
 
 
