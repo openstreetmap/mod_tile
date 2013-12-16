@@ -3,6 +3,7 @@
 # Provides:          renderd
 # Required-Start:    $remote_fs
 # Required-Stop:     $remote_fs
+# Should-Start:      postgresql
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Mapnik rendering daemon
