@@ -212,7 +212,7 @@ void process_loop(int listen_fd)
                     memset(&cmd,0,sizeof(cmd));
 
                     // TODO: to get highest performance we should loop here until we get EAGAIN
-                    ret = recv_cmd(&cmd, fd);
+                    ret = recv_cmd(&cmd, fd, 0);
                     if (ret < 1) {
                         int j;
 

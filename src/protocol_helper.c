@@ -7,7 +7,7 @@
 
 int send_cmd(struct protocol * cmd, int fd) {
     int ret;
-    syslog(LOG_DEBUG, "DEBUG: Sending render cmd with protocol version %i\n", cmd->ver);
+    syslog(LOG_DEBUG, "DEBUG: Sending render cmd(%i) with protocol version %i\n", cmd->cmd, cmd->ver);
     if ((cmd->ver > 3) || (cmd->ver < 1)) {
         syslog(LOG_WARNING, "WARNING: Failed to send render cmd with unknown protocol version %i\n", cmd->ver);
         return -1;
@@ -29,10 +29,10 @@ int send_cmd(struct protocol * cmd, int fd) {
     return ret;
 }
 
-int recv_cmd(struct protocol * cmd, int fd) {
+int recv_cmd(struct protocol * cmd, int fd,  int block) {
     int ret, ret2;
     memset(cmd,0,sizeof(*cmd));
-    ret = recv(fd, cmd, sizeof(struct protocol_v1), MSG_DONTWAIT);
+    ret = recv(fd, cmd, sizeof(struct protocol_v1), block?MSG_WAITALL:MSG_DONTWAIT);
     if (ret < 1) {
         return -1;
     } else if (ret < sizeof(struct protocol_v1)) {
@@ -47,9 +47,9 @@ int recv_cmd(struct protocol * cmd, int fd) {
     case 1:
         ret2 = 0;
         break;
-    case 2: ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), MSG_DONTWAIT); 
+    case 2: ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), block?MSG_WAITALL:MSG_DONTWAIT);
         break; 
-    case 3: ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), MSG_DONTWAIT); 
+    case 3: ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), block?MSG_WAITALL:MSG_DONTWAIT);
         break; 
     }
     

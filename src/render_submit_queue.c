@@ -77,13 +77,13 @@ static int process(struct protocol * cmd, int fd)
 
     //printf("Waiting for response\n");
     bzero(&rsp, sizeof(rsp));
-    ret = recv_cmd(&rsp, fd);
+    ret = recv_cmd(&rsp, fd,1);
     if (ret < 1) return 0;
-    //printf("Got response\n");
+    //printf("Got response %i\n", rsp.cmd);
 
     if (rsp.cmd != cmdDone)
     {
-        printf("rendering failed, pausing\n");
+        printf("rendering failed with command %i, pausing.\n", rsp.cmd);
         sleep(10);
     } else {
         gettimeofday(&tim, NULL);
