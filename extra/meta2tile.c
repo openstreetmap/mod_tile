@@ -209,6 +209,15 @@ int expand_meta(const char *name)
         int ty = y + (meta % METATILE);
         int output;
 
+        if (store != NULL) {
+            if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
+                fprintf(stderr, "Failed to write data to couchbase %s\n", path);
+                return -1;
+            }
+            if (verbose) printf("Produced tile: %s\n", path);
+            continue;
+        }
+
         if (ty==y)
         {
             sprintf(path, "%s/%d/%d", target, z, tx);
@@ -234,12 +243,6 @@ int expand_meta(const char *name)
         {
             size_t len = m->index[meta].size - pos;
             int written = write(output, buf + pos + m->index[meta].offset, len);
-
-            if (store != NULL) {
-                if (store->metatile_write(store, target, tx, ty, z, buf + pos + m->index[meta].offset, len) == -1) {
-                    fprintf(stderr, "Failed to write data to couchbase %s\n", path);
-                }
-            }
 
             if (written < 0) 
             {
