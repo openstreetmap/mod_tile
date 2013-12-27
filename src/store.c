@@ -18,6 +18,7 @@
 #include "store.h"
 #include "store_file.h"
 #include "store_memcached.h"
+#include "store_couchbase.h"
 #include "store_rados.h"
 #include "store_ro_http_proxy.h"
 #include "store_ro_composite.h"
@@ -91,6 +92,11 @@ struct storage_backend * init_storage_backend(const char * options) {
     if (strstr(options,"memcached://") == options) {
         log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising memcached storage backend at: %s", options);
         store = init_storage_memcached(options);
+        return store;
+    }
+    if (strstr(options,"couchbase:{") == options) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising couchbase storage backend at: %s", options);
+        store = init_storage_couchbase(options);
         return store;
     }
     if (strstr(options,"ro_http_proxy://") == options) {

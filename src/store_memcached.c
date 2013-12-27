@@ -38,7 +38,7 @@ static char * memcached_xyz_to_storagekey(const char *xmlconfig, int x, int y, i
     return key;
 }
 
-static int memcached_tile_read(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
+static int memcached_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
 
     char meta_path[PATH_MAX];
     int meta_offset;
@@ -97,7 +97,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
     return tile_size;
 }
 
-static struct stat_info memcached_tile_stat(struct storage_backend * store, const char *xmlconfig, int x, int y, int z) {
+static struct stat_info memcached_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z) {
     struct stat_info tile_stat;
     char meta_path[PATH_MAX];
     unsigned int header_len = sizeof(struct meta_layout) + METATILE*METATILE*sizeof(struct entry);
@@ -134,13 +134,13 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
 }
 
 
-static char * memcached_tile_storage_id(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char * string) {
+static char * memcached_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string) {
 
     snprintf(string,PATH_MAX - 1, "memcached:///%s/%d/%d/%d.meta", xmlconfig, x, y, z);
     return string;
 }
 
-static int memcached_metatile_write(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, const char *buf, int sz) {
+static int memcached_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz) {
     char meta_path[PATH_MAX];
     char tmp[PATH_MAX];
     struct stat_info tile_stat;
@@ -161,7 +161,7 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
     memcpy(buf2, &tile_stat, sizeof(tile_stat));
     memcpy(buf2 + sizeof(tile_stat), buf, sz);
 
-    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s\n", memcached_tile_storage_id(store, xmlconfig, x, y, z, tmp));
+    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s\n", memcached_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
  
     snprintf(meta_path,PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
 
@@ -235,19 +235,29 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
 #else
     struct storage_backend * store = malloc(sizeof(struct storage_backend));
     memcached_st * ctx;
-    char * connection_str = "--server=localhost";
+    char * connection_str;
+    int len;
 
     if (store == NULL) {
         log_message(STORE_LOGLVL_ERR,"init_storage_memcached: Failed to allocate memory for storage backend");
         return NULL;
     }
+
+    len = strlen("--server=") + strlen(connection_string) - strlen("memcached://");
+    connection_str = malloc(len + 1);
+    memcpy(connection_str,"--server=", strlen("--server="));
+    memcpy(connection_str+strlen("--server="),connection_string + strlen("memcached://"), len);
+    connection_str[len] = 0;
+
     ctx = memcached(connection_str, strlen(connection_str));
     if (ctx == NULL) {
-        log_message(STORE_LOGLVL_ERR,"init_storage_memcached: Failed to create memcached ctx");
+        log_message(STORE_LOGLVL_ERR,"init_storage_memcached: Failed to create memcached ctx: %s", connection_str);
+        free(connection_str);
         free(store);
         return NULL;
     }
     store->storage_ctx = ctx;
+    store->type = STORE_TYPE_MEMCACHED;
 
     store->tile_read = &memcached_tile_read;
     store->tile_stat = &memcached_tile_stat;
@@ -257,6 +267,7 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
     store->tile_storage_id = &memcached_tile_storage_id;
     store->close_storage = &memcached_close_storage;
 
+    free(connection_str);
     return store;
 #endif
 }

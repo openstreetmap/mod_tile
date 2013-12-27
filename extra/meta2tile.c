@@ -18,8 +18,12 @@
 #include <math.h>
 #include <getopt.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "store_file.h"
+#include <libmemcached/memcached.h>
+#include "store_memcached.h" // init_storage_memcached
+#include "store_couchbase.h" // init_storage_couchbase
 #include "metatile.h"
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
@@ -28,6 +32,8 @@
 static int verbose = 0;
 static int num_render = 0;
 static struct timeval start, end;
+
+struct storage_backend * store = NULL;
 
 const char *source;
 const char *target;
@@ -40,6 +46,34 @@ int mode = MODE_GLOB;
 
 int zoom[MAXZOOM+1];
 float bbox[4] = {-180.0, -90.0, 180.0, 90.0};
+
+void log_message(int log_lvl, const char *format, ...) {
+    va_list ap;
+    char *msg = malloc(1000*sizeof(char));
+
+    va_start(ap, format);
+
+    if (msg) {
+        vsnprintf(msg, 1000, format, ap);
+        switch (log_lvl) {
+        case STORE_LOGLVL_DEBUG:
+            fprintf(stderr, "debug: %s\n", msg);
+            break;
+        case STORE_LOGLVL_INFO:
+            fprintf(stderr, "info: %s\n", msg);
+            break;
+        case STORE_LOGLVL_WARNING:
+            fprintf(stderr, "WARNING: %s\n", msg);
+            break;
+        case STORE_LOGLVL_ERR:
+            fprintf(stderr, "ERROR: %s\n", msg);
+            break;
+        }
+        free(msg);
+        fflush(stderr);
+    }
+    va_end(ap);
+}
 
 int path_to_xyz(const char *path, int *px, int *py, int *pz)
 {
@@ -200,6 +234,13 @@ int expand_meta(const char *name)
         {
             size_t len = m->index[meta].size - pos;
             int written = write(output, buf + pos + m->index[meta].offset, len);
+
+            if (store != NULL) {
+                if (store->metatile_write(store, target, tx, ty, z, buf + pos + m->index[meta].offset, len) == -1) {
+                    fprintf(stderr, "Failed to write data to couchbase %s\n", path);
+                }
+            }
+
             if (written < 0) 
             {
                 fprintf(stderr, "Failed to write data to file %s. Reason: %s\n", path, strerror(errno));
@@ -296,7 +337,7 @@ static void descend(const char *search, int zoomdone)
 
 void usage()
 {
-    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] sourcedir targetdir\n");
+    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] [-c \"couchbase:{memcached://localhost:11211,memcached://localhost:11212}\"] sourcedir targetdir\n");
     fprintf(stderr, "Convert .meta files found in source dir to .png in target dir,\n");
     fprintf(stderr, "using the standard \"hash\" type directory (5-level) for meta\n");
     fprintf(stderr, "tiles and the z/x/y.png structure (3-level) for output.\n");
@@ -344,13 +385,14 @@ int main(int argc, char **argv)
         {
             {"verbose", 0, 0, 'v'},
             {"help", 0, 0, 'h'},
+            {"couchbase", 1, 0, 'c'},
             {"bbox", 1, 0, 'b'},
             {"mode", 1, 0, 'm'},
             {"zoom", 1, 0, 'z'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "vhb:m:z:", long_options, &option_index);
+        c = getopt_long(argc, argv, "vhb:m:z:c:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -374,6 +416,12 @@ int main(int argc, char **argv)
                 if (!handle_zoom(optarg))
                 {
                     fprintf(stderr, "invalid zoom argument - must be of the form zoom or z0,z1,z2... or z0-z1\n");
+                    return -1;
+                }
+                break;
+            case 'c':
+                store = init_storage_couchbase(optarg);
+                if (store == NULL) {
                     return -1;
                 }
                 break;
@@ -423,6 +471,10 @@ int main(int argc, char **argv)
     display_rate(start, end, num_render);
     printf("Total tiles converted: ");
     display_rate(start, end, num_render * METATILE * METATILE);
+
+    if (store != NULL) {
+        store->close_storage(store);
+    }
 
     return 0;
 }

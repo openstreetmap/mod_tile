@@ -271,6 +271,7 @@ struct storage_backend * init_storage_file(const char * tile_dir) {
         return NULL;
     }
     store->storage_ctx = strdup(tile_dir);
+    store->type = STORE_TYPE_FILE;
 
     store->tile_read = &file_tile_read;
     store->tile_stat = &file_tile_stat;

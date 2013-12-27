@@ -5,7 +5,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(MAPNIK_INCLUDES) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS) $(CAIRO_CFLAGS) $(CAIROMM_CFLAGS) 
 
-STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c
+STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_couchbase.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(CAIRO_LIBS)
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
@@ -36,10 +36,10 @@ test: gen_tile_test
 	./gen_tile_test
 
 all-local:
-	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) -I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) @srcdir@/src/mod_tile.c  @srcdir@/src/sys_utils.c @srcdir@/src/store.c @srcdir@/src/store_file.c @srcdir@/src/store_file_utils.c @srcdir@/src/store_memcached.c @srcdir@/src/store_rados.c @srcdir@/src/store_ro_http_proxy.c @srcdir@/src/store_ro_composite.c @srcdir@/src/store_null.c
+	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) -I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) @srcdir@/src/mod_tile.c  @srcdir@/src/sys_utils.c @srcdir@/src/store.c @srcdir@/src/store_file.c @srcdir@/src/store_file_utils.c @srcdir@/src/store_memcached.c @srcdir@/src/store_couchbase.c @srcdir@/src/store_rados.c @srcdir@/src/store_ro_http_proxy.c @srcdir@/src/store_ro_composite.c @srcdir@/src/store_null.c
 
 install-mod_tile: 
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
-	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) -I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) @srcdir@/src/mod_tile.c @srcdir@/src/sys_utils.c @srcdir@/src/store.c @srcdir@/src/store_file.c @srcdir@/src/store_file_utils.c @srcdir@/src/store_memcached.c @srcdir@/src/store_rados.c @srcdir@/src/store_ro_http_proxy.c @srcdir@/src/store_ro_composite.c @srcdir@/src/store_null.c
+	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) -q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) -I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) @srcdir@/src/mod_tile.c @srcdir@/src/sys_utils.c @srcdir@/src/store.c @srcdir@/src/store_file.c @srcdir@/src/store_file_utils.c @srcdir@/src/store_memcached.c @srcdir@/src/store_couchbase.c @srcdir@/src/store_rados.c @srcdir@/src/store_ro_http_proxy.c @srcdir@/src/store_ro_composite.c @srcdir@/src/store_null.c
 
 

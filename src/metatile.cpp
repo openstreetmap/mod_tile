@@ -116,6 +116,31 @@ void metaTile::save(struct storage_backend * store) {
     free(metatilebuffer);
 }
 
+void metaTile::save_tiles(struct storage_backend * store) {
+    int ox, oy;
+    char * tilebuffer;
+    char *tmp;
+
+    // Write tiles
+    for (ox=0; ox < METATILE; ox++) {
+        for (oy=0; oy < METATILE; oy++) {
+            tilebuffer = (char *) malloc(tile[ox][oy].size());
+//            tilebuffer = (char *) calloc(tile[ox][oy].size(), 1);
+            if (tilebuffer == 0) {
+                syslog(LOG_WARNING, "Failed to write metatile. Out of memory");
+                return;
+            }
+            memset(tilebuffer, 0, tile[ox][oy].size());
+            memcpy(tilebuffer, (const void *)tile[ox][oy].data(), tile[ox][oy].size());
+            if (store->metatile_write(store, xmlconfig_.c_str(), options_.c_str(), x_ + ox, y_ + oy, z_,tilebuffer, tile[ox][oy].size()) != tile[ox][oy].size()) {
+                tmp = (char *)malloc(sizeof(char) * PATH_MAX);
+                syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_ + ox,y_ + oy, z_, tmp));
+                free(tmp);
+            }
+            free(tilebuffer);
+        }
+    }
+}
 
 void metaTile::expire_tiles(int sock, char * host, char * uri) {
     if (sock < 0) {

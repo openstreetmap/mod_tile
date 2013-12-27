@@ -420,7 +420,11 @@ void *render_thread(void * arg)
 
                             if (ret == cmdDone) {
                                 try {
-                                    tiles.save(maps[i].store);
+                                    if (maps[i].store->type == STORE_TYPE_COUCHBASE) {
+                                        tiles.save_tiles(maps[i].store);
+                                    } else {
+                                        tiles.save(maps[i].store);
+                                    }
 #ifdef HTCP_EXPIRE_CACHE
                                     tiles.expire_tiles(maps[i].htcpsock,maps[i].host,maps[i].xmluri);
 #endif

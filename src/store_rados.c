@@ -372,6 +372,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
 
 
     store->storage_ctx = ctx;
+    store->type = STORE_TYPE_RADOS;
 
     store->tile_read = &rados_tile_read;
     store->tile_stat = &rados_tile_stat;

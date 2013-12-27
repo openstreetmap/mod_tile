@@ -220,6 +220,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
     ctx->store_primary = init_storage_backend(tmp + 1);
     if (ctx->store_primary == NULL) {
         log_message(STORE_LOGLVL_ERR,"init_storage_ro_composite: failed to initialise primary storage backend");
+        free(connection_string_primary);
+        free(connection_string_secondary);
         free(ctx);
         free(store);
         return NULL;
@@ -232,6 +234,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
     if (ctx->store_secondary == NULL) {
         log_message(STORE_LOGLVL_ERR,"init_storage_ro_composite: failed to initialise secondary storage backend");
         ctx->store_primary->close_storage(ctx->store_primary);
+        free(connection_string_primary);
+        free(connection_string_secondary);
         free(ctx);
         free(store);
         return NULL;
@@ -240,6 +244,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
     ctx->render_size = 256;
 
     store->storage_ctx = ctx;
+    store->type = STORE_TYPE_COMPOSITE;
 
     store->tile_read = &ro_composite_tile_read;
     store->tile_stat = &ro_composite_tile_stat;
@@ -248,6 +253,9 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
     store->metatile_expire = &ro_composite_metatile_expire;
     store->tile_storage_id = &ro_composite_tile_storage_id;
     store->close_storage = &ro_composite_close_storage;
+
+    free(connection_string_primary);
+    free(connection_string_secondary);
 
     return store;
 #endif

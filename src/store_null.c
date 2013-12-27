@@ -69,6 +69,8 @@ struct storage_backend *init_storage_null() {
    }
 
    store->storage_ctx = NULL;
+   store->type = STORE_TYPE_NULL;
+
    store->tile_read = &tile_read;
    store->tile_stat = &tile_stat;
    store->metatile_write = &metatile_write;
