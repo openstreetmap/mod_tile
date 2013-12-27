@@ -194,13 +194,16 @@ int expand_meta(const char *name)
         return -5;
     }
 
-    char path[PATH_MAX];
-    sprintf(path, "%s/%d", target, z);
-    if (mkdir(path, 0755) && (errno != EEXIST))
+    if (store == NULL)
     {
-        fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
-        close(fd);            
-        return -1;
+        char path[PATH_MAX];
+        sprintf(path, "%s/%d", target, z);
+        if (mkdir(path, 0755) && (errno != EEXIST))
+        {
+            fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
+            close(fd);            
+            return -1;
+        }
     }
 
     for (int meta = 0; meta < METATILE*METATILE; meta++)
@@ -211,7 +214,7 @@ int expand_meta(const char *name)
 
         if (store != NULL) {
             if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
-                fprintf(stderr, "Failed to write data to couchbase %s\n", path);
+                fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
                 return -1;
             }
             if (verbose) printf("Produced tile: %s\n", path);
