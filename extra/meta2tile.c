@@ -34,6 +34,7 @@ static long int num_render = 0;
 static struct timeval start, end;
 
 struct storage_backend * store = NULL;
+int force=0;
 
 const char *source;
 const char *target;
@@ -145,7 +146,7 @@ int expand_meta(const char *name)
     size_t pos;
     void *buf;
     char path[PATH_MAX];
-//    struct stat_info tile_stat;
+    struct stat_info tile_stat;
 
     if (path_to_xyz(name, &x, &y, &z)) return -1;
 
@@ -214,13 +215,14 @@ int expand_meta(const char *name)
         int output;
 
         if (store != NULL) {
-//            tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
-//            if (tile_stat.size == -1 && store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
-            if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
-                fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
-                return -1;
+            if (!force) tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
+            if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
+                if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
+                    fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
+                    return -1;
+                }
+                if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
             }
-            if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
             continue;
         }
 
@@ -346,7 +348,7 @@ static void descend(const char *search, int zoomdone)
 
 void usage()
 {
-    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] [-c \"couchbase:{memcached://localhost:11211,memcached://localhost:11212}\"] sourcedir targetdir\n");
+    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] [-f force] [-c \"couchbase:{memcached://localhost:11211,memcached://localhost:11212}\"] sourcedir targetdir\n");
     fprintf(stderr, "Convert .meta files found in source dir to .png in target dir,\n");
     fprintf(stderr, "using the standard \"hash\" type directory (5-level) for meta\n");
     fprintf(stderr, "tiles and the z/x/y.png structure (3-level) for output.\n");
@@ -398,10 +400,11 @@ int main(int argc, char **argv)
             {"bbox", 1, 0, 'b'},
             {"mode", 1, 0, 'm'},
             {"zoom", 1, 0, 'z'},
+            {"force", 0, 0, 'f'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "vhb:m:z:c:", long_options, &option_index);
+        c = getopt_long(argc, argv, "vhb:m:z:c:f", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -450,6 +453,9 @@ int main(int argc, char **argv)
                     fprintf(stderr, "mode argument must be either 'glob' or 'stat'\n");
                     return -1;
                 }
+                break;
+            case 'f':   /* -f, --force */
+                force=1;
                 break;
             default:
                 fprintf(stderr, "unhandled char '%c'\n", c);
