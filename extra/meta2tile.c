@@ -30,7 +30,7 @@
 #define META_MAGIC "META"
 
 static int verbose = 0;
-static int num_render = 0;
+static long int num_render = 0;
 static struct timeval start, end;
 
 struct storage_backend * store = NULL;
@@ -144,6 +144,8 @@ int expand_meta(const char *name)
     int x, y, z;
     size_t pos;
     void *buf;
+    char path[PATH_MAX];
+//    struct stat_info tile_stat;
 
     if (path_to_xyz(name, &x, &y, &z)) return -1;
 
@@ -196,7 +198,6 @@ int expand_meta(const char *name)
 
     if (store == NULL)
     {
-        char path[PATH_MAX];
         sprintf(path, "%s/%d", target, z);
         if (mkdir(path, 0755) && (errno != EEXIST))
         {
@@ -213,11 +214,13 @@ int expand_meta(const char *name)
         int output;
 
         if (store != NULL) {
+//            tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
+//            if (tile_stat.size == -1 && store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
             if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
                 fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
                 return -1;
             }
-            if (verbose) printf("Produced tile: %s\n", path);
+            if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
             continue;
         }
 
