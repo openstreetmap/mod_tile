@@ -218,6 +218,7 @@ int expand_meta(const char *name)
             if (!force) tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
             if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
                 if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
+                    close(fd);
                     fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
                     return -1;
                 }
