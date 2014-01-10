@@ -63,14 +63,13 @@ static int couchbase_tile_read(struct storage_backend * store, const char *xmlco
     char * md5;
 
     couchbase_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
-    rc = memcached_exist(ctx->hashes->storage_ctx, meta_path, strlen(meta_path));
+    md5 = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
         if (rc != MEMCACHED_NOTFOUND) {
             log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed read meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         }
         return -1;
     }
-    md5 = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_len, &flags, &rc);
 
     buf_raw = memcached_get(ctx->tiles->storage_ctx, md5, md5_len, &len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
@@ -100,7 +99,7 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
 
     couchbase_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
 
-    rc = memcached_exist(ctx->hashes->storage_ctx, meta_path, strlen(meta_path));
+    md5 = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
         if (rc != MEMCACHED_NOTFOUND) {
             log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed to get meta stat %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
@@ -112,7 +111,6 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
         tile_stat.ctime = 0;
         return tile_stat;
     }
-    md5 = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_len, &flags, &rc);
 
     buf = memcached_get(ctx->tiles->storage_ctx, md5, md5_len, &len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
