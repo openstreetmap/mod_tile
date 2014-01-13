@@ -170,6 +170,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     if (rc != MEMCACHED_SUCCESS) {
         log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         free(md5);
+        free(buf2);
         return -1;
     }
 
@@ -223,6 +224,7 @@ static int couchbase_metatile_expire(struct storage_backend * store, const char 
     buf = memcached_get(ctx->tiles->storage_ctx, md5, md5_len, &len, &flags, &rc);
 
     if (rc != MEMCACHED_SUCCESS) {
+        free(md5);
         return -1;
     }
     //cas = memcached_result_cas(&rc);

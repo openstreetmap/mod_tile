@@ -246,10 +246,10 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
     len = strlen("--server=") + strlen(connection_string) - strlen("memcached://");
     connection_str = malloc(len + 1);
     memcpy(connection_str,"--server=", strlen("--server="));
-    memcpy(connection_str+strlen("--server="),connection_string + strlen("memcached://"), len);
+    memcpy(connection_str+strlen("--server="),connection_string + strlen("memcached://"), len-strlen("--server="));
     connection_str[len] = 0;
 
-    ctx = memcached(connection_str, strlen(connection_str));
+    ctx = memcached(connection_str, len);
     if (ctx == NULL) {
         log_message(STORE_LOGLVL_ERR,"init_storage_memcached: Failed to create memcached ctx: %s", connection_str);
         free(connection_str);
