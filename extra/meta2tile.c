@@ -98,7 +98,7 @@ void log_message(int log_lvl, const char *format, ...) {
 
 int path_to_xyz(const char *path, int *px, int *py, int *pz)
 {
-    int i, n, hash[5], x, y, z;
+    int i, hash[5], x, y, z;
     char copy[PATH_MAX];
     strcpy(copy, path);
     char *slash = rindex(copy, '/');
@@ -161,9 +161,8 @@ double tiley2lat(int y, int z)
 int expand_meta(const char *name, struct storage_backend * store)
 {
     int fd;
-    char header[4096];
     int x, y, z;
-    size_t pos;
+    size_t pos = 0;
     void *buf;
     char path[PATH_MAX];
     struct stat_info tile_stat;
@@ -229,67 +228,66 @@ int expand_meta(const char *name, struct storage_backend * store)
     }
 
     if (store != NULL) {
-//        if (!force) tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
-//        if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
+        if (!force) tile_stat = store->tile_stat(store, target, "options", x, y, z);
+        if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
             if (store->metatile_write(store, target, "options", x, y, z, buf, st.st_size) == -1) {
                 close(fd);
                 fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, x, y, z);
                 return -1;
             }
-//            if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
-//        }
+            if (verbose) printf("Produced metatile: %s/%d/%d/%d.meta\n", target, x, y, z);
+        }
     } else {
-
-    for (int meta = 0; meta < METATILE*METATILE; meta++)
-    {
-        int tx = x + (meta / METATILE);
-        int ty = y + (meta % METATILE);
-        int output;
-
-        if (ty==y)
+        for (int meta = 0; meta < METATILE*METATILE; meta++)
         {
-            sprintf(path, "%s/%d/%d", target, z, tx);
-            if (mkdir(path, 0755) && (errno != EEXIST))
+            int tx = x + (meta / METATILE);
+            int ty = y + (meta % METATILE);
+            int output;
+    
+            if (ty==y)
             {
-                fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
+                sprintf(path, "%s/%d/%d", target, z, tx);
+                if (mkdir(path, 0755) && (errno != EEXIST))
+                {
+                    fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
+                    close(fd);            
+                    return -1;
+                }
+            }
+    
+            sprintf(path, "%s/%d/%d/%d.png", target, z, tx, ty);
+            output = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+            if (output == -1)
+            {
+                fprintf(stderr, "cannot open %s for writing: %s\n", path, strerror(errno));
                 close(fd);            
                 return -1;
             }
-        }
-
-        sprintf(path, "%s/%d/%d/%d.png", target, z, tx, ty);
-        output = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-        if (output == -1)
-        {
-            fprintf(stderr, "cannot open %s for writing: %s\n", path, strerror(errno));
-            close(fd);            
-            return -1;
-        }
-
-        pos = 0;
-        while (pos < m->index[meta].size) 
-        {
-            size_t len = m->index[meta].size - pos;
-            int written = write(output, buf + pos + m->index[meta].offset, len);
-
-            if (written < 0) 
+    
+            pos = 0;
+            while (pos < m->index[meta].size) 
             {
-                fprintf(stderr, "Failed to write data to file %s. Reason: %s\n", path, strerror(errno));
-                close(fd);
-                return -7;
-            } 
-            else if (written > 0) 
-            {
-                pos += written;
-            } 
-            else 
-            {
-                break;
+                size_t len = m->index[meta].size - pos;
+                int written = write(output, buf + pos + m->index[meta].offset, len);
+    
+                if (written < 0) 
+                {
+                    fprintf(stderr, "Failed to write data to file %s. Reason: %s\n", path, strerror(errno));
+                    close(fd);
+                    return -7;
+                } 
+                else if (written > 0) 
+                {
+                    pos += written;
+                } 
+                else 
+                {
+                    break;
+                }
             }
+            close(output);
+            if (verbose) printf("Produced tile: %s\n", path);
         }
-        close(output);
-        if (verbose) printf("Produced tile: %s\n", path);
-    }
     }
     munmap(buf, st.st_size);
     close(fd);

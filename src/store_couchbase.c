@@ -49,7 +49,6 @@ static void md5_bin(const unsigned char *buf, int length, unsigned char * result
 }
 
 static struct metahash_layout * meta_to_hashes(int x, int y, const char *buf) {
-    int ox, oy;
     int metahash_len = sizeof(struct metahash_layout) + METATILE*METATILE*sizeof(unsigned char)*MD5_DIGEST_LENGTH;
     struct metahash_layout *mh = (struct metahash_layout *)malloc(metahash_len);
     struct meta_layout *m = (struct meta_layout *)(buf);
@@ -65,43 +64,10 @@ static struct metahash_layout * meta_to_hashes(int x, int y, const char *buf) {
     {
         const size_t tile_offset = m->index[tile_index].offset;
         const size_t tile_size   = m->index[tile_index].size;
-        md5_bin(buf+tile_offset, tile_size, mh->hash_entry[tile_index]);
+        md5_bin((unsigned char *)buf+tile_offset, tile_size, mh->hash_entry[tile_index]);
     }
-
-/*    {
-        const unsigned char *mh_debug = (unsigned char *)mh;
-        const unsigned int mh_debug_count = metahash_len;
-
-        for (int i = 0; i < mh_debug_count; i++)
-        {
-            if (i > 0) printf(":");
-            printf("%02X", *(mh_debug+i));
-        }
-        printf("\n");
-    }
-*/
 
     return mh;
-}
-
-static char * couchbase_md5(const unsigned char *buf, int length) {
-    const char *hex = "0123456789abcdef";
-    MD5_CTX my_md5;
-    unsigned char hash[MD5_DIGEST_LENGTH];
-    char *r, result[MD5_DIGEST_LENGTH * 2 + 1];
-    int i;
-
-    MD5_Init(&my_md5);
-    MD5_Update(&my_md5, buf, (unsigned int)length);
-    MD5_Final(hash, &my_md5);
-
-    for (i = 0, r = result; i < MD5_DIGEST_LENGTH; i++) {
-        *r++ = hex[hash[i] >> 4];
-        *r++ = hex[hash[i] & 0xF];
-    }
-    *r = '\0';
-
-    return strndup(result, MD5_DIGEST_LENGTH*2);
 }
 
 static char * couchbase_xyz_to_storagekey(const char *xmlconfig, int x, int y, int z, char * key) {
@@ -125,7 +91,7 @@ static int couchbase_tile_read(struct storage_backend * store, const char *xmlco
     memcached_return_t rc;
     char * buf_raw;
     char * md5;
-    unsigned char * md5_raw;
+    char * md5_raw;
 
     int mask = METATILE - 1;
     size_t tile_index = (x & mask) * METATILE + (y & mask);
@@ -179,14 +145,13 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
     struct couchbase_ctx * ctx = (struct couchbase_ctx *)(store->storage_ctx);
     struct stat_info tile_stat;
     char meta_path[PATH_MAX];
-    char * md5;
+    size_t len;
     size_t md5_len;
     uint32_t flags;
     memcached_return_t rc;
-
-    unsigned char * md5_raw;
-    int mask = METATILE - 1;
-    size_t tile_index = (x & mask) * METATILE + (y & mask);
+    char * md5;
+    char * md5_raw;
+    char * buf_raw;
     int metahash_len = sizeof(struct metahash_layout) + METATILE*METATILE*sizeof(unsigned char)*MD5_DIGEST_LENGTH;
     struct metahash_layout *mh = (struct metahash_layout *)malloc(metahash_len);
 
@@ -199,7 +164,7 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
     tile_stat.ctime = 0;
 
     if (mh == NULL) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed to allocate memory for metahash: %s", meta_path);
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed to allocate memory for metahash: %s", meta_path);
         return tile_stat;
     }
 
@@ -214,14 +179,32 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
     }
 
     if (md5_len != (metahash_len + sizeof(struct stat_info))) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed get meta stat %s from cocuhbase %s, %d != %d", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), md5_len, metahash_len+ sizeof(struct stat_info));
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed get meta stat %s from cocuhbase %s, %d != %d", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), md5_len, metahash_len+ sizeof(struct stat_info));
         free(mh);
         free(md5_raw);
         return tile_stat;
     }
 
+    int tile_index;
+    for (tile_index = 0; tile_index < mh->count; tile_index++)
+    {
+        int tx = x + (tile_index / METATILE);
+        int ty = y + (tile_index % METATILE);
+        md5 = md5_to_ascii(mh->hash_entry[tile_index]);
+        buf_raw = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &len, &flags, &rc);
+        if (rc != MEMCACHED_SUCCESS) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed read tile %d/%d/%d from cocuhbase %s", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx));
+            free(md5_raw);
+            free(buf_raw);
+            free(md5);
+            free(mh);
+            return tile_stat;
+        }
+        free(buf_raw);
+        free(md5);
+    }
+
     memcpy(&tile_stat,md5_raw, sizeof(struct stat_info));
-//    tile_stat.size = md5_len;
 
     free(mh);
     free(md5_raw);
