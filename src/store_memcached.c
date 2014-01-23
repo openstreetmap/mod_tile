@@ -257,7 +257,6 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
         return NULL;
     }
     store->storage_ctx = ctx;
-    store->type = STORE_TYPE_MEMCACHED;
 
     store->tile_read = &memcached_tile_read;
     store->tile_stat = &memcached_tile_stat;

@@ -13,14 +13,6 @@ extern "C" {
 #define STORE_LOGLVL_WARNING 2
 #define STORE_LOGLVL_ERR 3
 
-#define STORE_TYPE_NULL 0
-#define STORE_TYPE_MEMCACHED 1
-#define STORE_TYPE_FILE 2
-#define STORE_TYPE_COMPOSITE 3
-#define STORE_TYPE_HTTP_PROXY 4
-#define STORE_TYPE_RADOS 5
-#define STORE_TYPE_COUCHBASE 6
-
     struct stat_info {
         off_t     size;    /* total size, in bytes */
         time_t    atime;   /* time of last access */
@@ -37,7 +29,6 @@ extern "C" {
         int (*metatile_expire)(struct storage_backend * store, const char *xmlconfig, int x, int y, int z);
         char * (*tile_storage_id)(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string);
         int (*close_storage)(struct storage_backend * store);
-        unsigned char type;
 
         void * storage_ctx;
     };

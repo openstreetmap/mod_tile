@@ -244,7 +244,6 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
     ctx->render_size = 256;
 
     store->storage_ctx = ctx;
-    store->type = STORE_TYPE_COMPOSITE;
 
     store->tile_read = &ro_composite_tile_read;
     store->tile_stat = &ro_composite_tile_stat;

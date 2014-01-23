@@ -19,6 +19,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #include "store_file.h"
 #include <libmemcached/memcached.h>
@@ -29,11 +30,30 @@
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define META_MAGIC "META"
 
+enum Status
+{
+    THREAD_RUNNING = 0,
+    THREAD_FREE,
+    THREAD_COMPUTE
+};
+
+struct ThreadInfo {
+    volatile int id;
+    volatile enum Status status;
+    volatile char isFinished;
+    pthread_t pid;
+    char path[PATH_MAX];
+    pthread_mutex_t mutex;
+    struct storage_backend * store;
+};
+
+int threadCount = 1;
+
 static int verbose = 0;
 static long int num_render = 0;
 static struct timeval start, end;
 
-struct storage_backend * store = NULL;
+char store_conf[255];
 int force=0;
 
 const char *source;
@@ -138,7 +158,7 @@ double tiley2lat(int y, int z)
     return 180.0 / M_PI * atan(0.5 * (exp(n) - exp(-n)));
 }
 
-int expand_meta(const char *name)
+int expand_meta(const char *name, struct storage_backend * store)
 {
     int fd;
     char header[4096];
@@ -208,24 +228,23 @@ int expand_meta(const char *name)
         }
     }
 
+    if (store != NULL) {
+//        if (!force) tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
+//        if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
+            if (store->metatile_write(store, target, "options", x, y, z, buf, st.st_size) == -1) {
+                close(fd);
+                fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, x, y, z);
+                return -1;
+            }
+//            if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
+//        }
+    } else {
+
     for (int meta = 0; meta < METATILE*METATILE; meta++)
     {
         int tx = x + (meta / METATILE);
         int ty = y + (meta % METATILE);
         int output;
-
-        if (store != NULL) {
-            if (!force) tile_stat = store->tile_stat(store, target, "options", tx, ty, z);
-            if (force || (tile_stat.size < 0) || (tile_stat.expired)) {
-                if (store->metatile_write(store, target, "options", tx, ty, z, buf + m->index[meta].offset, m->index[meta].size) == -1) {
-                    close(fd);
-                    fprintf(stderr, "Failed to write data to couchbase %s/%d/%d/%d.png\n", target, tx, ty, z);
-                    return -1;
-                }
-                if (verbose) printf("Produced tile: %s/%d/%d/%d.png\n", target, tx, ty, z);
-            }
-            continue;
-        }
 
         if (ty==y)
         {
@@ -271,10 +290,9 @@ int expand_meta(const char *name)
         close(output);
         if (verbose) printf("Produced tile: %s\n", path);
     }
-
+    }
     munmap(buf, st.st_size);
     close(fd);
-    num_render++;
     return pos;
 }
 
@@ -292,7 +310,50 @@ void display_rate(struct timeval start, struct timeval end, int num)
     fflush(NULL);
 }
 
-static void descend(const char *search, int zoomdone)
+static void *thread(void *pArg)
+{
+    struct ThreadInfo *threadInfo = (struct ThreadInfo *) pArg;
+//    printf("Started thread %d\n", threadInfo->id);
+
+    pthread_mutex_lock(&threadInfo->mutex);
+
+    threadInfo->status = THREAD_FREE;
+//    threadInfo->store = init_storage_couchbase(store_conf);
+
+    pthread_mutex_unlock(&threadInfo->mutex);
+
+    while(1)
+    {
+
+        pthread_mutex_lock(&threadInfo->mutex);
+        if ((threadInfo->status == THREAD_FREE) && (threadInfo->isFinished == 1))
+        {
+            pthread_mutex_unlock(&threadInfo->mutex);
+            break;
+        }
+
+        if (threadInfo->status == THREAD_COMPUTE)
+        {
+            pthread_mutex_unlock(&threadInfo->mutex);
+
+            expand_meta(threadInfo->path, threadInfo->store);
+
+            pthread_mutex_lock(&threadInfo->mutex);
+            threadInfo->status = THREAD_FREE;
+            pthread_mutex_unlock(&threadInfo->mutex);
+        }
+        else
+        {
+            pthread_mutex_unlock(&threadInfo->mutex);
+            usleep(10);
+        }
+    }
+
+//    printf("Finished thread %d\n", threadInfo->id);
+    return NULL;
+}
+
+static void descend(const char *search, int zoomdone, struct ThreadInfo *pThreadInfo)
 {
     DIR *tiles = opendir(search);
     struct dirent *entry;
@@ -337,11 +398,36 @@ static void descend(const char *search, int zoomdone)
         if (stat(path, &b))
             continue;
         if (S_ISDIR(b.st_mode)) {
-            descend(path, zoomdone || this_is_zoom);
+            descend(path, zoomdone || this_is_zoom, pThreadInfo);
             continue;
         }
         p = strrchr(path, '.');
-        if (p && !strcmp(p, ".meta")) expand_meta(path);
+        if (p && !strcmp(p, ".meta")) {
+            while(1)
+            {
+                char isFind = 0;
+                for (int j = 0; j < threadCount; ++j)
+                {
+                    pthread_mutex_lock(&pThreadInfo[j].mutex);
+                    if (pThreadInfo[j].status == THREAD_FREE)
+                    {
+                        //printf("buff = %s", buff);
+                        strcpy(pThreadInfo[j].path, path);
+                        pThreadInfo[j].status = THREAD_COMPUTE;
+                        isFind = 1;
+                        pthread_mutex_unlock(&pThreadInfo[j].mutex);
+                        break;
+                    }
+                    pthread_mutex_unlock(&pThreadInfo[j].mutex);
+                }
+
+                if (isFind == 1)
+                    break;
+                else
+                    usleep(10);
+            }
+            num_render++;
+        }
     }
     closedir(tiles);
 }
@@ -349,7 +435,7 @@ static void descend(const char *search, int zoomdone)
 
 void usage()
 {
-    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] [-f force] [-c \"couchbase:{memcached://localhost:11211,memcached://localhost:11212}\"] sourcedir targetdir\n");
+    fprintf(stderr, "Usage: m2t [-m mode] [-b bbox] [-z zoom] [-f force] [-t threads] [-c \"couchbase:{memcached://localhost:11211,memcached://localhost:11212}\"] sourcedir targetdir\n");
     fprintf(stderr, "Convert .meta files found in source dir to .png in target dir,\n");
     fprintf(stderr, "using the standard \"hash\" type directory (5-level) for meta\n");
     fprintf(stderr, "tiles and the z/x/y.png structure (3-level) for output.\n");
@@ -401,11 +487,12 @@ int main(int argc, char **argv)
             {"bbox", 1, 0, 'b'},
             {"mode", 1, 0, 'm'},
             {"zoom", 1, 0, 'z'},
+            {"threads", 1, 0, 't'},
             {"force", 0, 0, 'f'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "vhb:m:z:c:f", long_options, &option_index);
+        c = getopt_long(argc, argv, "vhb:m:z:c:t:f", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -433,9 +520,16 @@ int main(int argc, char **argv)
                 }
                 break;
             case 'c':
-                store = init_storage_couchbase(optarg);
-                if (store == NULL) {
+                sprintf(store_conf, "%s", optarg);
+                if (store_conf == NULL) {
                     return -1;
+                }
+                break;
+            case 't':
+                threadCount=atoi(optarg);
+                if (threadCount <= 0) {
+                    fprintf(stderr, "Invalid number of threads, must be at least 1\n");
+                    return 1;
                 }
                 break;
             case 'm': 
@@ -464,6 +558,27 @@ int main(int argc, char **argv)
         }
     }
 
+    struct ThreadInfo *pThreadInfo = (struct ThreadInfo *)malloc(sizeof(struct ThreadInfo) * threadCount);
+
+    if (!pThreadInfo) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        return -1;
+    }
+
+    for (int i = 0; i < threadCount; ++i)
+    {
+        pThreadInfo[i].isFinished = 0;
+        pThreadInfo[i].id = i;
+        pThreadInfo[i].store = init_storage_couchbase(store_conf);
+        pThreadInfo[i].status = THREAD_COMPUTE;
+        pthread_mutex_init(&pThreadInfo[i].mutex, NULL);
+        if (pthread_create(&pThreadInfo[i].pid, NULL, thread, (void *)&pThreadInfo[i]) != 0)
+        {
+            fprintf(stderr, "Failed to start thread\n");
+            _exit(-1);
+        }
+    }
+
     if (!zoomset) for (int i=0; i<=MAXZOOM; i++) zoom[i]=1;
 
     if (optind >= argc-1)
@@ -479,7 +594,17 @@ int main(int argc, char **argv)
 
     gettimeofday(&start, NULL);
 
-    descend(source, 0);
+    descend(source, 0, pThreadInfo);
+
+    for (int j = 0; j < threadCount; ++j) {
+        pthread_mutex_lock(&pThreadInfo[j].mutex);
+        pThreadInfo[j].isFinished = 1;
+        pthread_mutex_unlock(&pThreadInfo[j].mutex);
+    }
+
+    for (int i = 0; i < threadCount; ++i) {
+        pthread_join(pThreadInfo[i].pid, NULL);
+    }
 
     gettimeofday(&end, NULL);
     printf("\nTotal for all tiles converted\n");
@@ -488,9 +613,13 @@ int main(int argc, char **argv)
     printf("Total tiles converted: ");
     display_rate(start, end, num_render * METATILE * METATILE);
 
-    if (store != NULL) {
-        store->close_storage(store);
+    for (int i=0; i<threadCount; i++) {
+        if (pThreadInfo[i].store != NULL) {
+            pThreadInfo[i].store->close_storage(pThreadInfo[i].store);
+        }
     }
+
+    free(pThreadInfo);
 
     return 0;
 }

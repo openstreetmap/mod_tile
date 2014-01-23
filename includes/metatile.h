@@ -4,6 +4,7 @@
 #include "config.h"
 #include <stdlib.h>
 #include "render_config.h"
+#include <openssl/md5.h>
 
 #ifdef __cplusplus
 #include <sstream>
@@ -27,6 +28,10 @@ extern "C" {
         // The index offsets are measured from the start of the file
     };
 
+    struct metahash_layout {
+        int count; // METATILE ^ 2
+        unsigned char hash_entry[][MD5_DIGEST_LENGTH]; // md5 entries
+    };
 
 #ifdef __cplusplus
 }
@@ -39,7 +44,6 @@ class metaTile {
     const std::string get(int x, int y);
     int xyz_to_meta_offset(int x, int y, int z);
     void save(struct storage_backend * store);
-    void save_tiles(struct storage_backend * store);
     void expire_tiles(int sock, char * host, char * uri);
  private:
     int x_, y_, z_;

@@ -257,7 +257,6 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
     curl_easy_setopt(ctx->ctx, CURLOPT_FILETIME, 1L);
 
     store->storage_ctx = ctx;
-    store->type = STORE_TYPE_HTTP_PROXY;
 
     store->tile_read = &ro_http_proxy_tile_read;
     store->tile_stat = &ro_http_proxy_tile_stat;
