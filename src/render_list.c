@@ -301,7 +301,9 @@ int main(int argc, char **argv)
     }
 
     store->close_storage(store);
-    free(store);
+    if (store != NULL) {
+        free(store);
+    }
     finish_workers();
 
     free(spath);

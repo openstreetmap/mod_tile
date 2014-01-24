@@ -15,14 +15,14 @@
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
 
-%define debug_package %{nil}
-%define METATILE 16
+#%define debug_package %{nil}
+%define METATILE 8
 %define apxs /usr/sbin/apxs
 BuildRequires:  httpd-devel
 
 Name:           mod_tile
 Version:	0.5
-Release:	27132013%{?dist}
+Release:	20140123%{?dist}
 Requires:       httpd
 Summary:        Apache module for map tile handling
 License:        GPL-2.0+
@@ -72,6 +72,7 @@ export CPPFLAGS="-I/usr/include/agg2"
 %configure \
     --with-apxs="%{apxs}"
 %__make %{?_smp_flags} -j8
+cd extra && make
 
 %post -n renderd -p /sbin/ldconfig
 %postun -n renderd -p /sbin/ldconfig
@@ -79,6 +80,7 @@ export CPPFLAGS="-I/usr/include/agg2"
 %install
 %makeinstall
 make DESTDIR=%{buildroot} install-mod_tile
+cp -a extra/meta2tile %{buildroot}/%{_bindir}
 
 %clean
 %{?buildroot:%__rm -rf "%{buildroot}"}
@@ -88,6 +90,7 @@ make DESTDIR=%{buildroot} install-mod_tile
 %doc COPYING
 #%{_bindir}/convert_meta
 %{_bindir}/render*
+%{_bindir}/meta2tile
 %config %{_sysconfdir}/renderd.conf
 %{_libdir}/libiniparser*
 %exclude %{_libdir}/libiniparser.so
@@ -104,6 +107,8 @@ make DESTDIR=%{buildroot} install-mod_tile
 %{_libdir}/httpd/modules/mod_tile.so
 
 %changelog
+* Thu Jan 23 2014 kay.diam@gmail.com
+- Bump version
 * Fri Dec 27 2013 kay.diam@gmail.com
 - Bump version and added METATILE const
 * Mon Sep 09 2013 kay.diam@gmail.com
