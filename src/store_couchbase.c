@@ -252,7 +252,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     memcpy(buf2 + sizeof(tile_stat), mh, metahash_len);
 
 //    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s", couchbase_tile_storage_id(store, xmlconfig, x, y, z, tmp));
- 
+
     snprintf(meta_path,PATH_MAX - 1, "%s/%d/%d/%d", xmlconfig, x, y, z);
 
     rc = memcached_set(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), buf2, metahash_len+sizeof(tile_stat), (time_t)0, (uint32_t)0);
@@ -353,7 +353,7 @@ static int couchbase_close_storage(struct storage_backend * store) {
 #endif //Have memcached
 
 struct storage_backend * init_storage_couchbase(const char * connection_string) {
-    
+
 #ifndef HAVE_LIBMEMCACHED
     log_message(STORE_LOGLVL_ERR,"init_storage_couchbase: Support for memcached has not been compiled into this program");
     return NULL;

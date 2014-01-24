@@ -222,7 +222,7 @@ int expand_meta(const char *name, struct storage_backend * store)
         if (mkdir(path, 0755) && (errno != EEXIST))
         {
             fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
-            close(fd);            
+            close(fd);
             return -1;
         }
     }
@@ -243,44 +243,44 @@ int expand_meta(const char *name, struct storage_backend * store)
             int tx = x + (meta / METATILE);
             int ty = y + (meta % METATILE);
             int output;
-    
+
             if (ty==y)
             {
                 sprintf(path, "%s/%d/%d", target, z, tx);
                 if (mkdir(path, 0755) && (errno != EEXIST))
                 {
                     fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
-                    close(fd);            
+                    close(fd)
                     return -1;
                 }
             }
-    
+
             sprintf(path, "%s/%d/%d/%d.png", target, z, tx, ty);
             output = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
             if (output == -1)
             {
                 fprintf(stderr, "cannot open %s for writing: %s\n", path, strerror(errno));
-                close(fd);            
+                close(fd);
                 return -1;
             }
-    
+
             pos = 0;
             while (pos < m->index[meta].size) 
             {
                 size_t len = m->index[meta].size - pos;
                 int written = write(output, buf + pos + m->index[meta].offset, len);
-    
-                if (written < 0) 
+
+                if (written < 0)
                 {
                     fprintf(stderr, "Failed to write data to file %s. Reason: %s\n", path, strerror(errno));
                     close(fd);
                     return -7;
-                } 
-                else if (written > 0) 
+                }
+                else if (written > 0)
                 {
                     pos += written;
-                } 
-                else 
+                }
+                else
                 {
                     break;
                 }
