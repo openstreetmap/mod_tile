@@ -8,6 +8,8 @@
 #include <time.h>
 #include <openssl/md5.h>
 
+#define COUCHBASE_WRITE_RETRIES 3
+
 #ifdef HAVE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
 #endif
@@ -255,9 +257,14 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
 
     snprintf(meta_path,PATH_MAX - 1, "%s/%d/%d/%d", xmlconfig, x, y, z);
 
-    rc = memcached_set(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), buf2, metahash_len+sizeof(tile_stat), (time_t)0, (uint32_t)0);
-    if (rc != MEMCACHED_SUCCESS) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+    int counter = 0;
+    do {
+        if (counter > 0) sleep(1);
+        rc = memcached_set(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), buf2, metahash_len+sizeof(tile_stat), (time_t)0, (uint32_t)0);
+        counter++;
+    } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
+    if (rc != MEMCACHED_SUCCESS || counter > 1) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
         free(mh);
         free(buf2);
         return -1;
@@ -268,7 +275,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++)
     {
-        int counter = 0;
+        counter = 0;
         int tx = x + (tile_index / METATILE);
         int ty = y + (tile_index % METATILE);
         md5 = md5_to_ascii(mh->hash_entry[tile_index]);
@@ -277,8 +284,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
             if (counter > 0) sleep(1);
             rc = memcached_set(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, buf+m->index[tile_index].offset, m->index[tile_index].size, (time_t)0, (uint32_t)0);
             counter++;
-        } while (rc != MEMCACHED_SUCCESS && counter < 3);
-
+        } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
         if (rc != MEMCACHED_SUCCESS || counter > 1) {
             log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
         }

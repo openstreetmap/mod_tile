@@ -250,7 +250,7 @@ int expand_meta(const char *name, struct storage_backend * store)
                 if (mkdir(path, 0755) && (errno != EEXIST))
                 {
                     fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
-                    close(fd)
+                    close(fd);
                     return -1;
                 }
             }
