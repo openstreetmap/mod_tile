@@ -42,7 +42,17 @@ static char * md5_to_ascii(const unsigned char hash[MD5_DIGEST_LENGTH]) {
     return strndup(result, MD5_DIGEST_LENGTH*2);
 }
 
-static void md5_bin(const unsigned char *buf, int length, unsigned char * result) {
+static bool is_md5_in_metahash(const unsigned char *hash, struct metahash_layout *mh) {
+    int i;
+    for (i=0; i < mh->count; i++) {
+        if (memcmp(mh->hash_entry[i], hash, MD5_DIGEST_LENGTH) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void md5_bin(const unsigned char *buf, int length, unsigned char *result) {
     MD5_CTX my_md5;
 
     MD5_Init(&my_md5);
@@ -62,8 +72,7 @@ static struct metahash_layout * meta_to_hashes(int x, int y, const char *buf) {
     mh->count = METATILE * METATILE;
 
     int tile_index;
-    for (tile_index = 0; tile_index < mh->count; tile_index++)
-    {
+    for (tile_index = 0; tile_index < mh->count; tile_index++) {
         const size_t tile_offset = m->index[tile_index].offset;
         const size_t tile_size   = m->index[tile_index].size;
         md5_bin((unsigned char *)buf+tile_offset, tile_size, mh->hash_entry[tile_index]);
@@ -188,8 +197,7 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
     }
 
     int tile_index;
-    for (tile_index = 0; tile_index < mh->count; tile_index++)
-    {
+    for (tile_index = 0; tile_index < mh->count; tile_index++) {
         int tx = x + (tile_index / METATILE);
         int ty = y + (tile_index % METATILE);
         md5 = md5_to_ascii(mh->hash_entry[tile_index]);
@@ -223,6 +231,9 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     struct couchbase_ctx * ctx = (struct couchbase_ctx *)(store->storage_ctx);
     struct meta_layout *m = (struct meta_layout *)(buf);
     struct metahash_layout *mh;
+    struct metahash_layout *mh_dedup;
+    int mh_dedup_len = sizeof(struct metahash_layout);
+    int mh_dedup_item_len = sizeof(unsigned char)*MD5_DIGEST_LENGTH;
     int metahash_len = sizeof(struct metahash_layout) + METATILE*METATILE*sizeof(unsigned char)*MD5_DIGEST_LENGTH;
     char meta_path[PATH_MAX];
     unsigned int header_len = sizeof(struct meta_layout) + METATILE*METATILE*sizeof(struct entry);
@@ -231,6 +242,9 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     int sz2 = metahash_len + sizeof(tile_stat);
     char * buf2 = malloc(sz2);
     char * md5;
+    char * md5_check;
+    size_t md5_check_len;
+    uint32_t flags;
     memcached_return_t rc;
 
     if (buf2 == NULL) {
@@ -238,11 +252,16 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     }
 
     mh = meta_to_hashes(x,y,buf);
+    mh_dedup = (struct metahash_layout *)malloc(mh_dedup_len);
 
-    if (mh == NULL) {
+    if (mh == NULL || mh_dedup == NULL) {
         free(buf2);
+        if (mh) free(mh);
+        if (mh_dedup) free(mh_dedup);
         return -2;
     }
+
+    mh_dedup->count = 0;
 
     tile_stat.expired = 0;
     tile_stat.size = sz-header_len;
@@ -264,8 +283,13 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
         counter++;
     } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
     if (rc != MEMCACHED_SUCCESS || counter > 1) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+        if (rc != MEMCACHED_SUCCESS) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+        } else {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+        }
         free(mh);
+        free(mh_dedup);
         free(buf2);
         return -1;
     }
@@ -273,26 +297,52 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
 //    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: write meta %s to cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
 
     int tile_index;
-    for (tile_index = 0; tile_index < mh->count; tile_index++)
-    {
+    for (tile_index = 0; tile_index < mh->count; tile_index++) {
+        if (mh_dedup->count > 0 && is_md5_in_metahash(mh->hash_entry[tile_index],mh_dedup)) {
+            continue;
+        }
+
+        struct metahash_layout *mh_tmp;
+        mh_dedup->count++;
+        mh_tmp = (struct metahash_layout *)realloc(mh_dedup,mh_dedup_len+mh_dedup_item_len*mh_dedup->count);
+        if (mh_tmp == NULL) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to reallocate memory for mh_dedup");
+            free(mh);
+            free(mh_dedup);
+            free(buf2);
+            return -2;
+        } else {
+            mh_dedup = mh_tmp;
+            memcpy(mh_dedup->hash_entry[mh_dedup->count-1], mh->hash_entry[tile_index], MD5_DIGEST_LENGTH);
+        }
+
         counter = 0;
         int tx = x + (tile_index / METATILE);
         int ty = y + (tile_index % METATILE);
         md5 = md5_to_ascii(mh->hash_entry[tile_index]);
 
-        do {
-            if (counter > 0) sleep(1);
-            rc = memcached_set(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, buf+m->index[tile_index].offset, m->index[tile_index].size, (time_t)0, (uint32_t)0);
-            counter++;
-        } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
-        if (rc != MEMCACHED_SUCCESS || counter > 1) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
-        }
+        md5_check = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &md5_check_len, &flags, &rc);
 
+        if (rc != MEMCACHED_SUCCESS || m->index[tile_index].size != md5_check_len || memcmp(buf+m->index[tile_index].offset, md5_check, md5_check_len) != 0) {
+            do {
+                if (counter > 0) sleep(1);
+                rc = memcached_set(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, buf+m->index[tile_index].offset, m->index[tile_index].size, (time_t)0, (uint32_t)0);
+                counter++;
+            } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
+            if (rc != MEMCACHED_SUCCESS || counter > 1) {
+                if (rc != MEMCACHED_SUCCESS) {
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
+                } else {
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
+                }
+            }
+        }
+        if (md5_check) free(md5_check);
         free(md5);
     }
 
     free(mh);
+    free(mh_dedup);
     free(buf2);
 
     memcached_flush_buffers(ctx->hashes->storage_ctx);

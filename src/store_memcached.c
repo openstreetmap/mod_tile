@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <time.h>
 
+#define USE_BINARY_PROTOCOL
+
 #ifdef HAVE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
 #endif
@@ -243,11 +245,20 @@ struct storage_backend * init_storage_memcached(const char * connection_string) 
         return NULL;
     }
 
+#ifdef USE_BINARY_PROTOCOL
+    len = strlen("--server= --binary-protocol") + strlen(connection_string) - strlen("memcached://");
+#else
     len = strlen("--server=") + strlen(connection_string) - strlen("memcached://");
+#endif
     connection_str = malloc(len + 1);
     memcpy(connection_str,"--server=", strlen("--server="));
     memcpy(connection_str+strlen("--server="),connection_string + strlen("memcached://"), len-strlen("--server="));
+#ifdef USE_BINARY_PROTOCOL
+    memcpy(connection_str+len-strlen(" --binary-protocol")," --binary-protocol", strlen(" --binary-protocol"));
+#endif
     connection_str[len] = 0;
+
+    log_message(STORE_LOGLVL_DEBUG,"init_storage_memcached: initialization string: %s", connection_str);
 
     ctx = memcached(connection_str, len);
     if (ctx == NULL) {

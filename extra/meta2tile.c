@@ -29,6 +29,7 @@
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define META_MAGIC "META"
+#define THREAD_USLEEP 1
 
 enum Status
 {
@@ -343,7 +344,7 @@ static void *thread(void *pArg)
         else
         {
             pthread_mutex_unlock(&threadInfo->mutex);
-            usleep(10);
+            usleep(THREAD_USLEEP);
         }
     }
 
@@ -422,7 +423,7 @@ static void descend(const char *search, int zoomdone, struct ThreadInfo *pThread
                 if (isFind == 1)
                     break;
                 else
-                    usleep(10);
+                    usleep(THREAD_USLEEP);
             }
             num_render++;
         }
