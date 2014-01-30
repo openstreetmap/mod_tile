@@ -196,6 +196,8 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
         return tile_stat;
     }
 
+    memcpy(mh,md5_raw+sizeof(struct stat_info),metahash_len);
+
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++) {
         int tx = x + (tile_index / METATILE);
