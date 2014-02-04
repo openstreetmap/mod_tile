@@ -132,10 +132,18 @@ static int couchbase_tile_read(struct storage_backend * store, const char *xmlco
     }
 
     memcpy(mh, md5_raw + sizeof(struct stat_info), metahash_len);
+
+    if (mh->count != METATILE*METATILE) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: %s meta count %d doesn't equal %d", meta_path, mh->count, METATILE*METATILE);
+        free(md5_raw);
+        free(mh);
+        return -1;
+    }
+
     md5 = md5_to_ascii(mh->hash_entry[tile_index]);
     buf_raw = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed read tile %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->tiles->storage_ctx));
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed read tile %s (%s) from cocuhbase %s", meta_path, md5, memcached_last_error_message(ctx->tiles->storage_ctx));
         free(md5_raw);
         free(md5);
         free(mh);
@@ -207,6 +215,14 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
 
     memcpy(mh,md5_raw+sizeof(struct stat_info),metahash_len);
 
+    if (mh->count != METATILE*METATILE) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: %s meta count %d doesn't equal %d", meta_path, mh->count, METATILE*METATILE);
+        free(mh);
+        free(mh_dedup);
+        free(md5_raw);
+        return tile_stat;
+    }
+
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++) {
         if (mh_dedup->count > 0 && is_md5_in_metahash(mh->hash_entry[tile_index],mh_dedup)) {
@@ -217,7 +233,7 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
         mh_dedup->count++;
         mh_tmp = (struct metahash_layout *)realloc(mh_dedup,mh_dedup_len+mh_dedup_item_len*mh_dedup->count);
         if (mh_tmp == NULL) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to reallocate memory for mh_dedup");
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed to reallocate memory for mh_dedup");
             free(mh);
             free(mh_dedup);
             return tile_stat;
@@ -231,7 +247,7 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
         md5 = md5_to_ascii(mh->hash_entry[tile_index]);
         buf_raw = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &len, &flags, &rc);
         if (rc != MEMCACHED_SUCCESS) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed read tile %d/%d/%d from cocuhbase %s", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx));
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed read tile %d/%d/%d (%s) from cocuhbase %s", tx, ty, z, md5, memcached_last_error_message(ctx->tiles->storage_ctx));
             free(md5_raw);
             free(buf_raw);
             free(md5);
@@ -422,6 +438,14 @@ static int couchbase_metatile_delete(struct storage_backend * store, const char 
     }
 
     memcpy(mh, md5_raw + sizeof(struct stat_info), metahash_len);
+
+    if (mh->count != METATILE*METATILE) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: %s meta count %d doesn't equal %d", meta_path, mh->count, METATILE*METATILE);
+        free(md5_raw);
+        free(mh);
+        free(mh_dedup);
+        return -1;
+    }
 
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++) {
