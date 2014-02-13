@@ -22,8 +22,7 @@
 #include <pthread.h>
 
 #include "store_file.h"
-#include "store_memcached.h" // init_storage_memcached
-#include "store_couchbase.h" // init_storage_couchbase
+#include "store_couchbase.h"
 #include "metatile.h"
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
