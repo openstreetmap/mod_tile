@@ -4,7 +4,6 @@
 #include "config.h"
 #include <stdlib.h>
 #include "render_config.h"
-#include <openssl/md5.h>
 
 #ifdef __cplusplus
 #include <sstream>
@@ -28,10 +27,6 @@ extern "C" {
         // The index offsets are measured from the start of the file
     };
 
-    struct metahash_layout {
-        int count; // METATILE ^ 2
-        unsigned char hash_entry[][MD5_DIGEST_LENGTH]; // md5 entries
-    };
 
 #ifdef __cplusplus
 }

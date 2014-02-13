@@ -28,6 +28,11 @@ struct couchbase_ctx {
     struct storage_backend * tiles;
 };
 
+struct metahash_layout {
+    int count; // METATILE ^ 2
+    unsigned char hash_entry[][MD5_DIGEST_LENGTH]; // md5 entries
+};
+
 static char * md5_to_ascii(const unsigned char hash[MD5_DIGEST_LENGTH]) {
     const char *hex = "0123456789abcdef";
     char *r, result[MD5_DIGEST_LENGTH * 2 + 1];
