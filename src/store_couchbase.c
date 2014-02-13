@@ -6,7 +6,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
+#ifdef HAVE_OPENSSL_MD5_H
 #include <openssl/md5.h>
+#endif
 
 #define COUCHBASE_WRITE_RETRIES 3
 
@@ -20,8 +22,7 @@
 #include "render_config.h"
 #include "protocol.h"
 
-
-#ifdef HAVE_LIBMEMCACHED
+#if defined(HAVE_LIBMEMCACHED) && defined(HAVE_OPENSSL_MD5_H)
 
 struct couchbase_ctx {
     struct storage_backend * hashes;
@@ -494,12 +495,12 @@ static int couchbase_close_storage(struct storage_backend * store) {
     free(store);
     return 0;
 }
-#endif //Have memcached
+#endif //Have memcached / openssl_md5
 
 struct storage_backend * init_storage_couchbase(const char * connection_string) {
 
-#ifndef HAVE_LIBMEMCACHED
-    log_message(STORE_LOGLVL_ERR,"init_storage_couchbase: Support for memcached has not been compiled into this program");
+#if !defined(HAVE_LIBMEMCACHED) || !defined(HAVE_OPENSSL_MD5_H)
+    log_message(STORE_LOGLVL_ERR,"init_storage_couchbase: Support for memcached/openssl has not been compiled into this program");
     return NULL;
 #else
     struct storage_backend * store = malloc(sizeof(struct storage_backend));

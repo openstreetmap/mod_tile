@@ -22,7 +22,6 @@
 #include <pthread.h>
 
 #include "store_file.h"
-#include <libmemcached/memcached.h>
 #include "store_memcached.h" // init_storage_memcached
 #include "store_couchbase.h" // init_storage_couchbase
 #include "metatile.h"
