@@ -250,21 +250,31 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     uint32_t flags;
     memcached_return_t rc;
 
+    struct metahash_layout *mh_old;
+    struct metahash_layout *mh_old_dedup;
+    char * md5_old_raw;
+    size_t md5_old_len;
+    bool check_old = false;
+
     if (buf2 == NULL) {
         return -2;
     }
 
     mh = meta_to_hashes(x,y,buf);
     mh_dedup = (struct metahash_layout *)malloc(mh_dedup_len);
+    mh_old_dedup = (struct metahash_layout *)malloc(mh_dedup_len);
 
-    if (mh == NULL || mh_dedup == NULL) {
+    if (mh == NULL || mh_dedup == NULL || mh_old_dedup == NULL) {
         free(buf2);
         if (mh) free(mh);
         if (mh_dedup) free(mh_dedup);
+        if (mh_old_dedup) free(mh_old_dedup);
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: failed to allocate memory for metahash: %s", meta_path);
         return -2;
     }
 
     mh_dedup->count = 0;
+    mh_old_dedup->count = 0;
 
     tile_stat.expired = 0;
     tile_stat.size = sz-header_len;
@@ -278,6 +288,31 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
 //    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s", couchbase_tile_storage_id(store, xmlconfig, x, y, z, tmp));
 
     snprintf(meta_path,PATH_MAX - 1, "%s/%d/%d/%d", xmlconfig, x, y, z);
+
+    // metahash old get START
+    md5_old_raw = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_old_len, &flags, &rc);
+    if (rc != MEMCACHED_SUCCESS) {
+        if (rc != MEMCACHED_NOTFOUND) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: failed read old meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+        }
+    } else if (md5_old_len != (metahash_len + sizeof(struct stat_info))) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: %s old meta size %d doesn't equal %d", meta_path, md5_old_len, metahash_len + sizeof(struct stat_info));
+    } else if (md5_old_raw != NULL) {
+        mh_old = (struct metahash_layout *)malloc(metahash_len);
+        if (mh_old == NULL) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: failed to allocate memory for mh_old: %s", meta_path);
+        } else {
+            memcpy(mh_old, md5_old_raw + sizeof(struct stat_info), metahash_len);
+            if (mh_old->count != METATILE*METATILE) {
+                log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: %s old meta count %d doesn't equal %d", meta_path, mh_old->count, METATILE*METATILE);
+                free(mh_old);
+            } else {
+                check_old = true;
+            }
+        }
+    }
+    free(md5_old_raw);
+    //metahash old gen END
 
     int counter = 0;
     do {
@@ -293,6 +328,8 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
         }
         free(mh);
         free(mh_dedup);
+        free(mh_old_dedup);
+        if (check_old) free(mh_old);
         free(buf2);
         return -1;
     }
@@ -301,17 +338,39 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
 
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++) {
+        struct metahash_layout *mh_tmp;
+
+        if (check_old && (mh_old_dedup->count == 0 || !is_md5_in_metahash(mh_old->hash_entry[tile_index],mh_old_dedup))) {
+            // update dedup array for old metahash data
+            mh_old_dedup->count++;
+            mh_tmp = (struct metahash_layout *)realloc(mh_old_dedup,mh_dedup_len+mh_dedup_item_len*mh_old_dedup->count);
+            if (mh_tmp == NULL) {
+                log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to reallocate memory for mh_old_dedup");
+                free(mh);
+                free(mh_dedup);
+                free(mh_old_dedup);
+                free(mh_old);
+                free(buf2);
+                return -2;
+            } else {
+                mh_old_dedup = mh_tmp;
+                memcpy(mh_old_dedup->hash_entry[mh_old_dedup->count-1], mh_old->hash_entry[tile_index], MD5_DIGEST_LENGTH);
+            }
+        }
+
         if (mh_dedup->count > 0 && is_md5_in_metahash(mh->hash_entry[tile_index],mh_dedup)) {
             continue;
         }
 
-        struct metahash_layout *mh_tmp;
         mh_dedup->count++;
         mh_tmp = (struct metahash_layout *)realloc(mh_dedup,mh_dedup_len+mh_dedup_item_len*mh_dedup->count);
         if (mh_tmp == NULL) {
+            // update dedup array for metahash data
             log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to reallocate memory for mh_dedup");
             free(mh);
             free(mh_dedup);
+            free(mh_old_dedup);
+            if (check_old) free(mh_old);
             free(buf2);
             return -2;
         } else {
@@ -344,8 +403,24 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
         free(md5);
     }
 
+    if (check_old) {
+        // delete old tiles
+        for (tile_index = 0; tile_index < mh_old_dedup->count; tile_index++) {
+            if (!is_md5_in_metahash(mh_old_dedup->hash_entry[tile_index],mh_dedup)) {
+                md5 = md5_to_ascii(mh_old_dedup->hash_entry[tile_index]);
+                rc = memcached_delete(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, 0);
+                if (rc != MEMCACHED_SUCCESS) {
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed delete old tile %s while update from cocuhbase %s", md5, memcached_last_error_message(ctx->tiles->storage_ctx));
+                }
+                free(md5);
+            }
+        }
+        free(mh_old);
+    }
+
     free(mh);
     free(mh_dedup);
+    free(mh_old_dedup);
     free(buf2);
 
     memcached_flush_buffers(ctx->hashes->storage_ctx);
