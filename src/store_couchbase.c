@@ -125,7 +125,7 @@ static int couchbase_tile_read(struct storage_backend * store, const char *xmlco
     md5_raw = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
         if (rc != MEMCACHED_NOTFOUND) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed read meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed to read meta %s from couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         }
         free(mh);
         return -1;
@@ -149,7 +149,7 @@ static int couchbase_tile_read(struct storage_backend * store, const char *xmlco
     md5 = md5_to_ascii(mh->hash_entry[tile_index]);
     buf_raw = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed read tile %s (%s) from cocuhbase %s", meta_path, md5, memcached_last_error_message(ctx->tiles->storage_ctx));
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_read: failed to read tile %s (%s) from couchbase %s", meta_path, md5, memcached_last_error_message(ctx->tiles->storage_ctx));
         free(md5_raw);
         free(md5);
         free(mh);
@@ -195,14 +195,14 @@ static struct stat_info couchbase_tile_stat(struct storage_backend * store, cons
 
     if (rc != MEMCACHED_SUCCESS) {
         if (rc != MEMCACHED_NOTFOUND) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed to get meta stat %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: failed to get meta stat %s from couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         }
         free(mh);
         return tile_stat;
     }
 
     if (md5_len != (metahash_len + sizeof(struct stat_info))) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: invalid %s meta stat size from cocuhbase %s, %d != %d", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), md5_len, metahash_len+sizeof(struct stat_info));
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_stat: invalid %s meta stat size from couchbase %s, %d != %d", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), md5_len, metahash_len+sizeof(struct stat_info));
         free(mh);
         free(md5_raw);
         return tile_stat;
@@ -254,7 +254,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     struct metahash_layout *mh_old_dedup;
     char * md5_old_raw;
     size_t md5_old_len;
-    bool check_old = false;
+    bool delete_old = false;
 
     if (buf2 == NULL) {
         return -2;
@@ -293,7 +293,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     md5_old_raw = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_old_len, &flags, &rc);
     if (rc != MEMCACHED_SUCCESS) {
         if (rc != MEMCACHED_NOTFOUND) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: failed read old meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: failed to read old meta %s from couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         }
     } else if (md5_old_len != (metahash_len + sizeof(struct stat_info))) {
         log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: %s old meta size %d doesn't equal %d", meta_path, md5_old_len, metahash_len + sizeof(struct stat_info));
@@ -307,11 +307,11 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
                 log_message(STORE_LOGLVL_DEBUG,"couchbase_tile_write: %s old meta count %d doesn't equal %d", meta_path, mh_old->count, METATILE*METATILE);
                 free(mh_old);
             } else {
-                check_old = true;
+                delete_old = true;
             }
         }
     }
-    free(md5_old_raw);
+    if (md5_old_raw) free(md5_old_raw);
     //metahash old gen END
 
     int counter = 0;
@@ -322,25 +322,25 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
     if (rc != MEMCACHED_SUCCESS || counter > 1) {
         if (rc != MEMCACHED_SUCCESS) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to write meta %s to couchbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
         } else {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote meta %s to cocuhbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote meta %s to couchbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
         }
         free(mh);
         free(mh_dedup);
         free(mh_old_dedup);
-        if (check_old) free(mh_old);
+        if (delete_old) free(mh_old);
         free(buf2);
         return -1;
     }
 
-//    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: write meta %s to cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+//    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: write meta %s to couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
 
     int tile_index;
     for (tile_index = 0; tile_index < mh->count; tile_index++) {
         struct metahash_layout *mh_tmp;
 
-        if (check_old && (mh_old_dedup->count == 0 || !is_md5_in_metahash(mh_old->hash_entry[tile_index],mh_old_dedup))) {
+        if (delete_old && (mh_old_dedup->count == 0 || !is_md5_in_metahash(mh_old->hash_entry[tile_index],mh_old_dedup))) {
             // update dedup array for old metahash data
             mh_old_dedup->count++;
             mh_tmp = (struct metahash_layout *)realloc(mh_old_dedup,mh_dedup_len+mh_dedup_item_len*mh_old_dedup->count);
@@ -370,7 +370,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
             free(mh);
             free(mh_dedup);
             free(mh_old_dedup);
-            if (check_old) free(mh_old);
+            if (delete_old) free(mh_old);
             free(buf2);
             return -2;
         } else {
@@ -385,6 +385,7 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
 
         md5_check = memcached_get(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, &md5_check_len, &flags, &rc);
 
+        // check if tile exists in couchbase and qeuals to new one
         if (rc != MEMCACHED_SUCCESS || m->index[tile_index].size != md5_check_len || memcmp(buf+m->index[tile_index].offset, md5_check, md5_check_len) != 0) {
             do {
                 if (counter > 0) sleep(1);
@@ -393,9 +394,9 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
             } while (rc != MEMCACHED_SUCCESS && counter < COUCHBASE_WRITE_RETRIES);
             if (rc != MEMCACHED_SUCCESS || counter > 1) {
                 if (rc != MEMCACHED_SUCCESS) {
-                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed write tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to write tile %d/%d/%d to couchbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
                 } else {
-                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote tile %d/%d/%d to cocuhbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote tile %d/%d/%d to couchbase %s in %d iterations", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx), counter);
                 }
             }
         }
@@ -403,14 +404,14 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
         free(md5);
     }
 
-    if (check_old) {
+    if (delete_old) {
         // delete old tiles
         for (tile_index = 0; tile_index < mh_old_dedup->count; tile_index++) {
             if (!is_md5_in_metahash(mh_old_dedup->hash_entry[tile_index],mh_dedup)) {
                 md5 = md5_to_ascii(mh_old_dedup->hash_entry[tile_index]);
                 rc = memcached_delete(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, 0);
-                if (rc != MEMCACHED_SUCCESS) {
-                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed delete old tile %s while update from cocuhbase %s", md5, memcached_last_error_message(ctx->tiles->storage_ctx));
+                if (rc != MEMCACHED_SUCCESS && rc != MEMCACHED_NOTFOUND) {
+                    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to delete old tile %s while updating %s in couchbase %s", md5, meta_path, memcached_last_error_message(ctx->tiles->storage_ctx));
                 }
                 free(md5);
             }
@@ -456,7 +457,7 @@ static int couchbase_metatile_delete(struct storage_backend * store, const char 
     md5_raw = memcached_get(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), &md5_raw_len, &flags, &rc);
 
     if (rc != MEMCACHED_SUCCESS) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed read meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed to read meta %s from couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         free(mh);
         free(mh_dedup);
         return -1;
@@ -502,8 +503,8 @@ static int couchbase_metatile_delete(struct storage_backend * store, const char 
         int ty = y + (tile_index % METATILE);
         md5 = md5_to_ascii(mh->hash_entry[tile_index]);
         rc = memcached_delete(ctx->tiles->storage_ctx, md5, MD5_DIGEST_LENGTH*2, 0);
-        if (rc != MEMCACHED_SUCCESS) {
-            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed delete tile %d/%d/%d from cocuhbase %s", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx));
+        if (rc != MEMCACHED_SUCCESS && rc != MEMCACHED_NOTFOUND) {
+            log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed to delete tile %d/%d/%d from couchbase %s", tx, ty, z, memcached_last_error_message(ctx->tiles->storage_ctx));
             free(md5_raw);
             free(md5);
             free(mh);
@@ -515,8 +516,8 @@ static int couchbase_metatile_delete(struct storage_backend * store, const char 
 
     rc = memcached_delete(ctx->hashes->storage_ctx, meta_path, strlen(meta_path), 0);
 
-    if (rc != MEMCACHED_SUCCESS) {
-        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed delete meta %s from cocuhbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
+    if (rc != MEMCACHED_SUCCESS && rc != MEMCACHED_NOTFOUND) {
+        log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_delete: failed to delete meta %s from couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
         free(md5_raw);
         free(mh);
         free(mh_dedup);
