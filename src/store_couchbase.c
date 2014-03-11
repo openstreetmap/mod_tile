@@ -323,15 +323,15 @@ static int couchbase_metatile_write(struct storage_backend * store, const char *
     if (rc != MEMCACHED_SUCCESS || counter > 1) {
         if (rc != MEMCACHED_SUCCESS) {
             log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: failed to write meta %s to couchbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
+            free(mh);
+            free(mh_dedup);
+            free(mh_old_dedup);
+            if (delete_old) free(mh_old);
+            free(buf2);
+            return -1;
         } else {
             log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: successfully wrote meta %s to couchbase %s in %d iterations", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx), counter);
         }
-        free(mh);
-        free(mh_dedup);
-        free(mh_old_dedup);
-        if (delete_old) free(mh_old);
-        free(buf2);
-        return -1;
     }
 
 //    log_message(STORE_LOGLVL_DEBUG,"couchbase_metatile_write: write meta %s to couchbase %s", meta_path, memcached_last_error_message(ctx->hashes->storage_ctx));
