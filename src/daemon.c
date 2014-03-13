@@ -668,7 +668,7 @@ void *slave_thread(void * arg) {
 #ifndef MAIN_ALREADY_DEFINED
 int main(int argc, char **argv)
 {
-    int fd, i, j, k;
+    int fd, i, j, k, n;
 
     int c;
     int foreground=0;
@@ -1015,16 +1015,22 @@ int main(int argc, char **argv)
         k = 0;
         slave_threads
                 = (pthread_t *) malloc(sizeof(pthread_t) * noSlaveRenders);
-        for (i = 1; i < MAX_SLAVES; i++) {
-            for (j = 0; j < config_slaves[i].num_threads; j++) {
-                if (pthread_create(&slave_threads[k++], NULL, slave_thread,
-                        (void *) &config_slaves[i])) {
-                    fprintf(stderr, "error spawning render thread\n");
-                    close(fd);
-                    exit(7);
+        j = 0;
+        do {
+            n = 0;
+            for (i = 1; i < MAX_SLAVES; i++) {
+                if (j < config_slaves[i].num_threads) {
+                    if (pthread_create(&slave_threads[k++], NULL, slave_thread,
+                            (void *) &config_slaves[i])) {
+                        fprintf(stderr, "error spawning render thread\n");
+                        close(fd);
+                        exit(7);
+                    }
+                    ++n;
                 }
             }
-        }
+            ++j;
+        } while (n > 0);
     }
 
     process_loop(fd);
