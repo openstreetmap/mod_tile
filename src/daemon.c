@@ -472,7 +472,7 @@ void *slave_thread(void * arg) {
     renderd_config * sConfig = (renderd_config *) arg;
 
     int pfd = FD_INVALID;
-    int retry;
+    int retry, reenqueue = 0;
     size_t ret_size;
 
     struct protocol * resp;
@@ -530,6 +530,7 @@ void *slave_thread(void * arg) {
                     free(resp);
                     free(req_slave);
                     close(pfd);
+                    request_queue_reenqueue_request(render_request_queue, item);
                     return NULL;
                 }
 
@@ -538,9 +539,8 @@ void *slave_thread(void * arg) {
                 pfd = client_socket_init(sConfig);
                 if (pfd == FD_INVALID) {
                     syslog(LOG_ERR,
-                            "Failed to re-connect to render slave, dropping request");
-                    ret = cmdNotDone;
-                    send_response(item, ret, -1);
+                            "Failed to re-connect to render slave");
+                    request_queue_reenqueue_request(render_request_queue, item);
                     break;
                 }
             } while (retry--);
@@ -550,17 +550,23 @@ void *slave_thread(void * arg) {
 
             ret_size = 0;
             retry = 10;
+            reenqueue = 0;
             while ((ret_size < sizeof(struct protocol)) && (retry > 0)) {
-                ret_size = recv(pfd, resp + ret_size, (sizeof(struct protocol)
+                ret_size += recv(pfd, resp + ret_size, (sizeof(struct protocol)
                         - ret_size), 0);
                 if ((errno == EPIPE) || ret_size == 0) {
                     close(pfd);
                     pfd = FD_INVALID;
                     ret_size = 0;
                     syslog(LOG_ERR, "Pipe to render slave closed");
+                    request_queue_reenqueue_request(render_request_queue, item);
+                    reenqueue = 1;
                     break;
                 }
                 retry--;
+            }
+            if (reenqueue) {
+                continue;
             }
             if (ret_size < sizeof(struct protocol)) {
                 if (sConfig->ipport > 0) {
