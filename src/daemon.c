@@ -431,7 +431,7 @@ int server_socket_init(renderd_config *sConfig) {
     struct sockaddr_un addrU;
     struct sockaddr_in6 addrI;
     mode_t old;
-    int fd;
+    int fd, optval;
 
     if (sConfig->ipport > 0) {
         syslog(LOG_INFO, "Initialising TCP/IP server socket on %s:%i",
@@ -441,6 +441,10 @@ int server_socket_init(renderd_config *sConfig) {
             fprintf(stderr, "failed to create IP socket\n");
             exit(2);
         }
+
+        optval = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
         bzero(&addrI, sizeof(addrI));
         addrI.sin6_family = AF_INET6;
         addrI.sin6_addr = in6addr_any;
