@@ -45,6 +45,9 @@ static renderd_config config;
 
 int noSlaveRenders;
 
+static int check_slaves = 0;
+static int live_slaves = 0;
+static pthread_mutex_t live_slaves_mu = PTHREAD_MUTEX_INITIALIZER;
 
 static const char *cmdStr(enum protoCmd c)
 {
@@ -61,8 +64,29 @@ static const char *cmdStr(enum protoCmd c)
     }
 }
 
+static int update_live_slaves(int n) {
+    int res = 0;
+    int rc = pthread_mutex_lock(&live_slaves_mu);
+    if (rc) {
+        syslog(LOG_ERR, "pthread_mutex_lock failed");
+    }
 
+    live_slaves += n;
+    res = live_slaves;
 
+    if (!rc) {
+        rc = pthread_mutex_unlock(&live_slaves_mu);
+        if (rc) {
+            syslog(LOG_ERR, "pthread_mutex_unlock failed");
+        }
+    }
+
+    if (n != 0) {
+        syslog(LOG_DEBUG, "update_live_slaves: %d (%d)", n, res);
+    }
+
+    return res;
+}
 
 void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
@@ -75,9 +99,9 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
-            
+
             send_cmd(req, item->fd);
-            
+
         }
         prev = item;
         item = item->duplicates;
@@ -92,9 +116,9 @@ enum protoCmd rx_request(struct protocol *req, int fd)
     // Upgrade version 1 and 2 to  version 3
     if (req->ver == 1) {
         strcpy(req->xmlname, "default");
-    } 
+    }
     if (req->ver < 3) {
-        strcpy(req->mimetype,"image/png"); 
+        strcpy(req->mimetype,"image/png");
         strcpy(req->options,"");
     } else if (req->ver != 3) {
         syslog(LOG_ERR, "Bad protocol version %d", req->ver);
@@ -131,6 +155,11 @@ enum protoCmd rx_request(struct protocol *req, int fd)
     item->mx = item->req.x;
     item->my = item->req.y;
 #endif
+
+    if (check_slaves && update_live_slaves(0) == 0) {
+        syslog(LOG_ERR, "There are no live slaves");
+        return cmdNotDone;
+    }
 
     return request_queue_add_request(render_request_queue, item);
 }
@@ -459,6 +488,15 @@ int server_socket_init(renderd_config *sConfig) {
 
 }
 
+static void reenqueue_item(struct request_queue * queue, struct item *item) {
+    if (update_live_slaves(0) == 0) {
+        send_response(item, cmdNotDone, -1);
+    }
+    else {
+        request_queue_reenqueue_request(queue, item);
+    }
+}
+
 /**
  * This function is used as a the start function for the slave renderer thread.
  * It pulls a request from the central queue of requests and dispatches it to
@@ -473,6 +511,11 @@ void *slave_thread(void * arg) {
 
     int pfd = FD_INVALID;
     int retry, reenqueue = 0;
+    // Thread status:
+    // 0 - unknown
+    // 1 - ok
+    // 2 - fail
+    int thread_status = 0;
     size_t ret_size;
 
     struct protocol * resp;
@@ -485,6 +528,10 @@ void *slave_thread(void * arg) {
 
     while (1) {
         if (pfd == FD_INVALID) {
+            if (thread_status == 1) {
+                update_live_slaves(-1); // Kick thread until reconnect
+                thread_status = 2;
+            }
             pfd = client_socket_init(sConfig);
             if (pfd == FD_INVALID) {
                 if (sConfig->ipport > 0) {
@@ -499,6 +546,11 @@ void *slave_thread(void * arg) {
                 sleep(30);
                 continue;
             }
+        }
+
+        if (thread_status != 1) {
+            update_live_slaves(1);
+            thread_status = 1;
         }
 
         enum protoCmd ret;
@@ -530,7 +582,8 @@ void *slave_thread(void * arg) {
                     free(resp);
                     free(req_slave);
                     close(pfd);
-                    request_queue_reenqueue_request(render_request_queue, item);
+                    reenqueue_item(render_request_queue, item);
+                    update_live_slaves(-1);
                     return NULL;
                 }
 
@@ -540,7 +593,7 @@ void *slave_thread(void * arg) {
                 if (pfd == FD_INVALID) {
                     syslog(LOG_ERR,
                             "Failed to re-connect to render slave");
-                    request_queue_reenqueue_request(render_request_queue, item);
+                    reenqueue_item(render_request_queue, item);
                     break;
                 }
             } while (retry--);
@@ -559,7 +612,7 @@ void *slave_thread(void * arg) {
                     pfd = FD_INVALID;
                     ret_size = 0;
                     syslog(LOG_ERR, "Pipe to render slave closed");
-                    request_queue_reenqueue_request(render_request_queue, item);
+                    reenqueue_item(render_request_queue, item);
                     reenqueue = 1;
                     break;
                 }
@@ -606,6 +659,7 @@ void *slave_thread(void * arg) {
             sleep(1); // TODO: Use an event to indicate there are new requests
         }
     }
+
     free(resp);
     free(req_slave);
     return NULL;
@@ -954,6 +1008,9 @@ int main(int argc, char **argv)
     }
 
     if (active_slave == 0) {
+        if (noSlaveRenders > 0) {
+            check_slaves = 1;
+        }
         //Only the master renderd opens connections to its slaves
         k = 0;
         slave_threads
