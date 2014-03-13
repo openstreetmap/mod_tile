@@ -36,10 +36,12 @@
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
+static struct sigaction sigTermAction;
 static pthread_t stats_thread;
 #endif
 
 static int exit_pipe_fd;
+static volatile sig_atomic_t stopFlag = 0;
 
 static renderd_config config;
 
@@ -62,6 +64,11 @@ static const char *cmdStr(enum protoCmd c)
         case cmdNotDone: return "NotDone";
         default:         return "unknown " + c;
     }
+}
+
+void term(int signum)
+{
+    stopFlag = 1;
 }
 
 static int update_live_slaves(int n) {
@@ -190,7 +197,7 @@ void process_loop(int listen_fd)
     exit_pipe_fd = pipefds[1];
     exit_pipe_read = pipefds[0];
 
-    while (1) {
+    while (!stopFlag) {
         struct sockaddr_un in_addr;
         socklen_t in_addrlen = sizeof(in_addr);
         fd_set rd;
@@ -431,7 +438,10 @@ int server_socket_init(renderd_config *sConfig) {
     struct sockaddr_un addrU;
     struct sockaddr_in6 addrI;
     mode_t old;
-    int fd, optval;
+    int fd;
+#ifdef USE_SO_REUSEADDR
+    int optval;
+#endif
 
     if (sConfig->ipport > 0) {
         syslog(LOG_INFO, "Initialising TCP/IP server socket on %s:%i",
@@ -442,8 +452,10 @@ int server_socket_init(renderd_config *sConfig) {
             exit(2);
         }
 
+#ifdef USE_SO_REUSEADDR
         optval = 1;
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+#endif
 
         bzero(&addrI, sizeof(addrI));
         addrI.sin6_family = AF_INET6;
@@ -972,6 +984,19 @@ int main(int argc, char **argv)
         exit(6);
     }
 
+    memset(&sigTermAction, 0, sizeof(struct sigaction));
+    sigTermAction.sa_handler = term;
+    if (sigaction(SIGTERM, &sigTermAction, NULL) < 0) {
+        fprintf(stderr, "failed to register signal handler\n");
+        close(fd);
+        exit(6);
+    }
+    if (sigaction(SIGINT, &sigTermAction, NULL) < 0) {
+        fprintf(stderr, "failed to register signal handler\n");
+        close(fd);
+        exit(6);
+    }
+
     render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 
     /* unless the command line said to run in foreground mode, fork and detach from terminal */
@@ -1041,6 +1066,9 @@ int main(int argc, char **argv)
 
     unlink(config.socketname);
     close(fd);
+
+    syslog(LOG_DEBUG, "Goodbye!");
+
     return 0;
 }
 #endif
