@@ -39,8 +39,31 @@ static int minZoom = 0;
 static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 static int maxLoad = MAX_LOAD_OLD;
+static float bbox[4] = {-180.0, -90.0, 180.0, 90.0};
 
 int work_complete;
+
+int long2tilex(double lon, int z)
+{
+    return (int)(floor((lon + 180.0) / 360.0 * pow(2.0, z)));
+}
+
+int lat2tiley(double lat, int z)
+{
+    return (int)(floor((1.0 - log( tan(lat * M_PI/180.0) + 1.0 / cos(lat * M_PI/180.0)) / M_PI) / 2.0 * pow(2.0, z)));
+}
+
+int handle_bbox(char *arg)
+{
+    char *token = strtok(arg, ",");
+    int bbi = 0;
+    while(token && bbi<4)
+    {
+        bbox[bbi++] = atof(token);
+        token = strtok(NULL, ",");
+    }
+    return (bbi==4 && token==NULL);
+}
 
 void display_rate(struct timeval start, struct timeval end, int num) 
 {
@@ -71,6 +94,7 @@ int main(int argc, char **argv)
     int all=0;
     int numThreads = 1;
     int force=0;
+    int bboxset=0;
     struct storage_backend * store;
     struct stat_info s;
 
@@ -91,17 +115,26 @@ int main(int argc, char **argv)
             {"verbose", 0, 0, 'v'},
             {"force", 0, 0, 'f'},
             {"all", 0, 0, 'a'},
+            {"bbox", 1, 0, 'b'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:n:l:f", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvab:z:Z:x:X:y:Y:s:m:t:n:l:f", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
             case 'a':   /* -a, --all */
                 all=1;
+                break;
+            case 'b':   /* -b, --bbox */
+                if (!handle_bbox(optarg))
+                {
+                    fprintf(stderr, "invalid bbox argument - must be of the form east,south,west,north\n");
+                    return -1;
+                }
+                bboxset = 1;
                 break;
             case 's':   /* -s, --socket */
                 free(spath);
@@ -158,6 +191,7 @@ int main(int argc, char **argv)
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_list [OPTION] ...\n");
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
+                fprintf(stderr, "  -b, --bbox           render all tiles in given bbox (min Longitude, min Latitude, max Longitude, max Latitude) range instead of reading from STDIN\n");
                 fprintf(stderr, "  -f, --force          render tiles even if they seem current\n");
                 fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
                 fprintf(stderr, "  -l, --max-load=LOAD  sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
@@ -246,6 +280,44 @@ int main(int argc, char **argv)
                     }
                     num_all++;
 
+                }
+            }
+        }
+    } else if (bboxset) {
+        int x, y, z, mask = METATILE - 1;
+        printf("Rendering bbox (%.6f, %.6f) to (%.6f, %.6f) tiles from zoom %d to zoom %d\n", bbox[0], bbox[1], bbox[2], bbox[3], minZoom, maxZoom);
+        for (z=minZoom; z <= maxZoom; z++) {
+            minX = long2tilex(bbox[0], z) & ~mask;
+            minY = lat2tiley(bbox[1], z) & ~mask;
+            maxX = long2tilex(bbox[2], z) & ~mask;
+            maxY = lat2tiley(bbox[3], z) & ~mask;
+            if (minX < 0 || minY < 0 || maxX < -1 || maxY < -1) {
+                fprintf(stderr, "Invalid range, x and y values must be >= 0\n");
+                fprintf(stderr, "Zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, maxX, maxY);
+                fprintf(stderr, "Exit from zoom %d\n", z);
+                continue;
+            }
+            if (minX > maxX) {
+                // swap minX and maxX
+                minX = minX ^ maxX;
+                maxX = minX ^ maxX;
+                minX = minX ^ maxX;
+            }
+            if (minY > maxY) {
+                // swap minY and maxY
+                minY = minY ^ maxY;
+                maxY = minY ^ maxY;
+                minY = minY ^ maxY;
+            }
+            printf("Rendering bbox tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, maxX, maxY);
+            for (x=minX; x <= maxX; x+=METATILE) {
+                for (y=minY; y <= maxY; y+=METATILE) {
+                    if (!force) s = store->tile_stat(store, mapname, "", x, y, z);
+                    if (force || (s.size < 0) || (s.expired)) {
+                        enqueue(mapname, x, y, z);
+                        num_render++;
+                    }
+                    num_all++;
                 }
             }
         }
