@@ -23,6 +23,7 @@
 #include "daemon.h"
 #include "gen_tile.h"
 #include "protocol.h"
+#include "protocol_helper.h"
 #include "request_queue.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
@@ -31,13 +32,14 @@
 #include "iniparser3.0b/src/iniparser.h"
 // }
 
+#ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
+static pthread_t stats_thread;
+#endif
 
 static int exit_pipe_fd;
-
-static pthread_t stats_thread;
 
 static renderd_config config;
 
@@ -59,10 +61,12 @@ static const char *cmdStr(enum protoCmd c)
     }
 }
 
+
+
+
 void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
     struct item *prev;
-    int ret;
 
     request_queue_remove_request(render_request_queue, item, render_time);
 
@@ -71,9 +75,9 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
-            ret = send(item->fd, req, sizeof(*req), 0);
-            if (ret != sizeof(*req))
-                perror("send error during send_done");
+            
+            send_cmd(req, item->fd);
+            
         }
         prev = item;
         item = item->duplicates;
@@ -81,26 +85,24 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     }
 }
 
-enum protoCmd rx_request(const struct protocol *req, int fd)
+enum protoCmd rx_request(struct protocol *req, int fd)
 {
-    struct protocol *reqnew;
     struct item  *item;
-    enum protoCmd pend;
 
-    // Upgrade version 1 to version 2
+    // Upgrade version 1 and 2 to  version 3
     if (req->ver == 1) {
-        reqnew = (struct protocol *)malloc(sizeof(struct protocol));
-        memcpy(reqnew, req, sizeof(struct protocol_v1));
-        reqnew->xmlname[0] = 0;
-        req = reqnew;
-    }
-    else if (req->ver != 2) {
+        strcpy(req->xmlname, "default");
+    } 
+    if (req->ver < 3) {
+        strcpy(req->mimetype,"image/png"); 
+        strcpy(req->options,"");
+    } else if (req->ver != 3) {
         syslog(LOG_ERR, "Bad protocol version %d", req->ver);
         return cmdNotDone;
     }
 
-    syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
-            cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
+    syslog(LOG_DEBUG, "DEBUG: Got command %s fd(%d) xml(%s), z(%d), x(%d), y(%d), mime(%s), options(%s)",
+           cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y, req->mimetype, req->options);
 
     if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdRenderLow) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk)) {
         syslog(LOG_WARNING, "WARNING: Ignoring unknown command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
@@ -206,21 +208,12 @@ void process_loop(int listen_fd)
                 int fd = connections[i];
                 if (FD_ISSET(fd, &rd)) {
                     struct protocol cmd;
-                    int ret;
+                    int ret = 0;
+                    memset(&cmd,0,sizeof(cmd));
 
                     // TODO: to get highest performance we should loop here until we get EAGAIN
-                    ret = recv(fd, &cmd, sizeof(cmd), MSG_DONTWAIT);
-                    if (ret == sizeof(cmd)) {
-                        enum protoCmd rsp = rx_request(&cmd, fd);
-
-                        if (rsp == cmdNotDone) {
-                            cmd.cmd = rsp;
-                            syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
-                            ret = send(fd, &cmd, sizeof(cmd), 0);
-                            if (ret != sizeof(cmd))
-                                perror("response send error");
-                        }
-                    } else if (!ret) {
+                    ret = recv_cmd(&cmd, fd, 0);
+                    if (ret < 1) {
                         int j;
 
                         num_connections--;
@@ -229,9 +222,14 @@ void process_loop(int listen_fd)
                             connections[j] = connections[j+1];
                         request_queue_clear_requests_by_fd(render_request_queue, fd);
                         close(fd);
-                    } else {
-                        syslog(LOG_ERR, "Recv Error on fd %d", fd);
-                        break;
+                    } else  {
+                        enum protoCmd rsp = rx_request(&cmd, fd);
+                            
+                        if (rsp == cmdNotDone) {
+                            cmd.cmd = rsp;
+                            syslog(LOG_DEBUG, "DEBUG: Sending NotDone response(%d)\n", rsp);
+                            ret = send_cmd(&cmd, fd);
+                        }
                     }
                 }
             }
@@ -519,7 +517,7 @@ void *slave_thread(void * arg) {
             syslog(LOG_INFO,
                     "Dispatching request to slave thread on fd %i", pfd);
             do {
-                ret_size = send(pfd, req_slave, sizeof(struct protocol), 0);
+                ret_size = send_cmd(req_slave, pfd);
 
                 if (ret_size == sizeof(struct protocol)) {
                     //correctly sent command to slave
@@ -781,6 +779,14 @@ int main(int argc, char **argv)
                 fprintf(stderr, "Specified min zoom (%i) is larger than max zoom (%i).\n", maps[iconf].min_zoom, maps[iconf].max_zoom);
                 exit(7);
             }
+
+            sprintf(buffer, "%s:parameterize_style", name);
+            char *ini_parameterize = iniparser_getstring(ini, buffer, "");
+            if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
+                fprintf(stderr, "Parameterize_style too long: %s\n", ini_parameterize);
+                exit(7);
+            }
+            strcpy(maps[iconf].parameterization, ini_parameterize);
 
             /* Pass this information into the rendering threads,
              * as it is needed to configure mapniks number of connections

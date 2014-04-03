@@ -9,6 +9,7 @@
 
 #include "protocol.h"
 #include "render_config.h"
+#include "store_file.h"
 #include "store_file_utils.h"
 
 // Build parent directories for the specified file name
@@ -150,6 +151,12 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 // Returns the path to the meta-tile and the offset within the meta-tile
 int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
 {
+    return xyzo_to_meta(path, len, tile_dir, xmlconfig, "", x, y, z);
+}
+
+// Returns the path to the meta-tile and the offset within the meta-tile
+int xyzo_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, const char *options, int x, int y, int z)
+{
     unsigned char i, hash[5], offset, mask;
 
     // Each meta tile winds up in its own file, with several in each leaf directory
@@ -165,9 +172,17 @@ int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlcon
         y >>= 4;
     }
 #ifdef DIRECTORY_HASH
-    snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.meta", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    if (strlen(options)) {
+        snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.%s.meta", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0], options);
+    } else {
+        snprintf(path, len, "%s/%s/%d/%u/%u/%u/%u/%u.meta", tile_dir, xmlconfig, z, hash[4], hash[3], hash[2], hash[1], hash[0]);
+    }
 #else
-    snprintf(path, len, "%s/%s/%d/%u/%u.meta", tile_dir, xmlconfig, z, x, y);
+    if (strlen(options)) {
+        snprintf(path, len, "%s/%s/%d/%u/%u.%s.meta", tile_dir, xmlconfig, z, x, y, options);
+    } else {
+        snprintf(path, len, "%s/%s/%d/%u/%u.meta", tile_dir, xmlconfig, z, x, y);
+    }
 #endif
     return offset;
 }

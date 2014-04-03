@@ -22,6 +22,7 @@
 #include "store.h"
 #include "metatile.h"
 #include "render_config.h"
+#include "store_file.h"
 #include "store_file_utils.h"
 #include "protocol.h"
 
@@ -43,7 +44,7 @@ static time_t getPlanetTime(const char * tile_dir, const char * xmlname)
     return st_stat.st_mtime;
 }
 
-static int file_tile_read(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
+static int file_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
 
     char path[PATH_MAX];
     int meta_offset, fd;
@@ -52,7 +53,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
     struct meta_layout *m = (struct meta_layout *)malloc(header_len);
     size_t file_offset, tile_size;
 
-    meta_offset = xyz_to_meta(path, sizeof(path), store->storage_ctx, xmlconfig, x, y, z);
+    meta_offset = xyzo_to_meta(path, sizeof(path), store->storage_ctx, xmlconfig, options, x, y, z);
 
     fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -137,12 +138,12 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
     return pos;
 }
 
-static struct stat_info file_tile_stat(struct storage_backend * store, const char *xmlconfig, int x, int y, int z) {
+static struct stat_info file_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z) {
     struct stat_info tile_stat;
     struct stat st_stat;
     char meta_path[PATH_MAX];
 
-    xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
+    xyzo_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
     
     if (stat(meta_path, &st_stat)) {
         tile_stat.size = -1;
@@ -165,22 +166,22 @@ static struct stat_info file_tile_stat(struct storage_backend * store, const cha
     return tile_stat;
 }
 
-static char * file_tile_storage_id(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char * string) {
+static char * file_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string) {
     char meta_path[PATH_MAX];
 
-    xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
+    xyzo_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
     snprintf(string, PATH_MAX - 1, "file://%s", meta_path);
     return string;
 }
     
 
-static int file_metatile_write(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, const char *buf, int sz) {
+static int file_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz) {
     int fd;
     char meta_path[PATH_MAX];
     char * tmp;
     int res;
  
-    xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
+    xyzo_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
     log_message(STORE_LOGLVL_DEBUG, "Creating and writing a metatile to %s\n", meta_path);
 
     tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
@@ -217,6 +218,7 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
 static int file_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z) {
     char meta_path[PATH_MAX];
 
+    //TODO: deal with options
     xyz_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, x, y, z);
     log_message(STORE_LOGLVL_DEBUG, "Deleting metatile from %s\n", meta_path);
     return unlink(meta_path);
@@ -229,6 +231,7 @@ static int file_metatile_expire(struct storage_backend * store, const char *xmlc
     static struct tm touchCalendar;
     struct utimbuf touchTime;
 
+    //TODO: deal with options
     xyz_to_meta(name, sizeof(name), store->storage_ctx, xmlconfig, x, y, z);
 
     if (stat(name, &s) == 0) {// 0 is success

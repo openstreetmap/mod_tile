@@ -56,7 +56,7 @@
 #include "store.h"
 #include "render_submit_queue.h"
 
-char *tile_dir = HASH_PATH;
+const char * tile_dir_default = HASH_PATH;
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the repsective zoom level; since we only
@@ -111,12 +111,13 @@ void display_rate(struct timeval start, struct timeval end, int num)
 int main(int argc, char **argv)
 {
     char *spath = strdup(RENDER_SOCKET);
-    char *mapname = XMLCONFIG_DEFAULT;
+    const char *mapname_default = XMLCONFIG_DEFAULT;
+    const char *mapname = mapname_default;
+    const char *tile_dir = tile_dir_default;
     int x, y, z;
     struct timeval start, end;
     int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0, num_touch = 0;
     int c;
-    int all=0;
     int numThreads = 1;
     int deleteFrom = -1;
     int touchFrom = -1;
@@ -162,9 +163,6 @@ int main(int argc, char **argv)
             break;
 
         switch (c) {
-            case 'a':   /* -a, --all */
-                all=1;
-                break;
             case 's':   /* -s, --socket */
                 spath = strdup(optarg);
                 break;
@@ -258,13 +256,12 @@ int main(int argc, char **argv)
         // initialize twopow array
         twopow[i] = (i==0) ? 1 : twopow[i-1]*2;
         unsigned long long fourpow=twopow[i]*twopow[i];
-        tile_requested[i] = (unsigned int *) malloc((fourpow / METATILE) + 1);
+        tile_requested[i] = (unsigned int *) calloc((fourpow / METATILE) + 1, 1);
         if (NULL == tile_requested[i])
         {
             fprintf(stderr, "not enough memory available.\n");
             return 1;
         }
-        memset(tile_requested[i], 0, (fourpow / METATILE) + 1);
     }
 
 
@@ -342,7 +339,7 @@ int main(int argc, char **argv)
             //check_load();
 
             num_all++;
-            s = store->tile_stat(store, mapname, x, y, z);
+            s = store->tile_stat(store, mapname, "", x, y, z);
 
             if (s.size > 0) // Tile exists
             {
@@ -350,20 +347,20 @@ int main(int argc, char **argv)
                 if (deleteFrom != -1 && z >= deleteFrom)
                 {
                     if (verbose)
-                        printf("deleting: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                        printf("deleting: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     store->metatile_delete(store, mapname, x, y, z);
                     num_unlink++;
                 }
                 else if (touchFrom != -1 && z >= touchFrom)
                 {
                     if (verbose)
-                        printf("touch: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                        printf("touch: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     store->metatile_expire(store, mapname, x, y, z);
                     num_touch++;
                 }
                 else if (doRender)
                 {
-                    printf("render: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                    printf("render: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                     enqueue(mapname, x, y, z);
                     num_render++;
                 }
@@ -385,7 +382,7 @@ int main(int argc, char **argv)
             else
             {
                 if (verbose)
-                    printf("not on disk: %s\n", store->tile_storage_id(store, mapname, x, y, z, name));
+                    printf("not on disk: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
                 num_ignore++;
             }
         }
@@ -396,11 +393,11 @@ int main(int argc, char **argv)
     }
     
     free(spath);
-    if (mapname != XMLCONFIG_DEFAULT) {
-        free(mapname);
+    if (mapname != mapname_default) {
+        free((void *)mapname);
     }
-    if (tile_dir != HASH_PATH) {
-        free(tile_dir);
+    if (tile_dir != tile_dir_default) {
+        free((void *)tile_dir);
     }
     store->close_storage(store);
     free(store);

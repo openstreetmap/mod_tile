@@ -29,6 +29,7 @@
 #include "protocol.h"
 #include "request_queue.h"
 #include "cache_expire.h"
+#include "parameterize_style.hpp"
 
 #ifdef HTCP_EXPIRE_CACHE
 #include <sys/socket.h>
@@ -83,6 +84,7 @@ struct xmlmapconfig {
     int minzoom;
     int maxzoom;
     int ok;
+    parameterize_function_ptr parameterize_function; 
     xmlmapconfig() :
         map(256,256) {}
 };
@@ -187,6 +189,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
 #endif
         l.set_datasource(ds);
     }
+    free(tmp);
 }
 
 
@@ -224,7 +227,7 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y
     return  bbox;
 }
 
-static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, metaTile &tiles)
+static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char *options, metaTile &tiles)
 {
     int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
     int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
@@ -238,8 +241,11 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, meta
 
     mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     try {
-      mapnik::agg_renderer<mapnik::image_32> ren(map->map,buf);
-      ren.apply();
+        Map map_parameterized = map->map; 
+        if (map->parameterize_function) 
+            map->parameterize_function(map_parameterized, options); 
+        mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized,buf); 
+        ren.apply();
     } catch (std::exception const& ex) {
       syslog(LOG_ERR, "ERROR: failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x+render_size_tx-1, y, y+render_size_ty-1);
       syslog(LOG_ERR, "   reason: %s", ex.what());
@@ -325,6 +331,7 @@ void *render_thread(void * arg)
         maps[iMaxConfigs].tilesize  = parentxmlconfig[iMaxConfigs].tile_px_size;
         maps[iMaxConfigs].minzoom = parentxmlconfig[iMaxConfigs].min_zoom;
         maps[iMaxConfigs].maxzoom = parentxmlconfig[iMaxConfigs].max_zoom;
+        maps[iMaxConfigs].parameterize_function = init_parameterization_function(parentxmlconfig[iMaxConfigs].parameterization);
 
 
         if (maps[iMaxConfigs].store) {
@@ -385,13 +392,13 @@ void *render_thread(void * arg)
                     if (maps[i].ok) {
                         if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
 
-                            metaTile tiles(req->xmlname, item->mx, item->my, req->z);
+                            metaTile tiles(req->xmlname, req->options, item->mx, item->my, req->z);
 
                             timeval tim;
                             gettimeofday(&tim, NULL);
                             long t1=tim.tv_sec*1000+(tim.tv_usec/1000);
 
-                            struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, item->mx, item->my, req->z);
+                            struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
 
                             if(sinfo.size > 0)
                                 syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, age %.2f days",
@@ -401,7 +408,7 @@ void *render_thread(void * arg)
                                 syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, new metatile",
                                        req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1);
 
-                            ret = render(&(maps[i]), item->mx, item->my, req->z, tiles);
+                            ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
 
                             gettimeofday(&tim, NULL);
                             long t2=tim.tv_sec*1000+(tim.tv_usec/1000);

@@ -26,7 +26,6 @@
 //TODO: Make this function handle different logging backends, depending on if on compiles it from apache or something else
 void log_message(int log_lvl, const char *format, ...) {
     va_list ap;
-    int len;
     char *msg = malloc(1000*sizeof(char));
 
     va_start(ap, format);
@@ -34,7 +33,7 @@ void log_message(int log_lvl, const char *format, ...) {
 
 
     if (msg) {
-        len = vsnprintf(msg, 1000, format, ap);
+        vsnprintf(msg, 1000, format, ap);
         switch (log_lvl) {
         case STORE_LOGLVL_DEBUG:
             fprintf(stderr, "debug: %s\n", msg);

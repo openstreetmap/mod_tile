@@ -11,6 +11,7 @@
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 #include "protocol.h"
+#include "protocol_helper.h"
 #include "render_config.h"
 
 #define QMAX 32
@@ -70,24 +71,19 @@ static int process(struct protocol * cmd, int fd)
     t1 = tim.tv_sec*1000+(tim.tv_usec/1000);
 
     //printf("Sending request\n");
-    ret = send(fd, cmd, sizeof(*cmd), 0);
-    if (ret != sizeof(*cmd)) {
+    if (send_cmd(cmd, fd) < 1) {
         perror("send error");
-    }
+    };
 
     //printf("Waiting for response\n");
     bzero(&rsp, sizeof(rsp));
-    ret = recv(fd, &rsp, sizeof(rsp), 0);
-    if (ret != sizeof(rsp))
-    {
-        perror("recv error");
-        return 0;
-    }
-    //printf("Got response\n");
+    ret = recv_cmd(&rsp, fd,1);
+    if (ret < 1) return 0;
+    //printf("Got response %i\n", rsp.cmd);
 
     if (rsp.cmd != cmdDone)
     {
-        printf("rendering failed, pausing\n");
+        printf("rendering failed with command %i, pausing.\n", rsp.cmd);
         sleep(10);
     } else {
         gettimeofday(&tim, NULL);
@@ -253,7 +249,7 @@ void spawn_workers(int num, const char *spath, int max_load)
     }
 }
 
-void print_statistics() {
+void print_statistics(void) {
     int i;
     printf("*****************************************************\n");
     for (i = 0; i <= MAX_ZOOM; i++) {
@@ -275,7 +271,7 @@ void wait_for_empty_queue() {
     pthread_mutex_unlock(&qLock);
 }
 
-void finish_workers()
+void finish_workers(void)
 {
     int i;
 

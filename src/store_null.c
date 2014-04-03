@@ -6,6 +6,7 @@
 
 static int tile_read(struct storage_backend * store, 
 		     const char *xmlconfig, 
+             const char *options,
 		     int x, int y, int z, 
 		     char *buf, size_t sz, 
 		     int * compressed, char * err_msg) {
@@ -15,6 +16,7 @@ static int tile_read(struct storage_backend * store,
 
 static struct stat_info tile_stat(struct storage_backend * store, 
 				  const char *xmlconfig, 
+                  const char *options,
 				  int x, int y, int z) {
    struct stat_info tile_stat;
    tile_stat.size = -1;
@@ -26,7 +28,8 @@ static struct stat_info tile_stat(struct storage_backend * store,
 }
 
 static int metatile_write(struct storage_backend * store, 
-			  const char *xmlconfig, 
+			  const char *xmlconfig,
+              const char *options,
 			  int x, int y, int z, 
 			  const char *buf, int sz) {
    // fake like we actually wrote the tile, but we didn't...
@@ -47,6 +50,7 @@ static int metatile_expire(struct storage_backend * store,
 
 static char * tile_storage_id(struct storage_backend * store, 
 			      const char *xmlconfig, 
+                  const char *options,
 			      int x, int y, int z, 
 			      char * string) {
    snprintf(string, PATH_MAX - 1, "null://");

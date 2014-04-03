@@ -106,9 +106,10 @@ void *addition_thread(void * arg) {
         item->mx = rand_r(&seed);
         res = request_queue_add_request(queue, item);
     }
+    return NULL;
 }
 
-void *fetch_thread(void * arg) {
+void * fetch_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
     enum protoCmd res;
@@ -116,6 +117,7 @@ void *fetch_thread(void * arg) {
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = request_queue_fetch_request(queue);
     }
+    return NULL;
 }
 
 TEST_CASE( "renderd/queueing", "request queueing") {
@@ -199,30 +201,35 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         request_queue_add_request(queue, item);
         struct item *item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
+        request_queue_remove_request(queue,item2, 0);
         free(item2);
 
         item = init_render_request(cmdRenderPrio);
         request_queue_add_request(queue, item);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
+        request_queue_remove_request(queue,item2, 0);
         free(item2);
 
         item = init_render_request(cmdRenderLow);
         request_queue_add_request(queue, item);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
+        request_queue_remove_request(queue,item2, 0);
         free(item2);
 
         item = init_render_request(cmdRenderBulk);
         request_queue_add_request(queue, item);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
+        request_queue_remove_request(queue,item2, 0);
         free(item2);
 
         item = init_render_request(cmdDirty);
         request_queue_add_request(queue, item);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( item == item2 );
+        request_queue_remove_request(queue,item2, 0);
         free(item2);
 
         request_queue_close(queue);
@@ -252,12 +259,16 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         INFO("itemD: " << itemD);
         INFO("itemB: " << itemB);
         REQUIRE( itemRP == item2 );
+        request_queue_remove_request(queue,item2, 0);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemR == item2 );
+        request_queue_remove_request(queue,item2, 0);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemL == item2 );
+        request_queue_remove_request(queue,item2, 0);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemD == item2 );
+        request_queue_remove_request(queue,item2, 0);
         item2 = request_queue_fetch_request(queue);
         REQUIRE( itemB == item2 );
 
@@ -518,20 +529,26 @@ TEST_CASE( "renderd/queueing", "request queueing") {
 
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == 1);
+        request_queue_remove_request(queue,item, 0);
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == FD_INVALID);
+        request_queue_remove_request(queue,item, 0);
         free(item);
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == 3);
+        request_queue_remove_request(queue,item, 0);
         free(item);
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == FD_INVALID);
+        request_queue_remove_request(queue,item, 0);
         free(item);
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == 5);
+        request_queue_remove_request(queue,item, 0);
         free(item);
         item = request_queue_fetch_request(queue);
         REQUIRE (item->fd == 6);
+        request_queue_remove_request(queue,item, 0);
         free(item);
 
         request_queue_close(queue);
@@ -609,7 +626,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        sinfo = store->tile_stat(store, "default", 0, 0, 0);
+        sinfo = store->tile_stat(store, "default", "", 0, 0, 0);
         REQUIRE( sinfo.size < 0 );
         store->close_storage(store);
         
@@ -625,7 +642,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        size = store->tile_read(store, "default", 0, 0, 0, buf, 10000, &compressed, err_msg);
+        size = store->tile_read(store, "default", "", 0, 0, 0, buf, 10000, &compressed, err_msg);
         REQUIRE( size < 0 );
         
         store->close_storage(store);
@@ -640,7 +657,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024, 1024, 10);
+        metaTile tiles("default", "", 1024, 1024, 10);
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
                 std::string tile_data = "DEADBEAF";
@@ -661,7 +678,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024 + METATILE, 1024, 10);
+        metaTile tiles("default", "", 1024 + METATILE, 1024, 10);
         time(&before_write);
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
@@ -674,7 +691,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
 
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
-                sinfo = store->tile_stat(store, "default", 1024 + METATILE + yy, 1024 + xx, 10);
+                sinfo = store->tile_stat(store, "default", "", 1024 + METATILE + yy, 1024 + xx, 10);
                 REQUIRE( sinfo.size > 0 );
                 REQUIRE( sinfo.expired == 0 );
                 REQUIRE( sinfo.atime > 0 );
@@ -684,7 +701,6 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         }
 
         store->close_storage(store);
-        free(tile_dir);
     }
 
     SECTION("storage/read/full metatile", "should complete") {
@@ -703,7 +719,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024 + METATILE, 1024, 10);
+        metaTile tiles("default", "", 1024 + METATILE, 1024, 10);
         time(&before_write);
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
@@ -717,7 +733,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
 
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
-                tile_size = store->tile_read(store, "default", 1024 + METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                tile_size = store->tile_read(store, "default", "", 1024 + METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
                 REQUIRE ( tile_size == 12 );
                 sprintf(buf_tmp, "DEADBEAF %i %i", xx, yy);
                 REQUIRE ( memcmp(buf_tmp, buf, 11) == 0 );
@@ -747,7 +763,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024 + 2*METATILE, 1024, 10);
+        metaTile tiles("default", "",  1024 + 2*METATILE, 1024, 10);
         time(&before_write);
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < (METATILE >> 1); xx++) {
@@ -761,7 +777,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
 
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
-                tile_size = store->tile_read(store, "default", 1024 + 2*METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                tile_size = store->tile_read(store, "default", "", 1024 + 2*METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
                 if (xx >= (METATILE >> 1)) {
                     REQUIRE ( tile_size == 0 );
                 } else {
@@ -792,7 +808,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024 + 3*METATILE, 1024, 10);
+        metaTile tiles("default", "", 1024 + 3*METATILE, 1024, 10);
 
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
@@ -803,13 +819,13 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         }
         tiles.save(store);
 
-        sinfo = store->tile_stat(store, "default", 1024 + 3*METATILE, 1024, 10);
+        sinfo = store->tile_stat(store, "default", "", 1024 + 3*METATILE, 1024, 10);
 
         REQUIRE ( sinfo.size > 0 );
 
         store->metatile_delete(store, "default", 1024 + 3*METATILE, 1024, 10);
 
-        sinfo = store->tile_stat(store, "default", 1024 + 3*METATILE, 1024, 10);
+        sinfo = store->tile_stat(store, "default", "", 1024 + 3*METATILE, 1024, 10);
 
         REQUIRE ( sinfo.size < 0 );
 
@@ -833,7 +849,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         store = init_storage_backend(tile_dir);
         REQUIRE( store != NULL );
         
-        metaTile tiles("default", 1024 + 4*METATILE, 1024, 10);
+        metaTile tiles("default", "", 1024 + 4*METATILE, 1024, 10);
 
         for (int yy = 0; yy < METATILE; yy++) {
             for (int xx = 0; xx < METATILE; xx++) {
@@ -844,13 +860,13 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         }
         tiles.save(store);
 
-        sinfo = store->tile_stat(store, "default", 1024 + 4*METATILE, 1024, 10);
+        sinfo = store->tile_stat(store, "default", "", 1024 + 4*METATILE, 1024, 10);
 
         REQUIRE ( sinfo.size > 0 );
 
         store->metatile_expire(store, "default", 1024 + 4*METATILE, 1024, 10);
 
-        sinfo = store->tile_stat(store, "default", 1024 + 4*METATILE, 1024, 10);
+        sinfo = store->tile_stat(store, "default", "", 1024 + 4*METATILE, 1024, 10);
 
         REQUIRE ( sinfo.size > 0 );
         REQUIRE ( sinfo.expired > 0 );
@@ -861,7 +877,7 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
     }
 
     rmdir(tile_dir);
-
+    free(tile_dir);
 }
 
 TEST_CASE( "projections", "Test projections" ) {
@@ -885,6 +901,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == -20037508.3428);
         REQUIRE (bbox.maxx() ==  20037508.3428);
         REQUIRE (round(bbox.maxy()) == -19724422.0);
+        free(prj);
 
         prj = get_projection("+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs");
         bbox = tile2prjbounds(prj, 0,0,0);
@@ -903,6 +920,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == -10018754.1714);
         REQUIRE (bbox.maxx() ==  20037508.3428);
         REQUIRE (round(bbox.maxy()) == -9862211.0);
+        free(prj);
 
         prj = get_projection("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs");
         bbox = tile2prjbounds(prj, 0,0,0);
@@ -921,6 +939,7 @@ TEST_CASE( "projections", "Test projections" ) {
         REQUIRE (bbox.miny() == 0.0);
         REQUIRE (bbox.maxx() ==  700000.0);
         REQUIRE (round(bbox.maxy()) == 5469.0);
+        free(prj);
     }
 }
 

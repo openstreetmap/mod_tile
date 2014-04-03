@@ -87,6 +87,7 @@ typedef struct {
     int maxzoom;
     int aspect_x;
     int aspect_y;
+    int enableOptions;
 } tile_config_rec;
 
 typedef struct {

@@ -88,14 +88,13 @@ static int error_message(request_rec *r, const char *format, ...)
 static int error_message(request_rec *r, const char *format, ...)
 {
     va_list ap;
-    int len;
     char *msg;
     va_start(ap, format);
 
     msg = malloc(1000*sizeof(char));
 
     if (msg) {
-        len = vsnprintf(msg, 1000, format, ap);
+        vsnprintf(msg, 1000, format, ap);
         //ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", msg);
         ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "%s", msg);
         r->content_type = "text/plain";
@@ -203,7 +202,6 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
     }
 
     // cmd has already been partial filled, fill in the rest
-    cmd->ver = PROTO_VER;
     switch (renderImmediately) {
     case 0: { cmd->cmd = cmdDirty; break;}
     case 1: { cmd->cmd = cmdRenderLow; break;}
@@ -215,9 +213,16 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Requesting style(%s) z(%d) x(%d) y(%d) from renderer with priority %d", cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->cmd);
     do {
-        ret = send(fd, cmd, sizeof(struct protocol), 0);
+        switch (cmd->ver) {
+        case 2: 
+            ret = send(fd, cmd, sizeof(struct protocol_v2), 0);
+            break;
+        case 3:
+            ret = send(fd, cmd, sizeof(struct protocol), 0);
+            break;
+        }
 
-        if (ret == sizeof(struct protocol))
+        if ((ret == sizeof(struct protocol_v2)) || (ret == sizeof(struct protocol)))
             break;
         
         if (errno != EPIPE) {
@@ -245,11 +250,14 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
             s = select(fd+1, &rx, NULL, NULL, &tv);
             if (s == 1) {
                 bzero(&resp, sizeof(struct protocol));
-                ret = recv(fd, &resp, sizeof(struct protocol), 0);
-                if (ret != sizeof(struct protocol)) {
+                ret = recv(fd, &resp, sizeof(struct protocol_v2), 0);
+                if (ret != sizeof(struct protocol_v2)) {
                     ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket %s",
                                   strerror(errno));
                     break;
+                }
+                if (resp.ver == 3) {
+                    ret += recv(fd, ((void*)&resp) + sizeof(struct protocol_v2), sizeof(struct protocol) - sizeof(struct protocol_v2), 0); 
                 }
 
                 if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
@@ -351,7 +359,7 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
     struct stat_info stat;
     struct tile_request_data * rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
 
-    stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z);
+    stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z);
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %li, expired: %i created: %li",
                       cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
@@ -980,7 +988,7 @@ static int tile_handler_status(request_rec *r)
     state = tile_state(r, cmd);
     if (state == tileMissing)
         return error_message(r, "No tile could not be found at storage location: %s\n",
-                rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
+                             rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
     apr_ctime(mtime_str, r->finfo.mtime);
     apr_ctime(atime_str, r->finfo.atime);
 
@@ -988,7 +996,7 @@ static int tile_handler_status(request_rec *r)
                          "(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
                          " Access times might not be updated on all file systems)\n",
                          (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
-                         rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, storage_id));
+                         rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
 }
 
 /**
@@ -1195,9 +1203,9 @@ static int tile_handler_serve(request_rec *r)
 
     err_msg[0] = 0;
 
-    len = rdata->store->tile_read(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
+    len = rdata->store->tile_read(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, buf, tile_max, &compressed, err_msg);
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                  "Read tile of length %i from %s: %s", len, rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->x, cmd->y, cmd->z, id), err_msg);
+                  "Read tile of length %i from %s: %s", len, rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, id), err_msg);
     if (len > 0) {
         if (compressed) {
             const char* accept_encoding = apr_table_get(r->headers_in,"Accept-Encoding");
@@ -1302,10 +1310,22 @@ static int tile_translate(request_rec *r)
                 return OK;
             }
 
-            n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option);
-            if (n < 4) {
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s", tile_config->xmlname);
-                return DECLINED;
+            char parameters[XMLCONFIG_MAX];
+            if (tile_config->enableOptions) {
+                cmd->ver = PROTO_VER;
+                n = sscanf(r->uri+strlen(tile_config->baseuri),"%40[^/]/%d/%d/%d.%255[a-z]/%10s", parameters,&(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
+                if (n < 5) { 
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s with options", tile_config->xmlname); 
+                    return DECLINED; 
+                } 
+            } else { 
+                cmd->ver = 2;
+                n = sscanf(r->uri+strlen(tile_config->baseuri),"%d/%d/%d.%255[a-z]/%10s", &(cmd->z), &(cmd->x), &(cmd->y), extension, option); 
+                if (n < 4) { 
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid URL for tilelayer %s without options", tile_config->xmlname); 
+                    return DECLINED; 
+                }
+                parameters[0] = 0;
             }
             if (strcmp(extension, tile_config->fileExtension) != 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_translate: Invalid file extension (%s) for tilelayer %s, required %s",
@@ -1330,6 +1350,8 @@ static int tile_translate(request_rec *r)
             }
 
             strcpy(cmd->xmlname, tile_config->xmlname);
+            strcpy(cmd->mimetype, tile_config->mimeType); 
+            strcpy(cmd->options,parameters);
 
             // Store a copy for later
             rdata->cmd = cmd;
@@ -1347,7 +1369,7 @@ static int tile_translate(request_rec *r)
 
             r->filename = NULL; 
 
-            if (n == 5) {
+            if ((tile_config->enableOptions && (n == 6)) || ( !tile_config->enableOptions && (n == 5))) { 
                 if (!strcmp(option, "status")) r->handler = "tile_status";
                 else if (!strcmp(option, "dirty")) r->handler = "tile_dirty";
                 else return DECLINED;
@@ -1623,7 +1645,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
                                     const char *baseuri, const char *name, int minzoom, int maxzoom, int aspect_x, int aspect_y,
                                     const char * fileExtension, const char *mimeType, const char *description, const char * attribution,
-                                    int noHostnames, char ** hostnames, const char * cors, const char * tile_dir)
+                                    int noHostnames, char ** hostnames, const char * cors, const char * tile_dir, const int parameterize)
 {
     int i;
     int urilen;
@@ -1692,6 +1714,7 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
     tilecfg->hostnames = hostnames;
     tilecfg->cors = cors;
     tilecfg->store = tile_dir;
+    tilecfg->enableOptions = parameterize;
 
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
                     "Loading tile config %s at %s for zooms %i - %i from tile directory %s with extension .%s and mime type %s",
@@ -1704,17 +1727,17 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
     if (strcmp(fileExtension,"png") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL,NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL,NULL,0);
     }
     if (strcmp(fileExtension,"js") == 0) {
-        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "text/javascript",NULL,NULL,0,NULL,"*", NULL);
+        return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "text/javascript",NULL,NULL,0,NULL,"*", NULL,0);
     }
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL, NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png",NULL,NULL,0,NULL,NULL, NULL,0);
 }
 
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
 {
-    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, "png", "image/png",NULL,NULL,0,NULL,NULL,NULL);
+    return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, "png", "image/png",NULL,NULL,0,NULL,NULL,NULL,0);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
@@ -1741,6 +1764,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     int maxzoom = MAX_ZOOM;
     int aspect_x = 1;
     int aspect_y = 1;
+    int parameterize = 0;
 
     if (strlen(conffile) == 0) {
         strcpy(filename, RENDERD_CONFIG);
@@ -1761,7 +1785,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             /*Add the previous section to the configuration */
             if (tilelayer == 1) {
                 result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, aspect_x, aspect_y, fileExtension, mimeType,
-                                          description,attribution,noHostnames,hostnames, cors, tile_dir);
+                                          description,attribution,noHostnames,hostnames, cors, tile_dir, parameterize);
                 if (result != NULL) {
                     fclose(hini);
                     return result;
@@ -1799,6 +1823,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             maxzoom = MAX_ZOOM;
             aspect_x = 1;
             aspect_y = 1;
+            parameterize = 0;
         } else if (sscanf(line, "%[^=]=%[^;#]", key, value) == 2
                ||  sscanf(line, "%[^=]=\"%[^\"]\"", key, value) == 2) {
 
@@ -1873,13 +1898,16 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             if (!strcmp(key, "ASPECTY")){
                 aspect_y = atoi(value);
             }
+            if (!strcmp(key,"PARAMETERIZE_STYLE")) { 
+                parameterize = 1; 
+            } 
         }
     }
     if (tilelayer == 1) {
         //ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server,
         //        "Committing tile config %s", xmlname);
         result = _add_tile_config(cmd, mconfig, url, xmlname, minzoom, maxzoom, aspect_x, aspect_y, fileExtension, mimeType,
-                                  description,attribution,noHostnames,hostnames, cors, tile_dir);
+                                  description,attribution,noHostnames,hostnames, cors, tile_dir, parameterize);
         if (result != NULL) {
             fclose(hini);
             return result;

@@ -75,7 +75,7 @@ static cairo_status_t read_png_stream_from_byte_array (void *in_closure, unsigne
 }
 
 
-static int ro_composite_tile_read(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
+static int ro_composite_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
     struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
     cairo_surface_t *imageA;
     cairo_surface_t *imageB;
@@ -83,7 +83,7 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
     cairo_t *cr;
     png_stream_to_byte_array_closure_t closure;
 
-    if(ctx->store_primary->tile_read(ctx->store_primary, ctx->xmlconfig_primary, x, y, z, buf, sz, compressed, log_msg) < 0) {
+    if(ctx->store_primary->tile_read(ctx->store_primary, ctx->xmlconfig_primary, options, x, y, z, buf, sz, compressed, log_msg) < 0) {
         snprintf(log_msg,1024, "ro_composite_tile_read: Failed to read tile data of primary backend\n");
         return -1;
     }
@@ -96,7 +96,7 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
         return -1;
     }
 
-    if(ctx->store_secondary->tile_read(ctx->store_secondary, ctx->xmlconfig_secondary, x, y, z, buf, sz, compressed, log_msg) < 0) {
+    if(ctx->store_secondary->tile_read(ctx->store_secondary, ctx->xmlconfig_secondary, options, x, y, z, buf, sz, compressed, log_msg) < 0) {
         snprintf(log_msg,1024, "ro_composite_tile_read: Failed to read tile data of secondary backend\n");
         cairo_surface_destroy(imageA);
         return -1;
@@ -140,18 +140,18 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
     return closure.pos;
 }
 
-static struct stat_info ro_composite_tile_stat(struct storage_backend * store, const char *xmlconfig, int x, int y, int z) {
+static struct stat_info ro_composite_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z) {
     struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
-    return ctx->store_primary->tile_stat(ctx->store_primary,ctx->xmlconfig_primary,x, y, z);
+    return ctx->store_primary->tile_stat(ctx->store_primary,ctx->xmlconfig_primary, options, x, y, z);
 }
 
 
-static char * ro_composite_tile_storage_id(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char * string) {
+static char * ro_composite_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string) {
 
-    return "Something or another";
+    return "Coposite tile";
 }
 
-static int ro_composite_metatile_write(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, const char *buf, int sz) {
+static int ro_composite_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz) {
     log_message(STORE_LOGLVL_ERR, "ro_composite_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
     return -1;
 }
@@ -199,6 +199,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 
     if (!store || !ctx) {
         log_message(STORE_LOGLVL_ERR,"init_storage_ro_composite: failed to allocate memory for context");
+        if (store) free(store);
+        if (ctx) free(ctx);
         return NULL;
     }
 
