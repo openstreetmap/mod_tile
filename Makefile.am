@@ -43,6 +43,16 @@ if !SYSTEM_LIBINIPARSER
 endif
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
+if HAVE_SYSTEMD
+    systemdsystemunit_DATA = \
+        systemd/renderd.service
+    systemdtempfilesd_DATA = \
+        systemd/renderd.conf
+    systemdtempfilesddir = \
+        @prefix@/lib/tmpfiles.d
+    EXTRA_DIST=systemd/renderd.service systemd/renderd.conf
+endif
+
 
 test: gen_tile_test
 	./gen_tile_test

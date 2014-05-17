@@ -1,0 +1,8 @@
+[Unit]
+Description=Rendering daemon for Openstreetmap tiles
+
+[Service]
+ExecStart=/usr/bin/renderd -f
+
+[Install]
+WantedBy=multi-user.target
