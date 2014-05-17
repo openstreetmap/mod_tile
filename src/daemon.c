@@ -28,9 +28,13 @@
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
+#if SYSTEM_LIBINIPARSER
+#include <iniparser.h>
+#else
 // extern "C" {
 #include "iniparser3.0b/src/iniparser.h"
 // }
+#endif
 
 #ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
