@@ -508,6 +508,8 @@ void *slave_thread(void * arg) {
             req_slave->ver = PROTO_VER;
             req_slave->cmd = cmdRender;
             strcpy(req_slave->xmlname, req->xmlname);
+            strcpy(req_slave->mimetype, req->mimetype);
+            strcpy(req_slave->options, req->options);
             req_slave->x = req->x;
             req_slave->y = req->y;
             req_slave->z = req->z;
