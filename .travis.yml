@@ -1,0 +1,22 @@
+language: cpp
+
+compiler:
+ - clang
+ - gcc
+
+before_install:
+ - sudo apt-add-repository --yes ppa:mapnik/nightly-trunk
+ - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ - sudo apt-get update -qq
+
+install:
+ - sudo apt-get -qq install build-essential apache2-threaded-dev
+ - sudo apt-get install -y gcc-4.8 g++-4.8
+
+before_script:
+ - sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
+
+script:
+ - ./autogen.sh
+ - ./configure
+ - make
