@@ -176,18 +176,21 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
     int i;
     char * tmp = (char *)malloc(20);
     for (i = 0; i < m.layer_count(); i++) {
+#if MAPNIK_VERSION >= 300000
+        layer& l = m.get_layer(i);
+#else
         layer& l = m.getLayer(i);
+#endif
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
             sprintf(tmp, "%i", num_threads + 2);
             params["max_size"] = tmp;
         }
 #if MAPNIK_VERSION >= 200200
-        boost::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
+        l.set_datasource(datasource_cache::instance().create(params));
 #else
-        boost::shared_ptr<datasource> ds = datasource_cache::instance()->create(params);
+        l.set_datasource(datasource_cache::instance()->create(params));
 #endif
-        l.set_datasource(ds);
     }
     free(tmp);
 }
