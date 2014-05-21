@@ -17,6 +17,8 @@ before_script:
  - sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
 
 script:
+ - export CXXFLAGS=$(mapnik-config --includes --defines --cxxflags)
+ - export LDFLAGS=$(mapnik-config --ldflags)
  - ./autogen.sh
  - ./configure
  - make
