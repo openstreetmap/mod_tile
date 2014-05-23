@@ -1,5 +1,6 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#include <mapnik/feature_type_style.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/load_map.hpp>
