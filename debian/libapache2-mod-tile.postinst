@@ -39,6 +39,9 @@ if [ "$1" = configure ] ; then
     true
 fi
 
+#script will hang without this!
+db_stop
+
 #DEBHELPER#
 
 exit 0
