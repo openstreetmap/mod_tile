@@ -26,6 +26,8 @@ RUNLOG=$LOG_DIR/run.log
 EXPIRY_MINZOOM=10
 EXPIRY_MAXZOOM=18
 
+MIN_DISK_SPACE_MB=500
+
 #*************************************************************************
 #*************************************************************************
 
@@ -87,6 +89,13 @@ else
     if [ -e $STOP_FILE ]; then
         m_info "stopped"
         exit 2
+    fi
+
+    if which python > /dev/null; then
+    if python -c "import os, sys; st=os.statvfs('$BASE_DIR'); sys.exit(1 if st.f_bavail*st.f_frsize/1024/1024 > $MIN_DISK_SPACE_MB else 0)"; then
+        m_info "there is less than $MIN_DISK_SPACE_MB MB left"
+        exit 4
+    fi
     fi
 
     seq=`cat $WORKOSM_DIR/state.txt | grep sequenceNumber | cut -d= -f2`
