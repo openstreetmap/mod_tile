@@ -16,7 +16,7 @@ if [ "$1" = configure ] ; then
         db_stop
         if [ "x$ENABLE_SITE" = "xtrue" ] ; then
             a2ensite tileserver_site
-            a2dissite default
+            a2dissite 000-default
         fi
     fi
     
