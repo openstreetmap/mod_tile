@@ -754,6 +754,14 @@ int main(int argc, char **argv)
                 exit(7);
             }
 
+            sprintf(buffer, "%s:scale", name);
+            char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
+            maps[iconf].scale_factor = atof(ini_scale);
+            if (maps[iconf].scale_factor < 0.1 || maps[iconf].scale_factor > 8.0) {
+                fprintf(stderr, "Scale factor is invalid: %s\n", ini_scale);
+                exit(7);
+            }
+
             sprintf(buffer, "%s:tiledir", name);
             char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
             if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
