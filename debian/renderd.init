@@ -18,7 +18,8 @@ DESC="Mapnik rendering daemon"
 NAME=renderd
 DAEMON=/usr/bin/$NAME
 DAEMON_ARGS=""
-PIDFILE=/var/run/$NAME/$NAME.pid
+PIDSOCKDIR=/var/run/$NAME
+PIDFILE=$PIDSOCKDIR/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 RUNASUSER=www-data
 
@@ -40,8 +41,7 @@ RUNASUSER=www-data
 #
 do_start()
 {
-    mkdir -p /var/run/renderd
-    chown $RUNASUSER /var/run/renderd
+    [ -d "$PIDSOCKDIR" ] ||  mkdir -p $PIDSOCKDIR && chown $RUNASUSER $PIDSOCKDIR
 	# Return
 	#   0 if daemon has been started
 	#   1 if daemon was already running

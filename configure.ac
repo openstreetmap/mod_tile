@@ -4,7 +4,7 @@
 AC_PREREQ([2.61])
 AX_CONFIG_NICE
 AC_INIT(mod_tile, 0.1, http://trac.openstreetmap.org)
-AM_INIT_AUTOMAKE(mod_tile,0.1)
+AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
 AC_CONFIG_SRCDIR([src/convert_meta.c])
 AC_CONFIG_HEADERS([includes/config.h])
@@ -83,5 +83,15 @@ if test "$APXS" = "reject"; then
   AC_MSG_ERROR([Could not find apxs on the path.])
 fi
 
-AC_CONFIG_FILES(Makefile iniparser3.0b/Makefile)
+AC_SEARCH_LIBS([iniparser_load], [iniparser], [have_system_iniparser=yes])
+AM_CONDITIONAL([SYSTEM_LIBINIPARSER], [test "x$have_system_iniparser" = "xyes"])
+if test "x$have_system_iniparser" = "xyes"; then
+    AC_SUBST(SYSTEM_LIBINIPARSER, 1)
+    AC_MSG_NOTICE([Using installed iniparser])
+else
+    AC_SUBST(SYSTEM_LIBINIPARSER, 0)
+    AC_CONFIG_FILES(iniparser3.0b/Makefile)
+    AC_MSG_NOTICE([Building iniparser])
+fi
+AC_CONFIG_FILES(Makefile)
 AC_OUTPUT

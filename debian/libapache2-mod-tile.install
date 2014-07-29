@@ -1,6 +1,7 @@
 debian/tile.load /etc/apache2/mods-available
-debian/tileserver_site /etc/apache2/sites-available/
+debian/tileserver_site.conf /etc/apache2/sites-available/
 readme.txt /usr/share/doc/libapache2-mod-tile
 munin/mod_tile* /usr/share/munin/plugins
 openstreetmap-tiles-update-expire /usr/bin/
+osmosis-db_replag /usr/bin
 slippymap.html /var/www/osm
