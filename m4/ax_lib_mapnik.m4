@@ -91,6 +91,7 @@ AC_DEFUN([AX_LIB_MAPNIK],
                 if test $? -ne 0; then
                     MAPNIK_INCLUDES=""
                 fi
+                    MAPNIK_INCLUDES="$MAPNIK_INCLUDES `$MAPNIK_CONFIG --dep-includes`"
         	    MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs`"
 
         	    MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
