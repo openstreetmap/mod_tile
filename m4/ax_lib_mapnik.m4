@@ -70,23 +70,21 @@ AC_DEFUN([AX_LIB_MAPNIK],
             AC_PATH_PROG([MAPNIK_CONFIG], [mapnik-config], [])
         fi
 
-        if test ! -x "$MAPNIK_CONFIG"; then
-            if test "$MAPNIK_CONFIG" != "no"; then
-	            AC_MSG_CHECKING([for mapnik libraries])
+        if test "$MAPNIK_CONFIG" != "no"; then
+            AC_MSG_CHECKING([for mapnik libraries])
 
-        	    MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
-        	    MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs` `$MAPNIK_CONFIG --ldflags` `$MAPNIK_CONFIG --dep-libs`"
-        	    MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
+            MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
+            MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs` `$MAPNIK_CONFIG --ldflags` `$MAPNIK_CONFIG --dep-libs`"
+            MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
 
-        	    AC_DEFINE([HAVE_MAPNIK], [1],
-        	        [Define to 1 if mapnik libraries are available])
+            AC_DEFINE([HAVE_MAPNIK], [1],
+                [Define to 1 if mapnik libraries are available])
 
-        	    found_libmapnik="yes"
-	            AC_MSG_RESULT([yes])
-        	else
-	            found_libmapnik="no"
-	            AC_MSG_RESULT([no])
-	        fi
+            found_libmapnik="yes"
+            AC_MSG_RESULT([yes])
+        else
+            found_libmapnik="no"
+            AC_MSG_RESULT([no])
         fi
     fi
 
