@@ -341,7 +341,7 @@ void *render_thread(void * arg)
         if (maps[iMaxConfigs].store) {
             maps[iMaxConfigs].ok = 1;
 
-            maps[iMaxConfigs].map = mapnik::Map(RENDER_SIZE, RENDER_SIZE);
+            maps[iMaxConfigs].map.resize(RENDER_SIZE, RENDER_SIZE);
 
             try {
                 mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
