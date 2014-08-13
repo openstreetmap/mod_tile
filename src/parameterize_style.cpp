@@ -1,9 +1,13 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#include <mapnik/layer.hpp>
+#include <mapnik/params.hpp>
+#include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
 
 #include <syslog.h>
-#include <boost/variant.hpp>
+
+#include <boost/optional.hpp>
 
 #include "parameterize_style.hpp"
 
@@ -41,9 +45,10 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter) {
         mapnik::layer& l = m.getLayer(i);
 #endif
         mapnik::parameters params = l.datasource()->params(); 
-        if (params.find("table") != params.end()) { 
-            if (boost::get<std::string>(params["table"]).find(",name") != std::string::npos) { 
-                std::string str = boost::get<std::string>(params["table"]); 
+        if (params.find("table") != params.end()) {
+            boost::optional<std::string> table = params.get<std::string>("table");
+            if (table && table->find(",name") != std::string::npos) {
+                std::string str = *table;
                 size_t pos = str.find(",name"); 
                 str.replace(pos,5,name_replace); 
                 params["table"] = str; 
