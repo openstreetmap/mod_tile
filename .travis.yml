@@ -18,9 +18,6 @@ before_script:
 
 script:
  - if [ "${CXX}" = 'g++' ]; then export CXX="g++-4.8" && export CC="gcc-4.8"; fi;
- - export CXXFLAGS="$(mapnik-config --cflags)"
- - echo $CXXFLAGS
- - export LDFLAGS="$(mapnik-config --ldflags)"
  - ./autogen.sh
  - ./configure
  - make
