@@ -2,9 +2,7 @@
 Description=Rendering daemon for Openstreetmap tiles
 
 [Service]
-Type=forking
-ExecStart=/usr/bin/renderd
-ExecStop=/bin/kill -s QUIT $MAINPID
+ExecStart=/usr/bin/renderd -f
 
 [Install]
 WantedBy=multi-user.target
