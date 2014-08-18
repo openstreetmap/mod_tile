@@ -308,6 +308,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
     int i;
 
     if (ctx == NULL) {
+        free(store);
         return NULL;
     }
 
@@ -323,6 +324,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: cannot create a cluster handle: %s", strerror(-err));
         free(ctx);
         free(store);
+        free(conf);
         return NULL;
     }
 
@@ -331,6 +333,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to read rados config file %s: %s", conf, strerror(-err));
         free(ctx);
         free(store);
+        free(conf);
         return NULL;
     }
     pthread_mutex_lock(&qLock);
@@ -340,6 +343,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         log_message(STORE_LOGLVL_ERR,"init_storage_rados: failed to connect to rados cluster: %s", strerror(-err));
         free(ctx);
         free(store);
+        free(conf);
         return NULL;
     }
 
@@ -349,6 +353,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         rados_shutdown(ctx->cluster);
         free(ctx);
         free(store);
+        free(conf);
         return NULL;
     }
 
@@ -360,6 +365,7 @@ struct storage_backend * init_storage_rados(const char * connection_string) {
         rados_shutdown(ctx->cluster);
         free(ctx);
         free(store);
+        free(conf);
         return NULL;
     }
 

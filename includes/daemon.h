@@ -18,6 +18,7 @@ extern "C" {
 
 typedef struct {
     char *socketname;
+    char *pidfile;
     char *iphostname;
     int ipport;
     int num_threads;

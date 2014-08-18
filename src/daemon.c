@@ -821,6 +821,9 @@ int main(int argc, char **argv)
             sprintf(buffer, "%s:socketname", name);
             config_slaves[render_sec].socketname = iniparser_getstring(ini,
                     buffer, (char *) RENDER_SOCKET);
+            sprintf(buffer, "%s:pidfile", name);
+            config_slaves[render_sec].pidfile = iniparser_getstring(ini,
+                    buffer, (char *) PIDFILE);
             sprintf(buffer, "%s:iphostname", name);
             config_slaves[render_sec].iphostname = iniparser_getstring(ini,
                     buffer, "");
@@ -838,6 +841,7 @@ int main(int argc, char **argv)
 
             if (render_sec == active_slave) {
                 config.socketname = config_slaves[render_sec].socketname;
+                config.pidfile = config_slaves[render_sec].pidfile;
                 config.iphostname = config_slaves[render_sec].iphostname;
                 config.ipport = config_slaves[render_sec].ipport;
                 config.num_threads = config_slaves[render_sec].num_threads;
@@ -861,6 +865,7 @@ int main(int argc, char **argv)
     } else {
         syslog(LOG_INFO, "config renderd: unix socketname=%s\n", config.socketname);
     }
+    syslog(LOG_INFO, "config renderd: pidfile=%s\n", config.pidfile);
     syslog(LOG_INFO, "config renderd: num_threads=%d\n", config.num_threads);
     if (active_slave == 0) {
         syslog(LOG_INFO, "config renderd: num_slaves=%d\n", noSlaveRenders);
@@ -927,10 +932,14 @@ int main(int argc, char **argv)
             fprintf(stderr, "can't daemonize: %s\n", strerror(errno));
         }
         /* write pid file */
-        FILE *pidfile = fopen(PIDFILE, "w");
+        FILE *pidfile = fopen(config.pidfile, "w");
         if (pidfile) {
             (void) fprintf(pidfile, "%d\n", getpid());
             (void) fclose(pidfile);
+        } else {
+            syslog(LOG_ERR, "Failed to open %s pidfile: %s", config.pidfile, strerror(errno));
+            close(fd);
+            exit(1);
         }
     }
 

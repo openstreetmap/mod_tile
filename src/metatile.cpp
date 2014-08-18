@@ -116,7 +116,6 @@ void metaTile::save(struct storage_backend * store) {
     free(metatilebuffer);
 }
 
-
 void metaTile::expire_tiles(int sock, char * host, char * uri) {
     if (sock < 0) {
         return;
