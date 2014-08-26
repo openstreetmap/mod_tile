@@ -1,5 +1,9 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#if MAPNIK_VERSION >= 300000
+#include <mapnik/layer.hpp>
+#include <mapnik/datasource.hpp>
+#endif
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/load_map.hpp>
@@ -177,13 +181,19 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
     int i;
     char * tmp = (char *)malloc(20);
     for (i = 0; i < m.layer_count(); i++) {
+#if MAPNIK_VERSION >= 300000
+        layer& l = m.get_layer(i);
+#else
         layer& l = m.getLayer(i);
+#endif
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
             sprintf(tmp, "%i", num_threads + 2);
             params["max_size"] = tmp;
         }
-#if MAPNIK_VERSION >= 200200
+#if MAPNIK_VERSION >= 300000
+        std::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
+#elif MAPNIK_VERSION >= 200200
         boost::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
 #else
         boost::shared_ptr<datasource> ds = datasource_cache::instance()->create(params);
