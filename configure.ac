@@ -83,7 +83,9 @@ if test "$APXS" = "reject"; then
   AC_MSG_ERROR([Could not find apxs on the path.])
 fi
 
-AC_SEARCH_LIBS([iniparser_load], [iniparser], [have_system_iniparser=yes])
+AC_SEARCH_LIBS([iniparser_load], [iniparser], [
+	AC_CHECK_HEADERS([iniparser.h], [have_system_iniparser=yes])
+])
 AM_CONDITIONAL([SYSTEM_LIBINIPARSER], [test "x$have_system_iniparser" = "xyes"])
 if test "x$have_system_iniparser" = "xyes"; then
     AC_SUBST(SYSTEM_LIBINIPARSER, 1)
