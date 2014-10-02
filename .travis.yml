@@ -14,7 +14,8 @@ install:
  #- sudo apt-get install -y gcc-4.8 g++-4.8
 
 before_script:
- - sudo apt-get -qq install libmapnik2-2.0 libmapnik-dev mapnik-utils
+ - sudo apt-get -qq install libmapnik2-2.0 libmapnik-dev mapnik-utils libsigc++-dev
+
  #- sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
 
 script:
