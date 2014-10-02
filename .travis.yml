@@ -5,19 +5,20 @@ compiler:
  - gcc
 
 before_install:
- - sudo apt-add-repository --yes ppa:mapnik/nightly-trunk
- - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ #- sudo apt-add-repository --yes ppa:mapnik/nightly-trunk
+ #- sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
  - sudo apt-get update -qq
 
 install:
  - sudo apt-get -qq install build-essential apache2-threaded-dev autotools-dev automake libtool
- - sudo apt-get install -y gcc-4.8 g++-4.8
+ #- sudo apt-get install -y gcc-4.8 g++-4.8
 
 before_script:
- - sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
+ - sudo apt-get -qq install libmapnik2 libmapnik2-dev
+ #- sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
 
 script:
- - if [ "${CXX}" = 'g++' ]; then export CXX="g++-4.8" && export CC="gcc-4.8"; fi;
+ #- if [ "${CXX}" = 'g++' ]; then export CXX="g++-4.8" && export CC="gcc-4.8"; fi;
  - ./autogen.sh
  - ./configure
  - make
