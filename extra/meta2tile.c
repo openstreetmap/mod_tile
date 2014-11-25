@@ -323,6 +323,7 @@ int expand_meta(const char *name)
     if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) 
     {
         fprintf(stderr, "Meta file %s header magic mismatch\n", name);
+        munmap(buf, st.st_size);
         close(fd);
         return -4;
     }
@@ -330,6 +331,7 @@ int expand_meta(const char *name)
     if (m->count != (METATILE * METATILE)) 
     {
         fprintf(stderr, "Meta file %s header bad count %d != %d\n", name, m->count, METATILE * METATILE);
+        munmap(buf, st.st_size);
         close(fd);
         return -5;
     }
@@ -341,6 +343,7 @@ int expand_meta(const char *name)
         if (mkdir(path, 0755) && (errno != EEXIST))
         {
             fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
+            munmap(buf, st.st_size);
             close(fd);            
             return -1;
         }
@@ -414,6 +417,7 @@ int expand_meta(const char *name)
                 if (mkdir(path, 0755) && (errno != EEXIST))
                 {
                     fprintf(stderr, "cannot create directory %s: %s\n", path, strerror(errno));
+                    munmap(buf, st.st_size);
                     close(fd);            
                     return -1;
                 }
@@ -425,6 +429,7 @@ int expand_meta(const char *name)
             if (output == -1)
             {
                 fprintf(stderr, "cannot open %s for writing: %s\n", path, strerror(errno));
+                munmap(buf, st.st_size);
                 close(fd);            
                 return -1;
             }
@@ -437,7 +442,9 @@ int expand_meta(const char *name)
                 if (written < 0) 
                 {
                     fprintf(stderr, "Failed to write data to file %s. Reason: %s\n", path, strerror(errno));
+                    munmap(buf, st.st_size);
                     close(fd);
+                    close(output);
                     return -7;
                 } 
                 else if (written > 0) 
@@ -455,6 +462,7 @@ int expand_meta(const char *name)
         else
         {
 #ifdef WITH_MBTILES
+            ty = (1<<z)-ty-1;
             sqlite3_reset(t->sqlite_tile_insert);
             sqlite3_bind_int(t->sqlite_tile_insert, 1, z);
             sqlite3_bind_int(t->sqlite_tile_insert, 3, tx);
@@ -463,6 +471,7 @@ int expand_meta(const char *name)
             if (sqlite3_step(t->sqlite_tile_insert) != SQLITE_DONE)
             {
                 fprintf(stderr, "Failed to insert tile z=%d x=%d y=%d: %s\n", z, tx, ty, sqlite3_errmsg(t->sqlite_db));
+                munmap(buf, st.st_size);
                 close(fd);
                 return -7;
             }
