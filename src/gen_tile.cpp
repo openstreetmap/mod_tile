@@ -45,6 +45,9 @@
 #define zoom_to_box zoomToBox
 #else
 #include <mapnik/box2d.hpp>
+  #if MAPNIK_VERSION >= 300000
+    #define image_data_32 image_data_rgba8
+  #endif
 #endif
 
 
