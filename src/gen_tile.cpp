@@ -6,7 +6,6 @@
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/load_map.hpp>
-#include <mapnik/graphics.hpp>
 #include <mapnik/image_util.hpp>
 
 #include <exception>
@@ -37,17 +36,21 @@
 #include <netdb.h>
 #endif
 
-#if MAPNIK_VERSION < 200000
-#include <mapnik/envelope.hpp>
-#define image_32 Image32
-#define image_data_32 ImageData32
-#define box2d Envelope
-#define zoom_to_box zoomToBox
+#if MAPNIK_VERSION >= 300000
+    #define image_data_32 image_rgba8
+    #define image_32 image_rgba8
+    #include <mapnik/image.hpp>
 #else
-#include <mapnik/box2d.hpp>
-  #if MAPNIK_VERSION >= 300000
-    #define image_data_32 image_data_rgba8
-  #endif
+    #include <mapnik/graphics.hpp>
+    #if MAPNIK_VERSION < 200000
+        #include <mapnik/envelope.hpp>
+        #define image_32 Image32
+        #define image_data_32 ImageData32
+        #define box2d Envelope
+        #define zoom_to_box zoomToBox
+    #else
+        #include <mapnik/box2d.hpp>
+    #endif
 #endif
 
 
@@ -264,7 +267,11 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     unsigned int xx, yy;
     for (yy = 0; yy < render_size_ty; yy++) {
         for (xx = 0; xx < render_size_tx; xx++) {
+#if MAPNIK_VERSION >= 300000
+            mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+#else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
+#endif
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
