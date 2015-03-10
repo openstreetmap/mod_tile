@@ -28,9 +28,13 @@
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
 
+#if SYSTEM_LIBINIPARSER
+#include <iniparser.h>
+#else
 // extern "C" {
 #include "iniparser3.0b/src/iniparser.h"
 // }
+#endif
 
 #ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
@@ -508,6 +512,8 @@ void *slave_thread(void * arg) {
             req_slave->ver = PROTO_VER;
             req_slave->cmd = cmdRender;
             strcpy(req_slave->xmlname, req->xmlname);
+            strcpy(req_slave->mimetype, req->mimetype);
+            strcpy(req_slave->options, req->options);
             req_slave->x = req->x;
             req_slave->y = req->y;
             req_slave->z = req->z;
@@ -749,6 +755,14 @@ int main(int argc, char **argv)
             maps[iconf].tile_px_size = atoi(ini_tilesize);
             if (maps[iconf].tile_px_size < 1) {
                 fprintf(stderr, "Tile size is invalid: %s\n", ini_tilesize);
+                exit(7);
+            }
+
+            sprintf(buffer, "%s:scale", name);
+            char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
+            maps[iconf].scale_factor = atof(ini_scale);
+            if (maps[iconf].scale_factor < 0.1 || maps[iconf].scale_factor > 8.0) {
+                fprintf(stderr, "Scale factor is invalid: %s\n", ini_scale);
                 exit(7);
             }
 

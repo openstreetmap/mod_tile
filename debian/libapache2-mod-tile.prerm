@@ -3,9 +3,9 @@ set -e
 
 if [ "$1" = remove ] ; then
     a2dissite tileserver_site || true
-    a2ensite default || true
-	a2dismod -q -f tile || true
-	invoke-rc.d apache2 restart || true
+    a2ensite 000-default || true
+    a2dismod -q -f tile || true
+    invoke-rc.d apache2 restart || true
 fi
 
 # automatically remove munin plugins

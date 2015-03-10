@@ -37,6 +37,7 @@ typedef struct {
     char tile_dir[PATH_MAX];
     char parameterization[PATH_MAX];
     int tile_px_size;
+    double scale_factor;
     int min_zoom;
     int max_zoom;
     int num_threads;

@@ -91,7 +91,7 @@ else
 
     seq=`cat $WORKOSM_DIR/state.txt | grep sequenceNumber | cut -d= -f2`
 
-    m_ok "start import from seq-nr $seq, replag is `./replag -h`"
+    m_ok "start import from seq-nr $seq, replag is `osmosis-db_replag -h`"
 
     /bin/cp $WORKOSM_DIR/state.txt $WORKOSM_DIR/last.state.txt
     m_ok "downloading diff"
