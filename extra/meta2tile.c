@@ -33,6 +33,7 @@
 #endif
 #include "store_file.h"
 #include "metatile.h"
+#include <openssl/md5.h>
 
 #ifdef WITH_SHAPE
 #include "ogr_api.h"
@@ -44,6 +45,7 @@
 
 static int verbose = 0;
 static int mbtiles = 0;
+static int noduplicate = 0;
 static int shape = 0;
 static int num_render = 0;
 static struct timeval start, end;
@@ -64,6 +66,8 @@ struct target
 #ifdef WITH_MBTILES
     sqlite3 *sqlite_db;
     sqlite3_stmt *sqlite_tile_insert;
+    sqlite3_stmt *sqlite_map_insert;
+    sqlite3_stmt *sqlite_images_insert;
 #endif
 } *target_list = NULL;
 
@@ -152,20 +156,60 @@ void setup_mbtiles()
         }
         if (verbose) fprintf(stderr, "opened '%s' for mbtiles output\n", t->pathname);
 
-        if (sqlite3_exec(t->sqlite_db, "create table tiles ("
-            "zoom_level integer, tile_column integer, tile_row integer, "
-            "tile_data blob)", NULL, NULL, &errmsg) != SQLITE_OK)
+        if (!noduplicate)
         {
-            fprintf(stderr, "Cannot create tile table: %s\n", errmsg);
-            exit(1);
-        }
+            if (sqlite3_exec(t->sqlite_db, "create table tiles ("
+                "zoom_level integer, tile_column integer, tile_row integer, "
+                "tile_data blob)", NULL, NULL, &errmsg) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot create tile table: %s\n", errmsg);
+                exit(1);
+            }
 
-        if (sqlite3_prepare_v2(t->sqlite_db, 
-            "insert into tiles (zoom_level, tile_row, tile_column, tile_data) "
-            "values (?, ?, ?, ?)", -1, &(t->sqlite_tile_insert), NULL) != SQLITE_OK)
+            if (sqlite3_prepare_v2(t->sqlite_db, 
+                "insert into tiles (zoom_level, tile_row, tile_column, tile_data) "
+                "values (?, ?, ?, ?)", -1, &(t->sqlite_tile_insert), NULL) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
+                exit(1);
+            }
+        }
+        else
         {
-            fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
-            exit(1);
+            if (sqlite3_exec(t->sqlite_db, "create table map ("
+                "zoom_level integer, tile_column integer, tile_row integer, "
+                "tile_id text)", NULL, NULL, &errmsg) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot create map table: %s\n", errmsg);
+                exit(1);
+            }
+
+            if (sqlite3_exec(t->sqlite_db, "create table images ("
+                "tile_data blob, tile_id text)", NULL, NULL, &errmsg) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot create images table: %s\n", errmsg);
+                exit(1);
+            }
+
+            if (sqlite3_exec(t->sqlite_db, "create unique index images_id on images (tile_id)", NULL, NULL, &errmsg)) 
+            {
+                fprintf(stderr, "Cannot create images index: %s\n", errmsg);
+                exit(1);
+            }
+
+            if (sqlite3_prepare_v2(t->sqlite_db, "insert into map (zoom_level, tile_row, tile_column, tile_id) "
+                "values (?, ?, ?, ?)", -1, &(t->sqlite_map_insert), NULL) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
+                exit(1);
+            }
+
+            if (sqlite3_prepare_v2(t->sqlite_db, "insert into images (tile_data, tile_id) "
+                "values (?, ?)", -1, &(t->sqlite_images_insert), NULL) != SQLITE_OK)
+            {
+                fprintf(stderr, "Cannot prepare statement: %s\n", sqlite3_errmsg(t->sqlite_db));
+                exit(1);
+            }
         }
 
         if (sqlite3_exec(t->sqlite_db, "create table metadata ("
@@ -226,10 +270,20 @@ void shutdown_mbtiles()
             fprintf(stderr, "Cannot end transaction: %s\n", errmsg);
             exit(1);
         }
-        if (sqlite3_exec(t->sqlite_db, "create unique index tile_index on tiles(zoom_level,tile_column,tile_row)", NULL, NULL, &errmsg)) 
-        {
-            fprintf(stderr, "Cannot create tile index: %s\n", errmsg);
-            exit(1);
+        if (!noduplicate) {
+            if (sqlite3_exec(t->sqlite_db, "create unique index tile_index on tiles(zoom_level,tile_column,tile_row)", NULL, NULL, &errmsg)) 
+            {
+                fprintf(stderr, "Cannot create tile index: %s\n", errmsg);
+                exit(1);
+            }
+        } 
+        else
+        {        
+            if (sqlite3_exec(t->sqlite_db, "create unique index map_index on map(zoom_level,tile_column,tile_row)", NULL, NULL, &errmsg)) 
+            {
+                fprintf(stderr, "Cannot create map index: %s\n", errmsg);
+                exit(1);
+            }
         }
         if (verbose) fprintf(stderr, "finalised '%s'\n", t->pathname);
         // process next target
@@ -273,6 +327,14 @@ void tree_query_callback(void *item, void *userdata)
     }
 }
 #endif
+
+void bintohex(char *binary, char *destination){
+    int i;
+    for (i=0; i<16; i++)
+    {
+        sprintf(destination+2*i, "%02x", binary[i]);
+    }
+}
 
 // main workhorse - opens meta tile and does something with it.
 int expand_meta(const char *name)
@@ -459,7 +521,7 @@ int expand_meta(const char *name)
             close(output);
             if (verbose) printf("Produced tile: %s\n", path);
         }
-        else
+        else if(!noduplicate)
         {
 #ifdef WITH_MBTILES
             ty = (1<<z)-ty-1;
@@ -476,6 +538,42 @@ int expand_meta(const char *name)
                 return -7;
             }
             if (verbose) printf("Inserted tile %d/%d/%d into %s\n", z, tx, ty, t->pathname);
+        }
+        else
+        {
+            ty = (1<<z)-ty-1;
+            unsigned char md[16];
+            void *tiledata = buf + m->index[meta].offset;
+            int tilesize = m->index[meta].size;
+            MD5(tiledata, tilesize, md);
+            const char *md_tmp;
+            char md_hex[33];
+            md_hex[32] = 0;
+            bintohex(md, md_hex);
+            sqlite3_reset(t->sqlite_map_insert);
+            sqlite3_bind_int(t->sqlite_map_insert, 1, z);
+            sqlite3_bind_int(t->sqlite_map_insert, 3, tx);
+            sqlite3_bind_int(t->sqlite_map_insert, 2, ty);
+            sqlite3_bind_text(t->sqlite_map_insert, 4, md_hex, 32, SQLITE_STATIC);
+            if (sqlite3_step(t->sqlite_map_insert) != SQLITE_DONE)
+            {
+                fprintf(stderr, "Failed to insert tile z=%d x=%d y=%d to map table: %s\n", z, tx, ty, sqlite3_errmsg(t->sqlite_db));
+                munmap(buf, st.st_size);
+                close(fd);
+                return -7;
+            }
+            sqlite3_reset(t->sqlite_images_insert);
+            sqlite3_bind_blob(t->sqlite_images_insert, 1, tiledata, tilesize, SQLITE_STATIC);
+            sqlite3_bind_text(t->sqlite_images_insert, 2, md_hex, 32, SQLITE_STATIC);
+            int res = sqlite3_step(t->sqlite_images_insert);
+            if (res != SQLITE_DONE && res != SQLITE_CONSTRAINT)
+            {
+                fprintf(stderr, "Failed to insert tile z=%d x=%d y=%d to images table: %s\n", z, tx, ty, sqlite3_errmsg(t->sqlite_db));
+                munmap(buf, st.st_size);
+                close(fd);
+                return -7;
+            }
+            if (verbose) printf("Inserted tile %d/%d/%d into %s\n", z, tx, ty, t->pathname);
 #endif
         }
     }
@@ -485,6 +583,7 @@ int expand_meta(const char *name)
     num_render++;
     return pos;
 }
+
 
 void display_rate(struct timeval start, struct timeval end, int num) 
 {
@@ -597,33 +696,35 @@ void usage()
     fprintf(stderr, "using the standard \"hash\" type directory (5-level) for meta\n");
     fprintf(stderr, "tiles and the z/x/y.png structure (3-level) for output.\n");
     fprintf(stderr, "\nOptions:\n");
-    fprintf(stderr, "--bbox x   specify minlon,minlat,maxlon,maxlat to extract only\n");
-    fprintf(stderr, "           meta tiles intersecting that bbox (default: world).\n");
-    fprintf(stderr, "--list     instead of converting all meta tiles in input directory,\n");
-    fprintf(stderr, "           convert only those given (one per line) on stdin.\n");
+    fprintf(stderr, "--bbox x      specify minlon,minlat,maxlon,maxlat to extract only\n");
+    fprintf(stderr, "              meta tiles intersecting that bbox (default: world).\n");
+    fprintf(stderr, "--list        instead of converting all meta tiles in input directory,\n");
+    fprintf(stderr, "              convert only those given (one per line) on stdin.\n");
 #ifdef WITH_MBTILES
-    fprintf(stderr, "--mbtiles  instead of writing single tiles to output directory,\n");
-    fprintf(stderr, "           write a MBTiles file (\"target\" is a file name then.)\n");
-    fprintf(stderr, "--meta k=v set k=v in the MBTiles metadata table (MBTiles spec\n");
-    fprintf(stderr, "           mandates use of name, type, version, description, format).\n");
-    fprintf(stderr, "           Can occur multiple times.\n");
+    fprintf(stderr, "--mbtiles     instead of writing single tiles to output directory,\n");
+    fprintf(stderr, "              write a MBTiles file (\"target\" is a file name then.)\n");
+    fprintf(stderr, "--meta k=v    set k=v in the MBTiles metadata table (MBTiles spec\n");
+    fprintf(stderr, "              mandates use of name, type, version, description, format).\n");
+    fprintf(stderr, "              Can occur multiple times.\n");
+    fprintf(stderr, "--noduplicate usable with --mbtiles - store tiles in two tables to\n");
+    fprintf(stderr, "              prevent duplicate tiles (like tilemill).\n");
 #else
-    fprintf(stderr, "--mbtiles  option not available, specify WITH_MBTILES when compiling.\n");
+    fprintf(stderr, "--mbtiles     option not available, specify WITH_MBTILES when compiling.\n");
 #endif
-    fprintf(stderr, "--mode x   use in conjunction with --zoom or --bbox; mode=glob\n");
-    fprintf(stderr, "           is faster if you extract more than 10 percent of\n");
-    fprintf(stderr, "           files, and mode=stat is faster otherwise.\n");
+    fprintf(stderr, "--mode x      use in conjunction with --zoom or --bbox; mode=glob\n");
+    fprintf(stderr, "              is faster if you extract more than 10 percent of\n");
+    fprintf(stderr, "              files, and mode=stat is faster otherwise.\n");
 #ifdef WITH_SHAPE
-    fprintf(stderr, "--shape    switch to shape file output mode, in which the \"target\"\n");
-    fprintf(stderr, "           is the name of a polygon shape file that has one column\n");
-    fprintf(stderr, "           named \"target\" specifying the real target for all tiles\n");
-    fprintf(stderr, "           that lie inside the respective polygon.\n");
+    fprintf(stderr, "--shape       switch to shape file output mode, in which the \"target\"\n");
+    fprintf(stderr, "              is the name of a polygon shape file that has one column\n");
+    fprintf(stderr, "              named \"target\" specifying the real target for all tiles\n");
+    fprintf(stderr, "              that lie inside the respective polygon.\n");
 #else
-    fprintf(stderr, "--shape    option not available, specify WITH_SHAPE when compiling.\n");
+    fprintf(stderr, "--shape       option not available, specify WITH_SHAPE when compiling.\n");
 #endif
-    fprintf(stderr, "--zoom x   specify a single zoomlevel, a number of comma separated\n");
-    fprintf(stderr, "           zoom levels, or z0-z1 zoom ranges to convert (default: all).\n");
-    fprintf(stderr, "--verbose  talk more.\n");
+    fprintf(stderr, "--zoom x      specify a single zoomlevel, a number of comma separated\n");
+    fprintf(stderr, "              zoom levels, or z0-z1 zoom ranges to convert (default: all).\n");
+    fprintf(stderr, "--verbose     talk more.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "--zoom and --bbox don't make sense with --list;\n");
     fprintf(stderr, "--bbox can be used with --shape but a tile for which no target is\n");
@@ -755,7 +856,6 @@ int main(int argc, char **argv)
     initGEOS(NULL, NULL);
     target_tree = GEOSSTRtree_create(10);
 #endif
-
     while (1) 
     {
         int option_index = 0;
@@ -764,6 +864,7 @@ int main(int argc, char **argv)
             {"list", 0, 0, 'l'},
 #ifdef WITH_MBTILES
             {"mbtiles", 0, 0, 't'},
+            {"noduplicate", 0, 0, 'n'},
             {"meta", 1, 0, 'a'},
 #endif
             {"verbose", 0, 0, 'v'},
@@ -777,12 +878,13 @@ int main(int argc, char **argv)
 
         c = getopt_long(argc, argv, "vhlb:m:z:"
 #ifdef WITH_MBTILES
-        "ta:"
+        "tna:"
 #endif
 #ifdef WITH_SHAPE
         "s"
 #endif
         , long_options, &option_index);
+        
         if (c == -1)
             break;
 
@@ -797,6 +899,9 @@ int main(int argc, char **argv)
 #ifdef WITH_MBTILES
             case 't':
                 mbtiles=1;
+                break;
+            case 'n':
+                noduplicate=1;
                 break;
             case 'a':
                 if (!handle_meta(optarg))
@@ -853,15 +958,26 @@ int main(int argc, char **argv)
 
     if (!zoomset) for (int i=0; i<=MAXZOOM; i++) zoom[i]=1;
 
-    if (optind >= argc-1)
+    if (!noduplicate)
     {
-        usage();
-        return -1;
+        if (optind >= argc-1)
+        {
+            usage();
+            return -1;
+        }
+        source=argv[optind++];
+        target=argv[optind++];
     }
-
-    source=argv[optind++];
-    target=argv[optind++];
-
+    else
+    {
+        if (optind >= argc)
+        {
+            usage();
+            return -1;
+        }
+        source=argv[optind++];
+        target=argv[optind++];
+    }
     fprintf(stderr, "Converting tiles from directory %s to %s %s\n", 
         source, 
         mbtiles ? (shape ? "mbtiles files defined in shape file" : "mbtiles file") 
