@@ -42,6 +42,10 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
 
 #include <mapnik/version.hpp>
 #if MAPNIK_VERSION < 200000
@@ -96,13 +100,23 @@ void *addition_thread(void * arg) {
     enum protoCmd res;
     struct timespec time;
     unsigned int seed = syscall(SYS_gettid);
+    #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    time.tv_sec = mts.tv_sec;
+    time.tv_nsec = mts.tv_nsec;
+    #else
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time);
+    #endif
     seed *= (unsigned int)time.tv_nsec;
     pthread_t tid = pthread_self();
 
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
-        item->my = tid;
+        item->my = rand_r(&seed);
         item->mx = rand_r(&seed);
         res = request_queue_add_request(queue, item);
     }

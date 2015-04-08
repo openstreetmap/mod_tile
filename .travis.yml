@@ -1,0 +1,28 @@
+language: cpp
+
+compiler:
+ - clang
+ - gcc
+
+before_install:
+ #- sudo apt-add-repository --yes ppa:mapnik/nightly-trunk
+ #- sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ - sudo apt-get update -y
+
+install:
+ - sudo apt-get -y install build-essential apache2-threaded-dev autotools-dev automake libtool
+ #- sudo apt-get install -y gcc-4.8 g++-4.8
+
+before_script:
+ - sudo apt-get -y install libmapnik2-2.0 libmapnik-dev mapnik-utils
+
+ #- sudo apt-get -qq install libmapnik=3.0.0* mapnik-utils=3.0.0* libmapnik-dev=3.0.0* mapnik-input-plugin*=3.0.0*
+
+script:
+ #- if [ "${CXX}" = 'g++' ]; then export CXX="g++-4.8" && export CC="gcc-4.8"; fi;
+ # workaround https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=63403 and https://bugs.launchpad.net/ubuntu/+source/cairomm/+bug/452733
+ - export CXXFLAGS="-I/usr/lib/x86_64-linux-gnu/sigc++-2.0/include/"
+ - ./autogen.sh
+ - ./configure
+ - make
+ - make test
