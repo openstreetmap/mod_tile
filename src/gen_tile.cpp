@@ -273,7 +273,7 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 #else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
 #endif
-            tiles.set(xx, yy, save_to_string(vw, "png256"));
+            tiles.set(xx, yy, save_to_string(vw.data(), "png256"));
         }
     }
     return cmdDone; // OK
