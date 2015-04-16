@@ -40,6 +40,7 @@
     #define image_data_32 image_rgba8
     #define image_32 image_rgba8
     #include <mapnik/image.hpp>
+    #include <mapnik/image_view.hpp>
 #else
     #include <mapnik/graphics.hpp>
     #if MAPNIK_VERSION < 200000
@@ -268,7 +269,7 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     for (yy = 0; yy < render_size_ty; yy++) {
         for (xx = 0; xx < render_size_tx; xx++) {
 #if MAPNIK_VERSION >= 300000
-            mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+            mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
 #else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
 #endif
