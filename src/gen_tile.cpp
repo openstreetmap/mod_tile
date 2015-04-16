@@ -270,10 +270,11 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
         for (xx = 0; xx < render_size_tx; xx++) {
 #if MAPNIK_VERSION >= 300000
             mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+            tiles.set(xx, yy, save_to_string(vw.data(), "png256"));
 #else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
+            tiles.set(xx, yy, save_to_string(vw, "png256"));
 #endif
-            tiles.set(xx, yy, save_to_string(vw.data(), "png256"));
         }
     }
     return cmdDone; // OK
