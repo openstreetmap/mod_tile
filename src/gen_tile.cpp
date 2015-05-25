@@ -1,5 +1,9 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#if MAPNIK_VERSION >= 300000
+#include <mapnik/layer.hpp>
+#include <mapnik/datasource.hpp>
+#endif
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/load_map.hpp>
@@ -46,6 +50,9 @@
 #include <mapnik/box2d.hpp>
 #endif
 
+#ifdef HAVE_BPG
+#include "bpgenc.h"
+#endif
 
 using namespace mapnik;
 #ifndef DEG_TO_RAD
@@ -177,13 +184,19 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
     int i;
     char * tmp = (char *)malloc(20);
     for (i = 0; i < m.layer_count(); i++) {
+#if MAPNIK_VERSION >= 300000
+        layer& l = m.get_layer(i);
+#else
         layer& l = m.getLayer(i);
+#endif
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
             sprintf(tmp, "%i", num_threads + 2);
             params["max_size"] = tmp;
         }
-#if MAPNIK_VERSION >= 200200
+#if MAPNIK_VERSION >= 300000
+        std::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
+#elif MAPNIK_VERSION >= 200200
         boost::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
 #else
         boost::shared_ptr<datasource> ds = datasource_cache::instance()->create(params);
@@ -211,6 +224,20 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map) {
     return !oob;
 }
 
+static std::string convert_tile(mapnik::image_view<mapnik::image_data_32> &vw,
+        const char *mimetype) {
+#ifdef HAVE_BPG
+    if (!strcmp(mimetype, "image/bpg")) {
+        unsigned char *rows[vw.height()];
+	for (int i = 0; i < vw.height(); i++)
+	    rows[i] = (unsigned char *) vw.getRow(i);
+        return bpg_encode_defaults(rows, vw.width(), vw.height(), 32);
+    }
+#endif
+
+    return save_to_string(vw, "png256");
+}
+
 #ifdef METATILE
 mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z) {
 
@@ -228,7 +255,7 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y
     return  bbox;
 }
 
-static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char *options, metaTile &tiles)
+static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char *options, const char *mimetype, metaTile &tiles)
 {
     int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
     int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
@@ -258,13 +285,13 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     for (yy = 0; yy < render_size_ty; yy++) {
         for (xx = 0; xx < render_size_tx; xx++) {
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
-            tiles.set(xx, yy, save_to_string(vw, "png256"));
+            tiles.set(xx, yy, convert_tile(vw, mimetype));
         }
     }
     return cmdDone; // OK
 }
 #else //METATILE
-static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z)
+static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, const char *mimetype)
 {
     char filename[PATH_MAX];
     char tmp[PATH_MAX];
@@ -295,7 +322,13 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
     mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
     //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
-    mapnik::save_to_file(vw, tmp, "png256");
+    /* From mapnik::save_to_file: */
+    std::ofstream file(tmp, std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!file)
+        return cmdNotDone;
+    file << convert_tile(vw, mimetype);
+    file.close();
+
     if (rename(tmp, filename)) {
         perror(tmp);
         return cmdNotDone;
@@ -410,7 +443,7 @@ void *render_thread(void * arg)
                                 syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, new metatile",
                                        req->xmlname, req->z, item->mx, item->mx+size-1, item->my, item->my+size-1);
 
-                            ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
+                            ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, req->mimetype, tiles);
 
                             gettimeofday(&tim, NULL);
                             long t2=tim.tv_sec*1000+(tim.tv_usec/1000);
@@ -438,7 +471,7 @@ void *render_thread(void * arg)
                                 }
                             }
 #else //METATILE
-                        ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
+                        ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, req->mimetype);
 #ifdef HTCP_EXPIRE_CACHE
                         cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
 #endif

@@ -1,5 +1,9 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#if MAPNIK_VERSION >= 300000
+#include <mapnik/layer.hpp>
+#include <mapnik/datasource.hpp>
+#endif
 #include <mapnik/datasource_cache.hpp>
 
 #include <syslog.h>
@@ -35,17 +39,28 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter) {
     name_replace[strlen(name_replace) - 1] = 0; 
     strncat(name_replace,") as name", 255); 
     for (i = 0; i < m.layer_count(); i++) { 
-        mapnik::layer& l = m.getLayer(i); 
-        
+#if MAPNIK_VERSION >= 300000
+        mapnik::layer& l = m.get_layer(i);
+#else
+        mapnik::layer& l = m.getLayer(i);
+#endif
+
         mapnik::parameters params = l.datasource()->params(); 
         if (params.find("table") != params.end()) { 
-            if (boost::get<std::string>(params["table"]).find(",name") != std::string::npos) { 
-                std::string str = boost::get<std::string>(params["table"]); 
+#if MAPNIK_VERSION >= 300000
+            if (params["table"].get<std::string>().find(",name") != std::string::npos) {
+                std::string str = params["table"].get<std::string>();
+#else
+            if (boost::get<std::string>(params["table"]).find(",name") != std::string::npos) {
+                std::string str = boost::get<std::string>(params["table"]);
+#endif
                 size_t pos = str.find(",name"); 
                 str.replace(pos,5,name_replace); 
                 params["table"] = str; 
-#if MAPNIK_VERSION >= 200200
-                boost::shared_ptr<mapnik::datasource> ds = mapnik::datasource_cache::instance().create(params); 
+#if MAPNIK_VERSION >= 300000
+                std::shared_ptr<mapnik::datasource> ds = mapnik::datasource_cache::instance().create(params);
+#elif MAPNIK_VERSION >= 200200
+                boost::shared_ptr<mapnik::datasource> ds = mapnik::datasource_cache::instance().create(params);
 #else
                 boost::shared_ptr<mapnik::datasource> ds = mapnik::datasource_cache::instance()->create(params);
 #endif

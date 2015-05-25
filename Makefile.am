@@ -15,13 +15,14 @@ noinst_PROGRAMS = gen_tile_test
 man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
-renderd_SOURCES = src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/request_queue.c src/cache_expire.c src/metatile.cpp src/parameterize_style.cpp src/protocol_helper.c $(STORE_SOURCES)
-renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -liniparser
+renderd_SOURCES = src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/request_queue.c src/cache_expire.c src/metatile.cpp src/parameterize_style.cpp src/protocol_helper.c $(STORE_SOURCES) src/bpgenc.cpp src/jctvc_glue.cpp
+renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -liniparser src/jctvc/libjctvc.a
 if !SYSTEM_LIBINIPARSER
     renderd_SOURCES += iniparser3.0b/libiniparser.la
     renderd_LDADD += -Liniparser3.0b/.libs
 endif
 renderd_DATA = renderd.conf
+renderd_CPPFLAGS = -DHAVE_BPG -DUSE_JCTVC -I./src/jctvc
 render_speedtest_SOURCES = src/speedtest.cpp src/protocol_helper.c src/render_submit_queue.c src/sys_utils.c
 render_speedtest_LDADD = $(PTHREAD_CFLAGS)
 render_list_SOURCES = src/render_list.c src/sys_utils.c src/protocol_helper.c src/render_submit_queue.c $(STORE_SOURCES)
