@@ -61,7 +61,7 @@ static const char *cmdStr(enum protoCmd c)
         case cmdDirty:   return "Dirty";
         case cmdDone:    return "Done";
         case cmdNotDone: return "NotDone";
-        default:         return "unknown " + c;
+        default:         return "unknown";
     }
 }
 
