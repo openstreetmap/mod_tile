@@ -1,12 +1,12 @@
 #include <mapnik/version.hpp>
 #include <mapnik/map.hpp>
+#include <mapnik/layer.hpp>
+#include <mapnik/datasource.hpp>
+#include <mapnik/feature_type_style.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/load_map.hpp>
-#include <mapnik/graphics.hpp>
 #include <mapnik/image_util.hpp>
-
-#include <boost/variant.hpp>
 
 #include <exception>
 #include <iostream>
@@ -36,14 +36,22 @@
 #include <netdb.h>
 #endif
 
-#if MAPNIK_VERSION < 200000
-#include <mapnik/envelope.hpp>
-#define image_32 Image32
-#define image_data_32 ImageData32
-#define box2d Envelope
-#define zoom_to_box zoomToBox
+#if MAPNIK_VERSION >= 300000
+    #define image_data_32 image_rgba8
+    #define image_32 image_rgba8
+    #include <mapnik/image.hpp>
+    #include <mapnik/image_view_any.hpp>
 #else
-#include <mapnik/box2d.hpp>
+    #include <mapnik/graphics.hpp>
+    #if MAPNIK_VERSION < 200000
+        #include <mapnik/envelope.hpp>
+        #define image_32 Image32
+        #define image_data_32 ImageData32
+        #define box2d Envelope
+        #define zoom_to_box zoomToBox
+    #else
+        #include <mapnik/box2d.hpp>
+    #endif
 #endif
 
 
@@ -177,18 +185,21 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
     int i;
     char * tmp = (char *)malloc(20);
     for (i = 0; i < m.layer_count(); i++) {
+#if MAPNIK_VERSION >= 300000
+        layer& l = m.get_layer(i);
+#else
         layer& l = m.getLayer(i);
+#endif
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
             sprintf(tmp, "%i", num_threads + 2);
             params["max_size"] = tmp;
         }
 #if MAPNIK_VERSION >= 200200
-        boost::shared_ptr<datasource> ds = datasource_cache::instance().create(params);
+        l.set_datasource(datasource_cache::instance().create(params));
 #else
-        boost::shared_ptr<datasource> ds = datasource_cache::instance()->create(params);
+        l.set_datasource(datasource_cache::instance()->create(params));
 #endif
-        l.set_datasource(ds);
     }
     free(tmp);
 }
@@ -257,7 +268,12 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     unsigned int xx, yy;
     for (yy = 0; yy < render_size_ty; yy++) {
         for (xx = 0; xx < render_size_tx; xx++) {
+#if MAPNIK_VERSION >= 300000
+            mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+            struct mapnik::image_view_any vw(vw1);
+#else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
+#endif
             tiles.set(xx, yy, save_to_string(vw, "png256"));
         }
     }
@@ -339,7 +355,7 @@ void *render_thread(void * arg)
         if (maps[iMaxConfigs].store) {
             maps[iMaxConfigs].ok = 1;
 
-            maps[iMaxConfigs].map = mapnik::Map(RENDER_SIZE, RENDER_SIZE);
+            maps[iMaxConfigs].map.resize(RENDER_SIZE, RENDER_SIZE);
 
             try {
                 mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);

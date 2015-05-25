@@ -57,7 +57,6 @@ AC_DEFUN([AX_LIB_MAPNIK],
     )
 
     MAPNIK_CFLAGS=""
-    MAPNIK_INCLUDES=""
     MAPNIK_LDFLAGS=""
     MAPNIK_VERSION=""
 
@@ -71,46 +70,26 @@ AC_DEFUN([AX_LIB_MAPNIK],
             AC_PATH_PROG([MAPNIK_CONFIG], [mapnik-config], [])
         fi
 
-        if test ! -x "$MAPNIK_CONFIG"; then
-            # mapnik version < 2.0 did not have mapnik-config, so need to manually figure out the configuration
-            AC_CHECK_HEADER(mapnik/version.hpp,[],[AC_MSG_ERROR([Did not find mapnik])])
-            AC_CHECK_LIB([mapnik],[main],[MAPNIK_LDFLAGS="-lmapnik" found_libmapnik="yes"])
-            AC_CHECK_LIB([mapnik2],[main],[MAPNIK_LDFLAGS="-lmapnik2" found_libmapnik="yes"])
-            if test "$found_libmapnik" = "yes"; then
-                AC_MSG_CHECKING([for mapnik libraries])			
-                AC_MSG_RESULT([yes])
-            else
-                AC_MSG_ERROR([Did not find usable mapnik library])
-            fi
+        if test "$MAPNIK_CONFIG" != "no"; then
+            AC_MSG_CHECKING([for mapnik libraries])
+
+            MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
+            MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs` `$MAPNIK_CONFIG --ldflags` `$MAPNIK_CONFIG --dep-libs`"
+            MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
+
+            AC_DEFINE([HAVE_MAPNIK], [1],
+                [Define to 1 if mapnik libraries are available])
+
+            found_libmapnik="yes"
+            AC_MSG_RESULT([yes])
         else
-            if test "$MAPNIK_CONFIG" != "no"; then
-	            AC_MSG_CHECKING([for mapnik libraries])
-
-        	    MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
-                MAPNIK_INCLUDES="`$MAPNIK_CONFIG --includes`"
-                if test $? -ne 0; then
-                    MAPNIK_INCLUDES=""
-                fi
-                    MAPNIK_INCLUDES="$MAPNIK_INCLUDES `$MAPNIK_CONFIG --dep-includes`"
-        	    MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs`"
-
-        	    MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
-
-        	    AC_DEFINE([HAVE_MAPNIK], [1],
-        	        [Define to 1 if mapnik libraries are available])
-
-        	    found_libmapnik="yes"
-	            AC_MSG_RESULT([yes])
-        	else
-	            found_libmapnik="no"
-	            AC_MSG_RESULT([no])
-	        fi
+            found_libmapnik="no"
+            AC_MSG_RESULT([no])
         fi
     fi
 
     AC_SUBST([MAPNIK_VERSION])
     AC_SUBST([MAPNIK_CFLAGS])
-    AC_SUBST([MAPNIK_INCLUDES])
     AC_SUBST([MAPNIK_LDFLAGS])
 ])
 

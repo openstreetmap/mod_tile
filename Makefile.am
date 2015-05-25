@@ -5,10 +5,11 @@ endif
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = $(FT2_CFLAGS) $(PTHREAD_CFLAGS) $(MAPNIK_INCLUDES) $(BOOST_CPPFLAGS) $(ICU_CPPFLAGS) $(CAIRO_CFLAGS) $(CAIROMM_CFLAGS) -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
+AM_CPPFLAGS = $(PTHREAD_CFLAGS) -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 
 STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(CAIRO_LIBS)
+STORE_CPPFLAGS = $(CAIRO_CFLAGS)
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
 noinst_PROGRAMS = gen_tile_test
@@ -16,7 +17,8 @@ man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_o
 
 renderddir = $(sysconfdir)
 renderd_SOURCES = src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/request_queue.c src/cache_expire.c src/metatile.cpp src/parameterize_style.cpp src/protocol_helper.c $(STORE_SOURCES)
-renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -liniparser
+renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
+renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 if !SYSTEM_LIBINIPARSER
     renderd_SOURCES += iniparser3.0b/libiniparser.la
     renderd_LDADD += -Liniparser3.0b/.libs
@@ -33,7 +35,8 @@ render_old_LDADD = $(PTHREAD_CFLAGS)
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 gen_tile_test_SOURCES = src/gen_tile_test.cpp src/metatile.cpp src/request_queue.c src/protocol_helper.c src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/cache_expire.c src/parameterize_style.cpp $(STORE_SOURCES)
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
-gen_tile_test_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(BOOST_LDFLAGS) $(ICU_LDFLAGS) $(STORE_LDFLAGS) -liniparser
+gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
+gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 if !SYSTEM_LIBINIPARSER
     gen_tile_test_SOURCES += iniparser3.0b/libiniparser.la
     gen_tile_test_LDADD += -Liniparser3.0b/.libs

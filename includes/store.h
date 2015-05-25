@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <sys/types.h>
 #include "render_config.h"
 
 #define STORE_LOGLVL_DEBUG 0
