@@ -26,19 +26,27 @@
 
 
 #ifdef HAVE_LIBMEMCACHED
-static char * memcached_xyz_to_storagekey(const char *xmlconfig, int x, int y, int z, char * key) {
+static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key) {
     int mask;
 
     mask = METATILE - 1;
     x &= ~mask;
     y &= ~mask;
 
-    snprintf(key, PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
+    if (strlen(options)) {
+        snprintf(key, PATH_MAX - 1, "%s/%d/%d/%d.%s.meta", xmlconfig, x, y, z, options);
+    } else {
+        snprintf(key, PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
+    }
 
     return key;
 }
 
-static int memcached_tile_read(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
+static char * memcached_xyz_to_storagekey(const char *xmlconfig, int x, int y, int z, char * key) {
+    return memcached_xyzo_to_storagekey(xmlconfig, "", x, y, z, key);
+}
+
+static int memcached_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg) {
 
     char meta_path[PATH_MAX];
     int meta_offset;
@@ -54,7 +62,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
     mask = METATILE - 1;
     meta_offset = (x & mask) * METATILE + (y & mask);
 
-    memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
+    memcached_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
     buf_raw = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
     if (rc != MEMCACHED_SUCCESS) {
@@ -97,7 +105,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
     return tile_size;
 }
 
-static struct stat_info memcached_tile_stat(struct storage_backend * store, const char *xmlconfig, int x, int y, int z) {
+static struct stat_info memcached_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z) {
     struct stat_info tile_stat;
     char meta_path[PATH_MAX];
     unsigned int header_len = sizeof(struct meta_layout) + METATILE*METATILE*sizeof(struct entry);
@@ -111,7 +119,7 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
     mask = METATILE - 1;
     offset = (x & mask) * METATILE + (y & mask);
 
-    memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
+    memcached_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
     buf = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
     if (rc != MEMCACHED_SUCCESS) {
@@ -134,13 +142,13 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
 }
 
 
-static char * memcached_tile_storage_id(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, char * string) {
+static char * memcached_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string) {
 
     snprintf(string,PATH_MAX - 1, "memcached:///%s/%d/%d/%d.meta", xmlconfig, x, y, z);
     return string;
 }
 
-static int memcached_metatile_write(struct storage_backend * store, const char *xmlconfig, int x, int y, int z, const char *buf, int sz) {
+static int memcached_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz) {
     char meta_path[PATH_MAX];
     char tmp[PATH_MAX];
     struct stat_info tile_stat;
@@ -161,7 +169,7 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
     memcpy(buf2, &tile_stat, sizeof(tile_stat));
     memcpy(buf2 + sizeof(tile_stat), buf, sz);
 
-    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s\n", memcached_tile_storage_id(store, xmlconfig, x, y, z, tmp));
+    log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s\n", memcached_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
  
     snprintf(meta_path,PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
 
@@ -180,6 +188,7 @@ static int memcached_metatile_delete(struct storage_backend * store, const char 
     char meta_path[PATH_MAX];
     memcached_return_t rc;
 
+    //TODO: deal with options
     memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
 
     rc = memcached_delete(store->storage_ctx, meta_path, strlen(meta_path), 0);
@@ -200,6 +209,7 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
     uint64_t cas;
     memcached_return_t rc;
 
+    //TODO: deal with options
     memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
     buf = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
