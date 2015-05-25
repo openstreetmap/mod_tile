@@ -39,15 +39,12 @@ AC_TYPE_UINT64_T
 AC_FUNC_MALLOC
 AC_FUNC_MKTIME
 
-AC_CHECK_FT2
 AX_PTHREAD(,[AC_MSG_ERROR([no])])
 AC_SEARCH_LIBS(socket, socket)
 AC_SEARCH_LIBS(inet_ntoa, nsl)
 AC_SEARCH_LIBS(gethostbyname, resolv nsl)
 AC_SEARCH_LIBS(pow,m)
 AC_SEARCH_LIBS(clock_gettime,[rt posix4])
-AX_BOOST_BASE
-#AC_CHECK_ICU(4.2)
 AX_LIB_MAPNIK
 AX_ENABLE_LIBMEMCACHED
 LIBCURL_CHECK_CONFIG
@@ -56,12 +53,6 @@ AC_CHECK_LIB(rados, rados_version, [
     LIBRADOS_LDFLAGS='-lrados'
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
-
-PKG_CHECK_MODULES(CAIRO, cairo >= 1.8.0, have_cairo=true, have_cairo=false)
-PKG_CHECK_MODULES(CAIROMM, cairomm-1.0, have_cairomm=true, have_cairomm=false)
-if $have_cairo; then
-    AC_DEFINE(HAVE_CAIRO, 1, [Have cairo graphics library])
-fi
 
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])

@@ -8,8 +8,8 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = $(PTHREAD_CFLAGS) -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 
 STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c
-STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(CAIRO_LIBS)
-STORE_CPPFLAGS = $(CAIRO_CFLAGS)
+STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL)
+STORE_CPPFLAGS =
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
 noinst_PROGRAMS = gen_tile_test
@@ -18,7 +18,7 @@ man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_o
 renderddir = $(sysconfdir)
 renderd_SOURCES = src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/request_queue.c src/cache_expire.c src/metatile.cpp src/parameterize_style.cpp src/protocol_helper.c $(STORE_SOURCES)
 renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
-renderd_LDADD = $(FT2_LIBS) $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
+renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 if !SYSTEM_LIBINIPARSER
     renderd_SOURCES += iniparser3.0b/libiniparser.la
     renderd_LDADD += -Liniparser3.0b/.libs
