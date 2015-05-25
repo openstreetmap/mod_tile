@@ -60,7 +60,7 @@ int metaTile::xyz_to_meta_offset(int x, int y, int z) {
 
 void metaTile::save(struct storage_backend * store) {
     int ox, oy, limit;
-    size_t offset;
+    ssize_t offset;
     struct meta_layout m;
     struct entry offsets[METATILE * METATILE];
     char * metatilebuffer;

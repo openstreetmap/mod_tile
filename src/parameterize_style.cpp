@@ -13,10 +13,9 @@
 
 
 static void parameterize_map_language(mapnik::Map &m, char * parameter) { 
-    int i; 
+    unsigned int i;
     char * data = strdup(parameter); 
     char * tok; 
-    char ** ctx; 
     char name_replace[256]; 
     
     name_replace[0] = 0; 

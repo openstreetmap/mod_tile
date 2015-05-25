@@ -97,7 +97,6 @@ struct item * init_render_request(enum protoCmd type) {
 void *addition_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
-    enum protoCmd res;
     struct timespec time;
     unsigned int seed = syscall(SYS_gettid);
     #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
@@ -112,24 +111,21 @@ void *addition_thread(void * arg) {
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time);
     #endif
     seed *= (unsigned int)time.tv_nsec;
-    pthread_t tid = pthread_self();
 
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
         item->my = rand_r(&seed);
         item->mx = rand_r(&seed);
-        res = request_queue_add_request(queue, item);
+        request_queue_add_request(queue, item);
     }
     return NULL;
 }
 
 void * fetch_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
-    struct item * item;
-    enum protoCmd res;
 
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
-        item = request_queue_fetch_request(queue);
+        request_queue_fetch_request(queue);
     }
     return NULL;
 }
@@ -477,7 +473,6 @@ TEST_CASE( "renderd/queueing", "request queueing") {
         pthread_t * fetch_threads;
         pthread_t * addition_threads;
         struct request_queue * queue;
-        struct item * item;
 
         for (int j = 0; j < NO_TEST_REPEATS; j++) { //As we are looking for race conditions, repeat this test many times
             fetch_threads = (pthread_t *)calloc(NO_THREADS,sizeof(pthread_t));
@@ -613,7 +608,7 @@ TEST_CASE( "renderd", "tile generation" ) {
 TEST_CASE( "storage-backend", "Tile storage backend" ) {
 
     /* Setting up directory where to test the tiles in */
-    char * tmp;
+    const char * tmp;
     char * tile_dir;
 
     tmp = getenv("TMPDIR");
@@ -812,9 +807,6 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         struct stat_info sinfo;
         char * buf;
         char * buf_tmp;
-        char msg[4096];
-        int compressed;
-        int tile_size;
 
         buf = (char *)malloc(8196);
         buf_tmp = (char *)malloc(8196);
@@ -853,9 +845,6 @@ TEST_CASE( "storage-backend", "Tile storage backend" ) {
         struct stat_info sinfo;
         char * buf;
         char * buf_tmp;
-        char msg[4096];
-        int compressed;
-        int tile_size;
 
         buf = (char *)malloc(8196);
         buf_tmp = (char *)malloc(8196);
@@ -967,6 +956,10 @@ int main (int argc, char* const argv[])
   // the stderr contains the right messages
   // http://stackoverflow.com/questions/13533655/how-to-listen-to-stderr-in-c-c-for-sending-to-callback
   FILE * stream = freopen("stderr.out", "w", stderr);
+  if (!stream) {
+      perror("Redirection of stderr failed");
+      return 1;
+  }
   //setvbuf(stream, 0, _IOLBF, 0); // No Buffering
   openlog("renderd", LOG_PID | LOG_PERROR, LOG_DAEMON);
   int result = Catch::Main( argc, argv );

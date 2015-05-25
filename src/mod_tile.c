@@ -139,7 +139,17 @@ static int socket_init(request_rec *r)
         /* getaddrinfo() returns a list of address structures.
            Try each address until we successfully connect. */
         for (rp = result; rp != NULL; rp = rp->ai_next) {
-            inet_ntop(rp->ai_family, rp->ai_family == AF_INET ? &(((struct sockaddr_in *)rp->ai_addr)->sin_addr) : &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr) , ipstring, rp->ai_addrlen);
+	    switch(rp->ai_family) {
+                case AF_INET:
+		    inet_ntop(AF_INET, &(((struct sockaddr_in *)rp->ai_addr)->sin_addr), ipstring, rp->ai_addrlen);
+		    break;
+                case AF_INET6:
+		    inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr), ipstring, rp->ai_addrlen);
+                    break;
+                default:
+                    snprintf(ipstring, sizeof(ipstring), "address family %d", rp->ai_family);
+                    break;
+            }
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Connecting TCP socket to rendering daemon at %s", ipstring);
             fd = socket(rp->ai_family, rp->ai_socktype,
                         rp->ai_protocol);
@@ -699,7 +709,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
     ip_addr = r->connection->remote_ip;
 #endif
     if (scfg->enableTileThrottlingXForward){
-        const char * ip_addrs = apr_table_get(r->headers_in,"X-Forwarded-For");
+        char * ip_addrs = apr_pstrdup(r->pool, apr_table_get(r->headers_in,"X-Forwarded-For"));
         if (ip_addrs) {
 #ifdef APACHE24
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->client_ip);
@@ -743,7 +753,7 @@ static int delay_allowed(request_rec *r, enum tileState state) {
         }
     }
 
-    hashkey = (*((uint32_t *)(&ip.s6_addr[0])) ^ *((uint32_t *)(&ip.s6_addr[4])) ^ *((uint32_t *)(&ip.s6_addr[8])) ^ *((uint32_t *)(&ip.s6_addr[12]))) % DELAY_HASHTABLE_SIZE;
+    hashkey = (ip.s6_addr32[0] ^ ip.s6_addr32[1] ^ ip.s6_addr32[2] ^ ip.s6_addr32[3]) % DELAY_HASHTABLE_SIZE;
     
     /* If a delaypool fillup is ongoing, just skip accounting to not block on a lock */
     if (delayp->locked) {
@@ -1064,7 +1074,7 @@ static int tile_handler_json(request_rec *r)
     /*
      * Add HTTP headers. Make this file cachable for 1 week
      */
-    md5 = ap_md5_binary(r->pool, buf, len);
+    md5 = ap_md5_binary(r->pool, (unsigned char *)buf, len);
     apr_table_setn(r->headers_out, "ETag",
             apr_psprintf(r->pool, "\"%s\"", md5));
     ap_set_content_type(r, "application/json");
@@ -1227,7 +1237,7 @@ static int tile_handler_serve(request_rec *r)
         // Use MD5 hash as only cache attribute.
         // If a tile is re-rendered and produces the same output
         // then we can continue to use the previous cached copy
-        md5 = ap_md5_binary(r->pool, buf, len);
+        md5 = ap_md5_binary(r->pool, (unsigned char *)buf, len);
         apr_table_setn(r->headers_out, "ETag",
                         apr_psprintf(r->pool, "\"%s\"", md5));
 #endif

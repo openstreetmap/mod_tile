@@ -349,9 +349,18 @@ int client_socket_init(renderd_config * sConfig) {
         
         /* getaddrinfo() returns a list of address structures. 
            Try each address until we successfully connect. */ 
-        for (rp = result; rp != NULL; rp = rp->ai_next) { 
-            inet_ntop(rp->ai_family, rp->ai_family == AF_INET ? &(((struct sockaddr_in *)rp->ai_addr)->sin_addr) : 
-                      &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr) , ipstring, rp->ai_addrlen); 
+        for (rp = result; rp != NULL; rp = rp->ai_next) {
+            switch(rp->ai_family) {
+            case AF_INET:
+                inet_ntop(AF_INET, &(((struct sockaddr_in *)rp->ai_addr)->sin_addr), ipstring, rp->ai_addrlen);
+                break;
+            case AF_INET6:
+                inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr), ipstring, rp->ai_addrlen);
+                break;
+            default:
+                snprintf(ipstring, sizeof(ipstring), "address family %d", rp->ai_family);
+                break;
+            }
             syslog(LOG_DEBUG, "Connecting TCP socket to rendering daemon at %s", ipstring); 
             fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol); 
             if (fd < 0) 

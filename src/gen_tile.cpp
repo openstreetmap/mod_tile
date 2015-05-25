@@ -182,7 +182,7 @@ static void load_fonts(const char *font_dir, int recurse)
  * rendering threads used in renderd
  **/
 static void parameterize_map_max_connections(Map &m, int num_threads) {
-    int i;
+    unsigned int i;
     char * tmp = (char *)malloc(20);
     for (i = 0; i < m.layer_count(); i++) {
 #if MAPNIK_VERSION >= 300000
@@ -241,8 +241,8 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y
 
 static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char *options, metaTile &tiles)
 {
-    int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
-    int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
+    unsigned int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
+    unsigned int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
     map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     map->map.zoom_to_box(tile2prjbounds(map->prj, x, y, z));

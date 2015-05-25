@@ -32,7 +32,7 @@ struct tile_cache {
 
 struct ro_http_proxy_ctx {
     CURL * ctx;
-    const char * baseurl;
+    char * baseurl;
     struct tile_cache cache;
 };
 

@@ -9,7 +9,7 @@ int send_cmd(struct protocol * cmd, int fd) {
     int ret;
     syslog(LOG_DEBUG, "DEBUG: Sending render cmd(%i %s %i/%i/%i) with protocol version %i to fd %i\n", cmd->cmd, cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->ver, fd);
     if ((cmd->ver > 3) || (cmd->ver < 1)) {
-        syslog(LOG_WARNING, "WARNING: Failed to send render cmd with unknown protocol version %i on fd\n", cmd->ver, fd);
+        syslog(LOG_WARNING, "WARNING: Failed to send render cmd with unknown protocol version %i on fd %d\n", cmd->ver, fd);
         return -1;
     }
     switch (cmd->ver) { 
