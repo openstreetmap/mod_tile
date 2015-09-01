@@ -40,15 +40,20 @@
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
 static struct sigaction sigPipeAction;
+static struct sigaction sigTermAction;
 static pthread_t stats_thread;
 #endif
 
 static int exit_pipe_fd;
+static volatile sig_atomic_t stopFlag = 0;
 
 static renderd_config config;
 
 int noSlaveRenders;
 
+static int check_slaves = 0;
+static int live_slaves = 0;
+static pthread_mutex_t live_slaves_mu = PTHREAD_MUTEX_INITIALIZER;
 
 static const char *cmdStr(enum protoCmd c)
 {
@@ -65,8 +70,34 @@ static const char *cmdStr(enum protoCmd c)
     }
 }
 
+void term(int signum)
+{
+    stopFlag = 1;
+}
 
+static int update_live_slaves(int n) {
+    int res = 0;
+    int rc = pthread_mutex_lock(&live_slaves_mu);
+    if (rc) {
+        syslog(LOG_ERR, "pthread_mutex_lock failed");
+    }
 
+    live_slaves += n;
+    res = live_slaves;
+
+    if (!rc) {
+        rc = pthread_mutex_unlock(&live_slaves_mu);
+        if (rc) {
+            syslog(LOG_ERR, "pthread_mutex_unlock failed");
+        }
+    }
+
+    if (n != 0) {
+        syslog(LOG_DEBUG, "update_live_slaves: %d (%d)", n, res);
+    }
+
+    return res;
+}
 
 void send_response(struct item *item, enum protoCmd rsp, int render_time) {
     struct protocol *req = &item->req;
@@ -79,9 +110,9 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
         if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
-            
+
             send_cmd(req, item->fd);
-            
+
         }
         prev = item;
         item = item->duplicates;
@@ -96,9 +127,9 @@ enum protoCmd rx_request(struct protocol *req, int fd)
     // Upgrade version 1 and 2 to  version 3
     if (req->ver == 1) {
         strcpy(req->xmlname, "default");
-    } 
+    }
     if (req->ver < 3) {
-        strcpy(req->mimetype,"image/png"); 
+        strcpy(req->mimetype,"image/png");
         strcpy(req->options,"");
     } else if (req->ver != 3) {
         syslog(LOG_ERR, "Bad protocol version %d", req->ver);
@@ -136,6 +167,11 @@ enum protoCmd rx_request(struct protocol *req, int fd)
     item->my = item->req.y;
 #endif
 
+    if (check_slaves && update_live_slaves(0) == 0) {
+        syslog(LOG_ERR, "There are no live slaves");
+        return cmdNotDone;
+    }
+
     return request_queue_add_request(render_request_queue, item);
 }
 
@@ -165,7 +201,7 @@ void process_loop(int listen_fd)
     exit_pipe_fd = pipefds[1];
     exit_pipe_read = pipefds[0];
 
-    while (1) {
+    while (!stopFlag) {
         struct sockaddr_un in_addr;
         socklen_t in_addrlen = sizeof(in_addr);
         fd_set rd;
@@ -407,6 +443,9 @@ int server_socket_init(renderd_config *sConfig) {
     struct sockaddr_in6 addrI;
     mode_t old;
     int fd;
+#ifdef USE_SO_REUSEADDR
+    int optval;
+#endif
 
     if (sConfig->ipport > 0) {
         syslog(LOG_INFO, "Initialising TCP/IP server socket on %s:%i",
@@ -416,6 +455,12 @@ int server_socket_init(renderd_config *sConfig) {
             fprintf(stderr, "failed to create IP socket\n");
             exit(2);
         }
+
+#ifdef USE_SO_REUSEADDR
+        optval = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+#endif
+
         bzero(&addrI, sizeof(addrI));
         addrI.sin6_family = AF_INET6;
         addrI.sin6_addr = in6addr_any;
@@ -463,6 +508,15 @@ int server_socket_init(renderd_config *sConfig) {
 
 }
 
+static void reenqueue_item(struct request_queue * queue, struct item *item) {
+    if (update_live_slaves(0) == 0) {
+        send_response(item, cmdNotDone, -1);
+    }
+    else {
+        request_queue_reenqueue_request(queue, item);
+    }
+}
+
 /**
  * This function is used as a the start function for the slave renderer thread.
  * It pulls a request from the central queue of requests and dispatches it to
@@ -476,7 +530,12 @@ void *slave_thread(void * arg) {
     renderd_config * sConfig = (renderd_config *) arg;
 
     int pfd = FD_INVALID;
-    int retry;
+    int retry, reenqueue = 0;
+    // Thread status:
+    // 0 - unknown
+    // 1 - ok
+    // 2 - fail
+    int thread_status = 0;
     size_t ret_size;
 
     struct protocol * resp;
@@ -489,6 +548,10 @@ void *slave_thread(void * arg) {
 
     while (1) {
         if (pfd == FD_INVALID) {
+            if (thread_status == 1) {
+                update_live_slaves(-1); // Kick thread until reconnect
+                thread_status = 2;
+            }
             pfd = client_socket_init(sConfig);
             if (pfd == FD_INVALID) {
                 if (sConfig->ipport > 0) {
@@ -503,6 +566,11 @@ void *slave_thread(void * arg) {
                 sleep(30);
                 continue;
             }
+        }
+
+        if (thread_status != 1) {
+            update_live_slaves(1);
+            thread_status = 1;
         }
 
         enum protoCmd ret;
@@ -536,6 +604,8 @@ void *slave_thread(void * arg) {
                     free(resp);
                     free(req_slave);
                     close(pfd);
+                    reenqueue_item(render_request_queue, item);
+                    update_live_slaves(-1);
                     return NULL;
                 }
 
@@ -544,9 +614,8 @@ void *slave_thread(void * arg) {
                 pfd = client_socket_init(sConfig);
                 if (pfd == FD_INVALID) {
                     syslog(LOG_ERR,
-                            "Failed to re-connect to render slave, dropping request");
-                    ret = cmdNotDone;
-                    send_response(item, ret, -1);
+                            "Failed to re-connect to render slave");
+                    reenqueue_item(render_request_queue, item);
                     break;
                 }
             } while (retry--);
@@ -556,17 +625,23 @@ void *slave_thread(void * arg) {
 
             ret_size = 0;
             retry = 10;
+            reenqueue = 0;
             while ((ret_size < sizeof(struct protocol)) && (retry > 0)) {
-                ret_size = recv(pfd, resp + ret_size, (sizeof(struct protocol)
+                ret_size += recv(pfd, resp + ret_size, (sizeof(struct protocol)
                         - ret_size), 0);
                 if ((errno == EPIPE) || ret_size == 0) {
                     close(pfd);
                     pfd = FD_INVALID;
                     ret_size = 0;
                     syslog(LOG_ERR, "Pipe to render slave closed");
+                    reenqueue_item(render_request_queue, item);
+                    reenqueue = 1;
                     break;
                 }
                 retry--;
+            }
+            if (reenqueue) {
+                continue;
             }
             if (ret_size < sizeof(struct protocol)) {
                 if (sConfig->ipport > 0) {
@@ -606,6 +681,7 @@ void *slave_thread(void * arg) {
             sleep(1); // TODO: Use an event to indicate there are new requests
         }
     }
+
     free(resp);
     free(req_slave);
     return NULL;
@@ -614,7 +690,7 @@ void *slave_thread(void * arg) {
 #ifndef MAIN_ALREADY_DEFINED
 int main(int argc, char **argv)
 {
-    int fd, i, j, k;
+    int fd, i, j, k, n;
 
     int c;
     int foreground=0;
@@ -922,6 +998,19 @@ int main(int argc, char **argv)
         exit(6);
     }
 
+    memset(&sigTermAction, 0, sizeof(struct sigaction));
+    sigTermAction.sa_handler = term;
+    if (sigaction(SIGTERM, &sigTermAction, NULL) < 0) {
+        fprintf(stderr, "failed to register signal handler\n");
+        close(fd);
+        exit(6);
+    }
+    if (sigaction(SIGINT, &sigTermAction, NULL) < 0) {
+        fprintf(stderr, "failed to register signal handler\n");
+        close(fd);
+        exit(6);
+    }
+
     render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 
     /* unless the command line said to run in foreground mode, fork and detach from terminal */
@@ -962,26 +1051,38 @@ int main(int argc, char **argv)
     }
 
     if (active_slave == 0) {
+        if (noSlaveRenders > 0) {
+            check_slaves = 1;
+        }
         //Only the master renderd opens connections to its slaves
         k = 0;
         slave_threads
                 = (pthread_t *) malloc(sizeof(pthread_t) * noSlaveRenders);
-        for (i = 1; i < MAX_SLAVES; i++) {
-            for (j = 0; j < config_slaves[i].num_threads; j++) {
-                if (pthread_create(&slave_threads[k++], NULL, slave_thread,
-                        (void *) &config_slaves[i])) {
-                    fprintf(stderr, "error spawning render thread\n");
-                    close(fd);
-                    exit(7);
+        j = 0;
+        do {
+            n = 0;
+            for (i = 1; i < MAX_SLAVES; i++) {
+                if (j < config_slaves[i].num_threads) {
+                    if (pthread_create(&slave_threads[k++], NULL, slave_thread,
+                            (void *) &config_slaves[i])) {
+                        fprintf(stderr, "error spawning render thread\n");
+                        close(fd);
+                        exit(7);
+                    }
+                    ++n;
                 }
             }
-        }
+            ++j;
+        } while (n > 0);
     }
 
     process_loop(fd);
 
     unlink(config.socketname);
     close(fd);
+
+    syslog(LOG_DEBUG, "Goodbye!");
+
     return 0;
 }
 #endif

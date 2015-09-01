@@ -360,6 +360,12 @@ int request_queue_no_requests_queued(struct request_queue * queue, enum protoCmd
     return noReq;
 }
 
+enum protoCmd request_queue_reenqueue_request(struct request_queue * queue, struct item *item) {
+    syslog(LOG_WARNING, "Reenqueue item");
+    request_queue_remove_request(queue, item, 0);
+    return request_queue_add_request(queue, item);
+}
+
 void request_queue_copy_stats(struct request_queue * queue, stats_struct * stats) {
     pthread_mutex_lock(&(queue->qLock));
     memcpy(stats, &(queue->stats), sizeof(stats_struct));
