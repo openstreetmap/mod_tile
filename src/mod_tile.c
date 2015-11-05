@@ -65,6 +65,10 @@ APLOG_USE_MODULE(tile);
 #define APACHE24 1
 #endif
 
+#if defined(__FreeBSD__) && !defined(s6_addr32)
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif
+
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
 char *shmfilename;
