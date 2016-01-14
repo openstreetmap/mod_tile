@@ -109,9 +109,10 @@ int store_s3_put_object_data_callback(int bufferSize, char *buffer, void *callba
 void store_s3_complete_callback(S3Status status, const S3ErrorDetails *errorDetails, void *callbackData)
 {
     struct s3_tile_request *rqst = (struct s3_tile_request*) callbackData;
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_complete_callback: request complete, status %d", status);
-    if (errorDetails) {
-        log_message(STORE_LOGLVL_DEBUG, " error details: %s", errorDetails);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_complete_callback: request complete, status %d (%s)", status, S3_get_status_name(status));
+    if (errorDetails && errorDetails->message
+            && (strlen(errorDetails->message) > 0)) {
+        log_message(STORE_LOGLVL_DEBUG, "  error details: %s", errorDetails);
     }
     rqst->result = status;
     rqst->error_details = errorDetails;
@@ -150,7 +151,11 @@ static int store_s3_tile_retrieve(struct storage_backend *store, const char *xml
     free(path);
 
     if (request.result != S3StatusOK) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_retrieve: failed to retrieve object: %d/%s", request.result, request.error_details);
+        const char *msg = "<unknown error>";
+        if (request.error_details && request.error_details->message) {
+            msg = request.error_details->message;
+        }
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_retrieve: failed to retrieve object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         if (ctx->cache.tile) {
             free(ctx->cache.tile);
             ctx->cache.tile = NULL;
@@ -183,7 +188,7 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
 
     if (store_s3_tile_retrieve(store, xmlconfig, options, x, y, z) <= 0) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_read: Fetching didn't work");
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_read: retrieval failed");
         return -1;
     }
     if (ctx->cache.st_stat.size > sz) {
@@ -201,7 +206,7 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 
     if ((ctx->cache.x == x) && (ctx->cache.y == y) && (ctx->cache.z == z)
             && (strcmp(ctx->cache.xmlname, xmlconfig) == 0)) {
-        log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: Got a cached tile");
+        log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: got a cached tile");
         return ctx->cache.st_stat;
     }
 
@@ -225,7 +230,11 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 
     struct stat_info tile_stat;
     if (request.result != S3StatusOK) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_retrieve: failed to retrieve object properties: %d/%s", request.result, request.error_details);
+        const char *msg = "<unknown error>";
+        if (request.error_details && request.error_details->message) {
+            msg = request.error_details->message;
+        }
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_retrieve: failed to retrieve object properties: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         tile_stat.size = -1;
         tile_stat.expired = 0;
         tile_stat.mtime = 0;
@@ -273,7 +282,11 @@ static int store_s3_tile_write(struct storage_backend *store, const char *xmlcon
     free(path);
 
     if (request.result != S3StatusOK) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_write: failed to write object: %d/%s", request.result, request.error_details);
+        const char *msg = "<unknown error>";
+        if (request.error_details && request.error_details->message) {
+            msg = request.error_details->message;
+        }
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_write: failed to write object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
@@ -300,7 +313,11 @@ static int store_s3_tile_delete(struct storage_backend *store, const char *xmlco
     S3_delete_object(ctx->ctx, path, NULL, &responseHandler, &request);
 
     if (request.result != S3StatusOK) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_delete: failed to delete object: %d/%s", request.result, request.error_details);
+        const char *msg = "<unknown error>";
+        if (request.error_details && request.error_details->message) {
+            msg = request.error_details->message;
+        }
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_delete: failed to delete object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
@@ -338,7 +355,11 @@ static int store_s3_tile_expire(struct storage_backend *store, const char *xmlco
     free(path);
 
     if (request.result != S3StatusOK) {
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_expire: failed to update object: %d/%s", request.result, request.error_details);
+        const char *msg = "<unknown error>";
+        if (request.error_details && request.error_details->message) {
+            msg = request.error_details->message;
+        }
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_expire: failed to update object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
