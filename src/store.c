@@ -21,6 +21,7 @@
 #include "store_rados.h"
 #include "store_ro_http_proxy.h"
 #include "store_ro_composite.h"
+#include "store_s3.h"
 #include "store_null.h"
 
 //TODO: Make this function handle different logging backends, depending on if on compiles it from apache or something else
@@ -101,6 +102,11 @@ struct storage_backend * init_storage_backend(const char * options) {
     if (strstr(options,"composite:{") == options) {
         log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising ro_composite storage backend at: %s", options);
         store = init_storage_ro_composite(options);
+        return store;
+    }
+    if (strstr(options, "s3://") == options) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_backend: initialising s3 storage backend at: %s", options);
+        store = init_storage_s3(options);
         return store;
     }
     if (strstr(options,"null://") == options) {

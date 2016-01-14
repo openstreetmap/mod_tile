@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -264,7 +265,7 @@ static int store_s3_tile_write(struct storage_backend *store, const char *xmlcon
 
     struct s3_tile_request request;
     request.path = path;
-    request.tile = buf;
+    request.tile = (char*) buf;
     request.tile_size = sz;
     request.cur_offset = 0;
 
@@ -350,7 +351,6 @@ static int store_s3_close_storage(struct storage_backend *store)
 {
     struct store_s3_ctx * ctx = (struct store_s3_ctx *) (store->storage_ctx);
 
-    free(ctx->basepath);
     if (ctx->cache.tile)
         free(ctx->cache.tile);
     S3_deinitialize();
