@@ -360,6 +360,26 @@ static int store_s3_close_storage(struct storage_backend *store)
     return 0;
 }
 
+static char* url_decode(const char *src)
+{
+    char *dst = (char*) malloc(strlen(src) + 1);
+    dst[0] = '\0';
+    while (*src) {
+        int c = *src;
+        if (c == '%' && isxdigit(*(src + 1)) && isxdigit(*(src + 2))) {
+            char hexdigit[] =
+            { *(src + 1), *(src + 2), '\0' };
+            char decodedchar[2];
+            sprintf(decodedchar, "%c", (char) strtol(hexdigit, NULL, 16));
+            strncat(dst, decodedchar, 1);
+            src += 2;
+        } else {
+            strncat(dst, src, 1);
+        }
+        src++;
+    }
+    return dst;
+}
 #endif //Have libs3
 
 struct storage_backend* init_storage_s3(const char *connection_string)
@@ -411,17 +431,20 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     ctx->ctx = malloc(sizeof(struct S3BucketContext));
 
     char *fullurl = strdup(connection_string);
-    fullurl = &fullurl[5]; // advance past "s3://"
-    ctx->ctx->accessKeyId = strsep(&fullurl, ":");
-    if (strchr(fullurl, "@")) {
-        ctx->ctx->secretAccessKey = strsep(&fullurl, "@");
-        ctx->ctx->hostName = strsep(&fullurl, "/");
+    // advance past "s3://"
+    fullurl = &fullurl[5];
+    ctx->ctx->accessKeyId = url_decode(strsep(&fullurl, ":"));
+    if (strchr(fullurl, '@')) {
+        ctx->ctx->secretAccessKey = url_decode(strsep(&fullurl, "@"));
+        ctx->ctx->hostName = url_decode(strsep(&fullurl, "/"));
+    } else {
+        ctx->ctx->secretAccessKey = url_decode(strsep(&fullurl, "/"));
     }
-    else {
-        ctx->ctx->secretAccessKey = strsep(&fullurl, "/");
-    }
-    ctx->ctx->bucketName = strsep(&fullurl, "/");
-    ctx->basepath = fullurl;
+    ctx->ctx->bucketName = url_decode(strsep(&fullurl, "/"));
+
+    ctx->basepath = url_decode(fullurl);
+
+    log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->bucketName, ctx->basepath);
 
     store->storage_ctx = ctx;
 
