@@ -362,7 +362,7 @@ static int store_s3_close_storage(struct storage_backend *store)
 
 #endif //Have libs3
 
-struct storage_backend * init_storage_s3(const char *connection_string)
+struct storage_backend* init_storage_s3(const char *connection_string)
 {
 #ifndef HAVE_LIBS3
     log_message(STORE_LOGLVL_ERR,
@@ -393,7 +393,7 @@ struct storage_backend * init_storage_s3(const char *connection_string)
 
     pthread_mutex_lock(&qLock);
     if (!store_s3_initialized) {
-        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3: Global init of curl", connection_string);
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3: Global init of libs3", connection_string);
         res = S3_initialize(NULL, S3_INIT_ALL, NULL);
         store_s3_initialized = 1;
     } else {
@@ -407,14 +407,19 @@ struct storage_backend * init_storage_s3(const char *connection_string)
         return NULL;
     }
 
-    // parse out the context information from the URL: s3://<key id>:<secret key>@<hostname>/<bucket>[/<basepath>]
+    // parse out the context information from the URL: s3://<key id>:<secret key>[@<hostname>]/<bucket>[/<basepath>]
     ctx->ctx = malloc(sizeof(struct S3BucketContext));
 
     char *fullurl = strdup(connection_string);
     fullurl = &fullurl[5]; // advance past "s3://"
     ctx->ctx->accessKeyId = strsep(&fullurl, ":");
-    ctx->ctx->secretAccessKey = strsep(&fullurl, "@");
-    ctx->ctx->hostName = strsep(&fullurl, "/");
+    if (strchr(fullurl, "@")) {
+        ctx->ctx->secretAccessKey = strsep(&fullurl, "@");
+        ctx->ctx->hostName = strsep(&fullurl, "/");
+    }
+    else {
+        ctx->ctx->secretAccessKey = strsep(&fullurl, "/");
+    }
     ctx->ctx->bucketName = strsep(&fullurl, "/");
     ctx->basepath = fullurl;
 
