@@ -271,6 +271,9 @@ static int store_s3_metatile_write(struct storage_backend *store, const char *xm
     request.tile = (char*) buf;
     request.tile_size = sz;
     request.cur_offset = 0;
+    request.tile_expired = 0;
+    request.result = S3StatusOK;
+    request.error_details = NULL;
 
     S3PutProperties props;
     props.contentType = "application/octet-stream";
