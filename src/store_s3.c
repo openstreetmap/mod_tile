@@ -481,7 +481,19 @@ struct storage_backend* init_storage_s3(const char *connection_string)
 
     ctx->basepath = fullurl;
 
+    if (strstr(ctx->ctx->accessKeyId, "${") == ctx->ctx->accessKeyId && strrchr(ctx->ctx->accessKeyId, '}') == (ctx->ctx->accessKeyId + strlen(ctx->ctx->accessKeyId) - 1)) {
+        char tmp[strlen(ctx->ctx->accessKeyId) + 1];
+        strcpy(tmp, ctx->ctx->accessKeyId);
+        tmp[strlen(tmp) - 1] = '\0';
+        ctx->ctx->accessKeyId = getenv(tmp + 2);
+    }
     ctx->ctx->accessKeyId = url_decode(ctx->ctx->accessKeyId);
+    if (strstr(ctx->ctx->secretAccessKey, "${") == ctx->ctx->secretAccessKey && strrchr(ctx->ctx->secretAccessKey, '}') == (ctx->ctx->secretAccessKey + strlen(ctx->ctx->secretAccessKey) - 1)) {
+        char tmp[strlen(ctx->ctx->secretAccessKey) + 1];
+        strcpy(tmp, ctx->ctx->secretAccessKey);
+        tmp[strlen(tmp) - 1] = '\0';
+        ctx->ctx->secretAccessKey = getenv(tmp + 2);
+    }
     ctx->ctx->secretAccessKey = url_decode(ctx->ctx->secretAccessKey);
     ctx->ctx->hostName = url_decode(ctx->ctx->hostName);
     ctx->ctx->bucketName = url_decode(ctx->ctx->bucketName);
