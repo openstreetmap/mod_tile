@@ -932,7 +932,7 @@ int main(int argc, char **argv)
     if (foreground) {
         fprintf(stderr, "Running in foreground mode...\n");
     } else {
-        if (daemon(1, 0) != 0) {
+        if (daemon(1, 1) != 0) {
             fprintf(stderr, "can't daemonize: %s\n", strerror(errno));
         }
         /* write pid file */
