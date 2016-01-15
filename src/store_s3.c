@@ -323,8 +323,16 @@ static int store_s3_metatile_delete(struct storage_backend *store, const char *x
 
     struct s3_tile_request request;
     request.path = path;
+    request.error_details = NULL;
+    request.cur_offset = 0;
+    request.result = S3StatusOK;
+    request.tile = NULL;
+    request.tile_expired = 0;
+    request.tile_mod_time = 0;
+    request.tile_size = 0;
 
     S3_delete_object(ctx->ctx, path, NULL, &responseHandler, &request);
+    free(path);
 
     if (request.result != S3StatusOK) {
         const char *msg = "";
@@ -353,7 +361,13 @@ static int store_s3_metatile_expire(struct storage_backend *store, const char *x
 
     struct s3_tile_request request;
     request.path = path;
+    request.error_details = NULL;
     request.cur_offset = 0;
+    request.result = S3StatusOK;
+    request.tile = NULL;
+    request.tile_expired = 0;
+    request.tile_mod_time = 0;
+    request.tile_size = 0;
 
     struct S3NameValue expireTag;
     expireTag.name = "expired";
@@ -488,14 +502,28 @@ struct storage_backend* init_storage_s3(const char *connection_string)
         char tmp[strlen(ctx->ctx->accessKeyId) + 1];
         strcpy(tmp, ctx->ctx->accessKeyId);
         tmp[strlen(tmp) - 1] = '\0';
-        ctx->ctx->accessKeyId = getenv(tmp + 2);
+        char *val = getenv(tmp + 2);
+        if (NULL == val) {
+            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
+            free(ctx);
+            free(store);
+            return NULL;
+        }
+        ctx->ctx->accessKeyId = val;
     }
     ctx->ctx->accessKeyId = url_decode(ctx->ctx->accessKeyId);
     if (strstr(ctx->ctx->secretAccessKey, "${") == ctx->ctx->secretAccessKey && strrchr(ctx->ctx->secretAccessKey, '}') == (ctx->ctx->secretAccessKey + strlen(ctx->ctx->secretAccessKey) - 1)) {
         char tmp[strlen(ctx->ctx->secretAccessKey) + 1];
         strcpy(tmp, ctx->ctx->secretAccessKey);
         tmp[strlen(tmp) - 1] = '\0';
-        ctx->ctx->secretAccessKey = getenv(tmp + 2);
+        char *val = getenv(tmp + 2);
+        if (NULL == val) {
+            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
+            free(ctx);
+            free(store);
+            return NULL;
+        }
+        ctx->ctx->secretAccessKey = val;
     }
     ctx->ctx->secretAccessKey = url_decode(ctx->ctx->secretAccessKey);
     ctx->ctx->hostName = url_decode(ctx->ctx->hostName);

@@ -1238,6 +1238,10 @@ TEST_CASE("storage-backend/s3", "S3 tile storage backend") {
     ctx.secretAccessKey = accesskey;
     ctx.bucketName = bucketname;
     ctx.hostName = NULL;
+    ctx.protocol = S3ProtocolHTTPS;
+    ctx.uriStyle = S3UriStyleVirtualHost;
+    ctx.securityToken = NULL;
+
     S3ResponseHandler handler;
     handler.completeCallback = &test_s3_complete_callback;
     handler.propertiesCallback = &test_s3_properties_callback;
