@@ -94,7 +94,7 @@ int store_s3_put_object_data_callback(int bufferSize, char *buffer, void *callba
         log_message(STORE_LOGLVL_DEBUG, "store_s3_put_object_data_callback: completed put");
         return 0;
     }
-    size_t bytesToWrite = MAX(bufferSize, rqst->tile_size - rqst->cur_offset);
+    size_t bytesToWrite = MIN(bufferSize, rqst->tile_size - rqst->cur_offset);
     log_message(STORE_LOGLVL_DEBUG, "store_s3_put_object_data_callback: uploading data, writing %ld bytes to buffer, cur offset %ld, new offset %ld", bytesToWrite, rqst->cur_offset, rqst->cur_offset + bytesToWrite);
     memcpy(buffer, rqst->tile + rqst->cur_offset, bytesToWrite);
     rqst->cur_offset += bytesToWrite;
