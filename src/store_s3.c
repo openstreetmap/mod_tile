@@ -76,11 +76,11 @@ S3Status store_s3_object_data_callback(int bufferSize, const char *buffer, void 
     struct s3_tile_request *rqst = (struct s3_tile_request*) callbackData;
 
     if (rqst->cur_offset == 0 && rqst->tile == NULL) {
-        log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: allocating %ld byte buffer for tile", rqst->tile_size);
+        //log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: allocating %ld byte buffer for tile", rqst->tile_size);
         rqst->tile = malloc(rqst->tile_size);
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: appending %ld bytes to buffer, new offset %ld", bufferSize, rqst->cur_offset + bufferSize);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: appending %ld bytes to buffer, new offset %ld", bufferSize, rqst->cur_offset + bufferSize);
     memcpy(rqst->tile + rqst->cur_offset, buffer, bufferSize);
     rqst->cur_offset += bufferSize;
     return S3StatusOK;
@@ -95,7 +95,7 @@ int store_s3_put_object_data_callback(int bufferSize, char *buffer, void *callba
         return 0;
     }
     size_t bytesToWrite = MIN(bufferSize, rqst->tile_size - rqst->cur_offset);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_put_object_data_callback: uploading data, writing %ld bytes to buffer, cur offset %ld, new offset %ld", bytesToWrite, rqst->cur_offset, rqst->cur_offset + bytesToWrite);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_put_object_data_callback: uploading data, writing %ld bytes to buffer, cur offset %ld, new offset %ld", bytesToWrite, rqst->cur_offset, rqst->cur_offset + bytesToWrite);
     memcpy(buffer, rqst->tile + rqst->cur_offset, bytesToWrite);
     rqst->cur_offset += bytesToWrite;
     return bytesToWrite;
