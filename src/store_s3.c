@@ -117,10 +117,10 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
     char *path = malloc(PATH_MAX);
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_retrieve: fetching tile");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: fetching tile");
 
     int tile_offset = store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_retrieve: retrieving object %s", path);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: retrieving object %s", path);
 
     struct S3GetObjectHandler getObjectHandler;
     getObjectHandler.responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -143,11 +143,11 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
         if (request.error_details && request.error_details->message) {
             msg = request.error_details->message;
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_retrieve: failed to retrieve object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_read: failed to retrieve object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_retrieve: Read object of size %i", request.tile_size);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: Read object of size %i", request.tile_size);
 
     // extract tile from metatile
 
@@ -259,7 +259,7 @@ static int store_s3_metatile_write(struct storage_backend *store, const char *xm
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
     char *path = malloc(PATH_MAX);
     store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_write: storing object %s, size %ld", path, sz);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_write: storing object %s, size %ld", path, sz);
 
     struct S3PutObjectHandler putObjectHandler;
     putObjectHandler.responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -301,11 +301,11 @@ static int store_s3_metatile_write(struct storage_backend *store, const char *xm
                 msg2 = request.error_details->furtherDetails;
             }
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_write: failed to write object: %d(%s)/%s%s", request.result, S3_get_status_name(request.result), msg, msg2);
+        log_message(STORE_LOGLVL_ERR, "store_s3_metatile_write: failed to write object: %d(%s)/%s%s", request.result, S3_get_status_name(request.result), msg, msg2);
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_write: Wrote object of size %i", sz);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_write: Wrote object of size %i", sz);
 
     return sz;
 }
@@ -315,7 +315,7 @@ static int store_s3_metatile_delete(struct storage_backend *store, const char *x
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
     char *path = malloc(PATH_MAX);
     store_s3_xyz_to_storagekey(store, xmlconfig, NULL, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_write: deleting object %s", path);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_delete: deleting object %s", path);
 
     struct S3ResponseHandler responseHandler;
     responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -339,11 +339,11 @@ static int store_s3_metatile_delete(struct storage_backend *store, const char *x
         if (request.error_details && request.error_details->message) {
             msg = request.error_details->message;
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_delete: failed to delete object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
+        log_message(STORE_LOGLVL_ERR, "store_s3_metatile_delete: failed to delete object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_delete: deleted object");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_delete: deleted object");
 
     return 0;
 }
@@ -353,7 +353,7 @@ static int store_s3_metatile_expire(struct storage_backend *store, const char *x
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
     char *path = malloc(PATH_MAX);
     store_s3_xyz_to_storagekey(store, xmlconfig, NULL, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_expire: expiring object %s", path);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_expire: expiring object %s", path);
 
     struct S3ResponseHandler responseHandler;
     responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -394,11 +394,11 @@ static int store_s3_metatile_expire(struct storage_backend *store, const char *x
         if (request.error_details && request.error_details->message) {
             msg = request.error_details->message;
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_expire: failed to update object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
+        log_message(STORE_LOGLVL_ERR, "store_s3_metatile_expire: failed to update object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_expire: Updated object metadata");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_expire: Updated object metadata");
 
     return 0;
 }
