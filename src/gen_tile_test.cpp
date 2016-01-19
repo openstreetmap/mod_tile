@@ -58,6 +58,9 @@
 #include <mapnik/box2d.hpp>
 #endif
 
+#ifdef HAVE_LIBS3
+#include <libs3.h>
+#endif
 
 #define NO_QUEUE_REQUESTS 9
 #define NO_TEST_REPEATS 100
@@ -945,6 +948,303 @@ TEST_CASE( "projections", "Test projections" ) {
         free(prj);
     }
 }
+
+#ifdef HAVE_LIBS3
+S3Status test_s3_properties_callback(const S3ResponseProperties *properties, void *callbackData)
+{
+    return S3StatusOK;
+}
+
+void test_s3_complete_callback(S3Status status, const S3ErrorDetails *errorDetails, void *callbackData)
+{
+}
+
+
+TEST_CASE("storage-backend/s3", "S3 tile storage backend") {
+
+    /* Setting up S3 location for testing */
+    char *s3_connection_url;
+    char *keyid = getenv("S3_ACCESS_KEY_ID");
+    REQUIRE(keyid != NULL);
+    char *accesskey = getenv("S3_SECRET_ACCESS_KEY");
+    REQUIRE(accesskey != NULL);
+    char *bucketname = getenv("S3_BUCKET_NAME");
+    REQUIRE(bucketname != NULL);
+    const char *bucketpath = "mod_tile_test";
+
+    s3_connection_url = (char*) malloc(1024);
+    sprintf(s3_connection_url, "s3://%s:%s/%s/%s", keyid, accesskey, bucketname, bucketpath);
+
+    SECTION("storage-backend/s3/initialise", "should return 1") {
+        struct storage_backend *store = NULL;
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+        store->close_storage(store);
+    }
+
+    SECTION("storage-backend/s3/stat/non existent", "should return size < 0") {
+        struct storage_backend *store = NULL;
+        struct stat_info sinfo;
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        sinfo = store->tile_stat(store, "default", "", 0, 0, 0);
+        REQUIRE(sinfo.size < 0);
+        store->close_storage(store);
+    }
+
+    SECTION("storage-backend/s3/read/non existent", "should return size < 0") {
+        struct storage_backend *store = NULL;
+        int size;
+        char *buf = (char*) malloc(10000);
+        int compressed;
+        char *err_msg = (char*) malloc(10000);
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        size = store->tile_read(store, "default", "", 0, 0, 0, buf, 10000, &compressed, err_msg);
+        REQUIRE(size < 0);
+
+        store->close_storage(store);
+        free(buf);
+        free(err_msg);
+    }
+
+    SECTION("storage-backend/s3/write/full metatile", "should complete") {
+        struct storage_backend *store = NULL;
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "", 1024, 1024, 10);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                std::string tile_data = "DEADBEEF";
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        store->close_storage(store);
+    }
+
+    SECTION("storage-backend/s3/stat/full metatile", "should complete") {
+        struct storage_backend *store = NULL;
+        struct stat_info sinfo;
+
+        time_t before_write, after_write;
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "", 1024 + METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                std::string tile_data = "DEADBEEF";
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        sleep(1);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sinfo = store->tile_stat(store, "default", "", 1024 + METATILE + yy, 1024 + xx, 10);
+                REQUIRE(sinfo.size > 0);
+                REQUIRE(sinfo.expired == 0);
+                REQUIRE(sinfo.mtime >= before_write);
+                REQUIRE(sinfo.mtime <= after_write);
+            }
+        }
+
+        store->close_storage(store);
+    }
+
+    SECTION("storage-backend/s3/read/full metatile", "should complete") {
+        std::cerr << "storage-backend/s3/read/full metatile" << std::endl;
+
+        struct storage_backend *store = NULL;
+        char *buf;
+        char *buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char*) malloc(8196);
+        buf_tmp = (char*) malloc(8196);
+
+        time_t before_write, after_write;
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "", 1024 + METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEEF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                tile_size = store->tile_read(store, "default", "", 1024 + METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                REQUIRE(tile_size == 12);
+                sprintf(buf_tmp, "DEADBEEF %i %i", xx, yy);
+                REQUIRE(memcmp(buf_tmp, buf, 11) == 0);
+            }
+        }
+
+        free(buf);
+        free(buf_tmp);
+        store->close_storage(store);
+    }
+
+    SECTION("storage-backend/s3/read/partial metatile", "should return correct data") {
+        std::cerr << "storage-backend/s3/read/partial metatile" << std::endl;
+
+        struct storage_backend *store = NULL;
+        char *buf;
+        char *buf_tmp;
+        char msg[4096];
+        int compressed;
+        int tile_size;
+
+        buf = (char*) malloc(8196);
+        buf_tmp = (char*) malloc(8196);
+
+        time_t before_write, after_write;
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "",  1024 + 2*METATILE, 1024, 10);
+        time(&before_write);
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < (METATILE >> 1); xx++) {
+                sprintf(buf, "DEADBEEF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+        time(&after_write);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                tile_size = store->tile_read(store, "default", "", 1024 + 2*METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
+                if (xx >= (METATILE >> 1)) {
+                    REQUIRE (tile_size == 0);
+                } else {
+                    REQUIRE (tile_size == 12);
+                    sprintf(buf_tmp, "DEADBEEF %i %i", xx, yy);
+                    REQUIRE (memcmp(buf_tmp, buf, 11) == 0);
+                }
+            }
+        }
+
+        free(buf);
+        free(buf_tmp);
+        store->close_storage(store);
+    }
+
+     SECTION("storage-backend/s3/delete metatile", "should delete tile from storage") {
+        struct storage_backend *store = NULL;
+        struct stat_info sinfo;
+        char *buf;
+        char *buf_tmp;
+
+        buf = (char*) malloc(8196);
+        buf_tmp = (char*) malloc(8196);
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "", 1024 + 3*METATILE, 1024, 10);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEEF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        sinfo = store->tile_stat(store, "default", "", 1024 + 3*METATILE, 1024, 10);
+
+        REQUIRE(sinfo.size > 0);
+
+        store->metatile_delete(store, "default", 1024 + 3*METATILE, 1024, 10);
+
+        sinfo = store->tile_stat(store, "default", "", 1024 + 3*METATILE, 1024, 10);
+
+        REQUIRE(sinfo.size < 0);
+
+        free(buf);
+        free(buf_tmp);
+        store->close_storage(store);
+    }
+
+     SECTION("storage-backend/s3/expire/expiremetatile", "should expire the tile") {
+        struct storage_backend *store = NULL;
+        struct stat_info sinfo;
+        char *buf;
+        char *buf_tmp;
+
+        buf = (char*) malloc(8196);
+        buf_tmp = (char*) malloc(8196);
+
+        store = init_storage_backend(s3_connection_url);
+        REQUIRE(store != NULL);
+
+        metaTile tiles("default", "", 1024 + 4*METATILE, 1024, 10);
+
+        for (int yy = 0; yy < METATILE; yy++) {
+            for (int xx = 0; xx < METATILE; xx++) {
+                sprintf(buf, "DEADBEEF %i %i", xx, yy);
+                std::string tile_data(buf);
+                tiles.set(xx, yy, tile_data);
+            }
+        }
+        tiles.save(store);
+
+        sinfo = store->tile_stat(store, "default", "", 1024 + 4*METATILE, 1024, 10);
+
+        REQUIRE(sinfo.size > 0);
+
+        store->metatile_expire(store, "default", 1024 + 4*METATILE, 1024, 10);
+
+        sinfo = store->tile_stat(store, "default", "", 1024 + 4*METATILE, 1024, 10);
+
+        REQUIRE(sinfo.size > 0);
+        REQUIRE(sinfo.expired > 0);
+
+        free(buf);
+        free(buf_tmp);
+        store->close_storage(store);
+    }
+
+    S3BucketContext ctx;
+    ctx.accessKeyId = keyid;
+    ctx.secretAccessKey = accesskey;
+    ctx.bucketName = bucketname;
+    ctx.hostName = NULL;
+    S3ResponseHandler handler;
+    handler.completeCallback = &test_s3_complete_callback;
+    handler.propertiesCallback = &test_s3_properties_callback;
+    S3_delete_object(&ctx, bucketpath, NULL, &handler, NULL);
+}
+
+#endif
 
 int main (int argc, char* const argv[])
 {

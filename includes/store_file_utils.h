@@ -27,6 +27,7 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 /* New meta-tile storage functions */
 /* Returns the path to the meta-tile and the offset within the meta-tile */
 int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z);
+int xyzo_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, const char *options, int x, int y, int z);
 #endif
 
 #ifdef __cplusplus

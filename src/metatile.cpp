@@ -32,7 +32,6 @@
 #include "cache_expire.h"
 #include "request_queue.h"
 
-
 metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z):
     x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options) {
     clear();
