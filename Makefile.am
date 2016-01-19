@@ -7,8 +7,8 @@ ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = $(PTHREAD_CFLAGS) -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 
-STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c
-STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL)
+STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c src/store_s3.c
+STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(LIBS3_LDFLAGS)
 STORE_CPPFLAGS =
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old

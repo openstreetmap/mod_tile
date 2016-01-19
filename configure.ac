@@ -53,6 +53,11 @@ AC_CHECK_LIB(rados, rados_version, [
     LIBRADOS_LDFLAGS='-lrados'
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
+AC_CHECK_LIB(s3, S3_deinitialize, [
+    AC_DEFINE([HAVE_LIBS3], [1], [Have found libs3])
+    LIBS3_LDFLAGS='-ls3'
+    AC_SUBST(LIBS3_LDFLAGS)
+][])
 
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
