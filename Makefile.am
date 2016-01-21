@@ -6,10 +6,11 @@ endif
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = $(PTHREAD_CFLAGS) -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
+AM_CFLAGS = $(STORE_CFLAGS)
 
 STORE_SOURCES = src/store.c src/store_file.c src/store_file_utils.c src/store_memcached.c src/store_rados.c src/store_ro_http_proxy.c src/store_ro_composite.c src/store_null.c src/store_s3.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(LIBS3_LDFLAGS)
-STORE_CPPFLAGS =
+STORE_CFLAGS = $(LIBS3_CFLAGS)
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
 noinst_PROGRAMS = gen_tile_test
@@ -34,7 +35,7 @@ render_old_SOURCES = src/store_file_utils.c src/render_old.c src/sys_utils.c src
 render_old_LDADD = $(PTHREAD_CFLAGS)
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 gen_tile_test_SOURCES = src/gen_tile_test.cpp src/metatile.cpp src/request_queue.c src/protocol_helper.c src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/cache_expire.c src/parameterize_style.cpp $(STORE_SOURCES)
-gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
+gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(STORE_CFLAGS)
 gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
 gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 if !SYSTEM_LIBINIPARSER
