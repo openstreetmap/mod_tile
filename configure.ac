@@ -63,7 +63,7 @@ AC_ARG_WITH([libs3],
         AC_MSG_CHECKING([for libs3])
         if test -f "$libs3_dir/include/libs3.h"; then
           AC_DEFINE([HAVE_LIBS3], [1], [Have found libs3])
-          LIBS3_LDFLAGS='-ls3'
+          LIBS3_LDFLAGS="-L$libs3_dir/lib -ls3"
           AC_SUBST(LIBS3_LDFLAGS)
           LIBS3_CFLAGS="-I$libs3_dir/include"
           AC_SUBST(LIBS3_CFLAGS)
