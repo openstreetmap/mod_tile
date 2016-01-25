@@ -480,27 +480,27 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     }
 
     // parse out the context information from the URL: s3://<key id>:<secret key>[@<hostname>]/<bucket>[/<basepath>]
-    ctx->ctx = malloc(sizeof(struct S3BucketContext));
+    struct S3BucketContext *bctx = ctx->ctx = malloc(sizeof(struct S3BucketContext));
 
     char *fullurl = strdup(connection_string);
 
     // advance past "s3://"
     fullurl = &fullurl[5];
-    ctx->ctx->accessKeyId = strsep(&fullurl, ":");
+    bctx->accessKeyId = strsep(&fullurl, ":");
     if (strchr(fullurl, '@')) {
-        ctx->ctx->secretAccessKey = strsep(&fullurl, "@");
-        ctx->ctx->hostName = strsep(&fullurl, "/");
+        bctx->secretAccessKey = strsep(&fullurl, "@");
+        bctx->hostName = strsep(&fullurl, "/");
     } else {
-        ctx->ctx->secretAccessKey = strsep(&fullurl, "/");
-        ctx->ctx->hostName = NULL;
+        bctx->secretAccessKey = strsep(&fullurl, "/");
+        bctx->hostName = NULL;
     }
-    ctx->ctx->bucketName = strsep(&fullurl, "/");
+    bctx->bucketName = strsep(&fullurl, "/");
 
     ctx->basepath = fullurl;
 
-    if (strstr(ctx->ctx->accessKeyId, "${") == ctx->ctx->accessKeyId && strrchr(ctx->ctx->accessKeyId, '}') == (ctx->ctx->accessKeyId + strlen(ctx->ctx->accessKeyId) - 1)) {
-        char tmp[strlen(ctx->ctx->accessKeyId) + 1];
-        strcpy(tmp, ctx->ctx->accessKeyId);
+    if (strstr(bctx->accessKeyId, "${") == bctx->accessKeyId && strrchr(bctx->accessKeyId, '}') == (bctx->accessKeyId + strlen(bctx->accessKeyId) - 1)) {
+        char tmp[strlen(bctx->accessKeyId) + 1];
+        strcpy(tmp, bctx->accessKeyId);
         tmp[strlen(tmp) - 1] = '\0';
         char *val = getenv(tmp + 2);
         if (NULL == val) {
@@ -509,29 +509,58 @@ struct storage_backend* init_storage_s3(const char *connection_string)
             free(store);
             return NULL;
         }
-        ctx->ctx->accessKeyId = val;
+        bctx->accessKeyId = val;
     }
-    ctx->ctx->accessKeyId = url_decode(ctx->ctx->accessKeyId);
-    if (strstr(ctx->ctx->secretAccessKey, "${") == ctx->ctx->secretAccessKey && strrchr(ctx->ctx->secretAccessKey, '}') == (ctx->ctx->secretAccessKey + strlen(ctx->ctx->secretAccessKey) - 1)) {
-        char tmp[strlen(ctx->ctx->secretAccessKey) + 1];
-        strcpy(tmp, ctx->ctx->secretAccessKey);
-        tmp[strlen(tmp) - 1] = '\0';
-        char *val = getenv(tmp + 2);
-        if (NULL == val) {
-            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
-            free(ctx);
-            free(store);
-            return NULL;
-        }
-        ctx->ctx->secretAccessKey = val;
-    }
-    ctx->ctx->secretAccessKey = url_decode(ctx->ctx->secretAccessKey);
-    ctx->ctx->hostName = url_decode(ctx->ctx->hostName);
-    ctx->ctx->bucketName = url_decode(ctx->ctx->bucketName);
-    ctx->ctx->protocol = S3ProtocolHTTPS;
-    ctx->ctx->securityToken = NULL;
-    ctx->ctx->uriStyle = S3UriStyleVirtualHost;
+    bctx->accessKeyId = url_decode(bctx->accessKeyId);
 
+    if (strstr(bctx->secretAccessKey, "${") == bctx->secretAccessKey && strrchr(bctx->secretAccessKey, '}') == (bctx->secretAccessKey + strlen(bctx->secretAccessKey) - 1)) {
+        char tmp[strlen(bctx->secretAccessKey) + 1];
+        strcpy(tmp, bctx->secretAccessKey);
+        tmp[strlen(tmp) - 1] = '\0';
+        char *val = getenv(tmp + 2);
+        if (NULL == val) {
+            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
+            free(ctx);
+            free(store);
+            return NULL;
+        }
+        bctx->secretAccessKey = val;
+    }
+    bctx->secretAccessKey = url_decode(bctx->secretAccessKey);
+
+    bctx->hostName = url_decode(bctx->hostName);
+    if (strstr(bctx->bucketName, "${") == bctx->bucketName && strrchr(bctx->bucketName, '}') == (bctx->bucketName + strlen(bctx->bucketName) - 1)) {
+        char tmp[strlen(bctx->bucketName) + 1];
+        strcpy(tmp, bctx->bucketName);
+        tmp[strlen(tmp) - 1] = '\0';
+        char *val = getenv(tmp + 2);
+        if (NULL == val) {
+            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
+            free(ctx);
+            free(store);
+            return NULL;
+        }
+        bctx->bucketName = val;
+    }
+    bctx->bucketName = url_decode(bctx->bucketName);
+
+    bctx->protocol = S3ProtocolHTTPS;
+    bctx->securityToken = NULL;
+    bctx->uriStyle = S3UriStyleVirtualHost;
+
+    if (strstr(ctx->basepath, "${") == ctx->basepath && strrchr(ctx->basepath, '}') == (ctx->basepath + strlen(ctx->basepath) - 1)) {
+        char tmp[strlen(ctx->basepath) + 1];
+        strcpy(tmp, ctx->basepath);
+        tmp[strlen(tmp) - 1] = '\0';
+        char *val = getenv(tmp + 2);
+        if (NULL == val) {
+            log_message(STORE_LOGLVL_ERR, "init_storage_s3: environment variable %s not defined when initializing S3 configuration!", tmp + 2);
+            free(ctx);
+            free(store);
+            return NULL;
+        }
+        ctx->basepath = val;
+    }
     ctx->basepath = url_decode(ctx->basepath);
 
     log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->bucketName, ctx->basepath);
