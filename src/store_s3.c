@@ -453,8 +453,6 @@ struct storage_backend* init_storage_s3(const char *connection_string)
 
     S3Status res;
 
-    log_message(STORE_LOGLVL_DEBUG, "init_storage_s3: initializing S3 storage backend for %s", connection_string);
-
     if (!store || !ctx) {
         log_message(STORE_LOGLVL_ERR, "init_storage_s3: failed to allocate memory for context");
         if (store)
