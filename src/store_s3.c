@@ -104,10 +104,10 @@ int store_s3_put_object_data_callback(int bufferSize, char *buffer, void *callba
 void store_s3_complete_callback(S3Status status, const S3ErrorDetails *errorDetails, void *callbackData)
 {
     struct s3_tile_request *rqst = (struct s3_tile_request*) callbackData;
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_complete_callback: request complete, status %d (%s)", status, S3_get_status_name(status));
-    if (errorDetails && errorDetails->message && (strlen(errorDetails->message) > 0)) {
-        log_message(STORE_LOGLVL_DEBUG, "  error details: %s", errorDetails->message);
-    }
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_complete_callback: request complete, status %d (%s)", status, S3_get_status_name(status));
+    //if (errorDetails && errorDetails->message && (strlen(errorDetails->message) > 0)) {
+    //    log_message(STORE_LOGLVL_DEBUG, "  error details: %s", errorDetails->message);
+    //}
     rqst->result = status;
     rqst->error_details = errorDetails;
 }
@@ -196,12 +196,8 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
 static struct stat_info store_s3_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
-    char *path = NULL;
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: Fetching tile properties");
-
-    path = malloc(PATH_MAX);
-
+    char *path = malloc(PATH_MAX);
     store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
     log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: getting properties for object %s", path);
 
@@ -224,11 +220,16 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 
     struct stat_info tile_stat;
     if (request.result != S3StatusOK) {
-        const char *msg = "";
-        if (request.error_details && request.error_details->message) {
-            msg = request.error_details->message;
+        if (request.result == S3StatusHttpErrorNotFound) {
+            // tile does not exist
+            log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: tile not found in storage");
+        } else {
+            const char *msg = "";
+            if (request.error_details && request.error_details->message) {
+                msg = request.error_details->message;
+            }
+            log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to retrieve object properties: %d (%s) %s", request.result, S3_get_status_name(request.result), msg);
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to retrieve object properties: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
         tile_stat.size = -1;
         tile_stat.expired = 0;
         tile_stat.mtime = 0;
@@ -237,7 +238,7 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
         return tile_stat;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: Read properties");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: successfully read properties");
 
     tile_stat.size = request.tile_size;
     tile_stat.expired = request.tile_expired;
