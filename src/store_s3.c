@@ -117,7 +117,7 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
     char *path = malloc(PATH_MAX);
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: fetching tile");
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: fetching tile");
 
     int tile_offset = store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
     log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: retrieving object %s", path);
@@ -199,7 +199,7 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 
     char *path = malloc(PATH_MAX);
     store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: getting properties for object %s", path);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: getting properties for object %s", path);
 
     struct S3ResponseHandler responseHandler;
     responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -216,13 +216,12 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
     request.tile_size = 0;
 
     S3_head_object(ctx->ctx, path, NULL, &responseHandler, &request);
-    free(path);
 
     struct stat_info tile_stat;
     if (request.result != S3StatusOK) {
         if (request.result == S3StatusHttpErrorNotFound) {
             // tile does not exist
-            log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: tile not found in storage");
+            //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: tile not found in storage");
         } else {
             const char *msg = "";
             if (request.error_details && request.error_details->message) {
@@ -235,16 +234,18 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
         tile_stat.mtime = 0;
         tile_stat.atime = 0;
         tile_stat.ctime = 0;
+        free(path);
         return tile_stat;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: successfully read properties");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: successfully read properties of %s", path);
 
     tile_stat.size = request.tile_size;
     tile_stat.expired = request.tile_expired;
     tile_stat.mtime = request.tile_mod_time;
     tile_stat.atime = 0;
     tile_stat.ctime = 0;
+    free(path);
     return tile_stat;
 }
 
