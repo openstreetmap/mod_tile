@@ -410,7 +410,7 @@ static int store_s3_close_storage(struct storage_backend *store)
 
     S3_deinitialize();
     free(ctx);
-    free(store);
+    store->storage_ctx = NULL;
     store_s3_initialized = 0;
 
     return 0;
