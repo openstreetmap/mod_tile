@@ -66,7 +66,7 @@ static S3Status store_s3_properties_callback(const S3ResponseProperties *propert
         }
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_properties_callback: got properties for tile %s, length: %ld, content type: %s, expired: %d", rqst->path, rqst->tile_size, properties->contentType, rqst->tile_expired);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_properties_callback: got properties for tile %s, length: %ld, content type: %s, expired: %d", rqst->path, rqst->tile_size, properties->contentType, rqst->tile_expired);
 
     return S3StatusOK;
 }
@@ -227,7 +227,7 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
             if (request.error_details && request.error_details->message) {
                 msg = request.error_details->message;
             }
-            log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to retrieve object properties: %d (%s) %s", request.result, S3_get_status_name(request.result), msg);
+            log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to retrieve object properties for %s: %d (%s) %s", path, request.result, S3_get_status_name(request.result), msg);
         }
         tile_stat.size = -1;
         tile_stat.expired = 0;
@@ -396,11 +396,11 @@ static int store_s3_metatile_expire(struct storage_backend *store, const char *x
         if (request.error_details && request.error_details->message) {
             msg = request.error_details->message;
         }
-        log_message(STORE_LOGLVL_ERR, "store_s3_metatile_expire: failed to update object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
+        log_message(STORE_LOGLVL_ERR, "store_s3_metatile_expire: failed to update object: %d (%s)/%s", request.result, S3_get_status_name(request.result), msg);
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_expire: Updated object metadata");
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_metatile_expire: updated object metadata");
 
     return 0;
 }
