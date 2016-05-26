@@ -120,7 +120,7 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
     //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: fetching tile");
 
     int tile_offset = store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: retrieving object %s", path);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: retrieving object %s", path);
 
     struct S3GetObjectHandler getObjectHandler;
     getObjectHandler.responseHandler.propertiesCallback = &store_s3_properties_callback;
@@ -136,7 +136,6 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
     request.tile_size = 0;
 
     S3_get_object(ctx->ctx, path, NULL, 0, 0, NULL, &getObjectHandler, &request);
-    free(path);
 
     if (request.result != S3StatusOK) {
         const char *msg = "";
@@ -144,10 +143,15 @@ static int store_s3_tile_read(struct storage_backend *store, const char *xmlconf
             msg = request.error_details->message;
         }
         log_message(STORE_LOGLVL_ERR, "store_s3_tile_read: failed to retrieve object: %d(%s)/%s", request.result, S3_get_status_name(request.result), msg);
+        free(path);
+        path = NULL;
         return -1;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: Read object of size %i", request.tile_size);
+    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_read: retrieved metatile %s of size %i", path, request.tile_size);
+
+    free(path);
+    path = NULL;
 
     // extract tile from metatile
 
@@ -238,7 +242,7 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
         return tile_stat;
     }
 
-    log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: successfully read properties of %s", path);
+    //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: successfully read properties of %s", path);
 
     tile_stat.size = request.tile_size;
     tile_stat.expired = request.tile_expired;
