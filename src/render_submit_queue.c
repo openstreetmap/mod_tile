@@ -187,13 +187,10 @@ void enqueue(const char *xmlname, int x, int y, int z)
     pthread_mutex_unlock(&qLock);
 }
 
-
-void *thread_main(void *arg)
+int make_connection(const char *spath)
 {
-    const char *spath = (const char *)arg;
     int fd;
     struct sockaddr_un addr;
-    struct protocol * cmd;
 
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
@@ -206,15 +203,38 @@ void *thread_main(void *arg)
     strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
 
     if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "socket connect failed for: %s\n", spath);
         close(fd);
+        return -1;
+    }
+
+    return fd;
+}
+
+void *thread_main(void *arg)
+{
+    const char *spath = (const char *)arg;
+    int fd = make_connection(spath);
+
+    if (fd < 0) {
+        fprintf(stderr, "socket connect failed for: %s\n", spath);
         return NULL;
     }
 
     while(1) {
+        struct protocol * cmd;
         check_load();
         if (!(cmd = fetch())) break;
-        process(cmd, fd);
+        if (process(cmd, fd) < 1) {
+            fprintf(stderr, "connection to renderd lost");
+            close(fd);
+            fd = -1;
+            while (fd < 0) {
+                fprintf(stderr, "sleeping for 30 seconds");
+                sleep(30);
+                fprintf(stderr, "attempting to reconnect");
+                fd = make_connection(spath);
+            }
+        }
         free(cmd);
     }
 
