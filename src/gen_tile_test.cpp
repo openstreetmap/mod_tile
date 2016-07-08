@@ -66,6 +66,7 @@
 extern struct projectionconfig * get_projection(const char * srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z);
 
+// mutex to guard access to the shared render request counter
 static pthread_mutex_t item_counter_lock;
 
 std::string get_current_stderr() {
@@ -90,7 +91,7 @@ struct item * init_render_request(enum protoCmd type) {
     struct item * item = (struct item *)malloc(sizeof(struct item));
     bzero(item, sizeof(struct item));
     item->req.ver = PROTO_VER;
-    strcpy(item->req.xmlname,"default");
+    strcpy(item->req.xmlname, "default");
     item->req.cmd = type;
     pthread_mutex_lock(&item_counter_lock);
     item->mx = counter++;
@@ -102,12 +103,16 @@ void * addition_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
     uint64_t threadid;
-#ifdef __MACH__ // OS X does not support SYS_gettid
+#ifdef __MACH__ // Mac OS X does not support SYS_gettid
     pthread_threadid_np(NULL, &threadid);
 #else
     threadid = syscall(SYS_gettid);
 #endif
 
+    // Requests need to be unique across threads to avoid being discarded as duplicates,
+    // thereby ensuring the queue counts can be compared correctly.
+    // To that end, use a thread ID for the Y coordinate, complementing
+    // the existing sequence counter used for the X coordinate.
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
         item->my = threadid;
@@ -443,7 +448,6 @@ TEST_CASE( "renderd/queueing", "request queueing") {
 
                 REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == (NO_THREADS*NO_QUEUE_REQUESTS) );
 
-
                 for (int i = 0; i  < NO_THREADS; i++) {
                     if (pthread_create(&fetch_threads[i], NULL, fetch_thread,
                             (void *) queue)) {
@@ -569,7 +573,7 @@ TEST_CASE( "renderd", "tile generation" ) {
           REQUIRE( found > -1 );
       }
 
-      // we run this test twice to ensure that our stderr reading is working correctlyu
+      // we run this test twice to ensure that our stderr reading is working correctly
       SECTION("render_init 2", "should throw nice error if paths are invalid") {
           render_init("doesnotexist","doesnotexist",1);
           std::string log_lines = get_current_stderr();
@@ -950,7 +954,7 @@ int main (int argc, char* const argv[])
   // allows us to catch and read it in these tests to validate
   // the stderr contains the right messages
   // http://stackoverflow.com/questions/13533655/how-to-listen-to-stderr-in-c-c-for-sending-to-callback
-  FILE * stream = freopen("stderr.out", "w", stderr);
+  FILE *stream = freopen("stderr.out", "w", stderr);
   if (!stream) {
       perror("Redirection of stderr failed");
       return 1;
