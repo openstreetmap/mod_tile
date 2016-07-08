@@ -66,6 +66,8 @@
 extern struct projectionconfig * get_projection(const char * srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z);
 
+static pthread_mutex_t item_counter_lock;
+
 std::string get_current_stderr() {
     FILE * input = fopen("stderr.out", "r+");
     std::string log_lines;
@@ -90,32 +92,25 @@ struct item * init_render_request(enum protoCmd type) {
     item->req.ver = PROTO_VER;
     strcpy(item->req.xmlname,"default");
     item->req.cmd = type;
+    pthread_mutex_lock(&item_counter_lock);
     item->mx = counter++;
+    pthread_mutex_unlock(&item_counter_lock);
     return item;
 }
 
-void *addition_thread(void * arg) {
+void * addition_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
-    struct timespec time;
-    unsigned int seed = syscall(SYS_gettid);
-    #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
-    clock_serv_t cclock;
-    mach_timespec_t mts;
-    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-    clock_get_time(cclock, &mts);
-    mach_port_deallocate(mach_task_self(), cclock);
-    time.tv_sec = mts.tv_sec;
-    time.tv_nsec = mts.tv_nsec;
-    #else
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time);
-    #endif
-    seed *= (unsigned int)time.tv_nsec;
+    uint64_t threadid;
+#ifdef __MACH__ // OS X does not support SYS_gettid
+    pthread_threadid_np(NULL, &threadid);
+#else
+    threadid = syscall(SYS_gettid);
+#endif
 
     for (int i = 0; i < NO_QUEUE_REQUESTS; i++) {
         item = init_render_request(cmdDirty);
-        item->my = rand_r(&seed);
-        item->mx = rand_r(&seed);
+        item->my = threadid;
         request_queue_add_request(queue, item);
     }
     return NULL;
@@ -391,7 +386,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                     REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT );
                     REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == (i - REQ_LIMIT) );
                 } else {
-                    //Requests should be dropped alltogether
+                    //Requests should be dropped altogether
                     REQUIRE( res == cmdNotDone );
                     REQUIRE( request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT );
                     REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == DIRTY_LIMIT);
@@ -423,7 +418,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                 pthread_join(addition_threads[i], &status);
             }
 
-            INFO("Itteration " << j);
+            INFO("Iteration " << j);
             REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == (NO_THREADS * NO_QUEUE_REQUESTS) );
 
             request_queue_close(queue);
@@ -461,7 +456,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                     pthread_join(fetch_threads[i], &status);
                 }
 
-                INFO("Itteration " << j);
+                INFO("Iteration " << j);
                 REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == 0 );
 
                 request_queue_close(queue);
@@ -501,7 +496,7 @@ TEST_CASE( "renderd/queueing", "request queueing") {
                 pthread_join(addition_threads[i], &status);
             }
 
-            INFO("Itteration " << j);
+            INFO("Iteration " << j);
             REQUIRE( request_queue_no_requests_queued(queue, cmdDirty) == 0 );
 
             request_queue_close(queue);
@@ -962,7 +957,9 @@ int main (int argc, char* const argv[])
   }
   //setvbuf(stream, 0, _IOLBF, 0); // No Buffering
   openlog("renderd", LOG_PID | LOG_PERROR, LOG_DAEMON);
+  pthread_mutex_init(&item_counter_lock, NULL);
   int result = Catch::Main( argc, argv );
+  pthread_mutex_destroy(&item_counter_lock);
   return result;
 }
 
