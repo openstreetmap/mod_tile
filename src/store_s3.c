@@ -445,7 +445,7 @@ static char* url_decode(const char *src)
     return dst;
 }
 
-static char* env_expand(const char *src)
+static const char* env_expand(const char *src)
 {
     if (strstr(src, "${") == src && strrchr(src, '}') == (src + strlen(src) - 1)) {
         char tmp[strlen(src) + 1];
