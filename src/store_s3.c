@@ -499,7 +499,8 @@ struct storage_backend* init_storage_s3(const char *connection_string)
         return NULL;
     }
 
-    // parse out the context information from the URL: s3://<key id>:<secret key>[@<hostname>]/<bucket>[/<basepath>]
+    // parse out the context information from the URL:
+    //   s3://<key id>:<secret key>[@<hostname>]/<bucket>[@region][/<basepath>]
     struct S3BucketContext *bctx = ctx->ctx = malloc(sizeof(struct S3BucketContext));
 
     char *fullurl = strdup(connection_string);
@@ -507,7 +508,10 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     // advance past "s3://"
     fullurl = &fullurl[5];
     bctx->accessKeyId = strsep(&fullurl, ":");
-    if (strchr(fullurl, '@')) {
+    char *nextSlash = strchr(fullurl, '/');
+    char *nextAt = strchr(fullurl, '@');
+    if ((nextAt != NULL) && (nextAt < nextSlash)) {
+        // there's an S3 host name in the URL
         bctx->secretAccessKey = strsep(&fullurl, "@");
         bctx->hostName = strsep(&fullurl, "/");
         if (strlen(bctx->hostName) <= 0) {
@@ -517,7 +521,15 @@ struct storage_backend* init_storage_s3(const char *connection_string)
         bctx->secretAccessKey = strsep(&fullurl, "/");
         bctx->hostName = NULL;
     }
-    bctx->bucketName = strsep(&fullurl, "/");
+
+    if (strchr(fullurl, '@')) {
+        // there's a region name with the bucket name
+        bctx->bucketName = strsep(&fullurl, "@");
+        bctx->authRegion = strsep(&fullurl, "/");
+    }
+    else {
+        bctx->bucketName = strsep(&fullurl, "/");
+    }
 
     ctx->basepath = fullurl;
 
