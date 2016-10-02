@@ -529,6 +529,7 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     }
     else {
         bctx->bucketName = strsep(&fullurl, "/");
+        bctx->authRegion = NULL;
     }
 
     ctx->basepath = fullurl;
