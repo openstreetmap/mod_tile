@@ -580,12 +580,14 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     }
     ctx->basepath = url_decode(ctx->basepath);
 
-    if (bctx->hostName) {
-        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, host: %s, bucket: %s, basepath: %s",
-                    ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->hostName, ctx->ctx->bucketName, ctx->basepath);
+    if (bctx->hostName && bctx->authRegion) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, host: %s, region: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->hostName, ctx->ctx->authRegion, ctx->ctx->bucketName, ctx->basepath);
+    } else if (bctx->hostName) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, host: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->hostName, ctx->ctx->bucketName, ctx->basepath);
+    } else if (bctx->authRegion) {
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, region: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->authRegion, ctx->ctx->bucketName, ctx->basepath);
     } else {
-        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, bucket: %s, basepath: %s",
-                    ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->bucketName, ctx->basepath);
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3 completed keyid: %s, key: %s, bucket: %s, basepath: %s", ctx->ctx->accessKeyId, ctx->ctx->secretAccessKey, ctx->ctx->bucketName, ctx->basepath);
     }
     store->storage_ctx = ctx;
 
