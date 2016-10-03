@@ -389,6 +389,7 @@ static int store_s3_metatile_expire(struct storage_backend *store, const char *x
     props.md5 = NULL;
     props.metaDataCount = 1;
     props.metaData = &expireTag;
+    props.useServerSideEncryption = 0;
 
     int64_t lastModified;
 
