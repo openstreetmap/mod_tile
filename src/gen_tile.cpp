@@ -193,7 +193,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
             sprintf(tmp, "%i", num_threads + 2);
-            params["max_size"] = tmp;
+            params["max_size"] = std::string(tmp);
         }
 #if MAPNIK_VERSION >= 200200
         l.set_datasource(datasource_cache::instance().create(params));
