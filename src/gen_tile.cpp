@@ -183,7 +183,7 @@ static void load_fonts(const char *font_dir, int recurse)
  **/
 static void parameterize_map_max_connections(Map &m, int num_threads) {
     unsigned int i;
-    char * tmp = (char *)malloc(20);
+    std::string tmp;
     for (i = 0; i < m.layer_count(); i++) {
 #if MAPNIK_VERSION >= 300000
         layer& l = m.get_layer(i);
@@ -192,7 +192,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
 #endif
         parameters params = l.datasource()->params();
         if (params.find("max_size") == params.end()) {
-            sprintf(tmp, "%i", num_threads + 2);
+            tmp = std::to_string(num_threads + 2);
             params["max_size"] = tmp;
         }
 #if MAPNIK_VERSION >= 200200
@@ -201,7 +201,6 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
         l.set_datasource(datasource_cache::instance()->create(params));
 #endif
     }
-    free(tmp);
 }
 
 
