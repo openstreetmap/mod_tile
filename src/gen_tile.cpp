@@ -195,7 +195,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads) {
             sprintf(tmp, "%i", num_threads + 2);
 
 #if MAPNIK_VERSION >= 300000
-            params["max_size"] = std:string(tmp);
+            params["max_size"] = std::string(tmp);
 #else
             params["max_size"] = tmp;
 #endif
