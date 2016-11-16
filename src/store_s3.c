@@ -38,6 +38,7 @@ struct s3_tile_request {
 struct store_s3_ctx {
     S3BucketContext* ctx;
     const char *basepath;
+    char *urlcopy;
 };
 
 static int store_s3_xyz_to_storagekey(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *key, size_t keylen)
@@ -76,8 +77,12 @@ S3Status store_s3_object_data_callback(int bufferSize, const char *buffer, void 
     struct s3_tile_request *rqst = (struct s3_tile_request*) callbackData;
 
     if (rqst->cur_offset == 0 && rqst->tile == NULL) {
-        //log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: allocating %ld byte buffer for tile", rqst->tile_size);
+        //log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: allocating %z byte buffer for tile", rqst->tile_size);
         rqst->tile = malloc(rqst->tile_size);
+        if (NULL == rqst->tile) {
+            log_message(STORE_LOGLVL_ERR, "store_s3_object_data_callback: could not allocate %z byte buffer for tile!", rqst->tile_size);
+            return S3StatusOutOfMemory;
+        }
     }
 
     //log_message(STORE_LOGLVL_DEBUG, "store_s3_object_data_callback: appending %ld bytes to buffer, new offset %ld", bufferSize, rqst->cur_offset + bufferSize);
@@ -201,7 +206,19 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 {
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
 
+    struct stat_info tile_stat;
+    tile_stat.size = -1;
+    tile_stat.expired = 0;
+    tile_stat.mtime = 0;
+    tile_stat.atime = 0;
+    tile_stat.ctime = 0;
+
     char *path = malloc(PATH_MAX);
+    if (NULL == path) {
+        log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to allocate memory for tile path!");
+        return tile_stat;
+    }
+
     store_s3_xyz_to_storagekey(store, xmlconfig, options, x, y, z, path, PATH_MAX);
     //log_message(STORE_LOGLVL_DEBUG, "store_s3_tile_stat: getting properties for object %s", path);
 
@@ -221,7 +238,6 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
 
     S3_head_object(ctx->ctx, path, NULL, &responseHandler, &request);
 
-    struct stat_info tile_stat;
     if (request.result != S3StatusOK) {
         if (request.result == S3StatusHttpErrorNotFound) {
             // tile does not exist
@@ -233,11 +249,6 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
             }
             log_message(STORE_LOGLVL_ERR, "store_s3_tile_stat: failed to retrieve object properties for %s: %d (%s) %s", path, request.result, S3_get_status_name(request.result), msg);
         }
-        tile_stat.size = -1;
-        tile_stat.expired = 0;
-        tile_stat.mtime = 0;
-        tile_stat.atime = 0;
-        tile_stat.ctime = 0;
         free(path);
         return tile_stat;
     }
@@ -247,8 +258,6 @@ static struct stat_info store_s3_tile_stat(struct storage_backend *store, const 
     tile_stat.size = request.tile_size;
     tile_stat.expired = request.tile_expired;
     tile_stat.mtime = request.tile_mod_time;
-    tile_stat.atime = 0;
-    tile_stat.ctime = 0;
     free(path);
     return tile_stat;
 }
@@ -414,6 +423,10 @@ static int store_s3_close_storage(struct storage_backend *store)
     struct store_s3_ctx *ctx = (struct store_s3_ctx*) store->storage_ctx;
 
     S3_deinitialize();
+    if (NULL != ctx->urlcopy) {
+        free(ctx->urlcopy);
+        ctx->urlcopy = NULL;
+    }
     free(ctx);
     store->storage_ctx = NULL;
     store_s3_initialized = 0;
@@ -445,7 +458,7 @@ static char* url_decode(const char *src)
     return dst;
 }
 
-static char* env_expand(const char *src)
+static const char* env_expand(const char *src)
 {
     if (strstr(src, "${") == src && strrchr(src, '}') == (src + strlen(src) - 1)) {
         char tmp[strlen(src) + 1];
@@ -469,10 +482,15 @@ struct storage_backend* init_storage_s3(const char *connection_string)
             "init_storage_s3: Support for libs3 and therefore S3 storage has not been compiled into this program");
     return NULL;
 #else
+    if (strstr(connection_string, "s3://") != connection_string) {
+        log_message(STORE_LOGLVL_ERR, "init_storage_s3: connection string invalid for S3 storage!");
+        return NULL;
+    }
+
     struct storage_backend *store = malloc(sizeof(struct storage_backend));
     struct store_s3_ctx *ctx = malloc(sizeof(struct store_s3_ctx));
 
-    S3Status res;
+    S3Status res = S3StatusErrorUnknown;
 
     if (!store || !ctx) {
         log_message(STORE_LOGLVL_ERR, "init_storage_s3: failed to allocate memory for context");
@@ -485,12 +503,13 @@ struct storage_backend* init_storage_s3(const char *connection_string)
 
     pthread_mutex_lock(&qLock);
     if (!store_s3_initialized) {
-        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3: global init of libs3", connection_string);
+        log_message(STORE_LOGLVL_DEBUG, "init_storage_s3: global init of libs3");
         res = S3_initialize(NULL, S3_INIT_ALL, NULL);
         store_s3_initialized = 1;
     } else {
         res = S3StatusOK;
     }
+
     pthread_mutex_unlock(&qLock);
     if (res != S3StatusOK) {
         log_message(STORE_LOGLVL_ERR, "init_storage_s3: failed to initialize S3 library: %s", S3_get_status_name(res));
@@ -502,22 +521,58 @@ struct storage_backend* init_storage_s3(const char *connection_string)
     // parse out the context information from the URL: s3://<key id>:<secret key>[@<hostname>]/<bucket>[/<basepath>]
     struct S3BucketContext *bctx = ctx->ctx = malloc(sizeof(struct S3BucketContext));
 
-    char *fullurl = strdup(connection_string);
+    ctx->urlcopy = strdup(connection_string);
+    if (NULL == ctx->urlcopy) {
+        log_message(STORE_LOGLVL_ERR, "init_storage_s3: error allocating memory for connection string!");
+        free(ctx);
+        free(store);
+        return NULL;
+    }
 
     // advance past "s3://"
-    fullurl = &fullurl[5];
+    char *fullurl = &ctx->urlcopy[5];
     bctx->accessKeyId = strsep(&fullurl, ":");
     if (strchr(fullurl, '@')) {
         bctx->secretAccessKey = strsep(&fullurl, "@");
         bctx->hostName = strsep(&fullurl, "/");
-        if (strlen(bctx->hostName) <= 0) {
+        if (bctx->hostName != NULL && strlen(bctx->hostName) <= 0) {
             bctx->hostName = NULL;
         }
     } else {
         bctx->secretAccessKey = strsep(&fullurl, "/");
         bctx->hostName = NULL;
     }
+    if (bctx->accessKeyId != NULL && strlen(bctx->accessKeyId) <= 0) {
+        bctx->accessKeyId = NULL;
+    }
+    if (bctx->secretAccessKey != NULL && strlen(bctx->secretAccessKey) <= 0) {
+        bctx->secretAccessKey = NULL;
+    }
     bctx->bucketName = strsep(&fullurl, "/");
+    if (bctx->bucketName != NULL && strlen(bctx->bucketName) <= 0) {
+        bctx->bucketName = NULL;
+    }
+
+    if (bctx->accessKeyId == NULL) {
+        log_message(STORE_LOGLVL_ERR, "init_storage_s3: S3 access key ID not provided in connection string!");
+        free(ctx);
+        free(store);
+        return NULL;
+    }
+
+    if (bctx->secretAccessKey == NULL) {
+        log_message(STORE_LOGLVL_ERR, "init_storage_s3: S3 secret access key not provided in connection string!");
+        free(ctx);
+        free(store);
+        return NULL;
+    }
+
+    if (bctx->bucketName == NULL) {
+        log_message(STORE_LOGLVL_ERR, "init_storage_s3: S3 bucket name not provided in connection string!");
+        free(ctx);
+        free(store);
+        return NULL;
+    }
 
     ctx->basepath = fullurl;
 

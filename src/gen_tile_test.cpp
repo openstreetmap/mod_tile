@@ -973,7 +973,7 @@ TEST_CASE("storage-backend/s3", "S3 tile storage backend") {
     const char *bucketpath = "mod_tile_test";
 
     s3_connection_url = (char*) malloc(1024);
-    sprintf(s3_connection_url, "s3://%s:%s/%s/%s", keyid, accesskey, bucketname, bucketpath);
+    snprintf(s3_connection_url, 1024, "s3://%s:%s/%s/%s", keyid, accesskey, bucketname, bucketpath);
 
     SECTION("storage-backend/s3/initialise", "should return 1") {
         struct storage_backend *store = NULL;
