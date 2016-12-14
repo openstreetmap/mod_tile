@@ -169,7 +169,7 @@ static void load_fonts(const char *font_dir, int recurse)
             continue;
         }
         p = strrchr(path, '.');
-        if (p && (!strcmp(p, ".ttf") || !strcmp(p, ".otf"))) {
+        if (p && (!strcmp(p, ".ttf") || !strcmp(p, ".otf") || !strcmp(p, ".ttc"))) {
             syslog(LOG_DEBUG, "DEBUG: Loading font: %s", path);
             freetype_engine::register_font(path);
         }
