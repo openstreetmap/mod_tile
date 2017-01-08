@@ -76,12 +76,10 @@
 #define QUEUE_MAX (64)
 #define REQ_LIMIT (32)
 #define DIRTY_LIMIT (216000)
-#define HASHIDX_SIZE (477856)
 #else
 #define QUEUE_MAX (1024)
 #define REQ_LIMIT (512)
-#define DIRTY_LIMIT (10000)
-#define HASHIDX_SIZE (22123)
+#define DIRTY_LIMIT (2160000)
 #endif
 
 // Penalty for client making an invalid request (in seconds)
