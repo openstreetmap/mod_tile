@@ -1,9 +1,10 @@
 [Unit]
-Description=Rendering daemon for Openstreetmap tiles
+Description=Mapnik rendering daemon
 
 [Service]
 ExecStart=/usr/bin/renderd -f
 Restart=always
+User=www-data
 
 [Install]
 WantedBy=multi-user.target
