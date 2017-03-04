@@ -1,3 +1,8 @@
+libapache2-mod-tile (0.4-12~precise3) precise; urgency=low
+  * Move from init script to systemd
+
+ -- Melchior Moos <melchiormoos@gmail.com>  Sat, 04 Mar 2017 00:00:00 +0000
+
 libapache2-mod-tile (0.4-12~precise2) precise; urgency=low
   * fixed renderd.conf to use mapnik 2.0 plugins dir
 

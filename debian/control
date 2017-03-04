@@ -2,7 +2,7 @@ Source: libapache2-mod-tile
 Section: utils
 Priority: optional
 Maintainer: Frederik Ramm <frederik@remote.org>
-Build-Depends: debhelper (>= 7), apache2-dev (>= 2.4.0), libmapnik-dev | libmapnik2-dev, autoconf, automake, m4, libtool
+Build-Depends: debhelper (>= 7), apache2-dev (>= 2.4.0), libmapnik-dev | libmapnik2-dev, autoconf, automake, m4, libtool, dh-systemd
 Standards-Version: 3.9.3
 
 Package: libapache2-mod-tile
