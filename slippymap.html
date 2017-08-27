@@ -41,7 +41,7 @@
             } );
  
             // This is the layer that uses the locally stored tiles
-            var newLayer = new OpenLayers.Layer.OSM("Local Tiles", "${z}/${x}/${y}.png", {numZoomLevels: 19});
+            var newLayer = new OpenLayers.Layer.OSM("Local Tiles", "http://127.0.0.1/hot/${z}/${x}/${y}.png", {numZoomLevels: 19});
             map.addLayer(newLayer);
 
             layerMapnik = new OpenLayers.Layer.OSM.Mapnik("Mapnik");
