@@ -7,13 +7,70 @@ render_list \- renders a list of map tiles by sending requests to a rendering da
 .RI [ options ] <  "render.list"
 .br
 .SH DESCRIPTION
-This manual page documents briefly the
+This manual page briefly documents the
 .B render_list
 command.
 .PP
 .B render_list
 is a helper utility that takes a list of map tiles from stdin and sends the requests to a rendering daemon
 .PP
+.SH OPTIONS
+This program follows the usual GNU command line syntax, with long
+options starting with two dashes (`-').
+A summary of options is included below.
+.TP
+\fB\-a\fR|\-\-all
+Render all tiles in given zoom level range instead of reading from STDIN.
+.TP
+\fB\-f\fR|\-\-force
+Render tiles even if they seem current.
+.TP
+\fB\-m\fR|\-\-map=MAP
+Render tiles in this map (defaults to 'default').
+.TP
+\fB\-l\fR|\-\-max-load=LOAD
+Sleep if load is this high (defaults to 16).
+.TP
+\fB\-s\fR|\-\-socket=SOCKET
+Unix domain socket name for contacting renderd.
+.TP
+\fB\-n\fR|\-\-num-threads=N
+The number of parallel request threads (default 1).
+.TP
+\fB\-t\fR|\-\-tile-dir
+Tile cache directory (defaults to '/var/lib/mod_tile').
+.TP
+\fB\-z\fR|\-\-min-zoom=ZOOM
+Filter input to only render tiles greater or equal to this zoom level (default is 0).
+.TP
+\fB\-Z\fR|\-\-max-zoom=ZOOM
+Filter input to only render tiles less than or equal to this zoom level (default is 20).
+.PP
+If you are using --all, you can restrict the tile range by adding these options:
+.br
+  -x, --min-x=X        minimum X tile coordinate
+.br
+  -X, --max-x=X        maximum X tile coordinate
+.br
+  -y, --min-y=Y        minimum Y tile coordinate
+.br
+  -Y, --max-y=Y        maximum Y tile coordinate
+.PP
+Without --all, send a list of tiles to be rendered from STDIN in the format:
+.br
+  X Y Z
+.br
+e.g.
+.br
+  0 0 1
+.br
+  0 1 1
+.br
+  1 0 1
+.br
+  1 1 1
+.br
+The above would cause all 4 tiles at zoom 1 to be rendered
 .SH SEE ALSO
 .BR renderd (8),
 .BR mod_tile (1).
