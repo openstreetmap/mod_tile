@@ -687,7 +687,7 @@ int main(int argc, char **argv)
         syslog(LOG_ERR, "Failed to initialise request queue");
         exit(1);
     }
-    syslog(LOG_ERR, "Initiating reqyest_queue");
+    syslog(LOG_ERR, "Initiating request_queue");
 
     xmlconfigitem maps[XMLCONFIGS_MAX];
     bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
