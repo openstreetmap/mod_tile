@@ -38,6 +38,10 @@
 #define CATCH_ATTRIBUTE_NORETURN
 #endif
 
+#ifdef __FreeBSD__
+#define CATCH_CONFIG_CPP11_NULLPTR
+#endif
+
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
