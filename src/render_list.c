@@ -26,6 +26,28 @@
 
 const char * tile_dir_default = HASH_PATH;
 
+
+int
+lon2tilex(float lon, unsigned int zoom)
+{
+  if(zoom > 20) return -1;
+  return (int)((lon + 180)/360 * pow(2,zoom));
+}
+
+static float
+secf(float in){
+  return 1/cosf(in);
+}
+
+int
+lat2tiley(float lat, unsigned int zoom)
+{
+  float lata = lat * M_PI / 180;
+  float ret =  (1 - logf(tanf(lata) + secf(lata) )/M_PI )/2 * pow(2,zoom);
+  return (int) ret;
+}
+
+
 #ifndef METATILE
 #warning("render_list not implemented for non-metatile mode. Feel free to submit fix")
 int main(int argc, char **argv)
@@ -73,6 +95,8 @@ int main(int argc, char **argv)
     int force=0;
     struct storage_backend * store;
     struct stat_info s;
+    float minLat = -1, minLon = -1, maxLat = -1, maxLon = -1;
+    int dontRender = 0;
 
     while (1) {
         int option_index = 0;
@@ -92,10 +116,15 @@ int main(int argc, char **argv)
             {"force", 0, 0, 'f'},
             {"all", 0, 0, 'a'},
             {"help", 0, 0, 'h'},
+	    {"min-lat", 1, 0, 'A'},
+	    {"min-lon", 1, 0, 'B'},
+	    {"max-lat", 1, 0, 'C'},
+	    {"max-lon", 1, 0, 'D'},
+	    {"dont-render", 0, 0, 'd'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:n:l:f", long_options, &option_index);
+        c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:n:l:fdA:B:C:D:", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -155,6 +184,21 @@ int main(int argc, char **argv)
             case 'v':   /* -v, --verbose */
                 verbose=1;
                 break;
+	case 'A':
+	  minLat = atof(optarg);
+	  break;
+	case 'B':
+	  minLon = atof(optarg);
+	  break;
+	case 'C':
+	  maxLat = atof(optarg);
+	  break;
+	case 'D':
+	  maxLon = atof(optarg);
+	  break;
+	case 'd':
+	  dontRender = 1;
+	  break;
             case 'h':   /* -h, --help */
                 fprintf(stderr, "Usage: render_list [OPTION] ...\n");
                 fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
@@ -198,7 +242,8 @@ int main(int argc, char **argv)
     }
 
     if (all) {
-        if ((minX != -1 || minY != -1 || maxX != -1 || maxY != -1) && minZoom != maxZoom) {
+      if (((minX != -1 || minY != -1 || maxX != -1 || maxY != -1) &&
+	   (minLat != 1 || minLon != -1 || maxLat != -1 || maxLon != -1)) && minZoom != maxZoom) {
             fprintf(stderr, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options\n");
             return 1;
         }
@@ -234,9 +279,24 @@ int main(int argc, char **argv)
         int x, y, z;
         printf("Rendering all tiles from zoom %d to zoom %d\n", minZoom, maxZoom);
         for (z=minZoom; z <= maxZoom; z++) {
-            int current_maxX = (maxX == -1) ? (1 << z)-1 : maxX;
-            int current_maxY = (maxY == -1) ? (1 << z)-1 : maxY;
+	  int current_maxX, current_maxY;
+	  if(minLon != -1 && minLat != -1 && maxLon != -1 && maxLat != -1){
+	    // printf("using koords\n");
+	    // exit(0);
+	    int minX_tmp = lon2tilex(minLon, z);
+	    int minY_tmp = lat2tiley(minLat, z);
+	    int maxX_tmp = lon2tilex(maxLon, z);
+	    int maxY_tmp = lat2tiley(maxLat, z);
+	    minX =         minX_tmp > maxX_tmp ? maxX_tmp : minX_tmp;
+	    current_maxX = minX_tmp > maxX_tmp ? minX_tmp : maxX_tmp;
+	    minY =         minY_tmp > maxY_tmp ? maxY_tmp : minY_tmp;
+	    current_maxY = minY_tmp > maxY_tmp ? minY_tmp : maxY_tmp;
+	  }else{
+            current_maxX = (maxX == -1) ? (1 << z)-1 : maxX;
+            current_maxY = (maxY == -1) ? (1 << z)-1 : maxY;
+	  }
             printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
+	    if(dontRender == 0){
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
                     if (!force) s = store->tile_stat(store, mapname, "", x, y, z);
@@ -248,6 +308,7 @@ int main(int argc, char **argv)
 
                 }
             }
+	    }
         }
     } else {
         while(!feof(stdin)) {
