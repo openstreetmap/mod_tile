@@ -828,7 +828,23 @@ int main(int argc, char **argv)
                 exit(7);
             }
             strcpy(maps[iconf].parameterization, ini_parameterize);
-
+            
+            
+            sprintf(buffer, "%s:type", name);
+            char *ini_type = iniparser_getstring(ini, buffer, "png image/png png256");
+            
+            char* fileExtension[INILINE_MAX];
+            char* mimeType[INILINE_MAX];
+            char* outputFormat[INILINE_MAX];
+            
+            strcpy(fileExtension, "png-default");
+            strcpy(mimeType, "image/png-default");
+            strcpy(outputFormat, "png256-default");
+            
+            sscanf(ini_type, "%[^ ] %[^ ] %[^;#]", fileExtension, mimeType, outputFormat);
+            
+            strcpy(maps[iconf].output_format, outputFormat);
+            
             /* Pass this information into the rendering threads,
              * as it is needed to configure mapniks number of connections
              */

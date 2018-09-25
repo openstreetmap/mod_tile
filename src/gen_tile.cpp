@@ -98,6 +98,7 @@ struct projectionconfig {
 struct xmlmapconfig {
     char xmlname[XMLCONFIG_MAX];
     char xmlfile[PATH_MAX];
+    char output_format[XMLCONFIG_MAX];
     struct storage_backend * store;
     Map map;
     struct projectionconfig * prj;
@@ -291,13 +292,14 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 #else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
 #endif
-            tiles.set(xx, yy, save_to_string(vw, "png256"));
+            //tiles.set(xx, yy, save_to_string(vw, "png256"));
+            tiles.set(xx, yy, save_to_string(vw, map->output_format));
         }
     }
     return cmdDone; // OK
 }
 #else //METATILE
-static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z)
+static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char* outputFormat)
 {
     char filename[PATH_MAX];
     char tmp[PATH_MAX];
@@ -328,7 +330,10 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
     mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
     //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
-    mapnik::save_to_file(vw, tmp, "png256");
+    
+    //mapnik::save_to_file(vw, tmp, "png256");
+    mapnik::save_to_file(vw, tmp, outputFormat);
+    
     if (rename(tmp, filename)) {
         perror(tmp);
         return cmdNotDone;
@@ -361,6 +366,7 @@ void *render_thread(void * arg)
         if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) break;
         strcpy(maps[iMaxConfigs].xmlname, parentxmlconfig[iMaxConfigs].xmlname);
         strcpy(maps[iMaxConfigs].xmlfile, parentxmlconfig[iMaxConfigs].xmlfile);
+        strcpy(maps[iMaxConfigs].output_format, parentxmlconfig[iMaxConfigs].output_format);
         maps[iMaxConfigs].store = init_storage_backend(parentxmlconfig[iMaxConfigs].tile_dir);
         maps[iMaxConfigs].tilesize  = parentxmlconfig[iMaxConfigs].tile_px_size;
         maps[iMaxConfigs].scale  = parentxmlconfig[iMaxConfigs].scale_factor;
@@ -471,7 +477,7 @@ void *render_thread(void * arg)
                                 }
                             }
 #else //METATILE
-                        ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z);
+                        ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, maps[i].output_format);
 #ifdef HTCP_EXPIRE_CACHE
                         cache_expire(maps[i].htcpsock,maps[i].host, maps[i].xmluri, req->x,req->y,req->z);
 #endif

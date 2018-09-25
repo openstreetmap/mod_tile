@@ -52,6 +52,7 @@ typedef struct {
     char host[PATH_MAX];
     char htcpip[PATH_MAX];
     char tile_dir[PATH_MAX];
+    char output_format[INILINE_MAX];
     char parameterization[PATH_MAX];
     int tile_px_size;
     double scale_factor;
