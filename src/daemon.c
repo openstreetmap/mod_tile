@@ -837,9 +837,9 @@ int main(int argc, char **argv)
             char* mimeType[INILINE_MAX];
             char* outputFormat[INILINE_MAX];
             
-            strcpy(fileExtension, "png-default");
-            strcpy(mimeType, "image/png-default");
-            strcpy(outputFormat, "png256-default");
+            strcpy(fileExtension, "png");
+            strcpy(mimeType, "image/png");
+            strcpy(outputFormat, "png256");
             
             sscanf(ini_type, "%[^ ] %[^ ] %[^;#]", fileExtension, mimeType, outputFormat);
             
