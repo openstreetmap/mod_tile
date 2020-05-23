@@ -47,7 +47,6 @@ static time_t planetTime;
 static struct timeval start, end;
 
 
-int work_complete;
 
 void display_rate(struct timeval start, struct timeval end, int num) 
 {

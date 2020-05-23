@@ -45,7 +45,7 @@ typedef struct {
 
 
 
-struct request_queue * render_request_queue;
+extern struct request_queue * render_request_queue;
 
 void statsRenderFinish(int z, long time);
 void request_exit(void);
