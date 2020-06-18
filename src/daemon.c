@@ -76,7 +76,7 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time) {
 
     while (item) {
         req = &item->req;
-        if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderBulk))) {
+        if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderLow) || (req->cmd == cmdRenderBulk))) {
             req->cmd = rsp;
             //fprintf(stderr, "Sending message %s to %d\n", cmdStr(rsp), item->fd);
             
