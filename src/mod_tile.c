@@ -45,6 +45,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <inttypes.h>
+#include <poll.h>
 
 
 #include "gen_tile.h"
@@ -250,15 +251,15 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
     } while (retry--);
 
     if (renderImmediately) {
-        struct timeval tv = {(renderImmediately > 2?scfg->request_timeout_priority:scfg->request_timeout), 0 };
-        fd_set rx;
+        int timeout = (renderImmediately > 2?scfg->request_timeout_priority:scfg->request_timeout);
+        struct pollfd rx;
         int s;
 
         while (1) {
-            FD_ZERO(&rx);
-            FD_SET(fd, &rx);
-            s = select(fd+1, &rx, NULL, NULL, &tv);
-            if (s == 1) {
+            rx.fd = fd;
+            rx.events = POLLIN;
+            s = poll(&rx, 1, timeout * 1000);
+            if (s > 0) {
                 bzero(&resp, sizeof(struct protocol));
                 ret = recv(fd, &resp, sizeof(struct protocol_v2), 0);
                 if (ret != sizeof(struct protocol_v2)) {
@@ -281,11 +282,17 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
                        "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
                        resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
                 }
-            } else {
+            } else if (s == 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                               "request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
                               cmd->xmlname, cmd->z, cmd->x, cmd->y,
-                              (renderImmediately > 1?scfg->request_timeout_priority:scfg->request_timeout));
+                              timeout);
+                break;
+            } else {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                              "request_tile: Request xml(%s) z(%d) x(%d) y(%d) timeout %i seconds failed with reason: %s",
+                              cmd->xmlname, cmd->z, cmd->x, cmd->y,
+                              timeout, strerror(errno));
                 break;
             }
         }

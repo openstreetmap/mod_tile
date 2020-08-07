@@ -7,7 +7,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <poll.h>
@@ -27,6 +26,10 @@
 #include "request_queue.h"
 
 #define PIDFILE "/var/run/renderd/renderd.pid"
+
+#define PFD_LISTEN        0
+#define PFD_EXIT_PIPE     1
+#define PFD_SPECIAL_COUNT 2
 
 #if SYSTEM_LIBINIPARSER
 #include <iniparser.h>
@@ -150,12 +153,13 @@ void request_exit(void)
 
 void process_loop(int listen_fd)
 {
-    int num_connections = 0;
-    int connections[MAX_CONNECTIONS];
+    int num_cslots = 0;
+    int num_conns = 0;
     int pipefds[2];
     int exit_pipe_read;
+    struct pollfd pfd[MAX_CONNECTIONS + 2];
 
-    bzero(connections, sizeof(connections));
+    bzero(pfd, sizeof(pfd));
 
     // A pipe is used to allow the render threads to request an exit by the main process
     if (pipe(pipefds)) {
@@ -165,52 +169,63 @@ void process_loop(int listen_fd)
     exit_pipe_fd = pipefds[1];
     exit_pipe_read = pipefds[0];
 
+    pfd[PFD_LISTEN].fd = listen_fd;
+    pfd[PFD_LISTEN].events = POLLIN;
+    pfd[PFD_EXIT_PIPE].fd = exit_pipe_read;
+    pfd[PFD_EXIT_PIPE].events = POLLIN;
+
     while (1) {
         struct sockaddr_un in_addr;
         socklen_t in_addrlen = sizeof(in_addr);
-        fd_set rd;
-        int incoming, num, nfds, i;
+        int incoming, num, i;
 
-        FD_ZERO(&rd);
-        FD_SET(listen_fd, &rd);
-        nfds = listen_fd+1;
-
-        for (i=0; i<num_connections; i++) {
-            FD_SET(connections[i], &rd);
-            nfds = MAX(nfds, connections[i]+1);
-        }
-
-	FD_SET(exit_pipe_read, &rd);
-	nfds = MAX(nfds, exit_pipe_read+1);
-
-        num = select(nfds, &rd, NULL, NULL, NULL);
+        // timeout -1 means infinite timeout,
+        // a value of 0 would return immediately
+        num = poll(pfd, num_cslots + PFD_SPECIAL_COUNT, -1);
         if (num == -1)
-            perror("select()");
+            perror("poll()");
         else if (num) {
-	    if (FD_ISSET(exit_pipe_read, &rd)) {
-	      // A render thread wants us to exit
-	      break;
-	    }
+            if (pfd[PFD_EXIT_PIPE].revents & POLLIN) {
+                // A render thread wants us to exit
+                break;
+            }
 
             //printf("Data is available now on %d fds\n", num);
-            if (FD_ISSET(listen_fd, &rd)) {
-                num--;
+            if (pfd[PFD_LISTEN].revents & POLLIN) {
                 incoming = accept(listen_fd, (struct sockaddr *) &in_addr, &in_addrlen);
                 if (incoming < 0) {
                     perror("accept()");
                 } else {
-                    if (num_connections == MAX_CONNECTIONS) {
-                        syslog(LOG_WARNING, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
-                        close(incoming);
-                    } else {
-                        connections[num_connections++] = incoming;
-                        syslog(LOG_DEBUG, "DEBUG: Got incoming connection, fd %d, number %d\n", incoming, num_connections);
+                    int add = 0;
+                    // Search for unused slot
+                    for (i=0; i<num_cslots; i++) {
+                        if (pfd[i + PFD_SPECIAL_COUNT].fd < 0) {
+                            add = 1;
+                            break;
+                        }
                     }
+                    // No unused slot found, add at end if space available
+                    if (!add) {
+                        if (num_cslots == MAX_CONNECTIONS) {
+                            syslog(LOG_WARNING, "Connection limit(%d) reached. Dropping connection\n", MAX_CONNECTIONS);
+                            close(incoming);
+                        } else {
+                            i = num_cslots;
+                            add = 1;
+                            num_cslots++;
+                        }
+                    }
+                    if (add) {
+                        pfd[i + PFD_SPECIAL_COUNT].fd = incoming;
+                        pfd[i + PFD_SPECIAL_COUNT].events = POLLIN;
+                        num_conns ++;
+                        syslog(LOG_DEBUG, "DEBUG: Got incoming connection, fd %d, number %d, total conns %d, total slots %d\n", incoming, i, num_conns, num_cslots);
+		    }
                 }
             }
-            for (i=0; num && (i<num_connections); i++) {
-                int fd = connections[i];
-                if (FD_ISSET(fd, &rd)) {
+            for (i=0; num && (i<num_cslots); i++) {
+                int fd = pfd[i + PFD_SPECIAL_COUNT].fd;
+                if (fd >= 0 && pfd[i + PFD_SPECIAL_COUNT].revents & POLLIN) {
                     struct protocol cmd;
                     int ret = 0;
                     memset(&cmd,0,sizeof(cmd));
@@ -218,14 +233,11 @@ void process_loop(int listen_fd)
                     // TODO: to get highest performance we should loop here until we get EAGAIN
                     ret = recv_cmd(&cmd, fd, 0);
                     if (ret < 1) {
-                        int j;
-
-                        num_connections--;
-                        syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left\n", i, fd, num_connections);
-                        for (j=i; j < num_connections; j++)
-                            connections[j] = connections[j+1];
+                        num_conns--;
+                        syslog(LOG_DEBUG, "DEBUG: Connection %d, fd %d closed, now %d left, total slots %d\n", i, fd, num_conns, num_cslots);
                         request_queue_clear_requests_by_fd(render_request_queue, fd);
                         close(fd);
+                        pfd[i + PFD_SPECIAL_COUNT].fd = -1;
                     } else  {
                         enum protoCmd rsp = rx_request(&cmd, fd);
                             
@@ -238,7 +250,7 @@ void process_loop(int listen_fd)
                 }
             }
         } else {
-            syslog(LOG_ERR, "Select timeout");
+            syslog(LOG_ERR, "poll timeout");
         }
     }
 }
@@ -254,7 +266,7 @@ void *stats_writeout_thread(void * arg) {
     int reqPrioQueueLength;
     int reqLowQueueLength;
     int reqBulkQueueLength;
-	int i;
+    int i;
 
     int noFailedAttempts = 0;
     char tmpName[PATH_MAX];
