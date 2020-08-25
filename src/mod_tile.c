@@ -2412,7 +2412,7 @@ static const command_rec tile_cmds[] =
         mod_tile_cache_lastmod_factor_config,   /* config action routine */
         NULL,                                   /* argument to include in call */
         OR_OPTIONS,                             /* where available */
-        "Set the factor by which the last modified determins cache expiry" /* directive description */
+        "Set the factor by which the last modified determines cache expiry" /* directive description */
     ),
     AP_INIT_TAKE2(
         "ModTileCacheDurationLowZoom",       /* directive name */
