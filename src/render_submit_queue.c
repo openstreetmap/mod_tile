@@ -47,6 +47,7 @@ static struct qItem *qHead, *qTail;
 
 static int no_workers;
 static pthread_t *workers;
+static int work_complete;
 
 static void check_load(void)
 {

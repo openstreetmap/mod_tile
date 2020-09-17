@@ -89,7 +89,6 @@ unsigned long long twopow[MAX_ZOOM];
 static int minZoom = 0;
 static int maxZoom = 18;
 static int verbose = 0;
-int work_complete;
 static int maxLoad = MAX_LOAD_OLD;
 
 void display_rate(struct timeval start, struct timeval end, int num) 
