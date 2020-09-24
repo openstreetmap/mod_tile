@@ -42,7 +42,7 @@ int recv_cmd(struct protocol * cmd, int fd,  int block) {
         return 0;
     }
     if ((cmd->ver > 3) || (cmd->ver < 1)) {
-        syslog(LOG_WARNING, "WARNING: Failed to recieve render cmd with unknown protocol version %i\n", cmd->ver);
+        syslog(LOG_WARNING, "WARNING: Failed to receive render cmd with unknown protocol version %i\n", cmd->ver);
         return -1;
     }
     syslog(LOG_DEBUG, "DEBUG: Got incoming request with protocol version %i\n", cmd->ver); 
