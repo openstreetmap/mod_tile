@@ -13,7 +13,7 @@ STORE_CPPFLAGS =
 
 bin_PROGRAMS = renderd render_expired render_list render_speedtest render_old
 noinst_PROGRAMS = gen_tile_test
-man_MANS = docs/renderd.8 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
+man_MANS = docs/renderd.1 docs/render_expired.1 docs/render_list.1 docs/render_old.1 docs/render_speedtest.1
 
 renderddir = $(sysconfdir)
 renderd_SOURCES = src/daemon.c src/daemon_compat.c src/gen_tile.cpp src/sys_utils.c src/request_queue.c src/cache_expire.c src/metatile.cpp src/parameterize_style.cpp src/protocol_helper.c $(STORE_SOURCES)
