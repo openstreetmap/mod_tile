@@ -26,7 +26,7 @@
 #include "protocol_helper.h"
 #include "request_queue.h"
 
-#define PIDFILE "/var/run/renderd/renderd.pid"
+#define PIDFILE "/run/renderd/renderd.pid"
 
 #if SYSTEM_LIBINIPARSER
 #include <iniparser.h>

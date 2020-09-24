@@ -17,7 +17,7 @@ extern "C" {
  */
 #define TILE_PATH_MAX (256)
 #define PROTO_VER (3)
-#define RENDER_SOCKET "/var/run/renderd/renderd.sock"
+#define RENDER_SOCKET "/run/renderd/renderd.sock"
 #define XMLCONFIG_MAX 41
 
 enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
