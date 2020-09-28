@@ -54,6 +54,46 @@ AC_CHECK_LIB(rados, rados_version, [
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
 
+AC_ARG_WITH([libs3],
+    [AS_HELP_STRING([--with-libs3[=DIR]],[path to libs3])],
+    [
+    libs3_dir="$withval"
+    if test "$libs3_dir" != "no"; then
+      if test "$libs3_dir" != "yes"; then
+        AC_MSG_CHECKING([for libs3])
+        if test -f "$libs3_dir/include/libs3.h"; then
+          AC_DEFINE([HAVE_LIBS3], [1], [Have found libs3])
+          LIBS3_LDFLAGS="-L$libs3_dir/lib -ls3"
+          AC_SUBST(LIBS3_LDFLAGS)
+          LIBS3_CFLAGS="-I$libs3_dir/include"
+          AC_SUBST(LIBS3_CFLAGS)
+          AC_MSG_RESULT($libs3_dir)
+        else
+          AC_MSG_ERROR([no libs3 found at $libs3_dir])
+        fi
+      else
+	AC_CHECK_LIB(s3, S3_deinitialize,
+        [
+            AC_DEFINE([HAVE_LIBS3], [1], [Have found libs3])
+	    LIBS3_LDFLAGS='-ls3'
+            AC_SUBST(LIBS3_LDFLAGS)
+        ],
+        [
+            AC_MSG_ERROR([no libs3 found])
+        ])
+      fi
+    fi
+    ],
+    [
+	AC_CHECK_LIB(s3, S3_deinitialize,
+        [
+            AC_DEFINE([HAVE_LIBS3], [1], [Have found libs3])
+	    LIBS3_LDFLAGS='-ls3'
+            AC_SUBST(LIBS3_LDFLAGS)
+        ],
+        [])
+    ])
+
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
 

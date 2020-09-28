@@ -49,8 +49,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
     char path[PATH_MAX];
     int meta_offset, fd;
     unsigned int pos;
-    unsigned int header_len = sizeof(struct meta_layout) + METATILE*METATILE*sizeof(struct entry);
-    struct meta_layout *m = (struct meta_layout *)malloc(header_len);
+    struct meta_layout *m = (struct meta_layout *)malloc(METATILE_HEADER_LEN);
     size_t file_offset, tile_size;
 
     meta_offset = xyzo_to_meta(path, sizeof(path), store->storage_ctx, xmlconfig, options, x, y, z);
@@ -63,8 +62,8 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
     }
 
     pos = 0;
-    while (pos < header_len) {
-        size_t len = header_len - pos;
+    while (pos < METATILE_HEADER_LEN) {
+        size_t len = METATILE_HEADER_LEN - pos;
         int got = read(fd, ((unsigned char *) m) + pos, len);
         if (got < 0) {
             snprintf(log_msg,PATH_MAX - 1, "Failed to read complete header for metatile %s Reason: %s\n", path, strerror(errno));
@@ -77,7 +76,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
             break;
         }
     }
-    if (pos < header_len) {
+    if (pos < METATILE_HEADER_LEN) {
         snprintf(log_msg,PATH_MAX - 1, "Meta file %s too small to contain header\n", path);
         close(fd);
         free(m);

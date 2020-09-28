@@ -46,8 +46,8 @@ daemon to render (or re-render) the tile.
 resources on the server and how out of date they are.
 
 4) Use tile storage other than a plain posix file system.
-e.g it can store tiles in a ceph object store, or proxy them
-from another tile server.
+e.g it can store tiles in a ceph object store, an Amazon S3 bucket,
+or proxy them from another tile server.
 
 5) Tile expiry. It estimates when the tile is next
 likely to be rendered and adds the appropriate HTTP
