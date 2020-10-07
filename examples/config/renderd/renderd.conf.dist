@@ -1,0 +1,69 @@
+; EXAMPLES FOR BASIC CONFIGURATION OPTIONS
+
+[renderd]
+stats_file=/run/renderd/renderd.stats
+socketname=/run/renderd/renderd.sock
+num_threads=4
+tile_dir=/var/cache/renderd/tiles
+
+;[renderd]
+;iphostname=::1
+;ipport=7654
+;num_threads=4
+;tile_dir=rados://tiles/etc/ceph/ceph.conf
+;stats_file=/run/renderd/renderd.stats
+
+;[renderd]
+;iphostname=::1
+;ipport=7654
+;num_threads=8
+;tile_dir=memcached://
+;stats_file=/run/renderd/renderd.stats
+
+; EXAMPLE FOR MAPNIK CONFIGURATION OPTION
+
+[mapnik]
+plugins_dir=/usr/lib/mapnik/3.0/input
+font_dir=/usr/share/fonts/truetype
+font_dir_recurse=true
+
+; EXAMPLES FOR LAYER CONFIGURATION OPTIONS
+
+[example-map]
+URI=/renderd-example/tiles/
+XML=/var/www/example-map/mapnik.xml
+
+;[style1]
+;URI=/osm_tiles/
+;TILEDIR=/var/cache/renderd/tiles
+;XML=/usr/share/renderd/openstreetmap/osm-local.xml
+;HOST=tile.openstreetmap.org
+;TILESIZE=256
+;HTCPHOST=proxy.openstreetmap.org
+;** config options used by mod_tile, but not renderd **
+;MINZOOM=0
+;MAXZOOM=18
+;TYPE=png image/png
+;DESCRIPTION=This is a description of the tile layer used in the tile json request
+;ATTRIBUTION=&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://opendatacommons.org/licenses/odbl/\">ODbL</a>
+;SERVER_ALIAS=http://localhost/
+;CORS=http://www.openstreetmap.org
+;ASPECTX=1
+;ASPECTY=1
+;SCALE=1.0
+
+;[style2]
+;URI=/osm_tiles2/
+;TILEDIR=rados://tiles/etc/ceph/ceph.conf
+;TILESIZE=512
+;XML=/usr/share/renderd/openstreetmap/osm-local2.xml
+;HOST=tile.openstreetmap.org
+;HTCPHOST=proxy.openstreetmap.org
+;** config options used by mod_tile, but not renderd **
+;MINZOOM=0
+;MAXZOOM=22
+;TYPE=png image/png
+;DESCRIPTION=This is a description of the tile layer used in the tile json request
+;ATTRIBUTION=&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://opendatacommons.org/licenses/odbl/\">ODbL</a>
+;SERVER_ALIAS=http://localhost/
+;CORS=*

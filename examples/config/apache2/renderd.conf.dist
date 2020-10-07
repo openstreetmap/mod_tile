@@ -1,0 +1,139 @@
+Alias /mod_tile /var/cache/renderd/tiles
+
+<Directory /var/cache/renderd/tiles>
+
+    Options Indexes FollowSymLinks MultiViews
+    AllowOverride None
+    Require all granted
+
+    ModTileTileDir /var/cache/renderd/tiles
+
+    # You can manually configure each tile set with AddTileConfig or AddTileMimeConfig.
+    # The first argument is the URL path relative to this virtual host
+    # under which a tile set is served. The second argument specifies the
+    # name of the tile set. This is used in the communication with renderd
+    # and is the directory under which (meta)tiles are stored on disk.
+    #
+    # By default (AddTileConfig) mod_tile assumes you are serving png files, however,
+    # mod_tile can also serve arbitrary other tile types such as javascript vector tiles,
+    # assuming the backend render daemon can handle the file type.
+    # To this purpose AddTileMimeConfig takes a 3rd agument, the file extension and it
+    # will guess the correct mimetype from it. If the mime type is not set correctly automatically,
+    # you need to use the configuration file route, where you can specify the mimetype and file extension
+    # independently.
+    #
+    #AddTileConfig /folder/ TileSetName
+    #AddTileMimeConfig /folder2/ TileSetName2 js
+
+    # Alternatively (or in addition) you can load all the tile sets defined in the configuration file into this virtual host
+    LoadTileConfigFile /etc/renderd.conf
+
+    # Specify if mod_tile should keep tile delivery stats, which can be accessed from the URL /mod_tile
+    # The default is On. As keeping stats needs to take a lock, this might have some performance impact,
+    # but for nearly all intents and purposes this should be negligable and so it is safe to keep this turned on.
+    ModTileEnableStats On
+
+    # Turns on bulk mode. In bulk mode, mod_tile does not request any dirty tiles to be rerendered. Missing tiles
+    # are always requested in the lowest priority. The default is Off.
+    ModTileBulkMode Off
+
+    # Timeout before giving up for a tile to be rendered
+    ModTileRequestTimeout 3
+
+    # Timeout before giving up for a tile to be rendered that is otherwise missing
+    ModTileMissingRequestTimeout 10
+
+    # If tile is out of date, don't re-render it if past this load threshold (users gets old tile)
+    ModTileMaxLoadOld 2
+
+    # If tile is missing, don't render it if past this load threshold (user gets 404 error)
+    ModTileMaxLoadMissing 5
+
+    # Socket where we connect to the rendering daemon
+    ModTileRenderdSocketName /run/renderd/renderd.sock
+
+    # Options controlling the cache proxy expiry headers. All values are in seconds.
+    #
+    # Caching is both important to reduce the load and bandwidth of the server, as
+    # well as reduce the load time for the user. The site loads fastest if tiles can be
+    # taken from the users browser cache and no round trip through the internet is needed.
+    # With minutely or hourly updates, however there is a trade-off between cacheability
+    # and freshness. As one can't predict the future, these are only heuristics, that
+    # need tuning.
+    # If there is a known update schedule such as only using weekly planet dumps to update the db,
+    # this can also be taken into account through the constant PLANET_INTERVAL in render_config.h
+    # but requires a recompile of mod_tile
+
+    # The values in this sample configuration are not the same as the defaults
+    # that apply if the config settings are left out. The defaults are more conservative
+    # and disable most of the heuristics.
+
+    # Caching is always a trade-off between being up to date and reducing server load or
+    # client side latency and bandwidth requirements. Under some conditions, like poor
+    # network conditions it might be more important to have good caching rather than the latest tiles.
+    # Therefor the following config options allow to set a special hostheader for which the caching
+    # behaviour is different to the normal heuristics
+    #
+    # The CacheExtended parameters overwrite all other caching parameters (including CacheDurationMax)
+    # for tiles being requested via the hostname CacheExtendedHostname
+    #
+    #ModTileCacheExtendedHostname cache.tile.openstreetmap.org
+    #ModTileCacheExtendedDuration 2592000
+
+    # Upper bound on the length a tile will be set cacheable, which takes
+    # precedence over other settings of cacheing
+    ModTileCacheDurationMax 604800
+
+    # Sets the time tiles can be cached for that are known to by outdated and have been
+    # sent to renderd to be rerendered. This should be set to a value corresponding
+    # roughly to how long it will take renderd to get through its queue. There is an additional
+    # fuzz factor on top of this to not have all tiles expire at the same time
+    ModTileCacheDurationDirty 900
+
+    # Specify the minimum time mod_tile will set the cache expiry to for fresh tiles. There
+    # is an additional fuzz factor of between 0 and 3 hours on top of this.
+    ModTileCacheDurationMinimum 10800
+
+    # Lower zoom levels are less likely to change noticeable, so these could be cached for longer
+    # without users noticing much.
+    # The heuristic offers three levels of zoom, Low, Medium and High, for which different minimum
+    # cacheing times can be specified.
+
+    #Specify the zoom level below  which Medium starts and the time in seconds for which they can be cached
+    ModTileCacheDurationMediumZoom 13 86400
+
+    #Specify the zoom level below which Low starts and the time in seconds for which they can be cached
+    ModTileCacheDurationLowZoom 9 518400
+
+    # A further heuristic to determine cacheing times is when was the last time a tile has changed.
+    # If it hasn't changed for a while, it is less likely to change in the immediate future, so the
+    # tiles can be cached for longer.
+    # For example, if the factor is 0.20 and the tile hasn't changed in the last 5 days, it can be cached
+    # for up to one day without having to re-validate.
+    ModTileCacheLastModifiedFactor 0.20
+
+    # Tile Throttling
+    # Tile scrapers can often download large numbers of tiles and overly strain tileserver resources
+    # mod_tile therefore offers the ability to automatically throttle requests from ip addresses that have
+    # requested a lot of tiles.
+    # The mechanism uses a token bucket approach to shape traffic. I.e. there is an initial pool of n tiles
+    # per ip that can be requested arbitrarily fast. After that this pool gets filled up at a constant rate
+    # The algorithm has two metrics. One based on overall tiles served to an ip address and a second one based on
+    # the number of requests to renderd / tirex to render a new tile.
+
+    # Overall enable or disable tile throttling
+    ModTileEnableTileThrottling Off
+
+    # Specify if you want to use the connecting IP for throtteling, or use the X-Forwarded-For header to determin the
+    # 1 - use the client IP address, i.e. the first entry in the X-Forwarded-For list. This works through a cascade of proxies.
+    #     However, as the X-Forwarded-For is written by the client this is open to manipulation and can be used to circumvent the throttling
+    # 2 - use the last specified IP in the X-Forwarded-For list. If you know all requests come through a reverse proxy
+    #     that adds an X-Forwarded-For header, you can trust this IP to be the IP the reverse proxy saw for the request
+    ModTileEnableTileThrottlingXForward 0
+
+    # Parameters (poolsize in tiles and topup rate in tiles per second) for throttling tile serving.
+    ModTileThrottlingTiles 10000 1
+    # Parameters (poolsize in tiles and topup rate in tiles per second) for throttling render requests.
+    ModTileThrottlingRenders 128 0.2
+
+</Directory>

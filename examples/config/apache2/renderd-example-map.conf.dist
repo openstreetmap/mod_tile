@@ -1,0 +1,8 @@
+Alias /renderd-example-map /var/www/example-map
+
+<Directory /var/www/example-map/>
+	Options +FollowSymLinks
+	AllowOverride All
+	order allow,deny
+	allow from all
+</Directory>
