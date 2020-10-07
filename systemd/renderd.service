@@ -1,8 +1,12 @@
 [Unit]
-Description=Rendering daemon for Openstreetmap tiles
+Description=Daemon that renders map tiles using mapnik
+Documentation=man:renderd
+After=network.target auditd.service
 
 [Service]
-ExecStart=/usr/bin/renderd -f
+RuntimeDirectory=/run/renderd
+RuntimeDirectoryMode=0755
+ExecStart=/usr/local/bin/renderd -f
 
 [Install]
 WantedBy=multi-user.target
