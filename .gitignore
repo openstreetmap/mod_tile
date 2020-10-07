@@ -16,8 +16,6 @@ config.sub
 configure
 depcomp
 gen_tile_test
-iniparser3.0b/.deps/
-iniparser3.0b/.libs/
 install-sh
 libtool
 ltmain.sh

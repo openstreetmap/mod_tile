@@ -43,15 +43,11 @@
 #include "protocol_helper.h"
 #include "request_queue.h"
 
-#define PIDFILE "/run/renderd/renderd.pid"
-
-#if SYSTEM_LIBINIPARSER
-#include <iniparser.h>
-#else
 // extern "C" {
-#include "iniparser3.0b/src/iniparser.h"
+#include <iniparser/iniparser.h>
 // }
-#endif
+
+#define PIDFILE "/run/renderd/renderd.pid"
 
 #ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
