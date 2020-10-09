@@ -9,7 +9,7 @@ OSM2PGSQL_BIN=osm2pgsql
 OSM2PGSQL_OPTIONS=
 #OSM2PGSQL_OPTIONS="--flat-nodes /path/to/flatnodes --hstore"
 
-BASE_DIR=/var/lib/mod_tile
+BASE_DIR=/var/cache/renderd/tiles
 LOG_DIR=/var/log/tiles/
 WORKOSM_DIR=$BASE_DIR/.osmosis
 

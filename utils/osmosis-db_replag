@@ -1,5 +1,5 @@
 #!/bin/bash
-STATE=/var/lib/mod_tile/.osmosis/state.txt
+STATE=/var/cache/renderd/tiles/.osmosis/state.txt
 
 rep=`cat ${STATE} |\
         grep 'timestamp' |\

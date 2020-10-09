@@ -8,7 +8,7 @@
 
 // With directory hashing enabled we rewrite the path so that tiles are really stored here instead
 #define DIRECTORY_HASH
-#define HASH_PATH "/var/lib/mod_tile"
+#define HASH_PATH "/var/cache/renderd/tiles"
 
 // TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
 // this is now only used if DIRECTORY_HASH is undefined
