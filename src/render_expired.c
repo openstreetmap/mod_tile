@@ -1,36 +1,18 @@
-/**
- * A modified version of render_list.c that does the following:
+/*
+ * Copyright (c) 2007 - 2020 by mod_tile contributors (see AUTHORS file)
  *
- * - read list of expired tiles from stdin
- * - calculate a list of all meta tiles between minZoom and maxZoom
- *   affected by that expiry
- * - for all expired meta tiles that are actually present on disk, 
- *   issue a re-render request to renderd
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
- * If you run a tile server that servers z0-z17, it makes sense to run 
- * osm2pgsql with "-e14-14" (i.e. three zoom levels lower than your max)
- * and then run this script with maxZoom=17. Due to z17 metatiles being
- * exactly the area of a z14 tile, your expiry list just becomes unnecessarily
- * large if you use -e17-17 (although this would lead to the same tiles
- * being re-rendered).
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  * 
- * Be careful about minZoom; if you set it to 0, the tile x=0,y=0,z=0 will 
- * be expired every time the script is run. Having minZoom somewhere between
- * z8 and z12 probably makes sense, and then use another, time-based mechanism
- * to expire tiles.
- * 
- * NOTE: format on stdin is one tile per line, formatted "z/x/y". This is different
- * from render_list which wants "x y z". "z/x/y" is the format written by osm2pgsql.
- *
- * See also 
- * https://subversion.nexusuk.org/trac/browser/openpistemap/trunk/scripts/expire_tiles.py
- * for a database-backed expiry solution, or 
- * http://trac.openstreetmap.org/browser/applications/utils/export/tile_expiry
- * for a solution that works outside of osm2pgsql.
- * 
- * This program made by Frederik Ramm <frederik@remote.org>. My ideas and
- * contributions are in the public domain but being based on GPL'ed code
- * this program inherits the GPL.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
 #include <stdio.h>
