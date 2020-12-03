@@ -25,7 +25,7 @@ jobs:
             exit -1
           fi
       - name: install dependencies
-        run: sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libiniparser-dev libmapnik-dev
+        run: sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev libiniparser-dev libmapnik-dev
       - name: autogen
         run: ./autogen.sh
       - name: configure

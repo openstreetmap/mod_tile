@@ -57,6 +57,8 @@ static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 static int maxLoad = MAX_LOAD_OLD;
 
+int foreground = 1;
+
 
 void display_rate(struct timeval start, struct timeval end, int num)
 {
@@ -93,21 +95,21 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"min-zoom", 1, 0, 'z'},
-			{"max-zoom", 1, 0, 'Z'},
-			{"min-x", 1, 0, 'x'},
-			{"max-x", 1, 0, 'X'},
-			{"min-y", 1, 0, 'y'},
-			{"max-y", 1, 0, 'Y'},
-			{"socket", 1, 0, 's'},
-			{"num-threads", 1, 0, 'n'},
-			{"max-load", 1, 0, 'l'},
-			{"tile-dir", 1, 0, 't'},
-			{"map", 1, 0, 'm'},
-			{"verbose", 0, 0, 'v'},
-			{"force", 0, 0, 'f'},
-			{"all", 0, 0, 'a'},
-			{"help", 0, 0, 'h'},
+			{"min-zoom", required_argument, 0, 'z'},
+			{"max-zoom", required_argument, 0, 'Z'},
+			{"min-x", required_argument, 0, 'x'},
+			{"max-x", required_argument, 0, 'X'},
+			{"min-y", required_argument, 0, 'y'},
+			{"max-y", required_argument, 0, 'Y'},
+			{"socket", required_argument, 0, 's'},
+			{"num-threads", required_argument, 0, 'n'},
+			{"max-load", required_argument, 0, 'l'},
+			{"tile-dir", required_argument, 0, 't'},
+			{"map", required_argument, 0, 'm'},
+			{"verbose", no_argument, 0, 'v'},
+			{"force", no_argument, 0, 'f'},
+			{"all", no_argument, 0, 'a'},
+			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 

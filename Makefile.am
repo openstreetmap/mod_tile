@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = foreign
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = $(PTHREAD_CFLAGS)
+AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 
 STORE_SOURCES = \
 	src/store.c \
@@ -12,8 +12,9 @@ STORE_SOURCES = \
 	src/store_rados.c \
 	src/store_ro_http_proxy.c \
 	src/store_ro_composite.c \
-	src/store_null.c
-STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL)
+	src/store_null.c \
+	src/g_logger.c
+STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(GLIB_LIBS)
 
 STORE_CPPFLAGS =
 
@@ -53,14 +54,16 @@ render_speedtest_SOURCES = \
 	src/speedtest.cpp \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
-	src/sys_utils.c
-render_speedtest_LDADD = $(PTHREAD_CFLAGS)
+	src/sys_utils.c \
+	src/g_logger.c
+render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
 
 render_list_SOURCES = \
 	src/render_list.c \
 	src/sys_utils.c \
 	src/protocol_helper.c \
-	src/render_submit_queue.c $(STORE_SOURCES)
+	src/render_submit_queue.c \
+	$(STORE_SOURCES)
 render_list_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
 
 render_expired_SOURCES = \
@@ -76,8 +79,9 @@ render_old_SOURCES = \
 	src/render_old.c \
 	src/sys_utils.c \
 	src/protocol_helper.c \
-	src/render_submit_queue.c
-render_old_LDADD = $(PTHREAD_CFLAGS)
+	src/render_submit_queue.c \
+	src/g_logger.c
+render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
@@ -93,7 +97,7 @@ gen_tile_test_SOURCES = \
 	src/cache_expire.c \
 	src/parameterize_style.cpp \
 	$(STORE_SOURCES)
-gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS)
+gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
 gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 
@@ -103,7 +107,7 @@ test: gen_tile_test
 	./gen_tile_test
 
 all-local:
-	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) \
+	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(GLIB_CFLAGS) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c  \
 			@srcdir@/src/sys_utils.c \
@@ -114,12 +118,13 @@ all-local:
 			@srcdir@/src/store_rados.c \
 			@srcdir@/src/store_ro_http_proxy.c \
 			@srcdir@/src/store_ro_composite.c \
-			@srcdir@/src/store_null.c
+			@srcdir@/src/store_null.c \
+			@srcdir@/src/g_logger.c
 
-install-mod_tile: 
+install-mod_tile:
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
 	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) \
-		-q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) \
+		-q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(GLIB_CFLAGS) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c \
 			@srcdir@/src/sys_utils.c \
@@ -130,4 +135,5 @@ install-mod_tile:
 			@srcdir@/src/store_rados.c \
 			@srcdir@/src/store_ro_http_proxy.c \
 			@srcdir@/src/store_ro_composite.c \
-			@srcdir@/src/store_null.c
+			@srcdir@/src/store_null.c \
+			@srcdir@/src/g_logger.c

@@ -40,6 +40,7 @@
 #include "metatile.h"
 #include "render_config.h"
 #include "protocol.h"
+#include "g_logger.h"
 
 
 #ifdef HAVE_LIBMEMCACHED
@@ -194,7 +195,7 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
 	memcpy(buf2, &tile_stat, sizeof(tile_stat));
 	memcpy(buf2 + sizeof(tile_stat), buf, sz);
 
-	log_message(STORE_LOGLVL_DEBUG, "Trying to create and write a metatile to %s\n", memcached_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
+	g_logger(G_LOG_LEVEL_DEBUG, "Trying to create and write a metatile to %s", memcached_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
 
 	snprintf(meta_path, PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
 
@@ -271,7 +272,7 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 {
 
 #ifndef HAVE_LIBMEMCACHED
-	log_message(STORE_LOGLVL_ERR, "init_storage_memcached: Support for memcached has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Support for memcached has not been compiled into this program");
 	return NULL;
 #else
 	struct storage_backend * store = malloc(sizeof(struct storage_backend));
@@ -279,14 +280,14 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 	char * connection_str = "--server=localhost";
 
 	if (store == NULL) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_memcached: Failed to allocate memory for storage backend");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Failed to allocate memory for storage backend");
 		return NULL;
 	}
 
 	ctx = memcached(connection_str, strlen(connection_str));
 
 	if (ctx == NULL) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_memcached: Failed to create memcached ctx");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Failed to create memcached ctx");
 		free(store);
 		return NULL;
 	}

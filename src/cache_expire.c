@@ -16,7 +16,6 @@
  */
 
 #include <string.h>
-#include <syslog.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -24,6 +23,7 @@
 #include <stdio.h>
 
 #include "cache_expire.h"
+#include "g_logger.h"
 /**
  * This function sends a HTCP cache clr request for a given
  * URL.
@@ -101,7 +101,7 @@ static void cache_expire_url(int sock, char * url)
 	*((uint16_t *)(&buf[idx])) = htons(0);
 
 	if (send(sock, (void *) buf, (12 + 22 + url_len), 0) < (12 + 22 + url_len)) {
-		syslog(LOG_ERR, "Failed to send HTCP purge for %s\n", url);
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to send HTCP purge for %s", url);
 	};
 
 	free(buf);
@@ -137,7 +137,7 @@ int init_cache_expire(char * htcphost)
 	s = getaddrinfo(htcphost, HTCP_EXPIRE_CACHE_PORT, &hints, &result);
 
 	if (s != 0) {
-		syslog(LOG_ERR, "Failed to lookup HTCP cache host: %s", gai_strerror(s));
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to lookup HTCP cache host: %s", gai_strerror(s));
 		return -1;
 	}
 
@@ -161,7 +161,7 @@ int init_cache_expire(char * htcphost)
 	}
 
 	if (rp == NULL) { /* No address succeeded */
-		syslog(LOG_ERR, "Failed to create HTCP cache socket");
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to create HTCP cache socket");
 		return -1;
 	}
 
@@ -170,4 +170,3 @@ int init_cache_expire(char * htcphost)
 	return sfd;
 
 }
-

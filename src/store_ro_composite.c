@@ -34,6 +34,7 @@
 #include "store_ro_composite.h"
 #include "render_config.h"
 #include "protocol.h"
+#include "g_logger.h"
 
 
 #ifdef WANT_STORE_COMPOSITE
@@ -64,7 +65,7 @@ static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const uns
 {
 	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *) in_closure;
 
-	//log_message(STORE_LOGLVL_DEBUG, "ro_composite_tile: writing to byte array: pos: %i, length: %i", closure->pos, length);
+	g_logger(G_LOG_LEVEL_DEBUG, "ro_composite_tile: writing to byte array: pos: %i, length: %i", closure->pos, length);
 
 	if ((closure->pos + length) > (closure->max_size)) {
 		return CAIRO_STATUS_WRITE_ERROR;
@@ -80,7 +81,7 @@ static cairo_status_t read_png_stream_from_byte_array(void *in_closure, unsigned
 {
 	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *) in_closure;
 
-	//log_message(STORE_LOGLVL_DEBUG, "ro_composite_tile: reading from byte array: pos: %i, length: %i", closure->pos, length);
+	g_logger(G_LOG_LEVEL_DEBUG, "ro_composite_tile: reading from byte array: pos: %i, length: %i", closure->pos, length);
 
 	if ((closure->pos + length) > (closure->max_size)) {
 		return CAIRO_STATUS_READ_ERROR;
@@ -179,21 +180,21 @@ static char * ro_composite_tile_storage_id(struct storage_backend * store, const
 
 static int ro_composite_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
-	log_message(STORE_LOGLVL_ERR, "ro_composite_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
 
 static int ro_composite_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
 {
-	log_message(STORE_LOGLVL_ERR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
 static int ro_composite_metatile_expire(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
 {
 
-	log_message(STORE_LOGLVL_ERR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
@@ -221,7 +222,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 {
 
 #ifndef WANT_STORE_COMPOSITE
-	log_message(STORE_LOGLVL_ERR, "init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 	return NULL;
 #else
 	struct storage_backend * store = malloc(sizeof(struct storage_backend));
@@ -230,10 +231,10 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	char * connection_string_secondary;
 	char * tmp;
 
-	log_message(STORE_LOGLVL_DEBUG, "init_storage_ro_composite: initialising compositing storage backend for %s", connection_string);
+	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_composite: initialising compositing storage backend for %s", connection_string);
 
 	if (!store || !ctx) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_composite: failed to allocate memory for context");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to allocate memory for context");
 
 		if (store) {
 			free(store);
@@ -253,8 +254,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	connection_string_secondary = strdup(connection_string_secondary + 2);
 	connection_string_secondary[strlen(connection_string_secondary) - 1] = 0;
 
-	log_message(STORE_LOGLVL_DEBUG, "init_storage_ro_composite: Primary storage backend: %s", connection_string_primary);
-	log_message(STORE_LOGLVL_DEBUG, "init_storage_ro_composite: Secondary storage backend: %s", connection_string_secondary);
+	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_composite: Primary storage backend: %s", connection_string_primary);
+	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_composite: Secondary storage backend: %s", connection_string_secondary);
 
 	tmp = strstr(connection_string_primary, ",");
 	memcpy(ctx->xmlconfig_primary, connection_string_primary, tmp - connection_string_primary);
@@ -262,7 +263,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	ctx->store_primary = init_storage_backend(tmp + 1);
 
 	if (ctx->store_primary == NULL) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_composite: failed to initialise primary storage backend");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to initialise primary storage backend");
 		free(ctx);
 		free(store);
 		return NULL;
@@ -274,7 +275,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	ctx->store_secondary = init_storage_backend(tmp + 1);
 
 	if (ctx->store_secondary == NULL) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_composite: failed to initialise secondary storage backend");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to initialise secondary storage backend");
 		ctx->store_primary->close_storage(ctx->store_primary);
 		free(ctx);
 		free(store);

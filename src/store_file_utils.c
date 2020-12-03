@@ -28,6 +28,7 @@
 #include "render_config.h"
 #include "store_file.h"
 #include "store_file_utils.h"
+#include "g_logger.h"
 
 // Build parent directories for the specified file name
 // Note: the part following the trailing / is ignored
@@ -69,7 +70,7 @@ int mkdirp(const char *path)
 
 			if (!stat(tmp, &s)) {
 				if (!S_ISDIR(s.st_mode)) {
-					fprintf(stderr, "Error, is not a directory: %s\n", tmp);
+					g_logger(G_LOG_LEVEL_ERROR, "Error, not a directory: %s", tmp);
 					return 1;
 				}
 			} else if (mkdir(tmp, 0777)) {
@@ -110,7 +111,7 @@ static int check_xyz(int x, int y, int z)
 	}
 
 	if (oob) {
-		fprintf(stderr, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
+		g_logger(G_LOG_LEVEL_ERROR, "got bad co-ords: x(%d) y(%d) z(%d)", x, y, z);
 	}
 
 	return oob;
@@ -146,21 +147,21 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 		;
 
 	if (tilepath[i]) {
-		fprintf(stderr, "Tile path does not match settings (%s): %s\n", tilepath, path);
+		g_logger(G_LOG_LEVEL_ERROR, "Tile path does not match settings (%s): %s", tilepath, path);
 		return 1;
 	}
 
 	n = sscanf(path + i, "/%40[^/]/%d/%d/%d/%d/%d/%d", xmlconfig, pz, &hash[0], &hash[1], &hash[2], &hash[3], &hash[4]);
 
 	if (n != 7) {
-		fprintf(stderr, "Failed to parse tile path: %s\n", path);
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to parse tile path: %s", path);
 		return 1;
 	} else {
 		x = y = 0;
 
 		for (i = 0; i < 5; i++) {
 			if (hash[i] < 0 || hash[i] > 255) {
-				fprintf(stderr, "Failed to parse tile path (invalid %d): %s\n", hash[i], path);
+				g_logger(G_LOG_LEVEL_ERROR, "Failed to parse tile path (invalid %d): %s", hash[i], path);
 				return 2;
 			}
 
@@ -181,7 +182,7 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 	n = sscanf(path, TILE_PATH "/%40[^/]/%d/%d/%d", xmlconfig, pz, px, py);
 
 	if (n != 4) {
-		fprintf(stderr, "Failed to parse tile path: %s\n", path);
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to parse tile path: %s", path);
 		return 1;
 	} else {
 		return check_xyz(*px, *py, *pz);
