@@ -95,6 +95,8 @@ char *mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
+int foreground = 0;
+
 struct storage_backends {
 	struct storage_backend ** stores;
 	int noBackends;
@@ -2887,4 +2889,3 @@ merge_tile_config,                   /* merge server config */
 tile_cmds,                           /* command apr_table_t */
 register_hooks                       /* register hooks */
 };
-

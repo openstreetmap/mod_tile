@@ -23,12 +23,12 @@ double get_load_avg(void)
 	double avg = 1000.0;
 
 	if (!loadavg) {
-		fprintf(stderr, "failed to read /proc/loadavg");
+		g_logger(G_LOG_LEVEL_ERROR, "failed to read /proc/loadavg");
 		return 1000.0;
 	}
 
 	if (fscanf(loadavg, "%lf", &avg) != 1) {
-		fprintf(stderr, "failed to parse /proc/loadavg");
+		g_logger(G_LOG_LEVEL_ERROR, "failed to parse /proc/loadavg");
 		fclose(loadavg);
 		return 1000.0;
 	}

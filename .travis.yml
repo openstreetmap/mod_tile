@@ -1,8 +1,12 @@
+---
 dist: focal
 language: cpp
 
 compiler:
   - clang
+
+services:
+  - docker
 
 before_install:
   - sudo apt update -y
@@ -23,9 +27,16 @@ jobs:
           fi
     - stage: tests
       install:
-        - sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libiniparser-dev libmapnik-dev
+        - sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev libiniparser-dev libmapnik-dev
       script:
         - ./autogen.sh
         - ./configure
         - make
         - make test
+    - stage: mod_tile test
+      install:
+        - docker build -t mod_tile .
+        - docker run --detach --publish 8080:80 mod_tile
+      script:
+        - docker run --rm --entrypoint /bin/bash mod_tile -c "make test"
+        - curl --silent http://localhost:8080/renderd-example/tiles/9/297/191.png | sha256sum - | grep dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08

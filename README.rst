@@ -27,6 +27,7 @@ Requirements
 * `Cairo 2D graphics library  <https://cairographics.org/>`__
 * `Curl library (SSL variant) <https://curl.haxx.se/>`__
 * `Iniparser library <https://github.com/ndevilla/iniparser>`__
+* `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
 
 Compilation
 -----------
@@ -42,6 +43,7 @@ slightly.
         apache2-dev \
         libcairo2-dev \
         libcurl4-gnutls-dev \
+        libglib2.0-dev \
         libiniparser-dev \
         libmapnik-dev
 
@@ -64,7 +66,7 @@ Packages
 
 If you don't want to compile the software yourself.  Precompiled
 software packages for **Debian** and **Ubuntu** are being maintained by
-the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective 
+the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective
 `repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
 They are in the pipeline and expected to be included in the next releases of
 those two distributions.
@@ -127,7 +129,7 @@ Restart apache2:
     $ sudo a2enconf renderd
 
 
-And run the rendering daemon 
+And run the rendering daemon
 
 ::
 
@@ -161,7 +163,7 @@ probably see a 404 error. Wait for the disk activity to
 cease and then reload the tile. With a bit of luck you
 should see a tile of the world in your browser window.
 
-If this fails to happen check the http error log.  You can 
+If this fails to happen check the http error log.  You can
 increase the level of debugging using the LogLevel apache
 directive.  If no log messages are shown check that you
 are accessing the correct virtual host - the new version

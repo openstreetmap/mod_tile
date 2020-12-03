@@ -73,6 +73,8 @@ static double boundx1 = 3.2;
 static double boundy1 = 58.8;
 #endif
 
+int foreground = 1;
+
 
 static double minmax(double a, double b, double c)
 {
@@ -209,11 +211,11 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"socket", 1, 0, 's'},
-			{"num-threads", 1, 0, 'n'},
-			{"map", 1, 0, 'm'},
-			{"verbose", 0, 0, 'v'},
-			{"help", 0, 0, 'h'},
+			{"socket", required_argument, 0, 's'},
+			{"num-threads", required_argument, 0, 'n'},
+			{"map", required_argument, 0, 'm'},
+			{"verbose", no_argument, 0, 'v'},
+			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 

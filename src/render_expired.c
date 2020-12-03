@@ -73,6 +73,8 @@ static int maxZoom = 18;
 static int verbose = 0;
 static int maxLoad = MAX_LOAD_OLD;
 
+int foreground = 1;
+
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
@@ -122,17 +124,17 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"min-zoom", 1, 0, 'z'},
-			{"max-zoom", 1, 0, 'Z'},
-			{"socket", 1, 0, 's'},
-			{"num-threads", 1, 0, 'n'},
-			{"delete-from", 1, 0, 'd'},
-			{"touch-from", 1, 0, 'T'},
-			{"tile-dir", 1, 0, 't'},
-			{"max-load", 1, 0, 'l'},
-			{"map", 1, 0, 'm'},
-			{"verbose", 0, 0, 'v'},
-			{"help", 0, 0, 'h'},
+			{"min-zoom", required_argument, 0, 'z'},
+			{"max-zoom", required_argument, 0, 'Z'},
+			{"socket", required_argument, 0, 's'},
+			{"num-threads", required_argument, 0, 'n'},
+			{"delete-from", required_argument, 0, 'd'},
+			{"touch-from", required_argument, 0, 'T'},
+			{"tile-dir", required_argument, 0, 't'},
+			{"max-load", required_argument, 0, 'l'},
+			{"map", required_argument, 0, 'm'},
+			{"verbose", no_argument, 0, 'v'},
+			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 

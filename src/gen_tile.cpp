@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <dirent.h>
-#include <syslog.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <string>
@@ -47,6 +46,7 @@
 #include "request_queue.h"
 #include "cache_expire.h"
 #include "parameterize_style.hpp"
+#include "g_logger.h"
 
 #ifdef HTCP_EXPIRE_CACHE
 #include <sys/socket.h>
@@ -86,6 +86,8 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
+extern int foreground;
+
 struct projectionconfig {
 	double bound_x0;
 	double bound_y0;
@@ -121,7 +123,7 @@ struct projectionconfig * get_projection(const char * srs)
 	struct projectionconfig * prj;
 
 	if (strstr(srs, "+proj=merc +a=6378137 +b=6378137") != NULL) {
-		syslog(LOG_DEBUG, "Using web mercator projection settings");
+		g_logger(G_LOG_LEVEL_DEBUG, "Using web mercator projection settings");
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 =  20037508.3428;
@@ -130,7 +132,7 @@ struct projectionconfig * get_projection(const char * srs)
 		prj->aspect_x = 1;
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") == 0) {
-		syslog(LOG_DEBUG, "Using plate carree projection settings");
+		g_logger(G_LOG_LEVEL_DEBUG, "Using plate carree projection settings");
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 =  20037508.3428;
@@ -139,7 +141,7 @@ struct projectionconfig * get_projection(const char * srs)
 		prj->aspect_x = 2;
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs") == 0) {
-		syslog(LOG_DEBUG, "Using bng projection settings");
+		g_logger(G_LOG_LEVEL_DEBUG, "Using bng projection settings");
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = 0;
 		prj->bound_y0 = 0;
@@ -148,7 +150,7 @@ struct projectionconfig * get_projection(const char * srs)
 		prj->aspect_x = 1;
 		prj->aspect_y = 2;
 	} else {
-		syslog(LOG_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
+		g_logger(G_LOG_LEVEL_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 =  20037508.3428;
@@ -168,7 +170,7 @@ static void load_fonts(const char *font_dir, int recurse)
 	char path[PATH_MAX]; // FIXME: Eats lots of stack space when recursive
 
 	if (!fonts) {
-		syslog(LOG_CRIT, "Unable to open font directory: %s", font_dir);
+		g_logger(G_LOG_LEVEL_CRITICAL, "Unable to open font directory: %s", font_dir);
 		return;
 	}
 
@@ -197,7 +199,7 @@ static void load_fonts(const char *font_dir, int recurse)
 		p = strrchr(path, '.');
 
 		if (p && (!strcmp(p, ".ttf") || !strcmp(p, ".otf") || !strcmp(p, ".ttc"))) {
-			syslog(LOG_DEBUG, "DEBUG: Loading font: %s", path);
+			g_logger(G_LOG_LEVEL_DEBUG, "Loading font: %s", path);
 			freetype_engine::register_font(path);
 		}
 	}
@@ -252,7 +254,7 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map)
 	}
 
 	if (oob) {
-		syslog(LOG_INFO, "got bad co-ords: x(%d) y(%d) z(%d)\n", x, y, z);
+		g_logger(G_LOG_LEVEL_INFO, "got bad co-ords: x(%d) y(%d) z(%d)", x, y, z);
 	}
 
 	return !oob;
@@ -270,7 +272,7 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y
 	double p1x = prj->bound_x0 + (prj->bound_x1 - prj->bound_x0) * (((double)x + render_size_tx) / (double)(prj->aspect_x * 1 << z));
 	double p1y = (prj->bound_y1 - (prj->bound_y1 - prj->bound_y0) * ((double)y / (double)(prj->aspect_y * 1 << z)));
 
-	syslog(LOG_DEBUG, "Rendering projected coordinates %i %i %i -> %f|%f %f|%f to a %i x %i tile\n", z, x, y, p0x, p0y, p1x, p1y, render_size_tx, render_size_ty);
+	g_logger(G_LOG_LEVEL_DEBUG, "Rendering projected coordinates %i %i %i -> %f|%f %f|%f to a %i x %i tile", z, x, y, p0x, p0y, p1x, p1y, render_size_tx, render_size_ty);
 
 	mapnik::box2d<double> bbox(p0x, p0y, p1x, p1y);
 	return  bbox;
@@ -302,8 +304,8 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 		mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized, buf, map->scale);
 		ren.apply();
 	} catch (std::exception const& ex) {
-		syslog(LOG_ERR, "ERROR: failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x + render_size_tx - 1, y, y + render_size_ty - 1);
-		syslog(LOG_ERR, "   reason: %s", ex.what());
+		g_logger(G_LOG_LEVEL_ERROR, "failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x + render_size_tx - 1, y, y + render_size_ty - 1);
+		g_logger(G_LOG_LEVEL_ERROR, "  reason: %s", ex.what());
 		return cmdNotDone;
 	}
 
@@ -358,7 +360,7 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 	snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
 
 	mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
-	//std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
+	g_logger(G_LOG_LEVEL_DEBUG, "Render %i %i %i %s", z, x, y, filename)
 	mapnik::save_to_file(vw, tmp, "png256");
 
 	if (rename(tmp, filename)) {
@@ -373,7 +375,8 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
-	syslog(LOG_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
+	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
+
 #if MAPNIK_VERSION >= 200200
 	mapnik::datasource_cache::instance().register_datasources(plugins_dir);
 #else
@@ -416,16 +419,16 @@ void *render_thread(void * arg)
 				 * up the mapnik datasources to support larger postgres connection pools
 				 */
 				if (parentxmlconfig[iMaxConfigs].num_threads > 10) {
-					syslog(LOG_INFO, "Updating max_connection parameter for mapnik layers to reflect thread count");
+					g_logger(G_LOG_LEVEL_INFO, "Updating max_connection parameter for mapnik layers to reflect thread count");
 					parameterize_map_max_connections(maps[iMaxConfigs].map, parentxmlconfig[iMaxConfigs].num_threads);
 				}
 
 				maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
 			} catch (std::exception const& ex) {
-				syslog(LOG_ERR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
+				g_logger(G_LOG_LEVEL_ERROR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
 				maps[iMaxConfigs].ok = 0;
 			} catch (...) {
-				syslog(LOG_ERR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
+				g_logger(G_LOG_LEVEL_ERROR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
 				maps[iMaxConfigs].ok = 0;
 			}
 
@@ -439,9 +442,9 @@ void *render_thread(void * arg)
 								     maps[iMaxConfigs].htcphost);
 
 				if (maps[iMaxConfigs].htcpsock > 0) {
-					syslog(LOG_INFO, "Successfully opened socket for HTCP cache expiry");
+					g_logger(G_LOG_LEVEL_INFO, "Successfully opened socket for HTCP cache expiry");
 				} else {
-					syslog(LOG_ERR, "Failed to opened socket for HTCP cache expiry");
+					g_logger(G_LOG_LEVEL_ERROR, "Failed to open socket for HTCP cache expiry");
 				}
 			} else {
 				maps[iMaxConfigs].htcpsock = -1;
@@ -478,20 +481,20 @@ void *render_thread(void * arg)
 							struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
 
 							if (sinfo.size > 0)
-								syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, age %.2f days",
-								       req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
-								       (tim.tv_sec - sinfo.mtime) / 86400.0);
+								g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, age %.2f days",
+									 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
+									 (tim.tv_sec - sinfo.mtime) / 86400.0);
 							else
-								syslog(LOG_DEBUG, "DEBUG: START TILE %s %d %d-%d %d-%d, new metatile",
-								       req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
+								g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, new metatile",
+									 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
 
 							ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
 
 							gettimeofday(&tim, NULL);
 							long t2 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
 
-							syslog(LOG_DEBUG, "DEBUG: DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
-							       req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
+							g_logger(G_LOG_LEVEL_DEBUG, "DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
+								 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
 
 							render_time = t2 - t1;
 
@@ -503,11 +506,11 @@ void *render_thread(void * arg)
 #endif
 
 								} catch (std::exception const& ex) {
-									syslog(LOG_ERR, "Received exception when writing metatile to disk: %s", ex.what());
+									g_logger(G_LOG_LEVEL_ERROR, "Received exception when writing metatile to disk: %s", ex.what());
 									ret = cmdNotDone;
 								} catch (...) {
 									// Treat any error as fatal and request end of processing
-									syslog(LOG_ERR, "Failed writing metatile to disk with unknown error, requesting exit.");
+									g_logger(G_LOG_LEVEL_CRITICAL, "Failed writing metatile to disk with unknown error, requesting exit.");
 									ret = cmdNotDone;
 									request_exit();
 								}
@@ -520,12 +523,12 @@ void *render_thread(void * arg)
 #endif
 #endif //METATILE
 						} else {
-							syslog(LOG_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
-							       req->xmlname, req->z, req->x, req->y);
+							g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
+								 req->xmlname, req->z, req->x, req->y);
 							ret = cmdIgnore;
 						}
 					} else {
-						syslog(LOG_ERR, "Received request for map layer '%s' which failed to load", req->xmlname);
+						g_logger(G_LOG_LEVEL_ERROR, "Received request for map layer '%s' which failed to load", req->xmlname);
 						ret = cmdNotDone;
 					}
 
@@ -540,7 +543,7 @@ void *render_thread(void * arg)
 			}
 
 			if (i == iMaxConfigs) {
-				syslog(LOG_ERR, "No map for: %s", req->xmlname);
+				g_logger(G_LOG_LEVEL_ERROR, "No map for: %s", req->xmlname);
 			}
 		} else {
 			sleep(1); // TODO: Use an event to indicate there are new requests
@@ -549,4 +552,3 @@ void *render_thread(void * arg)
 
 	return NULL;
 }
-
