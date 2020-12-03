@@ -13,6 +13,7 @@
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
+#include <syslog.h>
 
 
 #include "store.h"
@@ -23,6 +24,8 @@
 #include "store_ro_composite.h"
 #include "store_null.h"
 
+extern int log_priority;
+
 //TODO: Make this function handle different logging backends, depending on if on compiles it from apache or something else
 void log_message(int log_lvl, const char *format, ...)
 {
@@ -31,31 +34,50 @@ void log_message(int log_lvl, const char *format, ...)
 
 	va_start(ap, format);
 
-
-
-	if (msg) {
+	if (msg && strlen(msg) > 0) {
 		vsnprintf(msg, 1000, format, ap);
 
-		switch (log_lvl) {
-			case STORE_LOGLVL_DEBUG:
-				fprintf(stderr, "debug: %s\n", msg);
-				break;
+		if (log_priority >= 0) {
+			switch (log_lvl) {
+				case STORE_LOGLVL_DEBUG:
+					syslog(LOG_DEBUG, "DEBUG: %s", msg);
+					break;
 
-			case STORE_LOGLVL_INFO:
-				fprintf(stderr, "info: %s\n", msg);
-				break;
+				case STORE_LOGLVL_INFO:
+					syslog(LOG_INFO, "INFO: %s", msg);
+					break;
 
-			case STORE_LOGLVL_WARNING:
-				fprintf(stderr, "WARNING: %s\n", msg);
-				break;
+				case STORE_LOGLVL_WARNING:
+					syslog(LOG_WARNING, "WARNING: %s", msg);
+					break;
 
-			case STORE_LOGLVL_ERR:
-				fprintf(stderr, "ERROR: %s\n", msg);
-				break;
+				case STORE_LOGLVL_ERR:
+					syslog(LOG_ERR, "ERROR: %s", msg);
+					break;
+			}
+		} else {
+			switch (log_lvl) {
+				case STORE_LOGLVL_DEBUG:
+					fprintf(stderr, "DEBUG: %s\n", msg);
+					break;
+
+				case STORE_LOGLVL_INFO:
+					fprintf(stderr, "INFO: %s\n", msg);
+					break;
+
+				case STORE_LOGLVL_WARNING:
+					fprintf(stderr, "WARNING: %s\n", msg);
+					break;
+
+				case STORE_LOGLVL_ERR:
+					fprintf(stderr, "ERROR: %s\n", msg);
+					break;
+			}
+
+			fflush(stderr);
 		}
 
 		free(msg);
-		fflush(stderr);
 	}
 
 	va_end(ap);

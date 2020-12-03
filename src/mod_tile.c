@@ -94,6 +94,8 @@ char *mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
+int log_priority = -1;
+
 struct storage_backends {
 	struct storage_backend ** stores;
 	int noBackends;
