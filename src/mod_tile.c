@@ -1428,6 +1428,28 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     stats_data *stats;
     delaypool *delayp;
     int i;
+    tile_server_conf *scfg;
+
+    scfg = ap_get_module_config(s->module_config, &tile_module);
+
+    for (i = 0; i < scfg->configs->nelts; ++i) {
+        tile_config_rec *tilecfg = (tile_config_rec *)scfg->configs->elts + i;
+
+        if (tilecfg->hostnames == NULL) {
+            tilecfg->hostnames = malloc(sizeof(char *));
+            /* FIXME: wouldn't be allocationg 7+len+1 bytes be enough? */
+            tilecfg->hostnames[0] = malloc(PATH_MAX);
+            strncpy(tilecfg->hostnames[0], "http://", PATH_MAX);
+            if (s->server_hostname == NULL) {
+                ap_log_error(APLOG_MARK, APLOG_WARNING, APR_SUCCESS, s,
+                             "Could not determine host name of server to configure tile-json request. Using localhost instead");
+                strncat(tilecfg->hostnames[0], "localhost", PATH_MAX - 8);
+            } else {
+                strncat(tilecfg->hostnames[0], s->server_hostname, PATH_MAX - 8);
+            }
+            tilecfg->noHostnames = 1;
+        }
+    }
 
     /*
      * The following checks if this routine has been called before.
@@ -1681,21 +1703,6 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 
     if (strlen(name) == 0) {
         return "ConfigName value must not be null";
-    }
-
-    if (hostnames == NULL) {
-        hostnames = malloc(sizeof(char *));
-        /* FIXME: wouldn't be allocationg 7+len+1 bytes be enough? */
-        hostnames[0] = malloc(PATH_MAX);
-        strncpy(hostnames[0],"http://", PATH_MAX);
-        if (cmd->server->server_hostname == NULL) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, APR_SUCCESS, cmd->server,
-                         "Could not determine host name of server to configure tile-json request. Using localhost instead");
-
-            strncat(hostnames[0],"localhost",PATH_MAX-10);
-        } else 
-            strncat(hostnames[0],cmd->server->server_hostname,PATH_MAX-strlen(hostnames[0])-1);
-        noHostnames = 1;
     }
 
     if (attribution == NULL) {
