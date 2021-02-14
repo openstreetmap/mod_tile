@@ -3,9 +3,11 @@ Makefile*
 *.la
 *.lo
 *.slo
+.dirstamp
 .deps/
 .libs/
 autom4te.cache/
+compile
 config.guess
 config.h
 config.h.in

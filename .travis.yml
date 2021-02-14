@@ -2,18 +2,30 @@ dist: focal
 language: cpp
 
 compiler:
- - clang
+  - clang
 
 before_install:
- - sudo apt update -y
-install:
- - sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libiniparser-dev libmapnik-dev
+  - sudo apt update -y
 
 jobs:
   include:
-    - stage: tests
+    - stage: code formatting
+      install:
+        - sudo apt -y install astyle
       script:
-      - ./autogen.sh
-      - ./configure
-      - make
-      - make test
+        - astyle --options=none --lineend=linux --style=1tbs --indent=force-tab=8 --break-blocks --indent-switches --pad-oper --pad-header --unpad-paren --suffix=none includes/* src/*
+        - |
+          if [[ -n $(git diff) ]]; then
+            echo "You must run 'astyle --options=none --lineend=linux --style=1tbs --indent=force-tab=8 --break-blocks --indent-switches --pad-oper --pad-header --unpad-paren --suffix=none includes/* src/*' before submitting a pull request"
+            echo ""
+            git diff
+            exit -1
+          fi
+    - stage: tests
+      install:
+        - sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libiniparser-dev libmapnik-dev
+      script:
+        - ./autogen.sh
+        - ./configure
+        - make
+        - make test
