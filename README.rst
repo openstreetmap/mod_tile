@@ -21,6 +21,7 @@ combination with ``mod_tile``.
 Requirements
 ------------
 
+* `GNU/Linux` Operating System (works best on Debian or Ubuntu)
 * `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
 * `Mapnik <https://mapnik.org/>`__
 * `Cairo 2D graphics library  <https://cairographics.org/>`__
