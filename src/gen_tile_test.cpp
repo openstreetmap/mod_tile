@@ -42,6 +42,9 @@
 #endif
 
 #include <mapnik/version.hpp>
+#if MAPNIK_VERSION >= 300100
+#include <mapnik/geometry/box2d.hpp>
+#else
 #if MAPNIK_VERSION < 200000
 #include <mapnik/envelope.hpp>
 #define image_32 Image32
@@ -50,6 +53,7 @@
 #define zoom_to_box zoomToBox
 #else
 #include <mapnik/box2d.hpp>
+#endif
 #endif
 
 
