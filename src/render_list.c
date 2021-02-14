@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     const char *mapname_default = XMLCONFIG_DEFAULT;
     const char *mapname = mapname_default;
     const char *tile_dir = tile_dir_default;
-    int minX=-1, maxX=-1, minY=-1, maxY=-1;
+    int minX=-1, maxX=-1, minY=-1, maxY=-1, aspectX=1, aspectY=1;
     int x, y, z;
     char name[PATH_MAX];
     struct timeval start, end;
@@ -92,6 +92,10 @@ int main(int argc, char **argv)
 
     while (1) {
         int option_index = 0;
+        enum {
+            OPT_ASPECT_X,
+            OPT_ASPECT_Y
+        };
         static struct option long_options[] = {
             {"min-zoom", 1, 0, 'z'},
             {"max-zoom", 1, 0, 'Z'},
@@ -99,6 +103,8 @@ int main(int argc, char **argv)
             {"max-x", 1, 0, 'X'},
             {"min-y", 1, 0, 'y'},
             {"max-y", 1, 0, 'Y'},
+            {"aspect-x", 1, 0, OPT_ASPECT_X},
+            {"aspect-y", 1, 0, OPT_ASPECT_Y},
             {"socket", 1, 0, 's'},
             {"num-threads", 1, 0, 'n'},
             {"max-load", 1, 0, 'l'},
@@ -165,6 +171,20 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 break;
+            case OPT_ASPECT_X:   /* --aspect-x */
+                aspectX=atoi(optarg);
+                if (aspectX < 1) {
+                    fprintf(stderr, "Invalid aspect X, must be at least 1\n");
+                    return 1;
+                }
+                break;
+            case OPT_ASPECT_Y:   /* --aspect-y */
+                aspectY=atoi(optarg);
+                if (aspectY < 1) {
+                    fprintf(stderr, "Invalid aspect Y, must be at least 1\n");
+                    return 1;
+                }
+                break;
             case 'f':   /* -f, --force */
                 force=1;
                 break;
@@ -187,6 +207,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "  -X, --max-x=X        maximum X tile coordinate\n");
                 fprintf(stderr, "  -y, --min-y=Y        minimum Y tile coordinate\n");
                 fprintf(stderr, "  -Y, --max-y=Y        maximum Y tile coordinate\n");
+                fprintf(stderr, "  --aspect-x=X         aspect in X coordinate (default 1)\n");
+                fprintf(stderr, "  --aspect-y=Y         aspect in Y coordinate (default 1)\n");
                 fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
                 fprintf(stderr, "  X Y Z\n");
                 fprintf(stderr, "e.g.\n");
@@ -222,13 +244,14 @@ int main(int argc, char **argv)
         if (minX == -1) { minX = 0; }
         if (minY == -1) { minY = 0; }
 
-        int lz = (1 << minZoom) - 1;
+        int lzX = (aspectX << minZoom) - 1;
+        int lzY = (aspectY << minZoom) - 1;
 
         if (minZoom == maxZoom) {
-            if (maxX == -1) { maxX = lz; }
-            if (maxY == -1) { maxY = lz; }
-            if (minX > lz || minY > lz || maxX > lz || maxY > lz) {
-                fprintf(stderr, "Invalid range, x and y values must be <= %d (2^zoom-1)\n", lz);
+            if (maxX == -1) { maxX = lzX; }
+            if (maxY == -1) { maxY = lzY; }
+            if (minX > lzX || minY > lzY || maxX > lzX || maxY > lzY) {
+                fprintf(stderr, "Invalid range, x and y values must be <= %d and %d respectively\n", lzX, lzY);
                 return 1;
             }
         }
@@ -250,8 +273,8 @@ int main(int argc, char **argv)
         int x, y, z;
         printf("Rendering all tiles from zoom %d to zoom %d\n", minZoom, maxZoom);
         for (z=minZoom; z <= maxZoom; z++) {
-            int current_maxX = (maxX == -1) ? (1 << z)-1 : maxX;
-            int current_maxY = (maxY == -1) ? (1 << z)-1 : maxY;
+            int current_maxX = (maxX == -1) ? (aspectX << z)-1 : maxX;
+            int current_maxY = (maxY == -1) ? (aspectY << z)-1 : maxY;
             printf("Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)\n", z, minX, minY, current_maxX, current_maxY);
             for (x=minX; x <= current_maxX; x+=METATILE) {
                 for (y=minY; y <= current_maxY; y+=METATILE) {
