@@ -36,6 +36,12 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <stdlib.h>
+
+#ifdef __FreeBSD__
+#include <pthread.h>
+#include <sys/wait.h>
+#endif
+
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
@@ -56,6 +62,8 @@
 #define NO_QUEUE_REQUESTS 9
 #define NO_TEST_REPEATS 100
 #define NO_THREADS 100
+
+
 
 extern struct projectionconfig * get_projection(const char * srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z);
@@ -92,7 +100,11 @@ void *addition_thread(void * arg) {
     struct request_queue * queue = (struct request_queue *)arg;
     struct item * item;
     struct timespec time;
+    #ifdef __FreeBSD__
+    unsigned int seed = (unsigned long long int)pthread_self();
+    #else
     unsigned int seed = syscall(SYS_gettid);
+    #endif
     #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
     clock_serv_t cclock;
     mach_timespec_t mts;
