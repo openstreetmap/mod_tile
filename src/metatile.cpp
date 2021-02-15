@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -30,104 +30,115 @@
 
 
 metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z):
-    x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options) {
-    clear();
+	x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options)
+{
+	clear();
 }
 
-void metaTile::clear() {
-    for (int x = 0; x < METATILE; x++)
-        for (int y = 0; y < METATILE; y++)
-            tile[x][y] = "";
+void metaTile::clear()
+{
+	for (int x = 0; x < METATILE; x++)
+		for (int y = 0; y < METATILE; y++) {
+			tile[x][y] = "";
+		}
 }
 
-void metaTile::set(int x, int y, const std::string &data) {
-    tile[x][y] = data;
+void metaTile::set(int x, int y, const std::string &data)
+{
+	tile[x][y] = data;
 }
 
-const std::string metaTile::get(int x, int y) {
-    return tile[x][y];
+const std::string metaTile::get(int x, int y)
+{
+	return tile[x][y];
 }
 
 // Returns the offset within the meta-tile index table
-int metaTile::xyz_to_meta_offset(int x, int y, int z) {
-    unsigned char mask = METATILE - 1;
-    return (x & mask) * METATILE + (y & mask);
+int metaTile::xyz_to_meta_offset(int x, int y, int z)
+{
+	unsigned char mask = METATILE - 1;
+	return (x & mask) * METATILE + (y & mask);
 }
 
-void metaTile::save(struct storage_backend * store) {
-    int ox, oy, limit;
-    ssize_t offset;
-    struct meta_layout m;
-    struct entry offsets[METATILE * METATILE];
-    char * metatilebuffer;
-    char *tmp;
+void metaTile::save(struct storage_backend * store)
+{
+	int ox, oy, limit;
+	ssize_t offset;
+	struct meta_layout m;
+	struct entry offsets[METATILE * METATILE];
+	char * metatilebuffer;
+	char *tmp;
 
-    memset(&m, 0, sizeof(m));
-    memset(&offsets, 0, sizeof(offsets));
-    
-    // Create and write header
-    m.count = METATILE * METATILE;
-    memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
-    m.x = x_;
-    m.y = y_;
-    m.z = z_;
-    
-    offset = header_size;
-    limit = (1 << z_);
-    limit = MIN(limit, METATILE);
-    limit = METATILE;
-    
-    // Generate offset table
-    for (ox=0; ox < limit; ox++) {
-        for (oy=0; oy < limit; oy++) {
-            int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
-            offsets[mt].offset = offset;
-            offsets[mt].size   = tile[ox][oy].size();
-            offset += offsets[mt].size;
-        }
-    }
-    
-    metatilebuffer = (char *) malloc(offset);
-    if (metatilebuffer == 0) {
-        syslog(LOG_WARNING, "Failed to write metatile. Out of memory");
-        return;
-    }
-    memset(metatilebuffer, 0, offset);
-    memcpy(metatilebuffer,&m,sizeof(m));
-    memcpy(metatilebuffer + sizeof(m), &offsets, sizeof(offsets));
-    
-    // Write tiles
-    for (ox=0; ox < limit; ox++) {
-        for (oy=0; oy < limit; oy++) {
-            memcpy(metatilebuffer + offsets[xyz_to_meta_offset(x_ + ox, y_ + oy, z_)].offset, (const void *)tile[ox][oy].data(), tile[ox][oy].size());
-        }
-    }
-    
-    if (store->metatile_write(store, xmlconfig_.c_str(), options_.c_str(), x_,y_,z_, metatilebuffer, offset) != offset) {
-        tmp = (char *)malloc(sizeof(char) * PATH_MAX);
-        syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_,y_,z_, tmp));
-        free(tmp);
-    }
-    
-    free(metatilebuffer);
+	memset(&m, 0, sizeof(m));
+	memset(&offsets, 0, sizeof(offsets));
+
+	// Create and write header
+	m.count = METATILE * METATILE;
+	memcpy(m.magic, META_MAGIC, strlen(META_MAGIC));
+	m.x = x_;
+	m.y = y_;
+	m.z = z_;
+
+	offset = header_size;
+	limit = (1 << z_);
+	limit = MIN(limit, METATILE);
+	limit = METATILE;
+
+	// Generate offset table
+	for (ox = 0; ox < limit; ox++) {
+		for (oy = 0; oy < limit; oy++) {
+			int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
+			offsets[mt].offset = offset;
+			offsets[mt].size   = tile[ox][oy].size();
+			offset += offsets[mt].size;
+		}
+	}
+
+	metatilebuffer = (char *) malloc(offset);
+
+	if (metatilebuffer == 0) {
+		syslog(LOG_WARNING, "Failed to write metatile. Out of memory");
+		return;
+	}
+
+	memset(metatilebuffer, 0, offset);
+	memcpy(metatilebuffer, &m, sizeof(m));
+	memcpy(metatilebuffer + sizeof(m), &offsets, sizeof(offsets));
+
+	// Write tiles
+	for (ox = 0; ox < limit; ox++) {
+		for (oy = 0; oy < limit; oy++) {
+			memcpy(metatilebuffer + offsets[xyz_to_meta_offset(x_ + ox, y_ + oy, z_)].offset, (const void *)tile[ox][oy].data(), tile[ox][oy].size());
+		}
+	}
+
+	if (store->metatile_write(store, xmlconfig_.c_str(), options_.c_str(), x_, y_, z_, metatilebuffer, offset) != offset) {
+		tmp = (char *)malloc(sizeof(char) * PATH_MAX);
+		syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_, y_, z_, tmp));
+		free(tmp);
+	}
+
+	free(metatilebuffer);
 }
 
 
-void metaTile::expire_tiles(int sock, char * host, char * uri) {
-    if (sock < 0) {
-        return;
-    }
-    syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
-    int ox, oy;
-    int limit = (1 << z_);
-    limit = MIN(limit, METATILE);
-    
-    // Generate offset table
-    for (ox=0; ox < limit; ox++) {
-        for (oy=0; oy < limit; oy++) {
-            cache_expire(sock, host, uri, (x_ + ox), (y_ + oy), z_);
-        }
-    }
+void metaTile::expire_tiles(int sock, char * host, char * uri)
+{
+	if (sock < 0) {
+		return;
+	}
+
+	syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
+	int ox, oy;
+	int limit = (1 << z_);
+	limit = MIN(limit, METATILE);
+
+	// Generate offset table
+	for (ox = 0; ox < limit; ox++) {
+		for (oy = 0; oy < limit; oy++) {
+			cache_expire(sock, host, uri, (x_ + ox), (y_ + oy), z_);
+		}
+	}
 }
 
 

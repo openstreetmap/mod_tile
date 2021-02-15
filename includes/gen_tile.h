@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -28,14 +28,14 @@ extern "C" {
 enum queueEnum {queueRequest, queueRequestPrio, queueRequestBulk, queueDirty, queueRender,  queueDuplicate, queueRequestLow};
 
 struct item {
-    struct item *next;
-    struct item *prev;
-    struct protocol req;
-    int mx, my;
-    int fd;
-    struct item *duplicates;
-    enum queueEnum inQueue;
-    enum queueEnum originatedQueue;
+	struct item *next;
+	struct item *prev;
+	struct protocol req;
+	int mx, my;
+	int fd;
+	struct item *duplicates;
+	enum queueEnum inQueue;
+	enum queueEnum originatedQueue;
 };
 
 //int render(Map &m, int x, int y, int z, const char *filename);

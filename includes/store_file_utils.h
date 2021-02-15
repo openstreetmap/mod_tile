@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -21,7 +21,7 @@
 #include <sys/types.h>
 
 #ifdef __cplusplus
-  extern "C" {
+extern "C" {
 #endif
 
 #include "render_config.h"
@@ -47,7 +47,7 @@ int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlcon
 #endif
 
 #ifdef __cplusplus
-  }
+}
 #endif
 
 

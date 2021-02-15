@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #ifndef HAVE_DAEMON
-    int daemon(int nochdir, int noclose);
+int daemon(int nochdir, int noclose);
 #endif
 
 #include <limits.h> /* for PATH_MAX */
@@ -34,30 +34,30 @@ extern "C" {
 #define MAX_SLAVES 5
 
 typedef struct {
-    char *socketname;
-    char *iphostname;
-    int ipport;
-    int num_threads;
-    char *tile_dir;
-    char *mapnik_plugins_dir;
-    char *mapnik_font_dir;
-    int mapnik_font_dir_recurse;
-    char * stats_filename;
+	char *socketname;
+	char *iphostname;
+	int ipport;
+	int num_threads;
+	char *tile_dir;
+	char *mapnik_plugins_dir;
+	char *mapnik_font_dir;
+	int mapnik_font_dir_recurse;
+	char * stats_filename;
 } renderd_config;
 
 typedef struct {
-    char xmlname[XMLCONFIG_MAX];
-    char xmlfile[PATH_MAX];
-    char xmluri[PATH_MAX];
-    char host[PATH_MAX];
-    char htcpip[PATH_MAX];
-    char tile_dir[PATH_MAX];
-    char parameterization[PATH_MAX];
-    int tile_px_size;
-    double scale_factor;
-    int min_zoom;
-    int max_zoom;
-    int num_threads;
+	char xmlname[XMLCONFIG_MAX];
+	char xmlfile[PATH_MAX];
+	char xmluri[PATH_MAX];
+	char host[PATH_MAX];
+	char htcpip[PATH_MAX];
+	char tile_dir[PATH_MAX];
+	char parameterization[PATH_MAX];
+	int tile_px_size;
+	double scale_factor;
+	int min_zoom;
+	int max_zoom;
+	int num_threads;
 } xmlconfigitem;
 
 

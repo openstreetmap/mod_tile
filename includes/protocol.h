@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -40,31 +40,31 @@ extern "C" {
 enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
 
 struct protocol {
-    int ver;
-    enum protoCmd cmd;
-    int x;
-    int y;
-    int z;
-    char xmlname[XMLCONFIG_MAX];
-    char mimetype[XMLCONFIG_MAX]; 
-    char options[XMLCONFIG_MAX]; 
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+	char xmlname[XMLCONFIG_MAX];
+	char mimetype[XMLCONFIG_MAX];
+	char options[XMLCONFIG_MAX];
 };
 
 struct protocol_v1 {
-    int ver;
-    enum protoCmd cmd;
-    int x;
-    int y;
-    int z;
-}; 
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+};
 
-struct protocol_v2 { 
-    int ver; 
-    enum protoCmd cmd; 
-    int x; 
-    int y; 
-    int z; 
-    char xmlname[XMLCONFIG_MAX]; 
+struct protocol_v2 {
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+	char xmlname[XMLCONFIG_MAX];
 };
 
 #ifdef __cplusplus

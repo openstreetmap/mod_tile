@@ -9,28 +9,32 @@
 double get_load_avg(void)
 {
 #ifdef HAVE_GETLOADAVG
-    double loadavg[1];
-    int n = getloadavg(loadavg, 1);
+	double loadavg[1];
+	int n = getloadavg(loadavg, 1);
 
-    if (n < 1)
-        return 1000.0;
-    else
-        return loadavg[0];
+	if (n < 1) {
+		return 1000.0;
+	} else {
+		return loadavg[0];
+	}
+
 #else
-    FILE *loadavg = fopen("/proc/loadavg", "r");
-    double avg = 1000.0;
+	FILE *loadavg = fopen("/proc/loadavg", "r");
+	double avg = 1000.0;
 
-    if (!loadavg) {
-        fprintf(stderr, "failed to read /proc/loadavg");
-        return 1000.0;
-    }
-    if (fscanf(loadavg, "%lf", &avg) != 1) {
-        fprintf(stderr, "failed to parse /proc/loadavg");
-        fclose(loadavg);
-        return 1000.0;
-    }
-    fclose(loadavg);
+	if (!loadavg) {
+		fprintf(stderr, "failed to read /proc/loadavg");
+		return 1000.0;
+	}
 
-    return avg;
+	if (fscanf(loadavg, "%lf", &avg) != 1) {
+		fprintf(stderr, "failed to parse /proc/loadavg");
+		fclose(loadavg);
+		return 1000.0;
+	}
+
+	fclose(loadavg);
+
+	return avg;
 #endif
 }
