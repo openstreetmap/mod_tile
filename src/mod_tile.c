@@ -1779,6 +1779,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
     const char * result;
     char fileExtension[INILINE_MAX];
     char mimeType[INILINE_MAX];
+    char outputFormat[INILINE_MAX];
     char * description = NULL;
     char * attribution = NULL;
     char * cors = NULL;
@@ -1840,6 +1841,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
             strcpy(url,"");
             strcpy(fileExtension,"png");
             strcpy(mimeType,"image/png");
+            strcpy(outputFormat,"png256");
             description = NULL;
             cors = NULL;
             attribution = NULL;
@@ -1872,7 +1874,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
                     fclose(hini);
                     return "TYPE too long";
                 }
-                if (sscanf(value, "%[^ ] %[^;#]", fileExtension, mimeType) != 2) {
+                if (sscanf(value, "%[^ ] %[^ ] %[^;#]", fileExtension, mimeType, outputFormat) < 2) {
                     if (description) {free(description); description = NULL;} if (attribution) {free(attribution); attribution = NULL;}
                     if (hostnames) {free(hostnames); hostnames = NULL;} if (cors) {free(cors); cors = NULL;}
                     if (tile_dir) {free(tile_dir); tile_dir = NULL; }
