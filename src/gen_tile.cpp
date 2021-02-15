@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -111,7 +111,7 @@ struct xmlmapconfig {
     int minzoom;
     int maxzoom;
     int ok;
-    parameterize_function_ptr parameterize_function; 
+    parameterize_function_ptr parameterize_function;
     xmlmapconfig() :
         map(256,256) {}
 };
@@ -271,9 +271,9 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 
     mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     try {
-        Map map_parameterized = map->map; 
-        if (map->parameterize_function) 
-            map->parameterize_function(map_parameterized, options); 
+        Map map_parameterized = map->map;
+        if (map->parameterize_function)
+            map->parameterize_function(map_parameterized, options);
         mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized,buf,map->scale);
         ren.apply();
     } catch (std::exception const& ex) {
@@ -292,7 +292,6 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 #else
             mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
 #endif
-            //tiles.set(xx, yy, save_to_string(vw, "png256"));
             tiles.set(xx, yy, save_to_string(vw, map->output_format));
         }
     }
@@ -330,10 +329,9 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
     mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
     //std::cout << "Render " << z << " " << x << " " << y << " " << filename << "\n";
-    
-    //mapnik::save_to_file(vw, tmp, "png256");
+
     mapnik::save_to_file(vw, tmp, outputFormat);
-    
+
     if (rename(tmp, filename)) {
         perror(tmp);
         return cmdNotDone;
@@ -505,4 +503,3 @@ void *render_thread(void * arg)
     }
     return NULL;
 }
-

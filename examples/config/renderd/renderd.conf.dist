@@ -43,7 +43,7 @@ XML=/var/www/example-map/mapnik.xml
 ;** config options used by mod_tile, but not renderd **
 ;MINZOOM=0
 ;MAXZOOM=18
-;TYPE=png image/png
+;TYPE=png image/png png256 ; Values are: <extension> <mime-type> <output-format> (for more information about output format see https://github.com/mapnik/mapnik/wiki/Image-IO)
 ;DESCRIPTION=This is a description of the tile layer used in the tile json request
 ;ATTRIBUTION=&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://opendatacommons.org/licenses/odbl/\">ODbL</a>
 ;SERVER_ALIAS=http://localhost/
@@ -62,7 +62,7 @@ XML=/var/www/example-map/mapnik.xml
 ;** config options used by mod_tile, but not renderd **
 ;MINZOOM=0
 ;MAXZOOM=22
-;TYPE=png image/png
+;TYPE=png image/png png256 ; Values are: <extension> <mime-type> <output-format> (for more information about output format see https://github.com/mapnik/mapnik/wiki/Image-IO)
 ;DESCRIPTION=This is a description of the tile layer used in the tile json request
 ;ATTRIBUTION=&copy;<a href=\"http://www.openstreetmap.org/\">OpenStreetMap</a> and <a href=\"http://wiki.openstreetmap.org/wiki/Contributors\">contributors</a>, <a href=\"http://opendatacommons.org/licenses/odbl/\">ODbL</a>
 ;SERVER_ALIAS=http://localhost/
