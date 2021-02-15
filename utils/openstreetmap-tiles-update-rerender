@@ -1,3 +1,5 @@
+#!/bin/sh
+#
 # Copyright (c) 2007 - 2020 by mod_tile contributors (see AUTHORS file)
 #
 # This program is free software; you can redistribute it and/or
@@ -9,11 +11,9 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; If not, see http://www.gnu.org/licenses/.
-
-#!/bin/sh
 
 set -e
 
@@ -78,141 +78,132 @@ EXPIRY_MAXZOOM=20
 #*************************************************************************
 #*************************************************************************
 
-m_info()
-{
-        echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ $1" >> "$RUNLOG"
+m_info() {
+  echo "[$(date +"%Y-%m-%d %H:%M:%S")] $$ $1" >>"$RUNLOG"
 }
 
-m_error()
-{
-    echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ [error] $1" >> "$RUNLOG"
-    
-    m_info "resetting state"
-    /bin/cp $WORKOSM_DIR/last.state.txt $WORKOSM_DIR/state.txt || true
-    
-    rm "$CHANGE_FILE" || true
-    rm "$EXPIRY_FILE.$$" || true
-    rm "$LOCK_FILE"
-    exit
+m_error() {
+  echo "[$(date +"%Y-%m-%d %H:%M:%S")] $$ [error] $1" >>"$RUNLOG"
+
+  m_info "resetting state"
+  /bin/cp $WORKOSM_DIR/last.state.txt $WORKOSM_DIR/state.txt || true
+
+  rm "$CHANGE_FILE" || true
+  rm "$EXPIRY_FILE.$$" || true
+  rm "$LOCK_FILE"
+  exit
 }
 
-m_ok()
-{
-    echo "[`date +"%Y-%m-%d %H:%M:%S"`] $$ $1" >> "$RUNLOG"
+m_ok() {
+  echo "[$(date +"%Y-%m-%d %H:%M:%S")] $$ $1" >>"$RUNLOG"
 }
 
-getlock()
-{
-    if [ -s $1 ]; then
-        if [ "$(ps -p `cat $1` | wc -l)" -gt 1 ]; then
-            return 1 #false
-        fi
+getlock() {
+  if [ -s $1 ]; then
+    if [ "$(ps -p $(cat $1) | wc -l)" -gt 1 ]; then
+      return 1 #false
     fi
-    
-    echo $$ >"$1"
-    return 0 #true
+  fi
+
+  echo $$ >"$1"
+  return 0 #true
 }
 
-freelock()
-{
-    rm "$1"
-    rm "$CHANGE_FILE"
+freelock() {
+  rm "$1"
+  rm "$CHANGE_FILE"
 }
 
-
-if [ $# -eq 1 ] ; then
-    m_info "Initialising Osmosis replication system to $1"
-    mkdir $WORKOSM_DIR
-    $OSMOSIS_BIN --read-replication-interval-init workingDirectory=$WORKOSM_DIR 1>&2 2> "$OSMOSISLOG"
-    wget "http://replicate-sequences.osm.mazdermind.de/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
-    mv $WORKOSM_DIR/configuration.txt $WORKOSM_DIR/configuration_orig.txt
-    sed "s!baseUrl=http://planet.openstreetmap.org/replication/minute!baseUrl=https://planet.openstreetmap.org/replication/minute!" $WORKOSM_DIR/configuration_orig.txt > $WORKOSM_DIR/configuration.txt
+if [ $# -eq 1 ]; then
+  m_info "Initialising Osmosis replication system to $1"
+  mkdir $WORKOSM_DIR
+  $OSMOSIS_BIN --read-replication-interval-init workingDirectory=$WORKOSM_DIR 1>&2 2>"$OSMOSISLOG"
+  wget "http://replicate-sequences.osm.mazdermind.de/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
+  mv $WORKOSM_DIR/configuration.txt $WORKOSM_DIR/configuration_orig.txt
+  sed "s!baseUrl=http://planet.openstreetmap.org/replication/minute!baseUrl=https://planet.openstreetmap.org/replication/minute!" $WORKOSM_DIR/configuration_orig.txt >$WORKOSM_DIR/configuration.txt
 else
-# make sure the lockfile is removed when we exit and then claim it
+  # make sure the lockfile is removed when we exit and then claim it
 
-    if ! getlock "$LOCK_FILE"; then
-        m_info "pid `cat $LOCK_FILE` still running"
-        exit 3
-    fi
+  if ! getlock "$LOCK_FILE"; then
+    m_info "pid $(cat $LOCK_FILE) still running"
+    exit 3
+  fi
 
-    if [ -e $STOP_FILE ]; then
-        m_info "stopped"
-        exit 2
-    fi
+  if [ -e $STOP_FILE ]; then
+    m_info "stopped"
+    exit 2
+  fi
 
-# -----------------------------------------------------------------------------
-# Add disk space check from https://github.com/zverik/regional
-# -----------------------------------------------------------------------------
-MIN_DISK_SPACE_MB=500
+  # -----------------------------------------------------------------------------
+  # Add disk space check from https://github.com/zverik/regional
+  # -----------------------------------------------------------------------------
+  MIN_DISK_SPACE_MB=500
 
-if `python -c "import os, sys; st=os.statvfs('$BASE_DIR'); sys.exit(1 if st.f_bavail*st.f_frsize/1024/1024 > $MIN_DISK_SPACE_MB else 0)"`; then
+  if $(python -c "import os, sys; st=os.statvfs('$BASE_DIR'); sys.exit(1 if st.f_bavail*st.f_frsize/1024/1024 > $MIN_DISK_SPACE_MB else 0)"); then
     m_info "there is less than $MIN_DISK_SPACE_MB MB left"
     exit 4
-fi
+  fi
 
-    seq=`cat $WORKOSM_DIR/state.txt | grep sequenceNumber | cut -d= -f2`
+  seq=$(cat $WORKOSM_DIR/state.txt | grep sequenceNumber | cut -d= -f2)
 
-    m_ok "start import from seq-nr $seq, replag is `osmosis-db_replag -h`"
+  m_ok "start import from seq-nr $seq, replag is $(osmosis-db_replag -h)"
 
-    /bin/cp $WORKOSM_DIR/state.txt $WORKOSM_DIR/last.state.txt
-    m_ok "downloading diff"
-    
-    if ! $OSMOSIS_BIN --read-replication-interval workingDirectory=$WORKOSM_DIR --simplify-change --write-xml-change $CHANGE_FILE 1>&2 2> "$OSMOSISLOG"; then
-        m_error "Osmosis error"
-    fi
-    
-m_ok "filtering diff"
-if ! $TRIM_BIN $TRIM_OPTIONS $TRIM_REGION_OPTIONS  -z $CHANGE_FILE $CHANGE_FILE 1>&2 2>> "$RUNLOG"; then
+  /bin/cp $WORKOSM_DIR/state.txt $WORKOSM_DIR/last.state.txt
+  m_ok "downloading diff"
+
+  if ! $OSMOSIS_BIN --read-replication-interval workingDirectory=$WORKOSM_DIR --simplify-change --write-xml-change $CHANGE_FILE 1>&2 2>"$OSMOSISLOG"; then
+    m_error "Osmosis error"
+  fi
+
+  m_ok "filtering diff"
+  if ! $TRIM_BIN $TRIM_OPTIONS $TRIM_REGION_OPTIONS -z $CHANGE_FILE $CHANGE_FILE 1>&2 2>>"$RUNLOG"; then
     m_error "Trim_osc error"
-fi
+  fi
 
-    m_ok "importing diff"
-#------------------------------------------------------------------------------
-# Previously openstreetmap-tiles-update-expire tried to dirty layer
-# "$EXPIRY_MAXZOOM - 3" (which was 15) only.  Instead we write all expired
-# tiles in range to the list (note the "-" rather than ":" in the "-e"
-# parameter).
-#------------------------------------------------------------------------------
-    if ! $OSM2PGSQL_BIN -a --slim -e$EXPIRY_MINZOOM-$EXPIRY_MAXZOOM $OSM2PGSQL_OPTIONS -o "$EXPIRY_FILE.$$" $CHANGE_FILE 1>&2 2> "$PGSQLLOG"; then
-        m_error "osm2pgsql error"
-    fi
+  m_ok "importing diff"
+  #------------------------------------------------------------------------------
+  # Previously openstreetmap-tiles-update-expire tried to dirty layer
+  # "$EXPIRY_MAXZOOM - 3" (which was 15) only.  Instead we write all expired
+  # tiles in range to the list (note the "-" rather than ":" in the "-e"
+  # parameter).
+  #------------------------------------------------------------------------------
+  if ! $OSM2PGSQL_BIN -a --slim -e$EXPIRY_MINZOOM-$EXPIRY_MAXZOOM $OSM2PGSQL_OPTIONS -o "$EXPIRY_FILE.$$" $CHANGE_FILE 1>&2 2>"$PGSQLLOG"; then
+    m_error "osm2pgsql error"
+  fi
 
-#------------------------------------------------------------------------------
-# The lockfile is normally removed before we expire tiles because that is 
-# something thatcan be done in parallel with further processing.  In order to
-# avoid rework, if actually rerendering is done rather than just deleting or
-# dirtying, it makes sense to move it lower down.
-#------------------------------------------------------------------------------
-#    m_ok "Import complete; removing lock file"
-#    freelock "$LOCK_FILE"
+  #------------------------------------------------------------------------------
+  # The lockfile is normally removed before we expire tiles because that is
+  # something thatcan be done in parallel with further processing.  In order to
+  # avoid rework, if actually rerendering is done rather than just deleting or
+  # dirtying, it makes sense to move it lower down.
+  #------------------------------------------------------------------------------
+  #    m_ok "Import complete; removing lock file"
+  #    freelock "$LOCK_FILE"
 
-    m_ok "expiring tiles"
-#------------------------------------------------------------------------------
-# When expiring tiles we need to define the style sheet if it's not "default".
-# In this case it's "ajt".
-# Previously all tiles on the "dirty" list between $EXPIRY_MINZOOM and 
-# $EXPIRY_MAXZOOM were dirtied.  We currently re-render 
-# tiles >= $EXPIRY_MINZOOM and < $EXPIRY_DELETEFROM, expiry from 14 and 
-# delete >= $EXPIRY_DELETEFROM and <= $EXPIRY_MAXZOOM.
-# The default path to renderd.sock is fixed.
-#
-# Note no --touch-from=$EXPIRY_TOUCHFROM 
-#------------------------------------------------------------------------------
-    if ! render_expired --map=ajt --min-zoom=$EXPIRY_MINZOOM --delete-from=$EXPIRY_DELETEFROM --max-zoom=$EXPIRY_MAXZOOM -s /var/run/renderd/renderd.sock < "$EXPIRY_FILE.$$" 2>&1 | tail -8 >> "$EXPIRYLOG"; then
-        m_info "Expiry failed"
-    fi
+  m_ok "expiring tiles"
+  #------------------------------------------------------------------------------
+  # When expiring tiles we need to define the style sheet if it's not "default".
+  # In this case it's "ajt".
+  # Previously all tiles on the "dirty" list between $EXPIRY_MINZOOM and
+  # $EXPIRY_MAXZOOM were dirtied.  We currently re-render
+  # tiles >= $EXPIRY_MINZOOM and < $EXPIRY_DELETEFROM, expiry from 14 and
+  # delete >= $EXPIRY_DELETEFROM and <= $EXPIRY_MAXZOOM.
+  # The default path to renderd.sock is fixed.
+  #
+  # Note no --touch-from=$EXPIRY_TOUCHFROM
+  #------------------------------------------------------------------------------
+  if ! render_expired --map=ajt --min-zoom=$EXPIRY_MINZOOM --delete-from=$EXPIRY_DELETEFROM --max-zoom=$EXPIRY_MAXZOOM -s /var/run/renderd/renderd.sock <"$EXPIRY_FILE.$$" 2>&1 | tail -8 >>"$EXPIRYLOG"; then
+    m_info "Expiry failed"
+  fi
 
-    rm "$EXPIRY_FILE.$$"
+  rm "$EXPIRY_FILE.$$"
 
-#------------------------------------------------------------------------------
-# Only remove the lock file after expiry (if system is slow we want to delay
-# the next import, not have multiple render_expired processes running)    
-#------------------------------------------------------------------------------
-    freelock "$LOCK_FILE"
-   
-    m_ok "Done with import"
-    
+  #------------------------------------------------------------------------------
+  # Only remove the lock file after expiry (if system is slow we want to delay
+  # the next import, not have multiple render_expired processes running)
+  #------------------------------------------------------------------------------
+  freelock "$LOCK_FILE"
 
-    
+  m_ok "Done with import"
 
 fi

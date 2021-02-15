@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Copyright (c) 2007 - 2020 by mod_tile contributors (see AUTHORS file)
 #
 # This program is free software; you can redistribute it and/or
@@ -9,32 +11,35 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; If not, see http://www.gnu.org/licenses/.
 
-#!/bin/bash
 STATE=/var/cache/renderd/tiles/.osmosis/state.txt
 
-rep=`cat ${STATE} |\
-        grep 'timestamp' |\
-        awk '{split($0, a, "="); print a[2]}' |\
-        tr 'T' ' ' |\
-        xargs -I{} ${BINPATH}date --utc --date "{}" +%s`
-is=`date --utc +%s`
+rep=$(cat ${STATE} |
+  grep 'timestamp' |
+  awk '{split($0, a, "="); print a[2]}' |
+  tr 'T' ' ' |
+  xargs -I{} ${BINPATH}date --utc --date "{}" +%s)
+is=$(date --utc +%s)
 
 lag=$(($is - $rep))
 
 if [ "$1" = "-h" ]; then
 
-  if [ $lag -gt 86400 ]; then echo $(($lag / 86400)) "day(s) and" $((($lag % 86400) / 3600)) "hour(s)";
-  elif [ $lag -gt 3600 ]; then echo $(($lag / 3600)) "hour(s)";
-  elif [ $lag -gt 60 ]; then echo $(($lag / 60)) "minute(s)";
-  else echo $lag "second(s)";
+  if [ $lag -gt 86400 ]; then
+    echo $(($lag / 86400)) "day(s) and" $((($lag % 86400) / 3600)) "hour(s)"
+  elif [ $lag -gt 3600 ]; then
+    echo $(($lag / 3600)) "hour(s)"
+  elif [ $lag -gt 60 ]; then
+    echo $(($lag / 60)) "minute(s)"
+  else
+    echo $lag "second(s)"
   fi
 
 else
 
-  echo $lag;
+  echo $lag
 
 fi
