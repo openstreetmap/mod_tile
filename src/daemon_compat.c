@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -31,54 +31,62 @@
 #include <paths.h>
 #endif
 #ifndef _PATH_DEVNULL
-#define _PATH_DEVNULL "/dev/null" 
+#define _PATH_DEVNULL "/dev/null"
 #endif
 
 int
 daemon(nochdir, noclose)
-     int nochdir, noclose;
+int nochdir, noclose;
 {
-  struct sigaction osa, sa;
-  int fd;
-  pid_t newgrp;
-  int oerrno;
-  int osa_ok;
+	struct sigaction osa, sa;
+	int fd;
+	pid_t newgrp;
+	int oerrno;
+	int osa_ok;
 
-  /* A SIGHUP may be thrown when the parent exits below. */
-  sigemptyset(&sa.sa_mask);
-  sa.sa_handler = SIG_IGN;
-  sa.sa_flags = 0;
-  osa_ok = sigaction(SIGHUP, &sa, &osa);
+	/* A SIGHUP may be thrown when the parent exits below. */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_IGN;
+	sa.sa_flags = 0;
+	osa_ok = sigaction(SIGHUP, &sa, &osa);
 
-  switch (fork()) {
-  case -1:
-    return (-1);
-  case 0:
-    break;
-  default:
-    exit(0);
-  }
+	switch (fork()) {
+		case -1:
+			return (-1);
 
-  newgrp = setsid();
-  oerrno = errno;
-  if (osa_ok != -1)
-    sigaction(SIGHUP, &osa, NULL);
+		case 0:
+			break;
 
-  if (newgrp == -1) {
-    errno = oerrno;
-    return (-1);
-  }
+		default:
+			exit(0);
+	}
 
-  if (!nochdir)
-    (void)chdir("/");
+	newgrp = setsid();
+	oerrno = errno;
 
-  if (!noclose && (fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
-    dup2(fd, STDIN_FILENO);
-    dup2(fd, STDOUT_FILENO);
-    dup2(fd, STDERR_FILENO);
-    if (fd > 2)
-      close(fd);
-  }
-  return (0);
+	if (osa_ok != -1) {
+		sigaction(SIGHUP, &osa, NULL);
+	}
+
+	if (newgrp == -1) {
+		errno = oerrno;
+		return (-1);
+	}
+
+	if (!nochdir) {
+		(void)chdir("/");
+	}
+
+	if (!noclose && (fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+
+		if (fd > 2) {
+			close(fd);
+		}
+	}
+
+	return (0);
 }
 #endif

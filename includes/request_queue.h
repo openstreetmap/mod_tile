@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
@@ -27,34 +27,34 @@ extern "C" {
 #define HASHIDX_SIZE 2213
 
 typedef struct {
-    long noDirtyRender;
-    long noReqRender;
-    long noReqPrioRender;
-    long noReqLowRender;
-    long noReqBulkRender;
-    long noReqDroped;
-    long noZoomRender[MAX_ZOOM + 1];
-    long timeReqRender;
-    long timeReqPrioRender;
-    long timeReqLowRender;
-    long timeReqBulkRender;
-    long timeReqDirty;
-    long timeZoomRender[MAX_ZOOM + 1];
+	long noDirtyRender;
+	long noReqRender;
+	long noReqPrioRender;
+	long noReqLowRender;
+	long noReqBulkRender;
+	long noReqDroped;
+	long noZoomRender[MAX_ZOOM + 1];
+	long timeReqRender;
+	long timeReqPrioRender;
+	long timeReqLowRender;
+	long timeReqBulkRender;
+	long timeReqDirty;
+	long timeZoomRender[MAX_ZOOM + 1];
 } stats_struct;
 
 struct item_idx {
-    struct item_idx *next;
-    struct item *item;
+	struct item_idx *next;
+	struct item *item;
 };
 
 struct request_queue {
-    int hashidxSize;
-    struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
-    struct item_idx * item_hashidx;
-    int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
-    pthread_mutex_t qLock;
-    pthread_cond_t qCond;
-    stats_struct stats;
+	int hashidxSize;
+	struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
+	struct item_idx * item_hashidx;
+	int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
+	pthread_mutex_t qLock;
+	pthread_cond_t qCond;
+	stats_struct stats;
 };
 
 
