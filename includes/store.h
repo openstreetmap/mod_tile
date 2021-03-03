@@ -26,11 +26,6 @@ extern "C" {
 #include <sys/types.h>
 #include "render_config.h"
 
-#define STORE_LOGLVL_DEBUG 0
-#define STORE_LOGLVL_INFO 1
-#define STORE_LOGLVL_WARNING 2
-#define STORE_LOGLVL_ERR 3
-
 struct stat_info {
 	off_t     size;    /* total size, in bytes */
 	time_t    atime;   /* time of last access */
@@ -50,8 +45,6 @@ struct storage_backend {
 
 	void * storage_ctx;
 };
-
-void log_message(int log_lvl, const char *format, ...);
 
 struct storage_backend * init_storage_backend(const char * options);
 

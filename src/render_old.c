@@ -63,6 +63,8 @@ static int max_load = MAX_LOAD_OLD;
 static time_t planetTime;
 static struct timeval start, end;
 
+int foreground = 1;
+
 
 
 void display_rate(struct timeval start, struct timeval end, int num)

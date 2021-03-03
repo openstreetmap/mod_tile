@@ -33,6 +33,7 @@
 #include "store_ro_http_proxy.h"
 #include "render_config.h"
 #include "protocol.h"
+#include "g_logger.h"
 
 
 #ifdef HAVE_LIBCURL
@@ -70,7 +71,7 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
 		chunk->memory = malloc(realsize);
 	}
 
-	//log_message(STORE_LOGLVL_DEBUG, "ro_http_proxy_tile_read: writing a chunk: Position %i, size %i", chunk->size, realsize);
+	g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: writing a chunk: Position %i, size %i", chunk->size, realsize);
 
 	memcpy(&(chunk->memory[chunk->size]), contents, realsize);
 	chunk->size += realsize;
@@ -94,17 +95,17 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 	//TODO: Deal with options
 	if ((ctx->cache.x == x) && (ctx->cache.y == y) && (ctx->cache.z == z) && (strcmp(ctx->cache.xmlname, xmlconfig) == 0)) {
-		log_message(STORE_LOGLVL_DEBUG, "ro_http_proxy_tile_fetch: Got a cached tile");
+		g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_fetch: Got a cached tile");
 		return 1;
 	} else {
-		log_message(STORE_LOGLVL_DEBUG, "ro_http_proxy_tile_fetch: Fetching tile");
+		g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_fetch: Fetching tile");
 
 		chunk.memory = NULL;
 		chunk.size = 0;
 		path = malloc(PATH_MAX);
 
 		ro_http_proxy_xyz_to_storagekey(store, x, y, z, path);
-		log_message(STORE_LOGLVL_DEBUG, "ro_http_proxy_tile_fetch: proxing file %s", path);
+		g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_fetch: proxing file %s", path);
 		curl_easy_setopt(ctx->ctx, CURLOPT_URL, path);
 
 		curl_easy_setopt(ctx->ctx, CURLOPT_WRITEFUNCTION, write_memory_callback);
@@ -114,7 +115,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 		free(path);
 
 		if (res != CURLE_OK) {
-			log_message(STORE_LOGLVL_ERR, "ro_http_proxy_tile_fetch: failed to retrieve file: %s", curl_easy_strerror(res));
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve file: %s", curl_easy_strerror(res));
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;
@@ -124,7 +125,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 		res = curl_easy_getinfo(ctx->ctx, CURLINFO_RESPONSE_CODE, &httpCode);
 
 		if (res != CURLE_OK) {
-			log_message(STORE_LOGLVL_ERR, "ro_http_proxy_tile_fetch: failed to retrieve HTTP code: %s", curl_easy_strerror(res));
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve HTTP code: %s", curl_easy_strerror(res));
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;
@@ -142,7 +143,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 				ctx->cache.st_stat.expired = 0;
 				res = curl_easy_getinfo(ctx->ctx, CURLINFO_FILETIME, &(ctx->cache.st_stat.mtime));
 				ctx->cache.st_stat.atime = 0;
-				log_message(STORE_LOGLVL_DEBUG, "ro_http_proxy_tile_read: Read file of size %i", chunk.size);
+				g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: Read file of size %i", chunk.size);
 				break;
 			}
 
@@ -172,14 +173,14 @@ static int ro_http_proxy_tile_read(struct storage_backend * store, const char *x
 
 	if (ro_http_proxy_tile_retrieve(store, xmlconfig, options, x, y, z) > 0) {
 		if (ctx->cache.st_stat.size > sz) {
-			log_message(STORE_LOGLVL_ERR, "ro_http_proxy_tile_read: size was too big, overrun %i %i", sz, ctx->cache.st_stat.size);
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %i %i", sz, ctx->cache.st_stat.size);
 			return -1;
 		}
 
 		memcpy(buf, ctx->cache.tile, ctx->cache.st_stat.size);
 		return ctx->cache.st_stat.size;
 	} else {
-		log_message(STORE_LOGLVL_ERR, "ro_http_proxy_tile_read: Fetching didn't work");
+		g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: Fetching didn't work");
 		return -1;
 	}
 }
@@ -210,21 +211,21 @@ static char * ro_http_proxy_tile_storage_id(struct storage_backend * store, cons
 
 static int ro_http_proxy_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
-	log_message(STORE_LOGLVL_ERR, "ro_http_proxy_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
 
 static int ro_http_proxy_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
 {
-	log_message(STORE_LOGLVL_ERR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
 static int ro_http_proxy_metatile_expire(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
 {
 
-	log_message(STORE_LOGLVL_ERR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
@@ -255,17 +256,17 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 {
 
 #ifndef HAVE_LIBCURL
-	log_message(STORE_LOGLVL_ERR, "init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
 	return NULL;
 #else
 	struct storage_backend * store = malloc(sizeof(struct storage_backend));
 	struct ro_http_proxy_ctx * ctx = malloc(sizeof(struct ro_http_proxy_ctx));
 	CURLcode res;
 
-	log_message(STORE_LOGLVL_DEBUG, "init_storage_ro_http_proxy: initialising proxy storage backend for %s", connection_string);
+	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: initialising proxy storage backend for %s", connection_string);
 
 	if (!store || !ctx) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_http_proxy: failed to allocate memory for context");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to allocate memory for context");
 
 		if (store) {
 			free(store);
@@ -288,7 +289,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 	pthread_mutex_lock(&qLock);
 
 	if (!done_global_init) {
-		log_message(STORE_LOGLVL_DEBUG, "init_storage_ro_http_proxy: Global init of curl", connection_string);
+		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: Global init of curl", connection_string);
 		res = curl_global_init(CURL_GLOBAL_DEFAULT);
 		done_global_init = 1;
 	} else {
@@ -298,7 +299,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 	pthread_mutex_unlock(&qLock);
 
 	if (res != CURLE_OK) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));
 		free(ctx);
 		free(store);
 		return NULL;
@@ -307,7 +308,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 	ctx->ctx = curl_easy_init();
 
 	if (!ctx->ctx) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_ro_http_proxy: failed to initialise curl");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise curl");
 		free(ctx);
 		free(store);
 		return NULL;

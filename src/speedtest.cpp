@@ -73,6 +73,8 @@ static double boundx1 = 3.2;
 static double boundy1 = 58.8;
 #endif
 
+int foreground = 1;
+
 
 static double minmax(double a, double b, double c)
 {

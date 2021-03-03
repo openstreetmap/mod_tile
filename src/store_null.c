@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include "g_logger.h"
+
 static int tile_read(struct storage_backend * store,
 		     const char *xmlconfig,
 		     const char *options,
@@ -90,7 +92,7 @@ struct storage_backend *init_storage_null()
 	struct storage_backend *store = malloc(sizeof * store);
 
 	if (store == NULL) {
-		log_message(STORE_LOGLVL_ERR, "init_storage_null: Failed to allocate memory for storage backend");
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_null: Failed to allocate memory for storage backend");
 		return NULL;
 	}
 

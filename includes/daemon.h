@@ -43,7 +43,6 @@ typedef struct {
 	char *mapnik_font_dir;
 	int mapnik_font_dir_recurse;
 	char * stats_filename;
-	char * log_priority;
 } renderd_config;
 
 typedef struct {

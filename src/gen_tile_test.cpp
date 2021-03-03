@@ -989,4 +989,3 @@ int main(int argc, char* const argv[])
 	pthread_mutex_destroy(&item_counter_lock);
 	return result;
 }
-

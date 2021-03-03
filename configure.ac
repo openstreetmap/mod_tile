@@ -15,14 +15,15 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CC_C99
 
-dnl Find C++ compiler 
-AC_CHECK_PROG(HAVE_CXX, $CXX, yes, no) 
-if test "$HAVE_CXX" = "no"  
-then 
-  AC_MSG_ERROR([Could not find a c++ compiler]); 
+dnl Find C++ compiler
+AC_CHECK_PROG(HAVE_CXX, $CXX, yes, no)
+if test "$HAVE_CXX" = "no"
+then
+  AC_MSG_ERROR([Could not find a c++ compiler]);
 fi
 
 # Checks for libraries.
+PKG_CHECK_MODULES([GLIB], [glib-2.0])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/socket.h sys/time.h syslog.h unistd.h utime.h paths.h sys/cdefs.h sys/loadavg.h])

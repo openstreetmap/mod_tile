@@ -57,7 +57,7 @@ static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
 static int maxLoad = MAX_LOAD_OLD;
 
-int log_priority = -1;
+int foreground = 1;
 
 
 void display_rate(struct timeval start, struct timeval end, int num)
