@@ -16,6 +16,7 @@
  */
 
 #define _GNU_SOURCE 1
+#define G_LOG_USE_STRUCTURED 1
 
 #include <glib.h>
 #include <stdio.h>
@@ -51,62 +52,73 @@ const char *g_logger_level_name(int log_level)
 
 void g_logger(int log_level, const char *format, ...)
 {
-	char *log_format;
-
-	int size = asprintf(&log_format, "%s: %s", g_logger_level_name(log_level), format);
-
-	if (size == -1) {
-		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_ERROR, "ERROR: asprintf failed in g_logger");
-	}
+	int size;
+	char *log_message;
 
 	va_list args;
 
 	va_start(args, format);
 
+	size = vasprintf(&log_message, format, args);
+
+	if (size == -1) {
+		g_error("ERROR: vasprintf failed in g_logger");
+	}
+
 	if (foreground == 1) {
+		const GLogField log_fields[] = {{"MESSAGE", log_message, -1}};
+
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
 			case G_LOG_LEVEL_ERROR:
-				g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_CRITICAL, log_format, args);
+				g_log_writer_standard_streams(log_level, log_fields, 1, NULL);
 				break;
 
 			// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
 			case G_LOG_LEVEL_INFO:
-				g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, log_format, args);
+				g_log_writer_standard_streams(log_level, log_fields, 1, NULL);
 				break;
 
 			default:
-				g_logv(G_LOG_DOMAIN, log_level, log_format, args);
+				g_log_structured_array(log_level, log_fields, 1);
 		}
 	} else {
+		size = asprintf(&log_message, "%s: %s", g_logger_level_name(log_level), log_message);
+
+		if (size == -1) {
+			g_error("ERROR: asprintf failed in g_logger");
+		}
+
+		setlogmask(LOG_UPTO(LOG_INFO));
+
 		switch (log_level) {
 			case G_LOG_LEVEL_ERROR:
-				vsyslog(LOG_ERR, log_format, args);
+				syslog(LOG_ERR, log_message, NULL);
 				break;
 
 			case G_LOG_LEVEL_CRITICAL:
-				vsyslog(LOG_CRIT, log_format, args);
+				syslog(LOG_CRIT, log_message, NULL);
 				break;
 
 			case G_LOG_LEVEL_WARNING:
-				vsyslog(LOG_WARNING, log_format, args);
+				syslog(LOG_WARNING, log_message, NULL);
 				break;
 
 			case G_LOG_LEVEL_MESSAGE:
-				vsyslog(LOG_INFO, log_format, args);
+				syslog(LOG_INFO, log_message, NULL);
 				break;
 
 			case G_LOG_LEVEL_INFO:
-				vsyslog(LOG_INFO, log_format, args);
+				syslog(LOG_INFO, log_message, NULL);
 				break;
 
 			case G_LOG_LEVEL_DEBUG:
-				vsyslog(LOG_DEBUG, log_format, args);
+				syslog(LOG_DEBUG, log_message, NULL);
 				break;
 		}
 	}
 
-	free(log_format);
-
 	va_end(args);
+
+	free(log_message);
 }
