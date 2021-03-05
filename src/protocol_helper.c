@@ -62,10 +62,10 @@ int recv_cmd(struct protocol * cmd, int fd,  int block)
 	ret = recv(fd, cmd, sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
 
 	if (ret < 1) {
-		g_logger(G_LOG_LEVEL_INFO, "DEBUG: Failed to read cmd on fd %i", fd);
+		g_logger(G_LOG_LEVEL_DEBUG, "Failed to read cmd on fd %i", fd);
 		return -1;
 	} else if (ret < sizeof(struct protocol_v1)) {
-		g_logger(G_LOG_LEVEL_INFO, "DEBUG: Read incomplete cmd on fd %i", fd);
+		g_logger(G_LOG_LEVEL_DEBUG, "Read incomplete cmd on fd %i", fd);
 		return 0;
 	}
 
