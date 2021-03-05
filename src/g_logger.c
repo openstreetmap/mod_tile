@@ -15,6 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#define _GNU_SOURCE 1
+
 #include <glib.h>
 #include <stdio.h>
 #include <syslog.h>
@@ -41,18 +43,25 @@ const char *g_logger_level_name(int log_level)
 
 		case G_LOG_LEVEL_DEBUG:
 			return "DEBUG";
+
+		default:
+			return "UNKNOWN";
 	}
 }
 
-void g_logger(int log_level, char *format, ...)
+void g_logger(int log_level, const char *format, ...)
 {
 	char *log_format;
+
+	int size = asprintf(&log_format, "%s: %s", g_logger_level_name(log_level), format);
+
+	if (size == -1) {
+		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_ERROR, "ERROR: asprintf failed in g_logger");
+	}
 
 	va_list args;
 
 	va_start(args, format);
-
-	asprintf(&log_format, "%s: %s", g_logger_level_name(log_level), format);
 
 	if (foreground == 1) {
 		switch (log_level) {

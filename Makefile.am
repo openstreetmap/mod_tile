@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = foreign
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS) -Wno-write-strings
+AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 
 STORE_SOURCES = \
 	src/store.c \
@@ -97,7 +97,7 @@ gen_tile_test_SOURCES = \
 	src/cache_expire.c \
 	src/parameterize_style.cpp \
 	$(STORE_SOURCES)
-gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(GLIB_CFLAGS) -Wno-write-strings
+gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
 gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
 
