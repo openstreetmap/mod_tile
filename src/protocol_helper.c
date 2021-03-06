@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "g_logger.h"
 
@@ -29,7 +30,7 @@ int send_cmd(struct protocol * cmd, int fd)
 	g_logger(G_LOG_LEVEL_DEBUG, "Sending render cmd(%i %s %i/%i/%i) with protocol version %i to fd %i", cmd->cmd, cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->ver, fd);
 
 	if ((cmd->ver > 3) || (cmd->ver < 1)) {
-		g_logger(G_LOG_LEVEL_WARNING, "Failed to send render cmd with unknown protocol version %i on fd %d", cmd->ver, fd);
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to send render cmd with unknown protocol version %i on fd %d", cmd->ver, fd);
 		return -1;
 	}
 
@@ -48,8 +49,8 @@ int send_cmd(struct protocol * cmd, int fd)
 	}
 
 	if ((ret != sizeof(struct protocol)) && (ret != sizeof(struct protocol_v2)) && (ret != sizeof(struct protocol_v1))) {
-		g_logger(G_LOG_LEVEL_WARNING, "Failed to send render cmd on fd %i", fd);
-		perror("send error");
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to send render cmd on fd %i", fd);
+		g_logger(G_LOG_LEVEL_ERROR, "send error: %s", strerror(errno));
 	}
 
 	return ret;

@@ -510,7 +510,7 @@ void *render_thread(void * arg)
 									ret = cmdNotDone;
 								} catch (...) {
 									// Treat any error as fatal and request end of processing
-									g_logger(G_LOG_LEVEL_ERROR, "Failed writing metatile to disk with unknown error, requesting exit.");
+									g_logger(G_LOG_LEVEL_CRITICAL, "Failed writing metatile to disk with unknown error, requesting exit.");
 									ret = cmdNotDone;
 									request_exit();
 								}

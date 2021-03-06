@@ -283,7 +283,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 	req = &(item->req);
 
 	if (queue == NULL) {
-		printf("queue os NULL");
+		g_logger(G_LOG_LEVEL_CRITICAL, "queue os NULL");
 		exit(3);
 	}
 

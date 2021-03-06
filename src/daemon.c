@@ -226,7 +226,7 @@ void process_loop(int listen_fd)
 		num = select(nfds, &rd, NULL, NULL, NULL);
 
 		if (num == -1) {
-			perror("select()");
+			g_logger(G_LOG_LEVEL_ERROR, "select(): %s", strerror(errno));
 		} else if (num) {
 			if (FD_ISSET(exit_pipe_read, &rd)) {
 				// A render thread wants us to exit
@@ -240,7 +240,7 @@ void process_loop(int listen_fd)
 				incoming = accept(listen_fd, (struct sockaddr *) &in_addr, &in_addrlen);
 
 				if (incoming < 0) {
-					perror("accept()");
+					g_logger(G_LOG_LEVEL_ERROR, "accept(): %s", strerror(errno));
 				} else {
 					if (num_connections == MAX_CONNECTIONS) {
 						g_logger(G_LOG_LEVEL_WARNING, "Connection limit(%d) reached. Dropping connection", MAX_CONNECTIONS);
@@ -498,7 +498,7 @@ int server_socket_init(renderd_config *sConfig)
 		fd = socket(PF_INET6, SOCK_STREAM, 0);
 
 		if (fd < 0) {
-			g_logger(G_LOG_LEVEL_ERROR, "failed to create IP socket");
+			g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket");
 			exit(2);
 		}
 
@@ -508,7 +508,7 @@ int server_socket_init(renderd_config *sConfig)
 		addrI.sin6_port = htons(sConfig->ipport);
 
 		if (bind(fd, (struct sockaddr *) &addrI, sizeof(addrI)) < 0) {
-			g_logger(G_LOG_LEVEL_ERROR, "socket bind failed for: %s:%i",
+			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i",
 				 sConfig->iphostname, sConfig->ipport);
 			close(fd);
 			exit(3);
@@ -520,7 +520,7 @@ int server_socket_init(renderd_config *sConfig)
 		fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
 		if (fd < 0) {
-			g_logger(G_LOG_LEVEL_ERROR, "failed to create unix socket");
+			g_logger(G_LOG_LEVEL_CRITICAL, "failed to create unix socket");
 			exit(2);
 		}
 
@@ -533,7 +533,7 @@ int server_socket_init(renderd_config *sConfig)
 		old = umask(0); // Need daemon socket to be writeable by apache
 
 		if (bind(fd, (struct sockaddr *) &addrU, sizeof(addrU)) < 0) {
-			g_logger(G_LOG_LEVEL_ERROR, "socket bind failed for: %s", sConfig->socketname);
+			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s", sConfig->socketname);
 			close(fd);
 			exit(3);
 		}
@@ -542,7 +542,7 @@ int server_socket_init(renderd_config *sConfig)
 	}
 
 	if (listen(fd, QUEUE_MAX) < 0) {
-		g_logger(G_LOG_LEVEL_ERROR, "socket listen failed for %d", QUEUE_MAX);
+		g_logger(G_LOG_LEVEL_CRITICAL, "socket listen failed for %d", QUEUE_MAX);
 		close(fd);
 		exit(4);
 	}
@@ -773,12 +773,17 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (access(config_file_name, F_OK) != 0) {
+		fprintf(stderr, "Config file '%s' does not exist, please specify a valid file with -c/--config\n", config_file_name);
+		exit(1);
+	}
+
 	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started");
 
 	render_request_queue = request_queue_init();
 
 	if (render_request_queue == NULL) {
-		g_logger(G_LOG_LEVEL_ERROR, "Failed to initialise request queue");
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");
 		exit(1);
 	}
 
@@ -808,7 +813,7 @@ int main(int argc, char **argv)
 
 		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
 			if (config.tile_dir == NULL) {
-				g_logger(G_LOG_LEVEL_ERROR, "No valid (active) renderd config section available");
+				g_logger(G_LOG_LEVEL_CRITICAL, "No valid (active) renderd config section available");
 				exit(7);
 			}
 
@@ -816,12 +821,12 @@ int main(int argc, char **argv)
 			iconf++;
 
 			if (iconf >= XMLCONFIGS_MAX) {
-				g_logger(G_LOG_LEVEL_ERROR, "Config: more than %d configurations found", XMLCONFIGS_MAX);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Config: more than %d configurations found", XMLCONFIGS_MAX);
 				exit(7);
 			}
 
 			if (strlen(name) >= (XMLCONFIG_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "XML name too long: %s", name);
+				g_logger(G_LOG_LEVEL_CRITICAL, "XML name too long: %s", name);
 				exit(7);
 			}
 
@@ -831,7 +836,7 @@ int main(int argc, char **argv)
 			char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_uri) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "URI too long: %s", ini_uri);
+				g_logger(G_LOG_LEVEL_CRITICAL, "URI too long: %s", ini_uri);
 				exit(7);
 			}
 
@@ -841,7 +846,7 @@ int main(int argc, char **argv)
 			char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_xmlpath) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "XML path too long: %s", ini_xmlpath);
+				g_logger(G_LOG_LEVEL_CRITICAL, "XML path too long: %s", ini_xmlpath);
 				exit(7);
 			}
 
@@ -851,7 +856,7 @@ int main(int argc, char **argv)
 			char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "Host name too long: %s", ini_hostname);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Host name too long: %s", ini_hostname);
 				exit(7);
 			}
 
@@ -861,7 +866,7 @@ int main(int argc, char **argv)
 			char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "HTCP host name too long: %s", ini_htcpip);
+				g_logger(G_LOG_LEVEL_CRITICAL, "HTCP host name too long: %s", ini_htcpip);
 				exit(7);
 			}
 
@@ -872,7 +877,7 @@ int main(int argc, char **argv)
 			maps[iconf].tile_px_size = atoi(ini_tilesize);
 
 			if (maps[iconf].tile_px_size < 1) {
-				g_logger(G_LOG_LEVEL_ERROR, "Tile size is invalid: %s", ini_tilesize);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Tile size is invalid: %s", ini_tilesize);
 				exit(7);
 			}
 
@@ -881,7 +886,7 @@ int main(int argc, char **argv)
 			maps[iconf].scale_factor = atof(ini_scale);
 
 			if (maps[iconf].scale_factor < 0.1 || maps[iconf].scale_factor > 8.0) {
-				g_logger(G_LOG_LEVEL_ERROR, "Scale factor is invalid: %s", ini_scale);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Scale factor is invalid: %s", ini_scale);
 				exit(7);
 			}
 
@@ -889,7 +894,7 @@ int main(int argc, char **argv)
 			char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
 
 			if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "Tiledir too long: %s", ini_tiledir);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Tiledir too long: %s", ini_tiledir);
 				exit(7);
 			}
 
@@ -900,7 +905,7 @@ int main(int argc, char **argv)
 			maps[iconf].max_zoom = atoi(ini_maxzoom);
 
 			if (maps[iconf].max_zoom > MAX_ZOOM) {
-				g_logger(G_LOG_LEVEL_ERROR, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i", maps[iconf].max_zoom, MAX_ZOOM);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i", maps[iconf].max_zoom, MAX_ZOOM);
 				exit(7);
 			}
 
@@ -909,12 +914,12 @@ int main(int argc, char **argv)
 			maps[iconf].min_zoom = atoi(ini_minzoom);
 
 			if (maps[iconf].min_zoom < 0) {
-				g_logger(G_LOG_LEVEL_ERROR, "Specified min zoom (%i) is to small. Minimum zoom level has to be greater or equal to 0", maps[iconf].min_zoom);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is to small. Minimum zoom level has to be greater or equal to 0", maps[iconf].min_zoom);
 				exit(7);
 			}
 
 			if (maps[iconf].min_zoom > maps[iconf].max_zoom) {
-				g_logger(G_LOG_LEVEL_ERROR, "Specified min zoom (%i) is larger than max zoom (%i).", maps[iconf].min_zoom, maps[iconf].max_zoom);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is larger than max zoom (%i).", maps[iconf].min_zoom, maps[iconf].max_zoom);
 				exit(7);
 			}
 
@@ -922,7 +927,7 @@ int main(int argc, char **argv)
 			char *ini_parameterize = iniparser_getstring(ini, buffer, "");
 
 			if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_ERROR, "Parameterize_style too long: %s", ini_parameterize);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Parameterize_style too long: %s", ini_parameterize);
 				exit(7);
 			}
 
@@ -943,7 +948,7 @@ int main(int argc, char **argv)
 			g_logger(G_LOG_LEVEL_INFO, "Parsing render section %i", render_sec);
 
 			if (render_sec >= MAX_SLAVES) {
-				g_logger(G_LOG_LEVEL_ERROR, "Can't handle more than %i render sections",
+				g_logger(G_LOG_LEVEL_CRITICAL, "Can't handle more than %i render sections",
 					 MAX_SLAVES);
 				exit(7);
 			}
@@ -1041,7 +1046,7 @@ int main(int argc, char **argv)
 #if 0
 
 	if (fcntl(fd, F_SETFD, O_RDWR | O_NONBLOCK) < 0) {
-		g_logger(G_LOG_LEVEL_ERROR, "setting socket non-block failed");
+		g_logger(G_LOG_LEVEL_CRITICAL, "setting socket non-block failed");
 		close(fd);
 		exit(5);
 	}
@@ -1052,7 +1057,7 @@ int main(int argc, char **argv)
 	sigPipeAction.sa_handler = SIG_IGN;
 
 	if (sigaction(SIGPIPE, &sigPipeAction, NULL) < 0) {
-		g_logger(G_LOG_LEVEL_ERROR, "failed to register signal handler");
+		g_logger(G_LOG_LEVEL_CRITICAL, "failed to register signal handler");
 		close(fd);
 		exit(6);
 	}
@@ -1088,7 +1093,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < config.num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
-			g_logger(G_LOG_LEVEL_ERROR, "error spawning render thread");
+			g_logger(G_LOG_LEVEL_CRITICAL, "error spawning render thread");
 			close(fd);
 			exit(7);
 		}
@@ -1104,7 +1109,7 @@ int main(int argc, char **argv)
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
 				if (pthread_create(&slave_threads[k++], NULL, slave_thread,
 						   (void *) &config_slaves[i])) {
-					g_logger(G_LOG_LEVEL_ERROR, "error spawning render thread");
+					g_logger(G_LOG_LEVEL_CRITICAL, "error spawning render thread");
 					close(fd);
 					exit(7);
 				}
