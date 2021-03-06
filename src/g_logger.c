@@ -53,7 +53,7 @@ const char *g_logger_level_name(int log_level)
 void g_logger(int log_level, const char *format, ...)
 {
 	int size;
-	char *log_message;
+	char *log_message, *log_message_prefixed;
 
 	va_list args;
 
@@ -65,9 +65,17 @@ void g_logger(int log_level, const char *format, ...)
 		g_error("ERROR: vasprintf failed in g_logger");
 	}
 
-	if (foreground == 1) {
-		const GLogField log_fields[] = {{"MESSAGE", log_message, -1}};
+	const GLogField log_fields[] = {{"MESSAGE", log_message, -1}};
 
+	size = asprintf(&log_message_prefixed, "%s: %s", g_logger_level_name(log_level), log_message);
+
+	if (size == -1) {
+		g_error("ERROR: asprintf failed in g_logger");
+	}
+
+	const GLogField log_fields_prefixed[] = {{"MESSAGE", log_message_prefixed, -1}};
+
+	if (foreground == 1) {
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
 			case G_LOG_LEVEL_ERROR:
@@ -80,45 +88,55 @@ void g_logger(int log_level, const char *format, ...)
 				break;
 
 			default:
-				g_log_structured_array(log_level, log_fields, 1);
+				g_log_writer_default(log_level, log_fields, 1, NULL);
+		}
+	} else if (g_log_writer_is_journald(fileno(stderr))) {
+		switch (log_level) {
+			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
+			case G_LOG_LEVEL_ERROR:
+				g_log_writer_journald(log_level, log_fields, 1, NULL);
+				break;
+
+			// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
+			case G_LOG_LEVEL_INFO:
+				g_log_writer_journald(log_level, log_fields, 1, NULL);
+				break;
+
+			default:
+				g_log_writer_default(log_level, log_fields, 1, NULL);
 		}
 	} else {
-		size = asprintf(&log_message, "%s: %s", g_logger_level_name(log_level), log_message);
-
-		if (size == -1) {
-			g_error("ERROR: asprintf failed in g_logger");
-		}
-
 		setlogmask(LOG_UPTO(LOG_INFO));
 
 		switch (log_level) {
 			case G_LOG_LEVEL_ERROR:
-				syslog(LOG_ERR, log_message, NULL);
+				syslog(LOG_ERR, log_message_prefixed, NULL);
 				break;
 
 			case G_LOG_LEVEL_CRITICAL:
-				syslog(LOG_CRIT, log_message, NULL);
+				syslog(LOG_CRIT, log_message_prefixed, NULL);
 				break;
 
 			case G_LOG_LEVEL_WARNING:
-				syslog(LOG_WARNING, log_message, NULL);
+				syslog(LOG_WARNING, log_message_prefixed, NULL);
 				break;
 
 			case G_LOG_LEVEL_MESSAGE:
-				syslog(LOG_INFO, log_message, NULL);
+				syslog(LOG_INFO, log_message_prefixed, NULL);
 				break;
 
 			case G_LOG_LEVEL_INFO:
-				syslog(LOG_INFO, log_message, NULL);
+				syslog(LOG_INFO, log_message_prefixed, NULL);
 				break;
 
 			case G_LOG_LEVEL_DEBUG:
-				syslog(LOG_DEBUG, log_message, NULL);
+				syslog(LOG_DEBUG, log_message_prefixed, NULL);
 				break;
 		}
 	}
 
 	va_end(args);
 
+	free(log_message_prefixed);
 	free(log_message);
 }
