@@ -11,9 +11,9 @@ RUN apt-get update --yes \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-COPY . /usr/src/mod_tile
-
 WORKDIR /usr/src/mod_tile
+
+COPY . ${PWD}
 
 RUN ./autogen.sh \
  && ./configure --bindir=/usr/bin \
@@ -21,15 +21,15 @@ RUN ./autogen.sh \
  && make install \
  && make install-mod_tile
 
-RUN ln -s /usr/src/mod_tile/examples/config/renderd/renderd.conf.dist /etc/renderd.conf \
+RUN ln -s "${PWD}/examples/config/renderd/renderd.conf.dist" /etc/renderd.conf \
  && mkdir -p /run/renderd /var/cache/renderd/tiles
 
-RUN ln -s /usr/src/mod_tile/examples/example-map /var/www/ \
- && mkdir /usr/src/mod_tile/examples/example-map/leaflet \
+RUN mkdir -p examples/example-map/leaflet \
  && curl "https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" > examples/example-map/leaflet/leaflet.min.js \
  && curl "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" > examples/example-map/leaflet/leaflet.css \
- && ln -s /usr/src/mod_tile/examples/config/apache2/renderd.conf.dist /etc/apache2/conf-enabled/renderd.conf \
- && ln -s /usr/src/mod_tile/examples/config/apache2/renderd-example-map.conf.dist /etc/apache2/conf-enabled/renderd-example-map.conf \
+ && ln -s "${PWD}/examples/example-map" /var/www/ \
+ && ln -s "${PWD}/examples/config/apache2/renderd.conf.dist" /etc/apache2/conf-enabled/renderd.conf \
+ && ln -s "${PWD}/examples/config/apache2/renderd-example-map.conf.dist" /etc/apache2/conf-enabled/renderd-example-map.conf \
  && echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" > /etc/apache2/mods-enabled/mod_tile.load
 
 RUN printf "#!/bin/bash\nrenderd\nexec apache2ctl -D FOREGROUND" > /docker-entrypoint.sh \
