@@ -317,8 +317,8 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 				ret = recv(fd, &resp, sizeof(struct protocol_v2), 0);
 
 				if (ret != sizeof(struct protocol_v2)) {
-					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket %s",
-						      strerror(errno));
+					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket. Got %d bytes but expected %d. Errno %d (%s)",
+						      ret, sizeof(struct protocol_v2), errno, strerror(errno));
 					break;
 				}
 
