@@ -62,7 +62,7 @@ mod_tile and renderd:
 Packages
 --------
 
-If you don't want to comile the software yourself.  Precompiled
+If you don't want to compile the software yourself.  Precompiled
 software packages for **Debian** and **Ubuntu** are being maintained by
 the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective 
 `repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
