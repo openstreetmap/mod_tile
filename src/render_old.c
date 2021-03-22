@@ -63,6 +63,8 @@ static int max_load = MAX_LOAD_OLD;
 static time_t planetTime;
 static struct timeval start, end;
 
+int foreground = 1;
+
 
 
 void display_rate(struct timeval start, struct timeval end, int num)
@@ -200,17 +202,17 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config", 1, 0, 'c'},
-			{"min-zoom", 1, 0, 'z'},
-			{"max-zoom", 1, 0, 'Z'},
-			{"max-load", 1, 0, 'l'},
-			{"socket", 1, 0, 's'},
-			{"num-threads", 1, 0, 'n'},
-			{"tile-dir", 1, 0, 't'},
-			{"timestamp", 1, 0, 'T'},
-			{"map", 1, 0, 'm'},
-			{"verbose", 0, 0, 'v'},
-			{"help", 0, 0, 'h'},
+			{"config", required_argument, 0, 'c'},
+			{"min-zoom", required_argument, 0, 'z'},
+			{"max-zoom", required_argument, 0, 'Z'},
+			{"max-load", required_argument, 0, 'l'},
+			{"socket", required_argument, 0, 's'},
+			{"num-threads", required_argument, 0, 'n'},
+			{"tile-dir", required_argument, 0, 't'},
+			{"timestamp", required_argument, 0, 'T'},
+			{"map", required_argument, 0, 'm'},
+			{"verbose", no_argument, 0, 'v'},
+			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 

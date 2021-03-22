@@ -19,7 +19,6 @@
 
 #include <string.h>
 #include <limits.h>
-#include <syslog.h>
 #include <stdlib.h>
 
 #include "render_config.h"
@@ -27,6 +26,7 @@
 #include "store.h"
 #include "cache_expire.h"
 #include "request_queue.h"
+#include "g_logger.h"
 
 
 metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z):
@@ -97,7 +97,7 @@ void metaTile::save(struct storage_backend * store)
 	metatilebuffer = (char *) malloc(offset);
 
 	if (metatilebuffer == 0) {
-		syslog(LOG_WARNING, "Failed to write metatile. Out of memory");
+		g_logger(G_LOG_LEVEL_WARNING, "Failed to write metatile. Out of memory");
 		return;
 	}
 
@@ -114,7 +114,7 @@ void metaTile::save(struct storage_backend * store)
 
 	if (store->metatile_write(store, xmlconfig_.c_str(), options_.c_str(), x_, y_, z_, metatilebuffer, offset) != offset) {
 		tmp = (char *)malloc(sizeof(char) * PATH_MAX);
-		syslog(LOG_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_, y_, z_, tmp));
+		g_logger(G_LOG_LEVEL_WARNING, "Failed to write metatile to %s", store->tile_storage_id(store, xmlconfig_.c_str(), options_.c_str(), x_, y_, z_, tmp));
 		free(tmp);
 	}
 
@@ -128,7 +128,7 @@ void metaTile::expire_tiles(int sock, char * host, char * uri)
 		return;
 	}
 
-	syslog(LOG_INFO, "Purging metatile via HTCP cache expiry");
+	g_logger(G_LOG_LEVEL_INFO, "Purging metatile via HTCP cache expiry");
 	int ox, oy;
 	int limit = (1 << z_);
 	limit = MIN(limit, METATILE);
@@ -140,5 +140,3 @@ void metaTile::expire_tiles(int sock, char * host, char * uri)
 		}
 	}
 }
-
-

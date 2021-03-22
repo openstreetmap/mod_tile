@@ -21,9 +21,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
-#include <syslog.h>
+
 #include "render_config.h"
 #include "request_queue.h"
+#include "g_logger.h"
 
 static int calcHashKey(struct request_queue *queue, struct item *item)
 {
@@ -282,7 +283,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 	req = &(item->req);
 
 	if (queue == NULL) {
-		printf("queue os NULL");
+		g_logger(G_LOG_LEVEL_CRITICAL, "queue os NULL");
 		exit(3);
 	}
 
@@ -364,7 +365,7 @@ void request_queue_remove_request(struct request_queue * queue, struct item * re
 	pthread_mutex_lock(&(queue->qLock));
 
 	if (request->inQueue != queueRender) {
-		syslog(LOG_WARNING, "Removing request from queue, even though not on rendering queue");
+		g_logger(G_LOG_LEVEL_WARNING, "Removing request from queue, even though not on rendering queue");
 	}
 
 	if (render_time > 0) {
@@ -455,7 +456,7 @@ struct request_queue * request_queue_init()
 	res = pthread_mutex_init(&(queue->qLock), NULL);
 
 	if (res != 0) {
-		syslog(LOG_ERR, "Failed to create mutex for request_queue");
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to create mutex for request_queue");
 		free(queue);
 		return NULL;
 	}
@@ -463,7 +464,7 @@ struct request_queue * request_queue_init()
 	res = pthread_cond_init(&(queue->qCond), NULL);
 
 	if (res != 0) {
-		syslog(LOG_ERR, "Failed to create condition variable for request_queue");
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to create condition variable for request_queue");
 		pthread_mutex_destroy(&(queue->qLock));
 		free(queue);
 		return NULL;
