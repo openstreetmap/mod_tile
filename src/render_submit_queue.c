@@ -264,7 +264,7 @@ void *thread_main(void *arg)
 			break;
 		}
 
-		if (process(cmd, fd) < 1) {
+		while (process(cmd, fd) < 1) {
 			fprintf(stderr, "connection to renderd lost");
 			close(fd);
 			fd = -1;
