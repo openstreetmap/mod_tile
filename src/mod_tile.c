@@ -1327,6 +1327,96 @@ static int tile_handler_mod_stats(request_rec *r)
 	return OK;
 }
 
+static int tile_handler_metrics(request_rec *r)
+{
+	stats_data * stats;
+	stats_data local_stats;
+	int i;
+	ap_conf_vector_t *sconf;
+	tile_server_conf *scfg;
+	tile_config_rec *tile_configs;
+
+	if (strcmp(r->handler, "tile_metrics")) {
+		return DECLINED;
+	}
+
+	sconf = r->server->module_config;
+	scfg = ap_get_module_config(sconf, &tile_module);
+	tile_configs = (tile_config_rec *) scfg->configs->elts;
+
+	if (!scfg->enableGlobalStats) {
+		return error_message(r, "Stats are not enabled for this server");
+	}
+
+	if (get_global_lock(r, stats_mutex) != 0) {
+		//Copy over the global counter variable into
+		//local variables, that we can immediately
+		//release the lock again
+		stats = (stats_data *) apr_shm_baseaddr_get(stats_shm);
+		memcpy(&local_stats, stats, sizeof(stats_data));
+		local_stats.noResp200Layer = malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
+		memcpy(local_stats.noResp200Layer, stats->noResp200Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
+		local_stats.noResp404Layer = malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
+		memcpy(local_stats.noResp404Layer, stats->noResp404Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
+		apr_global_mutex_unlock(stats_mutex);
+	} else {
+		return error_message(r, "Failed to acquire lock, can't display stats");
+	}
+
+	ap_rprintf(r, "# HELP modtile_http_responses_total Number of HTTP responses by response code\n");
+	ap_rprintf(r, "# TYPE modtile_http_responses_total counter\n");
+	ap_rprintf(r, "modtile_http_responses_total{status=\"200\"} %li\n", local_stats.noResp200);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"304\"} %li\n", local_stats.noResp304);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"404\"} %li\n", local_stats.noResp404);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"503\"} %li\n", local_stats.noResp503);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"5XX\"} %li\n", local_stats.noResp5XX);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"other\"} %li\n", local_stats.noRespOther);
+
+	ap_rprintf(r, "# HELP modtile_tiles_total Tiles served\n");
+	ap_rprintf(r, "# TYPE modtile_tiles_total counter\n");
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"no\"} %li\n", local_stats.noFreshCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"no\"} %li\n", local_stats.noOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"no\"} %li\n", local_stats.noVeryOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"yes\"} %li\n", local_stats.noFreshRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"attempted\"} %li\n", local_stats.noOldRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"attempted\"} %li\n", local_stats.noVeryOldRender);
+
+	ap_rprintf(r, "# HELP modtile_layer_reponses_total Tiles served by zoom level\n");
+	ap_rprintf(r, "# TYPE modtile_layer_reponses_total counter\n");
+
+	for (i = 0; i <= global_max_zoom; i++) {
+		ap_rprintf(r, "modtile_layer_responses_total{zoom=\"%02i\"} %li\n", i, local_stats.noRespZoom[i]);
+	}
+
+
+	ap_rprintf(r, "# HELP modtile_tile_buffer_reads_total Tiles served from the tile buffer\n");
+	ap_rprintf(r, "# TYPE modtile_tile_buffer_reads_total counter\n");
+
+	for (i = 0; i <= global_max_zoom; i++) {
+		ap_rprintf(r, "modtile_tile_buffer_reads_total{zoom=\"%02i\"} %li\n", i, local_stats.noZoomBufferRetrieval[i]);
+	}
+
+	ap_rprintf(r, "# HELP modtile_tile_buffer_reads_duration_seconds_total Tile buffer duration\n");
+	ap_rprintf(r, "# TYPE modtile_tile_buffer_reads_duration_seconds_total counter\n");
+
+	for (i = 0; i <= global_max_zoom; i++) {
+		ap_rprintf(r, "modtile_tile_buffer_reads_duration_seconds_total{zoom=\"%02i\"} %lf\n", i, (double)local_stats.zoomBufferRetrievalTime[i] / 1000000.0);
+	}
+
+	ap_rprintf(r, "# HELP modtile_layer_responses_total Layer respones\n");
+	ap_rprintf(r, "# TYPE modtile_layer_responses_total counter\n");
+
+	for (i = 0; i < scfg->configs->nelts; ++i) {
+		tile_config_rec *tile_config = &tile_configs[i];
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"200\"} %li\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"404\"} %li\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
+	}
+
+	free(local_stats.noResp200Layer);
+	free(local_stats.noResp404Layer);
+	return OK;
+}
+
 static int tile_handler_serve(request_rec *r)
 {
 	const int tile_max = MAX_SIZE;
@@ -1483,6 +1573,16 @@ static int tile_translate(request_rec *r)
 		r->handler = "tile_mod_stats";
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
 			      "tile_translate: retrieving global mod_tile stats");
+		return OK;
+	}
+
+	/*
+	 * The page /metrics returns global stats in Prometheus format.
+	 */
+	if (!strncmp("/metrics", r->uri, strlen("/metrics"))) {
+		r->handler = "tile_metrics";
+		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+			      "tile_translate: retrieving global mod_tile metrics");
 		return OK;
 	}
 
@@ -1869,6 +1969,7 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 	ap_hook_handler(tile_handler_status, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_handler(tile_handler_json, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_handler(tile_handler_mod_stats, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_handler(tile_handler_metrics, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_translate_name(tile_translate, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
