@@ -92,9 +92,13 @@ Configuration
 -------------
 
 After you either copiled the software yourself or installed the software
-packages, you can continue with the configuration. For your convenience
-example configuration files are located in the `etc` directory of this
-repository.
+packages, you can continue with the configuration. Here we assume that you have
+installed mod_tile using packages from Debian/Ubuntu. If you compiled from
+source you need to place debian-style configuration files at the relevant locations
+to use the Debian helper scripts a2enmod/a2enconf, or manually create apache configuration.
+
+For your convenience example configuration files are located in
+the `etc` directory of this repository.
 
 A very basic example-map and data can be found in the `example-map`
 directory. For a simple test copy it over to ``/var/www/example-map``.
