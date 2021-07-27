@@ -66,26 +66,16 @@ If you don't want to compile the software yourself.  Precompiled
 software packages for **Debian** and **Ubuntu** are being maintained by
 the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective 
 `repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
-They are in the pipeline and expected to be included in the next releases of
-those two distributions.
 
-In the meantime an experimental repository can be used by adding the
-corresponding line to your ``/etc/apt/sources.list``:
+Starting from the following operation systems and their versions:
 
-``deb https://deb.openbuildingmap.org/ bullseye main`` (for Debian Testing, Ubuntu Focal and Ubuntu Groovy)
-``deb https://deb.openbuildingmap.org/ buster main`` (for Debian Stable)
+* Debian 11 (Bullseye)
+* Ubuntu 21.04 (Hirsute Hippo)
 
-Afterwards import the public key for the repository:
+the software can be installed simply with:
 
 ::
 
-    $ wget -O - https://deb.openbuildingmap.org/archive.key | sudo apt-key add -
-
-After that you can install the available software as any other package:
-
-::
-
-    $ apt update
     $ apt install libapache2-mod-tile renderd
 
 Configuration
