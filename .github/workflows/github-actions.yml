@@ -1,0 +1,36 @@
+name: CI pipeline
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: update packages
+        run: sudo apt -y update
+      - name: install linter
+        run: sudo apt -y install astyle
+      - name: run linter
+        run: astyle --options=none --lineend=linux --style=1tbs --indent=force-tab=8 --break-blocks --indent-switches --pad-oper --pad-header --unpad-paren --suffix=none includes/* src/*
+      - name: check code format
+        run: >
+          if [[ -n $(git diff) ]]; then
+            echo "You must run 'astyle --options=none --lineend=linux --style=1tbs --indent=force-tab=8 --break-blocks --indent-switches --pad-oper --pad-header --unpad-paren --suffix=none includes/* src/*' before submitting a pull request"
+            echo ""
+            git diff
+            exit -1
+          fi
+      - name: install dependencies
+        run: sudo apt -y install apache2-dev libcairo2-dev libcurl4-gnutls-dev libiniparser-dev libmapnik-dev
+      - name: autogen
+        run: ./autogen.sh
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make
+      - name: make test
+        run: make test
