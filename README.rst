@@ -18,7 +18,8 @@ As an alternative to ``renderd`` its drop-in replacement
 `Tirex <https://github.com/openstreetmap/tirex>`__ can be used in
 combination with ``mod_tile``.
 
-Requirements
+
+Dependencies
 ------------
 
 * `GNU/Linux` Operating System (works best on Debian or Ubuntu)
@@ -29,12 +30,33 @@ Requirements
 * `Iniparser library <https://github.com/ndevilla/iniparser>`__
 * `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
 
+
+Installation
+------------
+
+Starting from the following operation systems and their versions:
+
+* Debian 11 (Bullseye)
+* Ubuntu 21.04 (Hirsute Hippo)
+
+the software and all dependencies can be installed simply with:
+
+::
+
+    $ apt install libapache2-mod-tile renderd
+
+These packages for **Debian** and **Ubuntu** are being maintained by
+the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective
+`repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
+
+
 Compilation
 -----------
 
-On Debian or Ubuntu systems the following packages are needed to start
-compiling. On other systems the name of the libary might differ
-slightly.
+You may want to compile this software for developing on it or when using
+on operating systems this is not being packaged for.  On Debian or Ubuntu
+systems the following packages are needed to start compiling. On other systems
+the name of the libary might differ slightly.
 
 ::
 
@@ -61,24 +83,9 @@ mod_tile and renderd:
     $ sudo make install
     $ sudo make install-mod_tile
 
-Packages
---------
+Be aware that you have to add configuration files that are adjusted to your
+environment before you can run it all.
 
-If you don't want to compile the software yourself.  Precompiled
-software packages for **Debian** and **Ubuntu** are being maintained by
-the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective
-`repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
-
-Starting from the following operation systems and their versions:
-
-* Debian 11 (Bullseye)
-* Ubuntu 21.04 (Hirsute Hippo)
-
-the software can be installed simply with:
-
-::
-
-    $ apt install libapache2-mod-tile renderd
 
 Configuration
 -------------
@@ -99,9 +106,9 @@ Copy the configuration files to their place:
 
 ::
 
-    $ cp etc/renderd.conf.dist /etc/renderd.conf
-    $ cp etc/apache2/renderd.conf.dist /etc/apache2/conf-available/renderd.conf
-    $ cp etc/apache2/renderd-example-map.conf.dist /etc/apache2/conf-available/renderd-example-map.conf
+    $ cp examples/config/renderd.conf.dist /etc/renderd.conf
+    $ cp examples/config/apache2/renderd.conf.dist /etc/apache2/conf-available/renderd.conf
+    $ cp examples/config/apache2/renderd-example-map.conf.dist /etc/apache2/conf-available/renderd-example-map.conf
 
 Enable the configuration:
 
@@ -140,8 +147,6 @@ mapnik style sheet and the uri you wish to use to access it.  You may
 configure up to 10 (by default) mapnik style sheets - simply give each
 section a unique name and enter the uri and style sheet path.
 
-
-
 The render daemon should have produce a message like:
 
 Got incoming connection, fd 7, number 1
@@ -167,6 +172,7 @@ For an OSM type setup, OSM map data imported into
 Together with the Mapnik renderer along with the OSM.xml file and map
 symbols, world_boundaries shapefiles.
 
+
 Tile Rendering
 --------------
 
@@ -187,6 +193,7 @@ and two background batch rendering queues. The on the fly rendering
 queues are limited to a short 32 metatile size to minimize latency.
 The size of the main background queue is determined
 at compile time, see: render_config.h
+
 
 Tile serving
 ------------
@@ -231,6 +238,7 @@ Apache serves the files as if they were present
 under "/[TileSetName]/Z/X/Y.png" with the path being
 converted automatically.
 
+
 Performance
 -----------
 
@@ -243,10 +251,11 @@ however renderd tries to make sure it uses underlying hardware as efficiently
 as possible and scales well on multi core systems. Renderd also provides
 built-in features to scale to multi server rendering set-ups.
 
+
 Copyright and copyleft
 ----------------------
 
-Copyright (c) 2007 - 2020 by mod_tile contributors (see `AUTHORS <./AUTHORS>`__)
+Copyright (c) 2007 - 2021 by mod_tile contributors (see `AUTHORS <./AUTHORS>`__)
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
