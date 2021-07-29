@@ -90,7 +90,7 @@ Configuration
 After you either installed the software packages or copiled the software
 yourself, you can continue with the configuration. For your convenience
 example configuration files are distributed with the software packages and
-located in the ``examples/config`` directory of this repository.
+located in the ``etc`` directory of this repository.
 
 A very basic example-map and data can be found in the ``example-map``
 directory. For a simple test copy it over to ``/var/www/example-map``.
@@ -99,9 +99,9 @@ Copy the configuration files to their place, too:
 
 ::
 
-    $ cp examples/config/renderd.conf.dist /etc/renderd.conf
-    $ cp examples/config/apache2/renderd.conf.dist /etc/apache2/conf-available/renderd.conf
-    $ cp examples/config/apache2/renderd-example-map.conf.dist /etc/apache2/conf-available/renderd-example-map.conf
+    $ cp etc/renderd/renderd.conf /etc/renderd.conf
+    $ cp etc/apache2/renderd.conf /etc/apache2/conf-available/renderd.conf
+    $ cp etc/apache2/renderd-example-map.conf /etc/apache2/conf-available/renderd-example-map.conf
 
 Enable the configuration:
 

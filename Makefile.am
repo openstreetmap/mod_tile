@@ -48,7 +48,7 @@ renderd_SOURCES = \
 	$(STORE_SOURCES)
 renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
 renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -liniparser
-renderd_DATA = renderd.conf
+renderd_DATA = etc/renderd/renderd.conf
 
 render_speedtest_SOURCES = \
 	src/speedtest.cpp \

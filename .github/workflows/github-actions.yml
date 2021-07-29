@@ -120,22 +120,22 @@ jobs:
       - name: Set up Apache HTTP Server
         run: |
           sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
-          mkdir --parents examples/example-map/leaflet
+          mkdir --parents utils/example-map/leaflet
           curl --silent "https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" \
-            > examples/example-map/leaflet/leaflet.min.js
+            > utils/example-map/leaflet/leaflet.min.js
           curl --silent "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" \
-            > examples/example-map/leaflet/leaflet.css
+            > utils/example-map/leaflet/leaflet.css
           sudo ln --symbolic \
-            "${PWD}/examples/example-map" \
+            "${PWD}/utils/example-map" \
             /var/www/
           sudo ln --symbolic \
-            "${PWD}/examples/config/renderd/renderd.conf.dist" \
+            "${PWD}/etc/renderd/renderd.conf.examples" \
             /etc/renderd.conf
           sudo ln --symbolic \
-            "${PWD}/examples/config/apache2/renderd.conf.dist" \
+            "${PWD}/etc/apache2/renderd.conf" \
             /etc/apache2/conf-enabled/renderd.conf
           sudo ln --symbolic \
-            "${PWD}/examples/config/apache2/renderd-example-map.conf.dist" \
+            "${PWD}/etc/apache2/renderd-example-map.conf" \
             /etc/apache2/conf-enabled/renderd-example-map.conf
           echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" \
             | sudo tee --append /etc/apache2/mods-enabled/mod_tile.load
