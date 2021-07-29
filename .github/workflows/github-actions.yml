@@ -105,7 +105,7 @@ jobs:
         run: |
           sudo apt --yes install \
             apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev \
-            libiniparser-dev libmapnik-dev
+            libiniparser-dev libmapnik-dev libjs-leaflet
       - name: Install Apache HTTP Server
         run: |
           sudo apt --yes install \
@@ -120,14 +120,12 @@ jobs:
       - name: Set up Apache HTTP Server
         run: |
           sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
-          mkdir --parents utils/example-map/leaflet
-          curl --silent "https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" \
-            > utils/example-map/leaflet/leaflet.min.js
-          curl --silent "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" \
-            > utils/example-map/leaflet/leaflet.css
           sudo ln --symbolic \
             "${PWD}/utils/example-map" \
             /var/www/
+          sudo ln --symbolic \
+            /usr/share/javascript/leaflet \
+            /var/www/example-map/leaflet
           sudo ln --symbolic \
             "${PWD}/etc/renderd/renderd.conf.examples" \
             /etc/renderd.conf
