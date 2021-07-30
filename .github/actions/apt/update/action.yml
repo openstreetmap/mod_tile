@@ -1,0 +1,6 @@
+---
+runs:
+  using: composite
+  steps:
+    - run: sudo apt --yes update
+      shell: bash

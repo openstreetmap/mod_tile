@@ -1,0 +1,11 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Create build archive
+      run: |
+        tar --verbose --create --zstd \
+          --file=/tmp/workspace.tar.zst \
+          *
+      shell: bash
+      working-directory: ${{ github.workspace }}/..

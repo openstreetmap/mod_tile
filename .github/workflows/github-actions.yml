@@ -8,6 +8,15 @@ on:
       - master
       - develop
 
+env:
+  build-dependencies: >-
+    apache2-dev
+    libcairo2-dev
+    libcurl4-gnutls-dev
+    libglib2.0-dev
+    libiniparser-dev
+    libmapnik-dev
+
 jobs:
   lint-astyle:
     name: Lint code with `astyle`
@@ -16,9 +25,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Update installed packages
-        run: sudo apt --yes update
+        uses: ./.github/actions/apt/update
       - name: Install `astyle`
-        run: sudo apt --yes install astyle
+        uses: ./.github/actions/apt/install
+        with:
+          packages: astyle
       - name: Run `astyle`
         run: |
           astyle \
@@ -46,12 +57,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Update installed packages
-        run: sudo apt --yes update
+        uses: ./.github/actions/apt/update
       - name: Install build dependencies
-        run: |
-          sudo apt --yes install \
-            apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev \
-            libiniparser-dev libmapnik-dev
+        uses: ./.github/actions/apt/install
+        with:
+          packages: ${{ env.build-dependencies }}
       - name: Run `./autogen.sh`
         run: ./autogen.sh
       - name: Run `./configure`
@@ -59,14 +69,12 @@ jobs:
       - name: Run `make`
         run: make
       - name: Create build archive
-        run: |
-          tar --verbose --create --file=/tmp/workspace.tar \
-            ${{ github.workspace }}
-      - name: Upload build artifacts
+        uses: ./.github/actions/build-archive/create
+      - name: Upload build archive
         uses: actions/upload-artifact@v2
         with:
-          name: build
-          path: /tmp/workspace.tar
+          name: build-archive
+          path: /tmp/workspace.tar.zst
 
   test-make-test:
     name: Test with `make test`
@@ -75,20 +83,21 @@ jobs:
       - build
       - lint-astyle
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Update installed packages
-        run: sudo apt --yes update
+        uses: ./.github/actions/apt/update
       - name: Install build dependencies
-        run: |
-          sudo apt --yes install \
-            apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev \
-            libiniparser-dev libmapnik-dev
-      - name: Download build artifacts
+        uses: ./.github/actions/apt/install
+        with:
+          packages: ${{ env.build-dependencies }}
+      - name: Download build archive
         uses: actions/download-artifact@v2
         with:
-          name: build
+          name: build-archive
           path: /tmp
       - name: Extract build archive
-        run: tar --verbose --extract --directory=/ --file=/tmp/workspace.tar
+        uses: ./.github/actions/build-archive/extract
       - name: Run `make test`
         run: make test
 
@@ -99,25 +108,22 @@ jobs:
       - build
       - lint-astyle
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Update installed packages
-        run: sudo apt --yes update
-      - name: Install build dependencies
-        run: |
-          sudo apt --yes install \
-            apache2-dev libcairo2-dev libcurl4-gnutls-dev libglib2.0-dev \
-            libiniparser-dev libmapnik-dev libjs-leaflet
-      - name: Install Apache HTTP Server
-        run: |
-          sudo apt --yes install \
-            apache2
-      - name: Download build artifacts
+        uses: ./.github/actions/apt/update
+      - name: Install build & test dependencies
+        uses: ./.github/actions/apt/install
+        with:
+          packages: ${{ env.build-dependencies }} apache2 libjs-leaflet
+      - name: Download build archive
         uses: actions/download-artifact@v2
         with:
-          name: build
+          name: build-archive
           path: /tmp
       - name: Extract build archive
-        run: tar --verbose --extract --directory=/ --file=/tmp/workspace.tar
-      - name: Set up Apache HTTP Server
+        uses: ./.github/actions/build-archive/extract
+      - name: Configure Apache HTTP Server
         run: |
           sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
           sudo ln --symbolic \
