@@ -1,5 +1,5 @@
 ---
-name: CI Pipeline
+name: Build & Test (Ubuntu Latest)
 
 on:
   pull_request:
@@ -16,50 +16,18 @@ env:
     libglib2.0-dev
     libiniparser-dev
     libmapnik-dev
+    libmemcached-dev
+    librados-dev
 
 jobs:
-  lint-astyle:
-    name: Lint code with `astyle`
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Update installed packages
-        uses: ./.github/actions/apt/update
-      - name: Install `astyle`
-        uses: ./.github/actions/apt/install
-        with:
-          packages: astyle
-      - name: Run `astyle`
-        run: |
-          astyle \
-            --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
-            --break-blocks --indent-switches --pad-oper --pad-header \
-            --unpad-paren --suffix=none \
-            includes/* src/*
-      - name: Check if any modifications were made by `astyle`
-        run: |
-          if [[ -n $(git diff) ]]; then
-            echo "You must run 'astyle \
-              --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
-              --break-blocks --indent-switches --pad-oper --pad-header \
-              --unpad-paren --suffix=none \
-              includes/* src/*' before submitting a pull request"
-            echo ""
-            git diff
-            exit -1
-          fi
-
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Update installed packages
-        uses: ./.github/actions/apt/update
-      - name: Install build dependencies
-        uses: ./.github/actions/apt/install
+      - name: Provision environment
+        uses: ./.github/actions/apt/provision
         with:
           packages: ${{ env.build-dependencies }}
       - name: Run `./autogen.sh`
@@ -74,21 +42,19 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: build-archive
-          path: /tmp/workspace.tar.zst
+          path: /tmp/workspace.tar.gz
+          retention-days: 1
 
   test-make-test:
     name: Test with `make test`
     runs-on: ubuntu-latest
     needs:
       - build
-      - lint-astyle
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Update installed packages
-        uses: ./.github/actions/apt/update
-      - name: Install build dependencies
-        uses: ./.github/actions/apt/install
+      - name: Provision environment
+        uses: ./.github/actions/apt/provision
         with:
           packages: ${{ env.build-dependencies }}
       - name: Download build archive
@@ -106,16 +72,16 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-      - lint-astyle
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Update installed packages
-        uses: ./.github/actions/apt/update
-      - name: Install build & test dependencies
-        uses: ./.github/actions/apt/install
+      - name: Provision environment
+        uses: ./.github/actions/apt/provision
         with:
-          packages: ${{ env.build-dependencies }} apache2 libjs-leaflet
+          packages: >-
+            ${{ env.build-dependencies }}
+            apache2
+            libjs-leaflet
       - name: Download build archive
         uses: actions/download-artifact@v2
         with:
@@ -154,5 +120,5 @@ jobs:
       - name: Test Apache HTTP Server `mod_tile` module
         run: |
           curl --silent http://localhost/renderd-example/tiles/9/297/191.png \
-            | sha256sum - \
-            | grep dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08
+            | sha224sum - \
+            | grep 9cd82e5af9d9002a1c75126ebdb7bf054ec0b7ed0db228dfb0a09bae

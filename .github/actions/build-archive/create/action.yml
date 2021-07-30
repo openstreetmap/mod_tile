@@ -4,8 +4,9 @@ runs:
   steps:
     - name: Create build archive
       run: |
-        tar --verbose --create --zstd \
-          --file=/tmp/workspace.tar.zst \
+        tar --verbose --create --gzip \
+          --exclude=.git --exclude=.gitgnore \
+          --file=/tmp/workspace.tar.gz \
           *
       shell: bash
       working-directory: ${{ github.workspace }}/..

@@ -1,0 +1,40 @@
+---
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+
+jobs:
+  astyle:
+    name: Lint with `astyle`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Provision environment
+        uses: ./.github/actions/apt/provision
+        with:
+          packages: astyle
+      - name: Run `astyle`
+        run: |
+          astyle \
+            --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
+            --break-blocks --indent-switches --pad-oper --pad-header \
+            --unpad-paren --suffix=none \
+            includes/* src/*
+      - name: Check if any modifications were made by `astyle`
+        run: |
+          if [[ -n $(git diff) ]]; then
+            echo "You must run 'astyle \
+              --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
+              --break-blocks --indent-switches --pad-oper --pad-header \
+              --unpad-paren --suffix=none \
+              includes/* src/*' before submitting a pull request"
+            echo ""
+            git diff
+            exit -1
+          fi
