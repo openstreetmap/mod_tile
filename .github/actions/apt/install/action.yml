@@ -1,0 +1,11 @@
+---
+inputs:
+  packages:
+    description: List of packages to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - run: sudo apt --yes install ${{ inputs.packages }}
+      shell: bash
