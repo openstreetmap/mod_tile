@@ -4,7 +4,7 @@ runs:
   steps:
     - name: Extract build archive
       run: |
-        tar --verbose --extract --zstd \
-          --file=/tmp/workspace.tar.zst
+        tar --verbose --extract --gzip \
+          --file=/tmp/workspace.tar.gz
       shell: bash
       working-directory: ${{ github.workspace }}/..

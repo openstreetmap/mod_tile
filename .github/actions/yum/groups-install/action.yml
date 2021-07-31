@@ -1,0 +1,12 @@
+---
+inputs:
+  groups:
+    description: List of group(s) to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install group(s)
+      run: yum --assumeyes groups install ${{ inputs.groups }}
+      shell: bash

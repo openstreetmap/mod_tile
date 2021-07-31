@@ -1,0 +1,24 @@
+---
+inputs:
+  groups:
+    description: List of group(s) to install
+    required: false
+    default: >-
+      "Development Tools"
+  packages:
+    description: List of package(s) to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Update installed packages
+      uses: ./.github/actions/yum/update
+    - name: Install group(s)
+      uses: ./.github/actions/yum/groups-install
+      with:
+        groups: ${{ inputs.groups }}
+    - name: Install package(s)
+      uses: ./.github/actions/yum/install
+      with:
+        packages: ${{ inputs.packages }}

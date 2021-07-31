@@ -3,5 +3,5 @@ runs:
   using: composite
   steps:
     - name: Update installed packages
-      run: sudo apt --yes update
+      run: yum --assumeyes update
       shell: bash

@@ -1,0 +1,15 @@
+---
+inputs:
+  packages:
+    description: List of package(s) to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Update installed packages
+      uses: ./.github/actions/apt/update
+    - name: Install package(s)
+      uses: ./.github/actions/apt/install
+      with:
+        packages: ${{ inputs.packages }}
