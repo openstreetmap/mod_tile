@@ -8,5 +8,5 @@ runs:
   using: composite
   steps:
     - name: Install package(s)
-      run: sudo apt --yes install ${{ inputs.packages }}
+      run: yum --assumeyes install ${{ inputs.packages }}
       shell: bash
