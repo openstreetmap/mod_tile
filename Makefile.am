@@ -103,11 +103,14 @@ gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) -lini
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
+COMMA=,
+
 test: gen_tile_test
 	./gen_tile_test
 
 all-local:
-	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) $(GLIB_CFLAGS) \
+	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) \
+		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c  \
 			@srcdir@/src/sys_utils.c \
@@ -124,7 +127,8 @@ all-local:
 install-mod_tile:
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
 	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) \
-		-q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) $(GLIB_CFLAGS) \
+		-q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) \
+		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c \
 			@srcdir@/src/sys_utils.c \
