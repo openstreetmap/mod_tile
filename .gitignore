@@ -40,3 +40,7 @@ renderd.sock
 renderd.stats
 stamp-h1
 stderr.out
+
+# Do not ignore
+!Makefile.am
+!etc/renderd
