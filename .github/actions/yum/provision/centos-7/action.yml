@@ -1,0 +1,28 @@
+---
+inputs:
+  packages:
+    description: List of package(s) to install
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Update installed packages
+      uses: ./.github/actions/yum/update
+    - name: Install `Development Tools` group
+      uses: ./.github/actions/yum/groups-install
+      with:
+        groups: "\"Development Tools\""
+    - name: Install FoundationGEOINT yum repository
+      run: |
+        curl --silent \
+        https://geoint-deps.s3.amazonaws.com/el7/stable/geoint-deps.repo \
+        > /etc/yum.repos.d/geoint-deps.repo
+      shell: bash
+    - name: Install EPEL yum repository
+      uses: ./.github/actions/yum/install
+      with:
+        packages: epel-release
+    - name: Install build dependencies
+      uses: ./.github/actions/yum/install
+      with:
+        packages: ${{ inputs.packages }}
