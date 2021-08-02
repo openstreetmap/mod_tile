@@ -2,10 +2,10 @@
 name: Build & Test (CentOS 7)
 
 on:
-  pull_request:
   push:
     branches:
-      - centos7
+      - master
+      - distros/centos-7
 
 env:
   build-dependencies: >-

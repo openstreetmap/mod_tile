@@ -1,5 +1,5 @@
 ---
-name: Build & Test (Ubuntu Latest)
+name: Build & Test (Ubuntu 20.04)
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
     branches:
       - master
       - develop
+      - distros/ubuntu-20-04
 
 env:
   build-dependencies: >-
@@ -22,7 +23,7 @@ env:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
