@@ -12,8 +12,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Update installed packages
-      uses: ./.github/actions/yum/update
     - name: Install group(s)
       uses: ./.github/actions/yum/groups-install
       with:

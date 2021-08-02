@@ -1,7 +1,0 @@
----
-runs:
-  using: composite
-  steps:
-    - name: Update installed packages
-      run: yum --assumeyes update
-      shell: bash

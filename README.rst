@@ -18,6 +18,17 @@ As an alternative to ``renderd`` its drop-in replacement
 `Tirex <https://github.com/openstreetmap/tirex>`__ can be used in
 combination with ``mod_tile``.
 
+Dependencies
+------------
+
+* `GNU/Linux` Operating System (works best on Debian or Ubuntu)
+* `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
+* `Mapnik <https://mapnik.org/>`__
+* `Cairo 2D graphics library  <https://cairographics.org/>`__
+* `Curl library (SSL variant) <https://curl.haxx.se/>`__
+* `Iniparser library <https://github.com/ndevilla/iniparser>`__
+* `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
+
 Installation
 ------------
 
@@ -36,53 +47,18 @@ These packages for **Debian** and **Ubuntu** are being maintained by
 the `Debian GIS Team <https://wiki.debian.org/DebianGis>`__ in the respective
 `repository <https://salsa.debian.org/debian-gis-team/libapache2-mod-tile>`__.
 
-Dependencies
-------------
-
-* `GNU/Linux` Operating System (works best on Debian or Ubuntu)
-* `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
-* `Mapnik <https://mapnik.org/>`__
-* `Cairo 2D graphics library  <https://cairographics.org/>`__
-* `Curl library (SSL variant) <https://curl.haxx.se/>`__
-* `Iniparser library <https://github.com/ndevilla/iniparser>`__
-* `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
-
 Compilation
 -----------
 
-You may want to compile this software for developing on it or when using
-on operating systems this is not being packaged for. On Debian or Ubuntu
-systems the following packages are needed to start compiling. On other systems
-the name of the libary might differ slightly.
+You may want to compile this software yourself. Either for developing on it or
+when using it on an operating system this is not being packaged for.
 
-::
+We prepared instructions for you on how to build the software on the following
+distributions:
 
-    $ apt install build-essential \
-        autoconf \
-        apache2-dev \
-        libcairo2-dev \
-        libcurl4-gnutls-dev \
-        libglib2.0-dev \
-        libiniparser-dev \
-        libmapnik-dev
-
-*(You may install more and optional dependencies in order to add
-functionality to renderd)*
-
-Once the dependencies are installed you can compile and install
-mod_tile and renderd:
-
-::
-
-    $ ./autogen.sh
-    $ ./configure
-    $ make
-    $ sudo make install
-    $ sudo make install-mod_tile
-
-Be aware that you have to add configuration files that are adjusted to your
-environment before you can run it all.
-
+* `CentOS 7 <docs/build/building_on_centos_7.md>`__
+* `Fedora 34 </docs/build/building_on_fedora_34.md>`__
+* `Ubuntu 20.04 </docs/build/building_on_ubuntu_20_04.md>`__ (this should work as well for Debian 10 and later)
 
 Configuration
 -------------
@@ -92,7 +68,7 @@ yourself, you can continue with the configuration. For your convenience
 example configuration files are distributed with the software packages and
 located in the ``etc`` directory of this repository.
 
-A very basic example-map and data can be found in the ``example-map``
+A very basic example-map and data can be found in the ``utils/example-map``
 directory. For a simple test copy it over to ``/var/www/example-map``.
 
 Copy the configuration files to their place, too:

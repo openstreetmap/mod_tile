@@ -27,11 +27,11 @@ bin_PROGRAMS = \
 noinst_PROGRAMS = gen_tile_test
 
 man_MANS = \
-	docs/renderd.1 \
-	docs/render_expired.1 \
-	docs/render_list.1 \
-	docs/render_old.1 \
-	docs/render_speedtest.1
+	docs/man/renderd.1 \
+	docs/man/render_expired.1 \
+	docs/man/render_list.1 \
+	docs/man/render_old.1 \
+	docs/man/render_speedtest.1
 
 renderddir = $(sysconfdir)
 
