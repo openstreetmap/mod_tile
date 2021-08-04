@@ -58,7 +58,7 @@ distributions:
 
 * `CentOS 7 <docs/build/building_on_centos_7.md>`__
 * `Fedora 34 </docs/build/building_on_fedora_34.md>`__
-* `Ubuntu 20.04 </docs/build/building_on_ubuntu_20_04.md>`__ (this should work as well for Debian 10 and later)
+* `Ubuntu 20.04 </docs/build/building_on_ubuntu_20_04.md>`__ (this should work as well for Debian 10)
 
 Configuration
 -------------
