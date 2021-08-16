@@ -92,11 +92,11 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 
 parameterize_function_ptr init_parameterization_function(char * function_name)
 {
-	g_logger(G_LOG_LEVEL_INFO, "Loading parameterization function for %s", function_name);
-
 	if (strcmp(function_name, "") == 0) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Parameterize_style not specified (or empty string specified)");
 		return NULL;
 	} else if (strcmp(function_name, "language") == 0) {
+		g_logger(G_LOG_LEVEL_INFO, "Loading parameterization function for %s", function_name);
 		return parameterize_map_language;
 	} else {
 		g_logger(G_LOG_LEVEL_WARNING, "unknown parameterization function for %s", function_name);
