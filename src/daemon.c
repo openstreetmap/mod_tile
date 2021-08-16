@@ -917,7 +917,7 @@ int main(int argc, char **argv)
 			maps[iconf].max_zoom = atoi(ini_maxzoom);
 
 			if (maps[iconf].max_zoom > MAX_ZOOM) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified max zoom (%i) is to large. Renderd currently only supports up to zoom level %i", maps[iconf].max_zoom, MAX_ZOOM);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified max zoom (%i) is too large. Renderd currently only supports up to zoom level %i", maps[iconf].max_zoom, MAX_ZOOM);
 				exit(7);
 			}
 
@@ -926,7 +926,7 @@ int main(int argc, char **argv)
 			maps[iconf].min_zoom = atoi(ini_minzoom);
 
 			if (maps[iconf].min_zoom < 0) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is to small. Minimum zoom level has to be greater or equal to 0", maps[iconf].min_zoom);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is too small. Minimum zoom level has to be greater or equal to 0", maps[iconf].min_zoom);
 				exit(7);
 			}
 
