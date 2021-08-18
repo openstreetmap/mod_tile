@@ -28,7 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Provision environment
-        uses: ./.github/actions/apt/provision
+        uses: ./.github/actions/apt/install
         with:
           packages: >-
             ${{ env.build-dependencies }}
