@@ -33,10 +33,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Provision environment
-        uses: ./.github/actions/yum/provision
+      - name: Provision environment (groups)
+        uses: ./.github/actions/yum/groups-install
         with:
           groups: ${{ env.build-group-dependencies }}
+      - name: Provision environment (packages)
+        uses: ./.github/actions/yum/install
+        with:
           packages: ${{ env.build-dependencies }} httpd
       - name: Run `./autogen.sh`
         run: ./autogen.sh

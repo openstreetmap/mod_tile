@@ -8,6 +8,8 @@ on:
       - distros/centos-7
 
 env:
+  build-group-dependencies: >-
+    "Development Tools"
   build-dependencies: >-
     boost169-devel
     cairo-devel
@@ -47,8 +49,12 @@ jobs:
         uses: ./.github/actions/yum/install
         with:
           packages: epel-release
-      - name: Provision environment
-        uses: ./.github/actions/yum/provision
+      - name: Provision environment (groups)
+        uses: ./.github/actions/yum/groups-install
+        with:
+          groups: ${{ env.build-group-dependencies }}
+      - name: Provision environment (packages)
+        uses: ./.github/actions/yum/install
         with:
           packages: ${{ env.build-dependencies }}
       - name: Cache "Download `Mapnik`" & "Build & Install `Mapnik`"
