@@ -1,0 +1,53 @@
+---
+inputs:
+  version:
+    description: Version of Mapnik to build & install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Link `python` to `python2`
+      run: |
+        if [ ! -f /bin/python ]; then
+          ln --symbolic python2 /bin/python
+        fi
+        if [ ! -f /usr/bin/python ]; then
+          ln --symbolic python2 /usr/bin/python
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Cache "Download `Mapnik`" & "Build & Install `Mapnik`"
+      id: cache-mapnik
+      uses: actions/cache@v2
+      with:
+        path: /usr/local/src/mapnik-${{ inputs.version }}
+        key: ${{ matrix.image }}-mapnik-${{ inputs.version }}
+
+    - name: Download `Mapnik`
+      run: |
+        # Skip if there's a cache hit
+        [[ "${{ steps.cache-mapnik.outputs.cache-hit }}" == "true" ]] && exit 0
+
+        mkdir /usr/local/src/mapnik-${{ inputs.version }}
+        cd /usr/local/src/mapnik-${{ inputs.version }}
+        curl --silent --location \
+          https://github.com/mapnik/mapnik/releases/download/v${{ inputs.version }}/mapnik-v${{ inputs.version }}.tar.bz2 \
+          | tar --verbose --extract --bzip2 --strip-components=1 --file=-
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Build & Install `Mapnik`
+      run: |
+        # Export `GDAL_DATA` & `PROJ_LIB` variables and create directories
+        export GDAL_DATA=/usr/share/gdal
+        export PROJ_LIB=/usr/share/proj
+        mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
+        cd /usr/local/src/mapnik-${{ inputs.version }}
+        ./configure FAST=True \
+          PREFIX="/usr" \
+          OPTIMIZATION=2 \
+          BOOST_INCLUDES=/usr/include/boost169 \
+          BOOST_LIBS=/usr/lib64/boost169
+        JOBS=$(nproc) make
+        make install
+      shell: bash --noprofile --norc -euxo pipefail {0}

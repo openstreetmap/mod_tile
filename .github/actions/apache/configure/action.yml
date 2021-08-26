@@ -1,0 +1,135 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Configure Apache HTTP Server (CentOS)
+      run: |
+        # Skip if not CentOS
+        [[ "${{ matrix.image }}" != "centos:"* ]] && exit 0
+
+        mkdir --parents /usr/share/javascript/leaflet
+        curl --silent \
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js" \
+          > /usr/share/javascript/leaflet/leaflet.min.js
+        curl --silent \
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" \
+          > /usr/share/javascript/leaflet/leaflet.css
+        mkdir --parents /run/renderd /var/cache/renderd/tiles
+        ln --symbolic \
+          "${PWD}/utils/example-map" \
+          /var/www/
+        ln --symbolic \
+          /usr/share/javascript/leaflet \
+          /var/www/example-map/leaflet
+        ln --symbolic \
+          "${PWD}/etc/renderd/renderd.conf.examples" \
+          /etc/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd.conf" \
+          /etc/httpd/conf.d/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd-example-map.conf" \
+          /etc/httpd/conf.d/renderd-example-map.conf
+        echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
+          | tee --append /etc/httpd/conf.modules.d/11-mod_tile.conf
+        rm --force /etc/httpd/conf.d/welcome.conf
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Configure Apache HTTP Server (Debian)
+      run: |
+        # Skip if not Debian
+        [[ "${{ matrix.image }}" != "debian:"* ]] && exit 0
+
+        mkdir --parents /run/renderd /var/cache/renderd/tiles
+        ln --symbolic \
+          "${PWD}/utils/example-map" \
+          /var/www/
+        ln --symbolic \
+          /usr/share/javascript/leaflet \
+          /var/www/example-map/leaflet
+        ln --symbolic \
+          "${PWD}/etc/renderd/renderd.conf.examples" \
+          /etc/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd.conf" \
+          /etc/apache2/conf-enabled/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd-example-map.conf" \
+          /etc/apache2/conf-enabled/renderd-example-map.conf
+        echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" \
+          | tee --append /etc/apache2/mods-enabled/mod_tile.load
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Configure Apache HTTP Server (Fedora)
+      run: |
+        # Skip if not Fedora
+        [[ "${{ matrix.image }}" != "fedora:"* ]] && exit 0
+
+        mkdir --parents /usr/share/javascript/leaflet
+        curl --silent \
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js" \
+          > /usr/share/javascript/leaflet/leaflet.min.js
+        curl --silent \
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" \
+          > /usr/share/javascript/leaflet/leaflet.css
+        mkdir --parents /run/renderd /var/cache/renderd/tiles
+        ln --symbolic \
+          "${PWD}/utils/example-map" \
+          /var/www/
+        ln --symbolic \
+          /usr/share/javascript/leaflet \
+          /var/www/example-map/leaflet
+        ln --symbolic \
+          "${PWD}/etc/renderd/renderd.conf.examples" \
+          /etc/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd.conf" \
+          /etc/httpd/conf.d/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd-example-map.conf" \
+          /etc/httpd/conf.d/renderd-example-map.conf
+        echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
+          | tee --append /etc/httpd/conf.modules.d/11-mod_tile.conf
+        rm --force /etc/httpd/conf.d/welcome.conf
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Configure Apache HTTP Server (Ubuntu)
+      run: |
+        # Skip if not Ubuntu
+        [[ "${{ matrix.image }}" != "ubuntu:"* ]] && exit 0
+
+        mkdir --parents /run/renderd /var/cache/renderd/tiles
+        ln --symbolic \
+          "${PWD}/utils/example-map" \
+          /var/www/
+        ln --symbolic \
+          /usr/share/javascript/leaflet \
+          /var/www/example-map/leaflet
+        ln --symbolic \
+          "${PWD}/etc/renderd/renderd.conf.examples" \
+          /etc/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd.conf" \
+          /etc/apache2/conf-enabled/renderd.conf
+        ln --symbolic \
+          "${PWD}/etc/apache2/renderd-example-map.conf" \
+          /etc/apache2/conf-enabled/renderd-example-map.conf
+        echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" \
+          | tee --append /etc/apache2/mods-enabled/mod_tile.load
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Link to `/usr/lib/mapnik/3.0/input`
+      run: |
+        if [ ! -d /usr/lib/mapnik/3.0/input ]; then
+          MAPNIK_INPUT_DIR=$(find /usr -type d -name input | grep /mapnik/)
+          mkdir --parents /usr/lib/mapnik/3.0
+          ln --symbolic ${MAPNIK_INPUT_DIR} /usr/lib/mapnik/3.0/input
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Link `/usr/share/fonts/truetype` to `/usr/share/fonts`
+      run: |
+        if [ ! -d /usr/share/fonts/truetype ] && [ -d /usr/share/fonts ]; then
+          ln --symbolic /usr/share/fonts /usr/share/fonts/truetype
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}

@@ -1,0 +1,11 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Run `make install`
+      run: make install
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Run `make install-mod_tile`
+      run: make install-mod_tile
+      shell: bash --noprofile --norc -euxo pipefail {0}

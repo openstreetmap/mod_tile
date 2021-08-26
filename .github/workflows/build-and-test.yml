@@ -1,0 +1,175 @@
+---
+name: Build & Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - 'centos:7'
+          - 'centos:8'
+          - 'debian:10'
+          - 'debian:11'
+          - 'fedora:33'
+          - 'fedora:34'
+          - 'ubuntu:20.04'
+          - 'ubuntu:21.04'
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') }}
+        exclude:
+          - on_default_branch: false
+            image: 'centos:7'
+          - on_default_branch: false
+            image: 'centos:8'
+          - on_default_branch: false
+            image: 'debian:10'
+          - on_default_branch: false
+            image: 'debian:11'
+          - on_default_branch: false
+            image: 'fedora:33'
+          - on_default_branch: false
+            image: 'fedora:34'
+          - on_default_branch: false
+            image: 'ubuntu:20.04'
+      fail-fast: false
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Dependencies (CentOS)
+        uses: ./.github/actions/yum/install
+        with:
+          dependencies: epel-release
+          groups: >-
+            ${{ env.centos-build-group-dependencies }}
+          packages: >-
+            ${{ env.centos-build-dependencies }}
+            ${{ env.centos-mapnik-build-dependencies }}
+            ${{ env.centos-test-dependencies }}
+        if: ${{ startsWith(matrix.image, 'centos:') }}
+
+      - name: Install Dependencies (Debian)
+        uses: ./.github/actions/apt-get/install
+        with:
+          packages: >-
+            ${{ env.debian-build-dependencies }}
+            ${{ env.debian-test-dependencies }}
+        if: ${{ startsWith(matrix.image, 'debian:') }}
+
+      - name: Install Dependencies (Fedora)
+        uses: ./.github/actions/yum/install
+        with:
+          groups: >-
+            ${{ env.fedora-build-group-dependencies }}
+          packages: >-
+            ${{ env.fedora-build-dependencies }}
+            ${{ env.defora-test-dependencies }}
+        if: ${{ startsWith(matrix.image, 'fedora:') }}
+
+      - name: Install Dependencies (Ubuntu)
+        uses: ./.github/actions/apt-get/install
+        with:
+          packages: >-
+            ${{ env.ubuntu-build-dependencies }}
+            ${{ env.ubuntu-test-dependencies }}
+        if: ${{ startsWith(matrix.image, 'ubuntu:') }}
+
+      - name: Build `mapnik`
+        uses: ./.github/actions/mapnik/build-and-install
+        with:
+          version: ${{ env.centos-mapnik-build-version }}
+        if: ${{ startsWith(matrix.image, 'centos:') }}
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
+      - name: Configure Apache HTTP Server
+        uses: ./.github/actions/apache/configure
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+        timeout-minutes: 5
+
+env:
+  centos-build-group-dependencies: >-
+    "Development Tools"
+  centos-build-dependencies: >-
+    cairo-devel
+    glib2-devel
+    httpd-devel
+    iniparser-devel
+    libcurl-devel
+    libmemcached-devel
+    librados2-devel
+  centos-test-dependencies: >-
+    httpd
+  centos-mapnik-build-dependencies: >-
+    boost169-devel
+    freetype-devel
+    gdal-devel
+    harfbuzz-devel
+    libicu-devel
+    libjpeg-turbo-devel
+    libpng-devel
+    libtiff-devel
+    libwebp-devel
+    libxml2-devel
+    postgresql-devel
+    proj-devel
+    python2
+    sqlite-devel
+    zlib-devel
+  centos-mapnik-build-version: 3.0.24
+  debian-build-dependencies: >-
+    apache2-dev
+    libcairo2-dev
+    libcurl4-gnutls-dev
+    libglib2.0-dev
+    libiniparser-dev
+    libmapnik-dev
+    libmemcached-dev
+    librados-dev
+  debian-test-dependencies: >-
+    apache2
+    libjs-leaflet
+  fedora-build-group-dependencies: >-
+    "C Development Tools and Libraries"
+    "Development Libraries"
+    "Development Tools"
+  fedora-build-dependencies: >-
+    cairo-devel
+    glib2-devel
+    httpd-devel
+    iniparser-devel
+    libcurl-devel
+    libmemcached-devel
+    librados-devel
+    mapnik-devel
+  fedora-test-dependencies: >-
+    httpd
+  ubuntu-build-dependencies: >-
+    apache2-dev
+    libcairo2-dev
+    libcurl4-gnutls-dev
+    libglib2.0-dev
+    libiniparser-dev
+    libmapnik-dev
+    libmemcached-dev
+    librados-dev
+  ubuntu-test-dependencies: >-
+    apache2
+    libjs-leaflet
