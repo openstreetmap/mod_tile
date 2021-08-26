@@ -8,17 +8,24 @@ on:
       - master
       - develop
 
+env:
+  test-dependencies: >-
+    astyle
+
 jobs:
   astyle:
     name: Lint with `astyle`
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Provision environment
-        uses: ./.github/actions/apt/install
+        uses: ./.github/actions/apt-get/install
         with:
-          packages: astyle
+          packages: >-
+            ${{ env.test-dependencies }}
       - name: Run `astyle`
         run: |
           astyle \

@@ -44,3 +44,4 @@ stderr.out
 # Do not ignore
 !Makefile.am
 !etc/renderd
+!.github/**/*
