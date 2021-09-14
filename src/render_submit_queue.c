@@ -15,15 +15,19 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <stddef.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <sys/time.h>
+#include <arpa/inet.h>
+#include <assert.h>
 #include <errno.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include "render_submit_queue.h"
 #include "sys_utils.h"
@@ -225,22 +229,106 @@ void enqueue(const char *xmlname, int x, int y, int z)
 int make_connection(const char *spath)
 {
 	int fd;
-	struct sockaddr_un addr;
 
-	fd = socket(PF_UNIX, SOCK_STREAM, 0);
+	if (spath[0] == '/') {
+		// Create a Unix socket
+		struct sockaddr_un addr;
 
-	if (fd < 0) {
-		fprintf(stderr, "failed to create unix socket\n");
-		exit(2);
-	}
+		fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
-	bzero(&addr, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
+		if (fd < 0) {
+			fprintf(stderr, "failed to create unix socket\n");
+			exit(2);
+		}
 
-	if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		close(fd);
-		return -1;
+		bzero(&addr, sizeof(addr));
+		addr.sun_family = AF_UNIX;
+		strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
+
+		if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+			close(fd);
+			return -1;
+		}
+
+	} else {
+		// Create a network socket
+		const char *d = strchr(spath, ':');
+		char *hostname;
+		u_int16_t port = RENDER_PORT;
+		char port_s[6];
+		size_t spath_len = strlen(spath);
+		size_t hostname_len = d ? d - spath : spath_len;
+		if (!hostname_len) {
+			hostname = strdup(RENDER_HOST);
+		} else {
+			hostname = malloc(hostname_len + sizeof('\0'));
+			assert(hostname != NULL);
+			strncpy(hostname, spath, hostname_len);
+		}
+
+		if (d) {
+			port = atoi(d + 1);
+			if (!port) {
+				port = RENDER_PORT;
+			}
+		}
+		snprintf(port_s, sizeof(port_s), "%u", port);
+
+		printf("Connecting to %s, port %u/tcp\n", hostname, port);
+
+		struct protoent *protocol = getprotobyname("tcp");
+		if (!protocol) {
+				fprintf(stderr, "cannot find TCP protocol number\n");
+				exit(2);
+		}
+
+		struct addrinfo hints;
+		struct addrinfo *result;
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = 0;
+		hints.ai_protocol = protocol->p_proto;
+		hints.ai_canonname = NULL;
+		hints.ai_addr = NULL;
+		hints.ai_next = NULL;
+
+		int ai = getaddrinfo(hostname, port_s, &hints, &result);
+		if (ai != 0) {
+				fprintf(stderr, "cannot resolve hostname %s\n", hostname);
+				exit(2);
+		}
+
+		struct addrinfo *rp;
+		for (rp = result; rp != NULL; rp = rp->ai_next) {
+			fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+			if (fd == -1) {
+				continue;
+			}
+
+			char resolved_addr[NI_MAXHOST];
+			char resolved_port[NI_MAXSERV];
+			int name_info = getnameinfo(rp->ai_addr, rp->ai_addrlen, resolved_addr, sizeof(resolved_addr), resolved_port, sizeof(resolved_port), NI_NUMERICHOST | NI_NUMERICSERV);
+			if (name_info != 0) {
+				fprintf(stderr, "cannot retrieve name info: %d\n", name_info);
+				exit(2);
+			}
+			fprintf(stderr, "Trying %s:%s\n", resolved_addr, resolved_port);
+
+			if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+				printf("Connected to %s:%s\n", resolved_addr, resolved_port);
+				break;
+			}
+
+		}
+
+		freeaddrinfo(result);
+
+		if (rp == NULL) {
+			fprintf(stderr, "cannot connect to any address for %s\n", hostname);
+			exit(2);
+		}
+
 	}
 
 	return fd;
@@ -252,7 +340,7 @@ void *thread_main(void *arg)
 	int fd = make_connection(spath);
 
 	if (fd < 0) {
-		fprintf(stderr, "socket connect failed for: %s\n", spath);
+		fprintf(stderr, "connect failed for: %s\n", spath);
 		return NULL;
 	}
 
@@ -265,14 +353,14 @@ void *thread_main(void *arg)
 		}
 
 		while (process(cmd, fd) < 1) {
-			fprintf(stderr, "connection to renderd lost");
+			fprintf(stderr, "connection to renderd lost\n");
 			close(fd);
 			fd = -1;
 
 			while (fd < 0) {
-				fprintf(stderr, "sleeping for 30 seconds");
+				fprintf(stderr, "sleeping for 30 seconds\n");
 				sleep(30);
-				fprintf(stderr, "attempting to reconnect");
+				fprintf(stderr, "attempting to reconnect\n");
 				fd = make_connection(spath);
 			}
 		}
@@ -361,4 +449,3 @@ void finish_workers(void)
 	free(workers);
 	workers = NULL;
 }
-

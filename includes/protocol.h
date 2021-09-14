@@ -35,6 +35,8 @@ extern "C" {
 #define TILE_PATH_MAX (256)
 #define PROTO_VER (3)
 #define RENDER_SOCKET "/run/renderd/renderd.sock"
+#define RENDER_HOST "localhost"
+#define RENDER_PORT 7654
 #define XMLCONFIG_MAX 41
 
 enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
