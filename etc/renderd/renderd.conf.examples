@@ -30,7 +30,7 @@ font_dir_recurse=true
 ; EXAMPLES FOR LAYER CONFIGURATION OPTIONS
 
 [example-map]
-URI=/renderd-example/tiles/
+URI=/tiles/renderd-example
 XML=/var/www/example-map/mapnik.xml
 
 ;[style1]
