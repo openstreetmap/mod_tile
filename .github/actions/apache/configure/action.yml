@@ -25,9 +25,6 @@ runs:
           "${PWD}/etc/renderd/renderd.conf.examples" \
           /etc/renderd.conf
         ln --symbolic \
-          "${PWD}/etc/apache2/renderd.conf" \
-          /etc/httpd/conf.d/renderd.conf
-        ln --symbolic \
           "${PWD}/etc/apache2/renderd-example-map.conf" \
           /etc/httpd/conf.d/renderd-example-map.conf
         echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
@@ -50,9 +47,6 @@ runs:
         ln --symbolic \
           "${PWD}/etc/renderd/renderd.conf.examples" \
           /etc/renderd.conf
-        ln --symbolic \
-          "${PWD}/etc/apache2/renderd.conf" \
-          /etc/apache2/conf-enabled/renderd.conf
         ln --symbolic \
           "${PWD}/etc/apache2/renderd-example-map.conf" \
           /etc/apache2/conf-enabled/renderd-example-map.conf
@@ -83,9 +77,6 @@ runs:
           "${PWD}/etc/renderd/renderd.conf.examples" \
           /etc/renderd.conf
         ln --symbolic \
-          "${PWD}/etc/apache2/renderd.conf" \
-          /etc/httpd/conf.d/renderd.conf
-        ln --symbolic \
           "${PWD}/etc/apache2/renderd-example-map.conf" \
           /etc/httpd/conf.d/renderd-example-map.conf
         echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
@@ -108,9 +99,6 @@ runs:
         ln --symbolic \
           "${PWD}/etc/renderd/renderd.conf.examples" \
           /etc/renderd.conf
-        ln --symbolic \
-          "${PWD}/etc/apache2/renderd.conf" \
-          /etc/apache2/conf-enabled/renderd.conf
         ln --symbolic \
           "${PWD}/etc/apache2/renderd-example-map.conf" \
           /etc/apache2/conf-enabled/renderd-example-map.conf

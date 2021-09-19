@@ -3,7 +3,7 @@ inputs:
   tile_url:
     description: Tile URL for testing `mod_tile` module
     required: false
-    default: http://localhost/renderd-example/tiles/9/297/191.png
+    default: http://localhost:8081/tiles/renderd-example/9/297/191.png
   tile_sha224sum:
     description: Tile sha224sum for testing `mod_tile` module
     required: false
