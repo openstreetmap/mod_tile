@@ -43,7 +43,11 @@
 #include "g_logger.h"
 
 // extern "C" {
+#ifdef __FreeBSD__
+#include <iniparser.h>
+#else
 #include <iniparser/iniparser.h>
+#endif
 // }
 
 #define PIDFILE "/run/renderd/renderd.pid"
