@@ -65,7 +65,7 @@ static struct timeval start, end;
 
 int foreground = 1;
 
-
+struct keepalive_settings keepalives;
 
 void display_rate(struct timeval start, struct timeval end, int num)
 {
@@ -198,6 +198,8 @@ int main(int argc, char **argv)
 	int numThreads = 1;
 	int dd, mm, yy;
 	struct tm tm;
+
+	memset(&keepalives, 0, sizeof(struct keepalive_settings));
 
 	while (1) {
 		int option_index = 0;

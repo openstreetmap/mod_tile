@@ -61,6 +61,8 @@ int main(int argc, char **argv)
 }
 #else
 
+struct keepalive_settings keepalives;
+
 // tile marking arrays
 unsigned int **tile_requested;
 
@@ -108,6 +110,8 @@ int main(int argc, char **argv)
 	int i;
 	struct storage_backend * store;
 	char name[PATH_MAX];
+
+	memset(&keepalives, 0, sizeof(struct keepalive_settings));
 
 	// excess_zoomlevels is how many zoom levels at the large end
 	// we can ignore because their tiles will share one meta tile.
