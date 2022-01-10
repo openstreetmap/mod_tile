@@ -52,6 +52,8 @@ int main(int argc, char **argv)
 }
 #else
 
+struct keepalive_settings keepalives;
+
 static int minZoom = 0;
 static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
@@ -92,6 +94,11 @@ int main(int argc, char **argv)
 	struct storage_backend * store;
 	struct stat_info s;
 
+	memset(&keepalives, 0, sizeof(struct keepalive_settings));
+	keepalives.time = 60;
+	keepalives.interval = 60;
+	keepalives.probes = 9;
+
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
@@ -102,6 +109,7 @@ int main(int argc, char **argv)
 			{"min-y", required_argument, 0, 'y'},
 			{"max-y", required_argument, 0, 'Y'},
 			{"socket", required_argument, 0, 's'},
+			{"keepalives", no_argument, 0, 'k'},
 			{"num-threads", required_argument, 0, 'n'},
 			{"max-load", required_argument, 0, 'l'},
 			{"tile-dir", required_argument, 0, 't'},
@@ -113,7 +121,7 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:n:l:f", long_options, &option_index);
+		c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:km:t:n:l:f", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -127,6 +135,10 @@ int main(int argc, char **argv)
 			case 's':   /* -s, --socket */
 				free(spath);
 				spath = strdup(optarg);
+				break;
+
+			case 'k':		/* -k, --keepalives */
+			  keepalives.enabled = 1;
 				break;
 
 			case 't':   /* -t, --tile-dir */
@@ -202,6 +214,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
 				fprintf(stderr, "  -l, --max-load=LOAD  sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT  unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -k, --keepalives     enable TCP keepalives");
 				fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
 				fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
 				fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
