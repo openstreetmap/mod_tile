@@ -95,9 +95,6 @@ int main(int argc, char **argv)
 	struct stat_info s;
 
 	memset(&keepalives, 0, sizeof(struct keepalive_settings));
-	keepalives.time = 60;
-	keepalives.interval = 60;
-	keepalives.probes = 9;
 
 	while (1) {
 		int option_index = 0;
@@ -110,6 +107,7 @@ int main(int argc, char **argv)
 			{"max-y", required_argument, 0, 'Y'},
 			{"socket", required_argument, 0, 's'},
 			{"keepalives", no_argument, 0, 'k'},
+			{"keepalive-config", required_argument, 0, 'K'},
 			{"num-threads", required_argument, 0, 'n'},
 			{"max-load", required_argument, 0, 'l'},
 			{"tile-dir", required_argument, 0, 't'},
@@ -121,7 +119,7 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:km:t:n:l:f", long_options, &option_index);
+		c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:kK:m:t:n:l:f", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -140,6 +138,50 @@ int main(int argc, char **argv)
 			case 'k':		/* -k, --keepalives */
 			  keepalives.enabled = 1;
 				break;
+
+			case 'K': {  /* --keepalive-config=<t>:<intvl>:<count> */
+				char * confstr = strdup(optarg);
+				if (!strlen(confstr)) {
+					fprintf(stderr, "No parameters provided for the TCP keepalive config\n");
+					return 1;
+				}
+
+				int val_count = 0;
+				const int val_count_expected = 3;
+				char * val[val_count_expected];
+				char * p = strtok(confstr, ":");
+				while (p != NULL) {
+					val[ val_count++ ] = p;
+					p = strtok(NULL, ":");
+				}
+
+				if (val_count != val_count_expected) {
+					fprintf(stderr, "Must provide exactly %d instead of %d arguments to --kepalive-config. See help for details.\n", val_count_expected, val_count);
+					return 1;
+				}
+
+				keepalives.enabled = 1;
+				char * error_char = NULL;
+				keepalives.time = strtol(val[0], &error_char, 10);
+				if (*error_char != '\0') {
+					fprintf(stderr, "TCP keepalive time contains invalid character\n");
+					return 1;
+				}
+
+				keepalives.interval = strtol(val[1], &error_char, 10);
+				if (*error_char != '\0') {
+					fprintf(stderr, "TCP keepalive interval contains invalid character\n");
+					return 1;
+				}
+
+				keepalives.probes = strtol(val[2], &error_char, 10);
+				if (*error_char != '\0') {
+					fprintf(stderr, "TCP keepalive probe count contains invalid character\n");
+					return 1;
+				}
+
+			  break;
+			}
 
 			case 't':   /* -t, --tile-dir */
 				tile_dir = strdup(optarg);
@@ -214,7 +256,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
 				fprintf(stderr, "  -l, --max-load=LOAD  sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT  unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -k, --keepalives     enable TCP keepalives");
+				fprintf(stderr, "  -k, --keepalives     enable TCP keepalives\n");
+				fprintf(stderr, "  -K, --keepalive-config=<t>:<intvl>:<count>  TCP keepalive configuration. Send keepalives after t seconds of inactivity, every intvl seconds. Consider connection broken after count probes. Implicitly enables TCP keepalives.\n");
 				fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
 				fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
 				fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");

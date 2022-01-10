@@ -309,6 +309,13 @@ int make_connection(const char *spath)
 
 			if (keepalives.enabled) {
 				fprintf(stderr, "Enabling TCP keepalives\n");
+				if (keepalives.time > 0) {
+					fprintf(stderr, "TCP keepalives configuration: time=%d, interval=%d, probes=%d\n",
+						keepalives.time,
+						keepalives.interval,
+						keepalives.probes
+					);
+				}
 				int optval = 0;
 				socklen_t optlen = sizeof(optval);
 
