@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <netdb.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -306,10 +307,52 @@ int make_connection(const char *spath)
 				continue;
 			}
 
+			if (keepalives.enabled) {
+				fprintf(stderr, "Enabling TCP keepalives\n");
+				if (keepalives.time > 0) {
+					fprintf(stderr, "TCP keepalives configuration: time=%d, interval=%d, probes=%d\n",
+						keepalives.time,
+						keepalives.interval,
+						keepalives.probes
+					);
+				}
+				int optval = 0;
+				socklen_t optlen = sizeof(optval);
+
+				optval = 1;
+				if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
+						perror("setsockopt()");
+						close(fd);
+						exit(2);
+				}
+
+#ifdef LINUX
+				if (keepalives.time > 0 && setsockopt(fd, SOL_SOCKET, TCP_KEEPIDLE, &keepalives.time, sizeof(keepalives.time)) < 0) {
+						perror("setsockopt()");
+						close(fd);
+						exit(2);
+				}
+
+				if (keepalives.interval > 0 && setsockopt(fd, SOL_SOCKET, TCP_KEEPINTVL, &keepalives.interval, sizeof(keepalives.interval)) < 0) {
+						perror("setsockopt()");
+						close(fd);
+						exit(2);
+				}
+
+				if (keepalives.probes > 0 && setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &keepalives.probes, sizeof(keepalives.probes)) < 0) {
+						perror("setsockopt()");
+						close(fd);
+						exit(2);
+				}
+#endif
+
+			}
+
 			char resolved_addr[NI_MAXHOST];
 			char resolved_port[NI_MAXSERV];
 			int name_info = getnameinfo(rp->ai_addr, rp->ai_addrlen, resolved_addr, sizeof(resolved_addr), resolved_port, sizeof(resolved_port), NI_NUMERICHOST | NI_NUMERICSERV);
 			if (name_info != 0) {
+				close(fd);
 				fprintf(stderr, "cannot retrieve name info: %d\n", name_info);
 				exit(2);
 			}

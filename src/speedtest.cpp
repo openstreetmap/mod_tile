@@ -49,6 +49,8 @@ int main(int argc, char **argv)
 }
 #else
 
+struct keepalive_settings keepalives;
+
 static const int minZoom = 0;
 static const int maxZoom = 18;
 
@@ -207,6 +209,8 @@ int main(int argc, char **argv)
 	const char * mapname = "default";
 	int verbose = 0;
 	int numThreads = 1;
+
+	memset(&keepalives, 0, sizeof(struct keepalive_settings));
 
 	while (1) {
 		int option_index = 0;
