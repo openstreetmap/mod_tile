@@ -197,20 +197,20 @@ int main(int argc, char **argv)
 
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
-				fprintf(stderr, "  -a, --all            render all tiles in given zoom level range instead of reading from STDIN\n");
-				fprintf(stderr, "  -f, --force          render tiles even if they seem current\n");
-				fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
-				fprintf(stderr, "  -l, --max-load=LOAD  sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT  unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
-				fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
+				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
+				fprintf(stderr, "  -f, --force                       render tiles even if they seem current\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
-				fprintf(stderr, "  -x, --min-x=X        minimum X tile coordinate\n");
-				fprintf(stderr, "  -X, --max-x=X        maximum X tile coordinate\n");
-				fprintf(stderr, "  -y, --min-y=Y        minimum Y tile coordinate\n");
-				fprintf(stderr, "  -Y, --max-y=Y        maximum Y tile coordinate\n");
+				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
+				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
+				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
+				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
 				fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
 				fprintf(stderr, "  X Y Z\n");
 				fprintf(stderr, "e.g.\n");

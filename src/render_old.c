@@ -312,15 +312,15 @@ int main(int argc, char **argv)
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: render_old [OPTION] ...\n");
 				fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
-				fprintf(stderr, "  -c, --config=CONFIG  specify the renderd config file\n");
-				fprintf(stderr, "  -n, --num-threads=N  the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -t, --tile-dir       tile cache directory (defaults to '" HASH_PATH "')\n");
-				fprintf(stderr, "  -z, --min-zoom=ZOOM  filter input to only render tiles greater or equal to this zoom level (default 0)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM  filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
-				fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
-				fprintf(stderr, "  -l, --max-load=LOAD  maximum system load with which requests are submitted\n");
-				fprintf(stderr, "  -T, --timestamp=DD/MM/YY  Overwrite the assumed data of the planet import\n");
-				fprintf(stderr, "  -m, --map=STYLE      Instead of going through all styls of CONFIG, only use a specific map-style\n");
+				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file\n");
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default 0)\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -l, --max-load=LOAD               maximum system load with which requests are submitted\n");
+				fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
+				fprintf(stderr, "  -m, --map=STYLE                   Instead of going through all styls of CONFIG, only use a specific map-style\n");
 				return -1;
 
 			default:

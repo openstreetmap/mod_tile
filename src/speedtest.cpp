@@ -250,9 +250,9 @@ int main(int argc, char **argv)
 
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: speedtest [OPTION] ...\n");
-				fprintf(stderr, "  -m, --map=MAP        render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
-				fprintf(stderr, "  -s, --socket=SOCKET  unix domain socket name for contacting renderd\n");
-				fprintf(stderr, "  -n, --num-threads=N the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
 				return -1;
 
 			default:
