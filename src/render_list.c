@@ -36,6 +36,7 @@
 
 #include "gen_tile.h"
 #include "protocol.h"
+#include "config.h"
 #include "render_config.h"
 #include "store.h"
 #include "sys_utils.h"
@@ -95,25 +96,27 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"min-zoom", required_argument, 0, 'z'},
-			{"max-zoom", required_argument, 0, 'Z'},
-			{"min-x", required_argument, 0, 'x'},
-			{"max-x", required_argument, 0, 'X'},
-			{"min-y", required_argument, 0, 'y'},
-			{"max-y", required_argument, 0, 'Y'},
-			{"socket", required_argument, 0, 's'},
+			{"all",         no_argument,       0, 'a'},
+			{"force",       no_argument,       0, 'f'},
+			{"map",         required_argument, 0, 'm'},
+			{"max-load",    required_argument, 0, 'l'},
+			{"max-x",       required_argument, 0, 'X'},
+			{"max-y",       required_argument, 0, 'Y'},
+			{"max-zoom",    required_argument, 0, 'Z'},
+			{"min-x",       required_argument, 0, 'x'},
+			{"min-y",       required_argument, 0, 'y'},
+			{"min-zoom",    required_argument, 0, 'z'},
 			{"num-threads", required_argument, 0, 'n'},
-			{"max-load", required_argument, 0, 'l'},
-			{"tile-dir", required_argument, 0, 't'},
-			{"map", required_argument, 0, 'm'},
-			{"verbose", no_argument, 0, 'v'},
-			{"force", no_argument, 0, 'f'},
-			{"all", no_argument, 0, 'a'},
-			{"help", no_argument, 0, 'h'},
+			{"socket",      required_argument, 0, 's'},
+			{"tile-dir",    required_argument, 0, 't'},
+			{"verbose",     no_argument,       0, 'v'},
+
+			{"help",        no_argument,       0, 'h'},
+			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvaz:Z:x:X:y:Y:s:m:t:n:l:f", long_options, &option_index);
+		c = getopt_long(argc, argv, "afm:l:X:Y:Z:x:y:z:n:s:t:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -199,18 +202,22 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
 				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
 				fprintf(stderr, "  -f, --force                       render tiles even if they seem current\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
 				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (defaults to %d)\n", MAX_LOAD_OLD);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
 				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
-				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
-				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
+				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
+				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
+				fprintf(stderr, "\n");
+        fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+				fprintf(stderr, "\n");
 				fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
 				fprintf(stderr, "  X Y Z\n");
 				fprintf(stderr, "e.g.\n");
@@ -220,6 +227,10 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  1 1 1\n");
 				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
 				return -1;
+
+			case 'V':
+				fprintf(stdout, "%s\n", VERSION);
+				exit(0);
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);

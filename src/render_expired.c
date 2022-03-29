@@ -34,6 +34,7 @@
 #include <pthread.h>
 
 #include "protocol.h"
+#include "config.h"
 #include "render_config.h"
 #include "store.h"
 #include "render_submit_queue.h"
@@ -124,21 +125,23 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"min-zoom", required_argument, 0, 'z'},
-			{"max-zoom", required_argument, 0, 'Z'},
-			{"socket", required_argument, 0, 's'},
-			{"num-threads", required_argument, 0, 'n'},
 			{"delete-from", required_argument, 0, 'd'},
-			{"touch-from", required_argument, 0, 'T'},
-			{"tile-dir", required_argument, 0, 't'},
-			{"max-load", required_argument, 0, 'l'},
-			{"map", required_argument, 0, 'm'},
-			{"verbose", no_argument, 0, 'v'},
-			{"help", no_argument, 0, 'h'},
+			{"map",         required_argument, 0, 'm'},
+			{"max-load",    required_argument, 0, 'l'},
+			{"max-zoom",    required_argument, 0, 'Z'},
+			{"min-zoom",    required_argument, 0, 'z'},
+			{"num-threads", required_argument, 0, 'n'},
+			{"socket",      required_argument, 0, 's'},
+			{"tile-dir",    required_argument, 0, 't'},
+			{"touch-from",  required_argument, 0, 'T'},
+			{"verbose",     no_argument,       0, 'v'},
+
+			{"help",        no_argument,       0, 'h'},
+			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvz:Z:s:m:t:n:l:T:d:", long_options, &option_index);
+		c = getopt_long(argc, argv, "d:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -217,14 +220,18 @@ int main(int argc, char **argv)
 
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: render_expired [OPTION] ...\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
 				fprintf(stderr, "  -d, --delete-from=ZOOM            when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
 				fprintf(stderr, "  -T, --touch-from=ZOOM             when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
+				fprintf(stderr, "\n");
+        fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+				fprintf(stderr, "\n");
 				fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
 				fprintf(stderr, "  z/x/y\n");
 				fprintf(stderr, "e.g.\n");
@@ -234,6 +241,10 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  1/1/0\n");
 				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
 				return -1;
+
+			case 'V':
+				fprintf(stdout, "%s\n", VERSION);
+				exit(0);
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);

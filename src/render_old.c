@@ -38,6 +38,7 @@
 
 #include "gen_tile.h"
 #include "protocol.h"
+#include "config.h"
 #include "render_config.h"
 #include "store_file_utils.h"
 #include "render_submit_queue.h"
@@ -202,21 +203,23 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config", required_argument, 0, 'c'},
-			{"min-zoom", required_argument, 0, 'z'},
-			{"max-zoom", required_argument, 0, 'Z'},
-			{"max-load", required_argument, 0, 'l'},
-			{"socket", required_argument, 0, 's'},
+			{"config",      required_argument, 0, 'c'},
+			{"map",         required_argument, 0, 'm'},
+			{"max-load",    required_argument, 0, 'l'},
+			{"max-zoom",    required_argument, 0, 'Z'},
+			{"min-zoom",    required_argument, 0, 'z'},
 			{"num-threads", required_argument, 0, 'n'},
-			{"tile-dir", required_argument, 0, 't'},
-			{"timestamp", required_argument, 0, 'T'},
-			{"map", required_argument, 0, 'm'},
-			{"verbose", no_argument, 0, 'v'},
-			{"help", no_argument, 0, 'h'},
+			{"socket",      required_argument, 0, 's'},
+			{"tile-dir",    required_argument, 0, 't'},
+			{"timestamp",   required_argument, 0, 'T'},
+			{"verbose",     no_argument,       0, 'v'},
+
+			{"help",        no_argument,       0, 'h'},
+			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvz:Z:s:t:n:c:l:T:m:", long_options, &option_index);
+		c = getopt_long(argc, argv, "c:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -313,15 +316,22 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Usage: render_old [OPTION] ...\n");
 				fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file\n");
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default 0)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
 				fprintf(stderr, "  -l, --max-load=LOAD               maximum system load with which requests are submitted\n");
-				fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
 				fprintf(stderr, "  -m, --map=STYLE                   Instead of going through all styls of CONFIG, only use a specific map-style\n");
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
+				fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default %d)\n", MAX_ZOOM);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default 0)\n");
+				fprintf(stderr, "\n");
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return -1;
+
+			case 'V':
+				fprintf(stdout, "%s\n", VERSION);
+				exit(0);
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);

@@ -33,6 +33,7 @@
 
 #include "gen_tile.h"
 #include "protocol.h"
+#include "config.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
 
@@ -211,15 +212,17 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"socket", required_argument, 0, 's'},
+			{"map",         required_argument, 0, 'm'},
 			{"num-threads", required_argument, 0, 'n'},
-			{"map", required_argument, 0, 'm'},
-			{"verbose", no_argument, 0, 'v'},
-			{"help", no_argument, 0, 'h'},
+			{"socket",      required_argument, 0, 's'},
+			{"verbose",     no_argument,       0, 'v'},
+
+			{"help",        no_argument,       0, 'h'},
+			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hvs:m:", long_options, &option_index);
+		c = getopt_long(argc, argv, "m:n:s:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -251,9 +254,16 @@ int main(int argc, char **argv)
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: speedtest [OPTION] ...\n");
 				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "\n");
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return -1;
+
+			case 'V':
+				fprintf(stdout, "%s\n", VERSION);
+				exit(0);
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);
