@@ -229,7 +229,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "\n");
-        fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");

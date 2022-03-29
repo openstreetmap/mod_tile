@@ -215,7 +215,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
 				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
 				fprintf(stderr, "\n");
-        fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
