@@ -209,6 +209,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
+				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
 				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
