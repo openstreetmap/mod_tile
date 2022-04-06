@@ -1145,6 +1145,14 @@ static int tile_handler_status(request_rec *r)
 		return DECLINED;
 	}
 
+	// Is /status URL enabled?
+	ap_conf_vector_t *sconf = r->server->module_config;
+	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+
+	if (!scfg->enableStatusUrl) {
+		return HTTP_NOT_FOUND;
+	}
+
 	rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
 	cmd = rdata->cmd;
 
@@ -2670,6 +2678,13 @@ static const char *mod_tile_bulk_mode(cmd_parms *cmd, void *mconfig, int bulkMod
 	return NULL;
 }
 
+static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int enableStatusUrl)
+{
+	tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+	scfg->enableStatusUrl = enableStatusUrl;
+	return NULL;
+}
+
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
 {
 	int bucketsize;
@@ -2749,6 +2764,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
 	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
 	scfg->bulkMode = 0;
+	scfg->enableStatusUrl = 1;	// By default, enable this feature
 
 
 	return scfg;
@@ -2791,6 +2807,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
 	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
 	scfg->bulkMode = scfg_over->bulkMode;
+	scfg->enableStatusUrl = scfg_over->enableStatusUrl;
 
 	//Construct a table of minimum cache times per zoom level
 	for (i = 0; i <= MAX_ZOOM_SERVER; i++) {
@@ -2981,6 +2998,13 @@ static const command_rec tile_cmds[] = {
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
 		"On Off - make all requests to renderd with bulk render priority, never mark tiles dirty"  /* directive description */
+	),
+	AP_INIT_FLAG(
+		"ModTileEnableStatusURL",        /* directive name */
+		mod_tile_enable_status_url,      /* config action routine */
+		NULL,                            /* argument to include in call */
+		OR_OPTIONS,                      /* where available */
+		"On Off - whether to handle .../status urls "  /* directive description */
 	),
 	{NULL}
 };
