@@ -137,6 +137,7 @@ typedef struct {
 	long delaypoolRenderRate;
 	int bulkMode;
 	int enableStatusUrl;
+	int enableDirtyUrl;
 } tile_server_conf;
 
 typedef struct tile_request_data {

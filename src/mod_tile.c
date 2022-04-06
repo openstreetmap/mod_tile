@@ -989,6 +989,10 @@ static int tile_handler_dirty(request_rec *r)
 	sconf = r->server->module_config;
 	scfg = ap_get_module_config(sconf, &tile_module);
 
+	if (!scfg->enableDirtyUrl) {
+		return HTTP_NOT_FOUND;
+	}
+
 	if (scfg->bulkMode) {
 		return OK;
 	}
@@ -2687,6 +2691,13 @@ static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int
 	return NULL;
 }
 
+static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int enableDirtyUrl)
+{
+	tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+	scfg->enableDirtyUrl = enableDirtyUrl;
+	return NULL;
+}
+
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
 {
 	int bucketsize;
@@ -2767,6 +2778,7 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
 	scfg->bulkMode = 0;
 	scfg->enableStatusUrl = 1;	// By default, enable this feature
+	scfg->enableDirtyUrl = 1;	// By default, enable this feature
 
 
 	return scfg;
@@ -2810,6 +2822,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
 	scfg->bulkMode = scfg_over->bulkMode;
 	scfg->enableStatusUrl = scfg_over->enableStatusUrl;
+	scfg->enableDirtyUrl = scfg_over->enableDirtyUrl;
 
 	//Construct a table of minimum cache times per zoom level
 	for (i = 0; i <= MAX_ZOOM_SERVER; i++) {
@@ -3007,6 +3020,13 @@ static const command_rec tile_cmds[] = {
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
 		"On Off - whether to handle .../status urls "  /* directive description */
+	),
+	AP_INIT_FLAG(
+		"ModTileEnableDirtyURL",         /* directive name */
+		mod_tile_enable_dirty_url,       /* config action routine */
+		NULL,                            /* argument to include in call */
+		OR_OPTIONS,                      /* where available */
+		"On Off - whether to handle .../dirty urls "  /* directive description */
 	),
 	{NULL}
 };
