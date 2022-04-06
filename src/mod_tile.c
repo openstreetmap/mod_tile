@@ -2775,8 +2775,8 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
 	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
 	scfg->bulkMode = 0;
-	scfg->enableStatusUrl = 1;	// By default, enable this feature
-	scfg->enableDirtyUrl = 1;	// By default, enable this feature
+	scfg->enableStatusUrl = 0;
+	scfg->enableDirtyUrl = 0;
 
 
 	return scfg;
