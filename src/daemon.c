@@ -34,6 +34,7 @@
 #include <strings.h>
 #include <getopt.h>
 
+#include "config.h"
 #include "render_config.h"
 #include "daemon.h"
 #include "gen_tile.h"
@@ -743,14 +744,16 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config", required_argument, 0, 'c'},
-			{"foreground", no_argument, 0, 'f'},
-			{"slave", required_argument, 0, 's'},
-			{"help", no_argument, 0, 'h'},
+			{"config",     required_argument, 0, 'c'},
+			{"foreground", no_argument,       0, 'f'},
+			{"slave",      required_argument, 0, 's'},
+
+			{"help",       no_argument,       0, 'h'},
+			{"version",    no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "hfc:", long_options, &option_index);
+		c = getopt_long(argc, argv, "c:fs:hV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -771,16 +774,21 @@ int main(int argc, char **argv)
 					fprintf(stderr, "--slave needs to be numeric (%s)\n", optarg);
 					active_slave = 0;
 				}
-
 				break;
 
 			case 'h':
 				fprintf(stderr, "Usage: renderd [OPTION] ...\n");
 				fprintf(stderr, "Mapnik rendering daemon\n");
-				fprintf(stderr, "  -f, --foreground      run in foreground\n");
-				fprintf(stderr, "  -h, --help            display this help and exit\n");
 				fprintf(stderr, "  -c, --config=CONFIG   set location of config file (default %s)\n", RENDERD_CONFIG);
+				fprintf(stderr, "  -f, --foreground      run in foreground\n");
 				fprintf(stderr, "  -s, --slave=CONFIG_NR set which render slave this is (default 0)\n");
+				fprintf(stderr, "\n");
+				fprintf(stderr, "  -h, --help            display this help and exit\n");
+				fprintf(stderr, "  -V, --version         display the version number and exit\n");
+				exit(0);
+
+			case 'V':
+				fprintf(stdout, "%s\n", VERSION);
 				exit(0);
 
 			default:
@@ -794,7 +802,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started");
+	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started (version %s)", VERSION);
 
 	render_request_queue = request_queue_init();
 
