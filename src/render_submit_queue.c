@@ -258,6 +258,7 @@ int make_connection(const char *spath)
 		char port_s[6];
 		size_t spath_len = strlen(spath);
 		size_t hostname_len = d ? d - spath : spath_len;
+
 		if (!hostname_len) {
 			hostname = strdup(RENDER_HOST);
 		} else {
@@ -268,40 +269,55 @@ int make_connection(const char *spath)
 
 		if (d) {
 			port = atoi(d + 1);
+
 			if (!port) {
 				port = RENDER_PORT;
 			}
 		}
+
 		snprintf(port_s, sizeof(port_s), "%u", port);
 
 		printf("Connecting to %s, port %u/tcp\n", hostname, port);
 
 		struct protoent *protocol = getprotobyname("tcp");
+
 		if (!protocol) {
-				fprintf(stderr, "cannot find TCP protocol number\n");
-				exit(2);
+			fprintf(stderr, "cannot find TCP protocol number\n");
+			exit(2);
 		}
 
 		struct addrinfo hints;
+
 		struct addrinfo *result;
+
 		memset(&hints, 0, sizeof(hints));
+
 		hints.ai_family = AF_UNSPEC;
+
 		hints.ai_socktype = SOCK_STREAM;
+
 		hints.ai_flags = 0;
+
 		hints.ai_protocol = protocol->p_proto;
+
 		hints.ai_canonname = NULL;
+
 		hints.ai_addr = NULL;
+
 		hints.ai_next = NULL;
 
 		int ai = getaddrinfo(hostname, port_s, &hints, &result);
+
 		if (ai != 0) {
-				fprintf(stderr, "cannot resolve hostname %s\n", hostname);
-				exit(2);
+			fprintf(stderr, "cannot resolve hostname %s\n", hostname);
+			exit(2);
 		}
 
 		struct addrinfo *rp;
+
 		for (rp = result; rp != NULL; rp = rp->ai_next) {
 			fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+
 			if (fd == -1) {
 				continue;
 			}
@@ -309,10 +325,12 @@ int make_connection(const char *spath)
 			char resolved_addr[NI_MAXHOST];
 			char resolved_port[NI_MAXSERV];
 			int name_info = getnameinfo(rp->ai_addr, rp->ai_addrlen, resolved_addr, sizeof(resolved_addr), resolved_port, sizeof(resolved_port), NI_NUMERICHOST | NI_NUMERICSERV);
+
 			if (name_info != 0) {
 				fprintf(stderr, "cannot retrieve name info: %d\n", name_info);
 				exit(2);
 			}
+
 			fprintf(stderr, "Trying %s:%s\n", resolved_addr, resolved_port);
 
 			if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
