@@ -27,19 +27,21 @@ jobs:
           packages: >-
             ${{ env.test-dependencies }}
       - name: Check if any modifications were made by `astyle`
+        env:
+          ASTYLE_CMD: >-
+            astyle
+              --break-blocks
+              --indent-switches
+              --indent=force-tab=8
+              --lineend=linux
+              --options=none
+              --pad-header
+              --pad-oper
+              --style=1tbs
+              --suffix=none
+              --unpad-paren
+              includes/* src/*
         run: |
-          ASTYLE_CMD="astyle \
-            --break-blocks \
-            --indent-switches \
-            --indent=force-tab=8 \
-            --lineend=linux \
-            --options=none \
-            --pad-header \
-            --pad-oper \
-            --style=1tbs \
-            --suffix=none \
-            --unpad-paren \
-            includes/* src/*"
           ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
           if [ -n "$(echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged")" ]; then
             echo "The following files are in need of formatting:"
