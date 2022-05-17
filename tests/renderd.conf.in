@@ -1,0 +1,14 @@
+[renderd]
+socketname=@PROJECT_BINARY_DIR@/tests/run/renderd.sock
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd.stats
+tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
+
+[mapnik]
+font_dir_recurse=true
+font_dir=@MAPNIK_FONTS_DIR@
+plugins_dir=@MAPNIK_INPUT_DIR@
+
+[example-map]
+TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+URI=/tiles/renderd-example
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
