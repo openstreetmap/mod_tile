@@ -1,0 +1,18 @@
+/* Define to 1 if you have the functions. */
+#cmakedefine HAVE_DAEMON @HAVE_DAEMON@
+#cmakedefine HAVE_GETLOADAVG @HAVE_GETLOADAVG@
+
+/* Define to 1 if you have the header files. */
+#cmakedefine HAVE_PATHS_H @HAVE_PATHS_H@
+#cmakedefine HAVE_PTHREAD @HAVE_PTHREAD@
+#cmakedefine HAVE_SYS_CDEFS_H @HAVE_SYS_CDEFS_H@
+#cmakedefine HAVE_SYS_LOADAVG_H @HAVE_SYS_LOADAVG_H@
+
+/* Define to 1 if you have the libraries. */
+#cmakedefine HAVE_CAIRO @HAVE_CAIRO@
+#cmakedefine HAVE_LIBCURL @HAVE_LIBCURL@
+#cmakedefine HAVE_LIBMEMCACHED @HAVE_LIBMEMCACHED@
+#cmakedefine HAVE_LIBRADOS @HAVE_LIBRADOS@
+
+/* Version number of project */
+#cmakedefine VERSION "@VERSION@"
