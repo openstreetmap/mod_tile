@@ -7,13 +7,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Link `python` to `python2`
+    - name: Prepare for building (CentOS 7)
       run: |
-        if [ ! -f /bin/python ]; then
-          ln --symbolic python2 /bin/python
-        fi
-        if [ ! -f /usr/bin/python ]; then
-          ln --symbolic python2 /usr/bin/python
+        if [ "${{ matrix.image }}" == "centos:7" ]; then
+          echo "JOBS=1" >> $GITHUB_ENV
+          echo "PYTHON=python2" >> $GITHUB_ENV
         fi
       shell: bash --noprofile --norc -euxo pipefail {0}
 
@@ -41,13 +39,12 @@ runs:
         # Export `GDAL_DATA` & `PROJ_LIB` variables and create directories
         export GDAL_DATA=/usr/share/gdal
         export PROJ_LIB=/usr/share/proj
+        # Export `PYTHON`
+        export PYTHON=${PYTHON:-python3}
         mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
         cd /usr/local/src/mapnik-${{ inputs.version }}
         ./configure FAST=True \
           PREFIX="/usr" \
-          OPTIMIZATION=2 \
-          BOOST_INCLUDES=/usr/include/boost169 \
-          BOOST_LIBS=/usr/lib64/boost169
-        JOBS=$(nproc) make
-        make install
+          OPTIMIZATION=2
+        JOBS=${JOBS:-$(nproc)} make install PYTHON=${PYTHON}
       shell: bash --noprofile --norc -euxo pipefail {0}

@@ -13,6 +13,7 @@
 find_package(UnixCommands REQUIRED)
 find_program(CAT_EXECUTABLE cat REQUIRED)
 find_program(ID_EXECUTABLE id REQUIRED)
+find_program(KILL_EXECUTABLE kill REQUIRED)
 find_program(MAPNIK_CONFIG_EXECUTABLE mapnik-config REQUIRED)
 find_program(MKDIR_EXECUTABLE mkdir REQUIRED)
 find_program(PKILL_EXECUTABLE pkill REQUIRED)

@@ -4,9 +4,6 @@ name: Build & Test
 on:
   pull_request:
   push:
-    branches:
-      - master
-      - develop
 
 jobs:
   build-and-test:
@@ -15,33 +12,33 @@ jobs:
     strategy:
       matrix:
         image:
-          - 'debian:10'
-          - 'debian:11'
-          - 'fedora:33'
+          - 'amazonlinux:2'
+          - 'almalinux:8'
+          - 'centos:7'
+          - 'rockylinux:8'
+          - 'debian:bookworm'
+          - 'debian:bullseye'
+          - 'debian:buster'
           - 'fedora:34'
+          - 'fedora:35'
+          - 'fedora:36'
           - 'ubuntu:20.04'
           - 'ubuntu:21.04'
+          - 'ubuntu:22.04'
         on_default_branch:
           - ${{ contains(github.ref, 'master') }}
-        exclude:
-          - on_default_branch: false
-            image: 'debian:10'
-          - on_default_branch: false
-            image: 'debian:11'
-          - on_default_branch: false
-            image: 'fedora:33'
-          - on_default_branch: false
-            image: 'fedora:34'
-          - on_default_branch: false
-            image: 'ubuntu:20.04'
       fail-fast: false
     container:
       image: ${{ matrix.image }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Install `git` (Amazon Linux 2)
+        run: yum --assumeyes install git
+        if: ${{ startsWith(matrix.image, 'amazonlinux:') }}
 
-      - name: Install Dependencies (CentOS)
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies (AlmaLinux/Amazon Linux/CentOS/Rocky Linux)
         uses: ./.github/actions/yum/install
         with:
           dependencies: epel-release
@@ -51,7 +48,11 @@ jobs:
             ${{ env.centos-build-dependencies }}
             ${{ env.centos-mapnik-build-dependencies }}
             ${{ env.centos-test-dependencies }}
-        if: ${{ startsWith(matrix.image, 'centos:') }}
+        if: |
+          startsWith(matrix.image, 'almalinux:') ||
+          startsWith(matrix.image, 'amazonlinux:') ||
+          startsWith(matrix.image, 'centos:') ||
+          startsWith(matrix.image, 'rockylinux:')
 
       - name: Install Dependencies (Debian)
         uses: ./.github/actions/apt-get/install
@@ -79,30 +80,31 @@ jobs:
             ${{ env.ubuntu-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'ubuntu:') }}
 
-      - name: Build `mapnik`
+      - name: Build `mapnik` (AlmaLinux/Amazon Linux/CentOS/Rocky Linux)
         uses: ./.github/actions/mapnik/build-and-install
         with:
           version: ${{ env.centos-mapnik-build-version }}
-        if: ${{ startsWith(matrix.image, 'centos:') }}
+        if: |
+          startsWith(matrix.image, 'almalinux:') ||
+          startsWith(matrix.image, 'amazonlinux:') ||
+          startsWith(matrix.image, 'centos:') ||
+          startsWith(matrix.image, 'rockylinux:')
 
       - name: Build `mod_tile`
         uses: ./.github/actions/build
 
-      - name: Install `mod_tile`
-        uses: ./.github/actions/install
-
-      - name: Configure Apache HTTP Server
-        uses: ./.github/actions/apache/configure
-
       - name: Test `mod_tile`
         uses: ./.github/actions/test
-        timeout-minutes: 5
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
 
 env:
   centos-build-group-dependencies: >-
     "Development Tools"
   centos-build-dependencies: >-
     cairo-devel
+    cmake3
     glib2-devel
     httpd-devel
     iniparser-devel
@@ -111,8 +113,9 @@ env:
     librados2-devel
   centos-test-dependencies: >-
     httpd
+    procps
   centos-mapnik-build-dependencies: >-
-    boost169-devel
+    boost-devel
     freetype-devel
     gdal-devel
     harfbuzz-devel
@@ -125,11 +128,13 @@ env:
     postgresql-devel
     proj-devel
     python2
+    python3
     sqlite-devel
     zlib-devel
-  centos-mapnik-build-version: 3.0.24
+  centos-mapnik-build-version: 3.0.22
   debian-build-dependencies: >-
     apache2-dev
+    cmake
     libcairo2-dev
     libcurl4-gnutls-dev
     libglib2.0-dev
@@ -139,13 +144,13 @@ env:
     librados-dev
   debian-test-dependencies: >-
     apache2
-    libjs-leaflet
   fedora-build-group-dependencies: >-
     "C Development Tools and Libraries"
     "Development Libraries"
     "Development Tools"
   fedora-build-dependencies: >-
     cairo-devel
+    cmake
     glib2-devel
     httpd-devel
     iniparser-devel
@@ -157,6 +162,7 @@ env:
     httpd
   ubuntu-build-dependencies: >-
     apache2-dev
+    cmake
     libcairo2-dev
     libcurl4-gnutls-dev
     libglib2.0-dev
@@ -166,4 +172,3 @@ env:
     librados-dev
   ubuntu-test-dependencies: >-
     apache2
-    libjs-leaflet

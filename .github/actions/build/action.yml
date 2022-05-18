@@ -2,22 +2,23 @@
 runs:
   using: composite
   steps:
-    - name: Link `iniparser.h` to `iniparser/iniparser.h`
+    - name: Create `cmake` symbolic link (Amazon Linux 2/CentOS 7)
       run: |
-        if [ ! -f /usr/include/iniparser/iniparser.h ]; then
-          mkdir --parents /usr/include/iniparser
-          ln --symbolic ../iniparser.h /usr/include/iniparser/iniparser.h
+        if [[ "${{ matrix.image }}" =~ ^(amazonlinux:2|centos:7)$ ]]; then
+          ln --symbolic cmake3 /usr/bin/cmake
         fi
       shell: bash --noprofile --norc -euxo pipefail {0}
 
-    - name: Run `./autogen.sh`
-      run: ./autogen.sh
+    - name: Prepare `build` directory
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
+          -DCMAKE_INSTALL_PREFIX=/usr
       shell: bash --noprofile --norc -euxo pipefail {0}
 
-    - name: Run `./configure`
-      run: ./configure
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Run `make`
-      run: make
+    - name: Build `mod_tile`
+      run: |
+        export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+        export VERBOSE=1
+        cmake --build build
       shell: bash --noprofile --norc -euxo pipefail {0}

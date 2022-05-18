@@ -13,14 +13,20 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Cache `DNF` / `YUM`
-      uses: actions/cache@v2
-      with:
-        path: |
-          /var/cache/dnf
-          /var/lib/dnf
-          /var/cache/yum
-        key: ${{ matrix.image }}-yum-dnf
+    - name: Enable PowerTools repository (AlmaLinux/Rocky Linux 8)
+      run: |
+        if [[ "${{ matrix.image }}" =~ ^(almalinux|rockylinux):8$ ]]; then
+          dnf --assumeyes --skip-broken install "dnf-command(config-manager)"
+          dnf config-manager --set-enabled powertools
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Enable EPEL repository (Amazon Linux 2)
+      run: |
+        if [ "${{ matrix.image }}" == "amazonlinux:2" ]; then
+          amazon-linux-extras install epel -y
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Install dependency package(s)
       run: |
