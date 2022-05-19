@@ -1,6 +1,7 @@
 ; EXAMPLES FOR BASIC CONFIGURATION OPTIONS
 
 [renderd]
+pid_file=/run/renderd/renderd.pid
 stats_file=/run/renderd/renderd.stats
 socketname=/run/renderd/renderd.sock
 num_threads=4
@@ -11,6 +12,7 @@ tile_dir=/var/cache/renderd/tiles
 ;ipport=7654
 ;num_threads=4
 ;tile_dir=rados://tiles/etc/ceph/ceph.conf
+;pid_file=/run/renderd/renderd_rados.pid
 ;stats_file=/run/renderd/renderd.stats
 
 ;[renderd]
@@ -18,6 +20,7 @@ tile_dir=/var/cache/renderd/tiles
 ;ipport=7654
 ;num_threads=8
 ;tile_dir=memcached://
+;pid_file=/run/renderd/renderd_memcached.pid
 ;stats_file=/run/renderd/renderd.stats
 
 ; EXAMPLE FOR MAPNIK CONFIGURATION OPTION

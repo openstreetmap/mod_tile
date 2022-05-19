@@ -50,6 +50,8 @@
 #define XMLCONFIG_DEFAULT "default"
 // Maximum number of configurations that mod tile will allow
 #define XMLCONFIGS_MAX 10
+// Default PID file path
+#define PIDFILE "/run/renderd/renderd.pid"
 
 // Mapnik input plugins (will need to adjust for 32 bit libs)
 #define MAPNIK_PLUGINS "/usr/local/lib64/mapnik/input"
