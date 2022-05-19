@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.image }}
+    name: ${{ matrix.image }} (${{ matrix.compiler }} Compiler Collection)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,10 +25,18 @@ jobs:
           - 'ubuntu:20.04'
           - 'ubuntu:21.04'
           - 'ubuntu:22.04'
+        compiler:
+          - GNU
+          - LLVM
         on_default_branch:
-          - ${{ contains(github.ref, 'master') }}
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
+        exclude:
+          - on_default_branch: false
       fail-fast: false
     container:
+      env:
+        CC: ${{ matrix.compiler == 'GNU' && 'gcc' || 'clang' }}
+        CXX: ${{ matrix.compiler == 'GNU' && 'g++' || 'clang++' }}
       image: ${{ matrix.image }}
     steps:
       - name: Install `git` (Amazon Linux 2)
@@ -46,6 +54,7 @@ jobs:
             ${{ env.centos-build-group-dependencies }}
           packages: >-
             ${{ env.centos-build-dependencies }}
+            ${{ matrix.compiler == 'GNU' && 'gcc gcc-c++' || 'clang' }}
             ${{ env.centos-mapnik-build-dependencies }}
             ${{ env.centos-test-dependencies }}
         if: |
@@ -59,6 +68,7 @@ jobs:
         with:
           packages: >-
             ${{ env.debian-build-dependencies }}
+            ${{ matrix.compiler == 'GNU' && 'gcc g++' || 'clang' }}
             ${{ env.debian-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'debian:') }}
 
@@ -69,6 +79,7 @@ jobs:
             ${{ env.fedora-build-group-dependencies }}
           packages: >-
             ${{ env.fedora-build-dependencies }}
+            ${{ matrix.compiler == 'GNU' && 'gcc gcc-c++' || 'clang' }}
             ${{ env.defora-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'fedora:') }}
 
@@ -77,6 +88,7 @@ jobs:
         with:
           packages: >-
             ${{ env.ubuntu-build-dependencies }}
+            ${{ matrix.compiler == 'GNU' && 'gcc g++' || 'clang' }}
             ${{ env.ubuntu-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'ubuntu:') }}
 
