@@ -24,12 +24,16 @@ jobs:
           - 'fedora:36'
           - 'ubuntu:20.04'
           - 'ubuntu:21.04'
-          - 'ubuntu:22.04'
         compiler:
           - GNU
           - LLVM
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
+        include:
+          - compiler: GNU
+            image: 'ubuntu:22.04'
+          - compiler: LLVM
+            image: 'ubuntu:22.04'
         exclude:
           - on_default_branch: false
       fail-fast: false
