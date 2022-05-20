@@ -3,10 +3,12 @@ name: flawfinder
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ master ]
+    branches:
+      - master
   schedule:
     - cron: '44 0 * * 4'
 
@@ -20,15 +22,15 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: flawfinder_scan
-        uses: david-a-wheeler/flawfinder@8e4a779ad59dbfaee5da586aa9210853b701959c
+        uses: david-a-wheeler/flawfinder@2.0.19
         with:
-          arguments: '--sarif ./'
+          arguments: '--sarif includes src'
           output: 'flawfinder_results.sarif'
 
       - name: Upload analysis results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: ${{github.workspace}}/flawfinder_results.sarif

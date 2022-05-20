@@ -20,7 +20,7 @@ jobs:
       image: ubuntu:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Provision environment
         uses: ./.github/actions/apt-get/install
         with:
