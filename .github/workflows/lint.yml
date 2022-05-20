@@ -40,7 +40,7 @@ jobs:
               --style=1tbs
               --suffix=none
               --unpad-paren
-              includes/* src/*
+              includes/*.h includes/*.hpp src/*.c src/*.cpp
         run: |
           ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
           if [ -n "$(echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged")" ]; then
