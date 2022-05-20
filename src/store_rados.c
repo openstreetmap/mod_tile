@@ -352,6 +352,8 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 	int i;
 
 	if (ctx == NULL) {
+		free(ctx);
+		free(store);
 		return NULL;
 	}
 
