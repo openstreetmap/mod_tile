@@ -34,16 +34,16 @@ int daemon(int nochdir, int noclose);
 #define MAX_SLAVES 5
 
 typedef struct {
-	char *socketname;
-	char *iphostname;
+	const char *iphostname;
+	const char *mapnik_font_dir;
+	const char *mapnik_plugins_dir;
+	const char *pid_filename;
+	const char *socketname;
+	const char *stats_filename;
+	const char *tile_dir;
 	int ipport;
-	int num_threads;
-	char *tile_dir;
-	char *mapnik_plugins_dir;
-	char *mapnik_font_dir;
 	int mapnik_font_dir_recurse;
-	char * stats_filename;
-	const char * pid_filename;
+	int num_threads;
 } renderd_config;
 
 typedef struct {

@@ -831,7 +831,7 @@ int main(int argc, char **argv)
 	char buffer[PATH_MAX];
 
 	for (int section = 0; section < iniparser_getnsec(ini); section++) {
-		char *name = iniparser_getsecname(ini, section);
+		const char *name = iniparser_getsecname(ini, section);
 		g_logger(G_LOG_LEVEL_INFO, "Parsing section %s", name);
 
 		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
@@ -856,7 +856,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].xmlname, name);
 
 			sprintf(buffer, "%s:uri", name);
-			char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
+			const char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_uri) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "URI too long: %s", ini_uri);
@@ -866,7 +866,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].xmluri, ini_uri);
 
 			sprintf(buffer, "%s:xml", name);
-			char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
+			const char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_xmlpath) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "XML path too long: %s", ini_xmlpath);
@@ -876,7 +876,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].xmlfile, ini_xmlpath);
 
 			sprintf(buffer, "%s:host", name);
-			char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
+			const char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "Host name too long: %s", ini_hostname);
@@ -886,7 +886,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].host, ini_hostname);
 
 			sprintf(buffer, "%s:htcphost", name);
-			char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
+			const char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "HTCP host name too long: %s", ini_htcpip);
@@ -896,7 +896,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].htcpip, ini_htcpip);
 
 			sprintf(buffer, "%s:tilesize", name);
-			char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
+			const char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
 			maps[iconf].tile_px_size = atoi(ini_tilesize);
 
 			if (maps[iconf].tile_px_size < 1) {
@@ -905,7 +905,7 @@ int main(int argc, char **argv)
 			}
 
 			sprintf(buffer, "%s:scale", name);
-			char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
+			const char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
 			maps[iconf].scale_factor = atof(ini_scale);
 
 			if (maps[iconf].scale_factor < 0.1 || maps[iconf].scale_factor > 8.0) {
@@ -914,7 +914,7 @@ int main(int argc, char **argv)
 			}
 
 			sprintf(buffer, "%s:tiledir", name);
-			char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
+			const char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
 
 			if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "Tiledir too long: %s", ini_tiledir);
@@ -924,7 +924,7 @@ int main(int argc, char **argv)
 			strcpy(maps[iconf].tile_dir, ini_tiledir);
 
 			sprintf(buffer, "%s:maxzoom", name);
-			char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
+			const char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
 			maps[iconf].max_zoom = atoi(ini_maxzoom);
 
 			if (maps[iconf].max_zoom > MAX_ZOOM) {
@@ -933,7 +933,7 @@ int main(int argc, char **argv)
 			}
 
 			sprintf(buffer, "%s:minzoom", name);
-			char *ini_minzoom = iniparser_getstring(ini, buffer, "0");
+			const char *ini_minzoom = iniparser_getstring(ini, buffer, "0");
 			maps[iconf].min_zoom = atoi(ini_minzoom);
 
 			if (maps[iconf].min_zoom < 0) {
@@ -947,7 +947,7 @@ int main(int argc, char **argv)
 			}
 
 			sprintf(buffer, "%s:parameterize_style", name);
-			char *ini_parameterize = iniparser_getstring(ini, buffer, "");
+			const char *ini_parameterize = iniparser_getstring(ini, buffer, "");
 
 			if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "Parameterize_style too long: %s", ini_parameterize);
