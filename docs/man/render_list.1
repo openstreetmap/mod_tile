@@ -1,4 +1,4 @@
-.TH RENDER_LIST 1 "Apr 25, 2013"
+.TH RENDER_LIST 1 "May 21, 2022"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 render_list \- renders a list of map tiles by sending requests to a rendering daemon.
@@ -31,8 +31,8 @@ Render tiles in this map (defaults to 'default').
 \fB\-l\fR|\-\-max-load=LOAD
 Sleep if load is this high (defaults to 16).
 .TP
-\fB\-s\fR|\-\-socket=SOCKET
-Unix domain socket name for contacting renderd.
+\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+Unix domain socket name or hostname and port for contacting renderd.
 .TP
 \fB\-n\fR|\-\-num-threads=N
 The number of parallel request threads (default 1).
@@ -71,6 +71,13 @@ e.g.
   1 1 1
 .br
 The above would cause all 4 tiles at zoom 1 to be rendered
+.TP
+\fB\-h\fR|\-\-help
+Print out a help text for render_list
+.TP
+\fB\-V\fR|\-\-version
+Print out the version number for render_list
+.PP
 .SH SEE ALSO
 .BR renderd (8),
 .BR mod_tile (1).

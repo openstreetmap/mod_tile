@@ -1,4 +1,4 @@
-.TH RENDER_EXPIRED 1 "Jan 27, 2012"
+.TH RENDER_EXPIRED 1 "May 21, 2022"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 render_expired \- expires a list of map tiles so that they get re-rendered.
@@ -43,14 +43,14 @@ A summary of options is included below.
 \fB\-m\fR|\-\-map=MAP
 Specify the style-sheet for which to expire tiles. The default is "default".
 .TP
-\fB\-s\fR|\-\-socket=SOCKET
-Specify the location of the renderd socket.
+\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+Specify the location of the renderd socket or hostname and port to connect to.
 .TP
 \fB\-n\fR|\-\-num-threads=N
 Specify the number of parallel requests to renderd. Should renderd have less threads active, requests will be queued. The default is 1.
 default if \fB\-\-append\fR is not specified.
 .TP
-\fB\-t\fR|\-\-tiledir=DIR
+\fB\-t\fR|\-\-tile-dir=DIR
 Specify the base directory where the rendered tiles are. The default is '/var/cache/renderd/tiles'
 .TP
 \fB\-z\fR|\-\-min-zoom=ZOOM
@@ -64,6 +64,12 @@ When expiring tiles of ZOOM or higher, delete them instead of re-rendering (defa
 .TP
 \fB\-T\fR|\-\-touch-from=ZOOM
 when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
+.TP
+\fB\-h\fR|\-\-help
+Print out a help text for render_expired
+.TP
+\fB\-V\fR|\-\-version
+Print out the version number for render_expired
 .PP
 .SH SEE ALSO
 .BR renderd (1),

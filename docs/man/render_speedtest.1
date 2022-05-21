@@ -1,4 +1,4 @@
-.TH SPEEDTEST 1 "Jan 25, 2012"
+.TH SPEEDTEST 1 "May 21, 2022"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 speedtest \- Benchmapr tile rendering with renderd.
@@ -18,11 +18,20 @@ These programs follow the usual GNU command line syntax, with long
 options starting with two dashes (`-').
 A summary of options is included below.
 .TP
-\fB\-s\fR|\-\-socket=SOCKET
-Specify the location of the renderd socket to connect to.
+\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+Specify the location of the renderd socket or hostname and port to connect to.
 .TP
 \fB\-m\fR|\-\-map=MAP
 Specify the rendering style to test. The default is "default"
+.TP
+\fB\-n\fR|\-\-num-threads=N
+The number of parallel request threads (default 1).
+.TP
+\fB\-h\fR|\-\-help
+Print out a help text for speedtest
+.TP
+\fB\-V\fR|\-\-version
+Print out the version number for speedtest
 .PP
 .SH SEE ALSO
 .BR renderd (1),
