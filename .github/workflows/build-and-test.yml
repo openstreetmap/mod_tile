@@ -15,6 +15,8 @@ jobs:
     strategy:
       matrix:
         image:
+          - 'centos:7'
+          - 'centos:8'
           - 'debian:10'
           - 'debian:11'
           - 'fedora:33'
@@ -24,6 +26,10 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') }}
         exclude:
+          - on_default_branch: false
+            image: 'centos:7'
+          - on_default_branch: false
+            image: 'centos:8'
           - on_default_branch: false
             image: 'debian:10'
           - on_default_branch: false
