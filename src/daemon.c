@@ -855,7 +855,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].xmlname, name);
 
-			sprintf(buffer, "%s:uri", name);
+			snprintf(buffer, sizeof(buffer), "%s:uri", name);
 			const char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_uri) >= (PATH_MAX - 1)) {
@@ -865,7 +865,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].xmluri, ini_uri);
 
-			sprintf(buffer, "%s:xml", name);
+			snprintf(buffer, sizeof(buffer), "%s:xml", name);
 			const char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
 
 			if (strlen(ini_xmlpath) >= (PATH_MAX - 1)) {
@@ -875,7 +875,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].xmlfile, ini_xmlpath);
 
-			sprintf(buffer, "%s:host", name);
+			snprintf(buffer, sizeof(buffer), "%s:host", name);
 			const char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
@@ -885,7 +885,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].host, ini_hostname);
 
-			sprintf(buffer, "%s:htcphost", name);
+			snprintf(buffer, sizeof(buffer), "%s:htcphost", name);
 			const char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
 
 			if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
@@ -895,7 +895,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].htcpip, ini_htcpip);
 
-			sprintf(buffer, "%s:tilesize", name);
+			snprintf(buffer, sizeof(buffer), "%s:tilesize", name);
 			const char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
 			maps[iconf].tile_px_size = atoi(ini_tilesize);
 
@@ -904,7 +904,7 @@ int main(int argc, char **argv)
 				exit(7);
 			}
 
-			sprintf(buffer, "%s:scale", name);
+			snprintf(buffer, sizeof(buffer), "%s:scale", name);
 			const char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
 			maps[iconf].scale_factor = atof(ini_scale);
 
@@ -913,7 +913,7 @@ int main(int argc, char **argv)
 				exit(7);
 			}
 
-			sprintf(buffer, "%s:tiledir", name);
+			snprintf(buffer, sizeof(buffer), "%s:tiledir", name);
 			const char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
 
 			if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
@@ -923,7 +923,7 @@ int main(int argc, char **argv)
 
 			strcpy(maps[iconf].tile_dir, ini_tiledir);
 
-			sprintf(buffer, "%s:maxzoom", name);
+			snprintf(buffer, sizeof(buffer), "%s:maxzoom", name);
 			const char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
 			maps[iconf].max_zoom = atoi(ini_maxzoom);
 
@@ -932,7 +932,7 @@ int main(int argc, char **argv)
 				exit(7);
 			}
 
-			sprintf(buffer, "%s:minzoom", name);
+			snprintf(buffer, sizeof(buffer), "%s:minzoom", name);
 			const char *ini_minzoom = iniparser_getstring(ini, buffer, "0");
 			maps[iconf].min_zoom = atoi(ini_minzoom);
 
@@ -946,7 +946,7 @@ int main(int argc, char **argv)
 				exit(7);
 			}
 
-			sprintf(buffer, "%s:parameterize_style", name);
+			snprintf(buffer, sizeof(buffer), "%s:parameterize_style", name);
 			const char *ini_parameterize = iniparser_getstring(ini, buffer, "");
 
 			if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
@@ -976,21 +976,21 @@ int main(int argc, char **argv)
 				exit(7);
 			}
 
-			sprintf(buffer, "%s:socketname", name);
+			snprintf(buffer, sizeof(buffer), "%s:socketname", name);
 			config_slaves[render_sec].socketname = iniparser_getstring(ini,
 							       buffer, (char *) RENDER_SOCKET);
-			sprintf(buffer, "%s:iphostname", name);
+			snprintf(buffer, sizeof(buffer), "%s:iphostname", name);
 			config_slaves[render_sec].iphostname = iniparser_getstring(ini,
 							       buffer, "");
-			sprintf(buffer, "%s:ipport", name);
+			snprintf(buffer, sizeof(buffer), "%s:ipport", name);
 			config_slaves[render_sec].ipport = iniparser_getint(ini, buffer, 0);
-			sprintf(buffer, "%s:num_threads", name);
+			snprintf(buffer, sizeof(buffer), "%s:num_threads", name);
 			config_slaves[render_sec].num_threads = iniparser_getint(ini,
 								buffer, NUM_THREADS);
-			sprintf(buffer, "%s:tile_dir", name);
+			snprintf(buffer, sizeof(buffer), "%s:tile_dir", name);
 			config_slaves[render_sec].tile_dir = iniparser_getstring(ini,
 							     buffer, (char *) HASH_PATH);
-			sprintf(buffer, "%s:stats_file", name);
+			snprintf(buffer, sizeof(buffer), "%s:stats_file", name);
 			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
 					buffer, NULL);
 			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
