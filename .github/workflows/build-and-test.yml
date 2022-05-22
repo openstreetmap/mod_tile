@@ -16,30 +16,17 @@ jobs:
       matrix:
         image:
           - 'centos:7'
-          - 'centos:8'
           - 'debian:10'
           - 'debian:11'
           - 'fedora:33'
           - 'fedora:34'
           - 'ubuntu:20.04'
-          - 'ubuntu:21.04'
         on_default_branch:
           - ${{ contains(github.ref, 'master') }}
+        include:
+          - image: 'ubuntu:21.04'
         exclude:
           - on_default_branch: false
-            image: 'centos:7'
-          - on_default_branch: false
-            image: 'centos:8'
-          - on_default_branch: false
-            image: 'debian:10'
-          - on_default_branch: false
-            image: 'debian:11'
-          - on_default_branch: false
-            image: 'fedora:33'
-          - on_default_branch: false
-            image: 'fedora:34'
-          - on_default_branch: false
-            image: 'ubuntu:20.04'
       fail-fast: false
     container:
       image: ${{ matrix.image }}
