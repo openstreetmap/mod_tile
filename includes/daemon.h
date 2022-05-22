@@ -43,7 +43,7 @@ typedef struct {
 	char *mapnik_font_dir;
 	int mapnik_font_dir_recurse;
 	char * stats_filename;
-	char * pid_filename;
+	const char * pid_filename;
 } renderd_config;
 
 typedef struct {
