@@ -993,7 +993,7 @@ int main(int argc, char **argv)
 			sprintf(buffer, "%s:stats_file", name);
 			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
 					buffer, NULL);
-			sprintf(buffer, "%s:pid_file", name);
+			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
 			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
 					buffer, (char *) PIDFILE);
 
