@@ -28,6 +28,7 @@ Dependencies
 * `Curl library (SSL variant) <https://curl.haxx.se/>`__
 * `Iniparser library <https://github.com/ndevilla/iniparser>`__
 * `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
+* `CMake (>= v3.1) <https://cmake.org/>`__
 
 Installation
 ------------
@@ -63,7 +64,7 @@ distributions:
 Configuration
 -------------
 
-After you either installed the software packages or copiled the software
+After you either installed the software packages or compiled the software
 yourself, you can continue with the configuration. For your convenience
 example configuration files are distributed with the software packages and
 located in the ``etc`` directory of this repository.

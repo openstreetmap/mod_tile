@@ -1,7 +1,6 @@
 # Building on CentOS 7
 
 This documents step by step on how to compile and put into use the software `mod_tile` and `renderd`.
-Please see our [Continous Integration script](../../.github/workflows/build-and-test-centos-7.yml) for more detail.
 
 As `CentOS 7` does not provide any `mapnik`/`mapnik-devel` packages in the official repository (nor are any available from `EPEL`,) it must therefore be built and installed before `mod_tile` can be built. Although `boost-devel` is present in the official repository, the version available there (`1.53.0`) is not in [mapnik's recommended dependency list](https://github.com/mapnik/mapnik/blob/v3.0.24/INSTALL.md#depends), so the `boost169-devel` package from `EPEL` should probably be used instead.
 
@@ -24,6 +23,7 @@ sudo yum --assumeyes groups install \
 sudo yum --assumeyes install \
   boost169-devel \
   cairo-devel \
+  cmake3 \
   freetype-devel \
   gdal-devel \
   glib2-devel \
@@ -54,20 +54,16 @@ sudo mkdir -p /usr/local/src/mapnik-${MAPNIK_VERSION}
 cd /usr/local/src/mapnik-${MAPNIK_VERSION}
 sudo curl --silent --location https://github.com/mapnik/mapnik/releases/download/v${MAPNIK_VERSION}/mapnik-v${MAPNIK_VERSION}.tar.bz2 \
   | sudo tar --verbose --extract --bzip2 --strip-components=1 --file=-
-sudo --preserve-env ./configure BOOST_INCLUDES=/usr/include/boost169 BOOST_LIBS=/usr/lib64/boost169
-sudo --preserve-env JOBS=$(nproc) make
-sudo --preserve-env make install
-
-# Fix issue with `iniparser.h` from `iniparser-devel` not being in the expected location
-sudo mkdir /usr/include/iniparser
-sudo ln -s /usr/include/iniparser.h /usr/include/iniparser/iniparser.h
+sudo --preserve-env ./configure BOOST_INCLUDES=/usr/include/boost169 BOOST_LIBS=/usr/lib64/boost169 FAST=True OPTIMIZATION=2
+sudo --preserve-env JOBS=$(nproc) make install
 
 # Download and build
 sudo git clone https://github.com/openstreetmap/mod_tile.git /usr/local/src/mod_tile
 cd /usr/local/src/mod_tile
-sudo --preserve-env ./autogen.sh
-sudo --preserve-env ./configure
-sudo --preserve-env make
+sudo rm -rf build
+sudo mkdir build
+sudo cmake3 -B build
+sudo make --directory build
 
 # Create tiles directory
 sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
@@ -75,7 +71,11 @@ sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
 # Move files of example map
 sudo cp -r "utils/example-map" /var/www/example-map
 
+# Link example-map to /var/www/html
+sudo ln --symbolic /var/www/example-map /var/www/html/
+
 # Install leaflet
+sudo mkdir /var/www/example-map/leaflet
 sudo curl --silent \
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js" \
   > /var/www/example-map/leaflet/leaflet.min.js
@@ -85,8 +85,7 @@ sudo curl --silent \
 
 # Add configuration
 sudo cp "etc/renderd/renderd.conf.examples" /etc/renderd.conf
-sudo cp "etc/apache2/renderd.conf" /etc/httpd/conf.d/renderd.conf
-sudo cp "apache2/renderd-example-map.conf" \
+sudo cp "etc/apache2/renderd-example-map.conf" \
   /etc/httpd/conf.d/renderd-example-map.conf
 
 # Apply CentOS specific changes to configuration files
@@ -105,8 +104,7 @@ echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
 sudo rm --force /etc/httpd/conf.d/welcome.conf
 
 # Install software
-sudo make install
-sudo make install-mod_tile
+sudo make --directory build install
 
 # Start services
 sudo httpd

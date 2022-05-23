@@ -1,7 +1,6 @@
 # Building on Fedora 34
 
 This documents step by step on how to compile and put into use the software `mod_tile` and `renderd`.
-Please see our [Continous Integration script](../../.github/workflows/build-and-test-fedora-34.yml) for more detail.
 
 ```shell
 #!/usr/bin/env bash
@@ -19,6 +18,7 @@ sudo yum --assumeyes groups install \
 # Install build dependencies
 sudo yum --assumeyes install \
   cairo-devel \
+  cmake \
   glib2-devel \
   httpd-devel \
   iniparser-devel \
@@ -30,9 +30,10 @@ sudo yum --assumeyes install \
 # Download, Build & Install `mod_tile`
 git clone https://github.com/openstreetmap/mod_tile.git /usr/local/src/mod_tile
 cd /usr/local/src/mod_tile
-./autogen.sh
-./configure
-make
+rm -rf build
+mkdir build
+cmake -B build
+make --directory build
 
 # Create tiles directory
 sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
@@ -40,7 +41,11 @@ sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
 # Move files of example map
 sudo cp -r "utils/example-map" /var/www/example-map
 
+# Link example-map to /var/www/html
+sudo ln --symbolic /var/www/example-map /var/www/html/
+
 # Install leaflet
+sudo mkdir /var/www/example-map/leaflet
 sudo curl --silent \
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js" \
   > /var/www/example-map/leaflet/leaflet.min.js
@@ -50,8 +55,7 @@ sudo curl --silent \
 
 # Add configuration
 sudo cp "etc/renderd/renderd.conf.examples" /etc/renderd.conf
-sudo cp "etc/apache2/renderd.conf" /etc/httpd/conf.d/renderd.conf
-sudo cp "apache2/renderd-example-map.conf" \
+sudo cp "etc/apache2/renderd-example-map.conf" \
   /etc/httpd/conf.d/renderd-example-map.conf
 
 # Apply Fedora specific changes to configuration files
@@ -70,8 +74,7 @@ echo "LoadModule tile_module /usr/lib64/httpd/modules/mod_tile.so" \
 sudo rm --force /etc/httpd/conf.d/welcome.conf
 
 # Install software
-sudo make install
-sudo make install-mod_tile
+sudo make --directory build install
 
 # Start services
 sudo httpd
