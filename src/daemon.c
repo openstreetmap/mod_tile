@@ -51,8 +51,6 @@
 #endif
 // }
 
-#define PIDFILE "/run/renderd/renderd.pid"
-
 #define PFD_LISTEN        0
 #define PFD_EXIT_PIPE     1
 #define PFD_SPECIAL_COUNT 2
@@ -995,6 +993,9 @@ int main(int argc, char **argv)
 			sprintf(buffer, "%s:stats_file", name);
 			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
 					buffer, NULL);
+			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
+			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
+					buffer, (char *) PIDFILE);
 
 			if (render_sec == active_slave) {
 				config.socketname = config_slaves[render_sec].socketname;
@@ -1004,6 +1005,8 @@ int main(int argc, char **argv)
 				config.tile_dir = config_slaves[render_sec].tile_dir;
 				config.stats_filename
 					= config_slaves[render_sec].stats_filename;
+				config.pid_filename
+					= config_slaves[render_sec].pid_filename;
 				config.mapnik_plugins_dir = iniparser_getstring(ini,
 							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
 				config.mapnik_font_dir = iniparser_getstring(ini,
@@ -1030,6 +1033,7 @@ int main(int argc, char **argv)
 
 	g_logger(G_LOG_LEVEL_INFO, "config renderd: tile_dir=%s", config.tile_dir);
 	g_logger(G_LOG_LEVEL_INFO, "config renderd: stats_file=%s", config.stats_filename);
+	g_logger(G_LOG_LEVEL_INFO, "config renderd: pid_file=%s", config.pid_filename);
 	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  plugins_dir=%s", config.mapnik_plugins_dir);
 	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  font_dir=%s", config.mapnik_font_dir);
 	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  font_dir_recurse=%d", config.mapnik_font_dir_recurse);
@@ -1057,6 +1061,8 @@ int main(int argc, char **argv)
 			 config_slaves[i].tile_dir);
 		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): stats_file=%s", i,
 			 config_slaves[i].stats_filename);
+		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): pid_file=%s", i,
+			 config_slaves[i].pid_filename);
 	}
 
 	for (iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
@@ -1098,7 +1104,7 @@ int main(int argc, char **argv)
 		}
 
 		/* write pid file */
-		FILE *pidfile = fopen(PIDFILE, "w");
+		FILE *pidfile = fopen(config.pid_filename, "w");
 
 		if (pidfile) {
 			(void) fprintf(pidfile, "%d\n", getpid());
