@@ -24,7 +24,6 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') }}
         include:
-          - image: 'centos:7'
           - image: 'ubuntu:21.04'
         exclude:
           - on_default_branch: false
