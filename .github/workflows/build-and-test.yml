@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.image }} (${{ matrix.compiler }} Compiler Collection)
+    name: ${{ matrix.image }} (${{ matrix.compiler }} Compiler Collection) (${{ matrix.build_type || 'Debug' }} Build)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -27,6 +27,8 @@ jobs:
         compiler:
           - GNU
           - LLVM
+        build_type:
+          - Debug
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
@@ -34,11 +36,18 @@ jobs:
             image: 'ubuntu:22.04'
           - compiler: LLVM
             image: 'ubuntu:22.04'
+          - build_type: Release
+            compiler: GNU
+            image: 'ubuntu:22.04'
+          - build_type: Release
+            compiler: LLVM
+            image: 'ubuntu:22.04'
         exclude:
           - on_default_branch: false
       fail-fast: false
     container:
       env:
+        BUILD_TYPE: ${{ matrix.build_type }}
         CC: ${{ matrix.compiler == 'GNU' && 'gcc' || 'clang' }}
         CXX: ${{ matrix.compiler == 'GNU' && 'g++' || 'clang++' }}
       image: ${{ matrix.image }}
