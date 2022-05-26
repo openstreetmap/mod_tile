@@ -774,6 +774,7 @@ int main(int argc, char **argv)
 					fprintf(stderr, "--slave needs to be numeric (%s)\n", optarg);
 					active_slave = 0;
 				}
+
 				break;
 
 			case 'h':

@@ -20,28 +20,33 @@ jobs:
       image: ubuntu:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Provision environment
         uses: ./.github/actions/apt-get/install
         with:
           packages: >-
             ${{ env.test-dependencies }}
-      - name: Run `astyle`
-        run: |
-          astyle \
-            --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
-            --break-blocks --indent-switches --pad-oper --pad-header \
-            --unpad-paren --suffix=none \
-            includes/* src/*
       - name: Check if any modifications were made by `astyle`
+        env:
+          ASTYLE_CMD: >-
+            astyle
+              --break-blocks
+              --indent-switches
+              --indent=force-tab=8
+              --lineend=linux
+              --options=none
+              --pad-header
+              --pad-oper
+              --style=1tbs
+              --suffix=none
+              --unpad-paren
+              includes/*.h includes/*.hpp src/*.c src/*.cpp
         run: |
-          if [[ -n $(git diff) ]]; then
-            echo "You must run 'astyle \
-              --options=none --lineend=linux --style=1tbs --indent=force-tab=8 \
-              --break-blocks --indent-switches --pad-oper --pad-header \
-              --unpad-paren --suffix=none \
-              includes/* src/*' before submitting a pull request"
-            echo ""
-            git diff
-            exit -1
+          ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
+          if [ -n "$(echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged")" ]; then
+            echo "The following files are in need of formatting:"
+            echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "\t"$2}'
+            echo "Run the following command before submitting a pull request:"
+            printf "\t${ASTYLE_CMD}\n" | tr -s ' '
+            exit 1
           fi
