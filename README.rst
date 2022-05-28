@@ -8,7 +8,7 @@ This software contains two main pieces:
 2) ``renderd``: A daemon that renders map tiles using mapnik.
 
 .. figure:: ./screenshot.jpg
-   :alt: Image shoing example slippy map and OSM layer
+   :alt: Image showing example slippy map and OSM layer
 
 Together they efficiently render and serve raster map tiles for example
 to use within a slippy map. The two consist of the classic raster tile
@@ -21,15 +21,22 @@ combination with ``mod_tile``.
 Dependencies
 ------------
 
-* `GNU/Linux` Operating System (works best on Debian or Ubuntu)
-* `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
-* `Mapnik <https://mapnik.org/>`__
-* `Cairo 2D graphics library  <https://cairographics.org/>`__
-* `Curl library (SSL variant) <https://curl.haxx.se/>`__
-* `Iniparser library <https://github.com/ndevilla/iniparser>`__
-* `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
-* `Memcached library (optional) <https://libmemcached.org/>`__
-* `RADOS library (optional) <https://docs.ceph.com/en/latest/rados/api/librados/>`__
+* `Supported Operating Systems`
+    * `GNU/Linux` (works best on Debian or Ubuntu)
+    * `FreeBSD`
+    * `macOS`
+* `Supported Build Systems`
+    * `GNU Autotools <https://www.gnu.org/software/software.html>`__
+    * `CMake <https://cmake.org/>`__
+* `Runtime/Build Dependencies`
+    * `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
+    * `Mapnik <https://mapnik.org/>`__
+    * `Cairo 2D graphics library  <https://cairographics.org/>`__
+    * `Curl library (SSL variant) <https://curl.haxx.se/>`__
+    * `Iniparser library <https://github.com/ndevilla/iniparser>`__
+    * `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
+    * `Memcached library (optional) <https://libmemcached.org/>`__
+    * `RADOS library (optional) <https://docs.ceph.com/en/latest/rados/api/librados/>`__
 
 Installation
 ------------
@@ -58,10 +65,12 @@ when using it on an operating system this is not being packaged for.
 We prepared instructions for you on how to build the software on the following
 distributions:
 
-* `CentOS 7 <docs/build/building_on_centos_7.md>`__
-* `Fedora 34 </docs/build/building_on_fedora_34.md>`__
-* `Ubuntu 20.04 </docs/build/building_on_ubuntu_20_04.md>`__ (this should work as well for Debian 10)
-* `Debian 12 </docs/build/building_on_debian_12.md>`__
+* `CentOS </docs/build/building_on_centos.md>`__
+* `CentOS Stream </docs/build/building_on_centos_stream.md>`__
+* `Debian </docs/build/building_on_debian.md>`__
+* `Fedora </docs/build/building_on_fedora.md>`__
+* `FreeBSD </docs/build/building_on_freebsd.md>`__
+* `Ubuntu </docs/build/building_on_ubuntu.md>`__
 
 Configuration
 -------------
@@ -72,47 +81,63 @@ example configuration files are distributed with the software packages and
 located in the ``etc`` directory of this repository.
 
 A very basic example-map and data can be found in the ``utils/example-map``
-directory. For a simple test copy it over to ``/var/www/example-map``.
+directory.
 
-Copy the configuration files to their place, too:
+For a simple test copy it over to ``/usr/share/renderd/example-map``:
 
 ::
 
-    $ cp etc/renderd/renderd.conf /etc/renderd.conf
-    $ cp etc/apache2/renderd.conf /etc/apache2/conf-available/renderd.conf
-    $ cp etc/apache2/renderd-example-map.conf /etc/apache2/conf-available/renderd-example-map.conf
+    $ sudo mkdir -p /usr/share/renderd
+    $ sudo cp -av utils/example-map /usr/share/renderd/
 
-Enable the configuration:
+Copy the apache configuration file to its place, too:
+
+::
+
+    $ sudo cp -av etc/apache2/renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf
+
+Add a map configuration for example-map to ``/etc/renderd.conf`:
+
+::
+
+    $ printf '
+    [example-map]
+    URI=/tiles/renderd-example
+    XML=/usr/share/renderd/example-map/mapnik.xml
+    ' | sudo tee -a /etc/renderd.conf
+
+Start the rendering daemon
+
+::
+
+    $ sudo renderd
+
+Enable the apache module and site:
 
 ::
 
     $ sudo a2enmod tile
-    $ sudo a2enconf renderd
-    $ sudo a2enconf renderd-example-map
+    $ sudo a2ensite renderd-example-map
 
-Restart apache2:
-
-::
-
-    $ sudo a2enmod tile
-    $ sudo a2enconf renderd
-
-
-And run the rendering daemon
+Restart apache:
 
 ::
 
-    $ renderd -f
+    $ sudo apache2ctl restart
 
-Make sure the ``/var/cache/renderd/tiles`` directory is writable by
-the user running the renderd process.
-
-Try loading a tile in your browser, e.g.
+Now visit the renderd example map in your browser, e.g.:
 
 ::
 
-    http://localhost/renderd-example/tiles/0/0/0.png
+    http://localhost/renderd-example-map
 
+Or try loading a single tile, e.g:
+
+::
+
+    http://localhost:8081/tiles/renderd-example/0/0/0.png
+
+*Note: the above commands and paths may differ based on your OS/distribution.*
 
 You may edit ``/etc/renderd.conf`` to indicate the location of different
 mapnik style sheets (up to ten) and the endpoints you wish to use to access
