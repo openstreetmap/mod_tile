@@ -40,6 +40,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 	tok = strtok(data, ",");
 
 	if (!tok) {
+		free(data);
 		return;        //No parameterization given
 	}
 

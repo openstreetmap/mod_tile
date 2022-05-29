@@ -325,7 +325,7 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 
 				if (ret != sizeof(struct protocol_v2)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket. Got %d bytes but expected %d. Errno %d (%s)",
-						      ret, sizeof(struct protocol_v2), errno, strerror(errno));
+						      ret, (int) sizeof(struct protocol_v2), errno, strerror(errno));
 					break;
 				}
 

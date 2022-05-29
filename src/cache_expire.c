@@ -115,7 +115,7 @@ void cache_expire(int sock, char * host, char * uri, int x, int y, int z)
 	}
 
 	char * url = (char *)malloc(1024);
-	sprintf(url, "http://%s%s%i/%i/%i.png", host, uri, z, x, y);
+	snprintf(url, 1024, "http://%s%s%i/%i/%i.png", host, uri, z, x, y);
 	cache_expire_url(sock, url);
 	free(url);
 }
