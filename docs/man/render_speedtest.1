@@ -1,16 +1,16 @@
-.TH SPEEDTEST 1 "May 21, 2022"
+.TH RENDER_SPEEDTEST 1 "Jun 03, 2022"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
-speedtest \- Benchmapr tile rendering with renderd.
+render_speedtest \- Benchmark tile rendering with renderd.
 .SH SYNOPSIS
-.B speedtest
+.B render_speedtest
 .RI [ options ]
 .SH DESCRIPTION
 This manual page documents briefly the
-.B speedtest
+.B render_speedtest
 command.
 .PP
-.B speedtest
+.B render_speedtest
 renders a bunch of tiles at various zoom levels to benchmark the speed of the rendering.
 .PP
 .SH OPTIONS
@@ -27,17 +27,23 @@ Specify the rendering style to test. The default is "default"
 \fB\-n\fR|\-\-num-threads=N
 The number of parallel request threads (default 1).
 .TP
+\fB\-z\fR|\-\-min-zoom=ZOOM
+Only render tiles greater or equal to this zoom level (default is 0).
+.TP
+\fB\-Z\fR|\-\-max-zoom=ZOOM
+Only render tiles less than or equal to this zoom level (default is 20).
+.TP
 \fB\-h\fR|\-\-help
-Print out a help text for speedtest
+Print out a help text for render_speedtest
 .TP
 \fB\-V\fR|\-\-version
-Print out the version number for speedtest
+Print out the version number for render_speedtest
 .PP
 .SH SEE ALSO
 .BR renderd (1),
 .br
 .SH AUTHOR
-speedtest was written by Jon Burgess and other
+render_speedtest was written by Jon Burgess and other
 OpenStreetMap project members.
 .PP
 This manual page was written by OpenStreetMap authors.

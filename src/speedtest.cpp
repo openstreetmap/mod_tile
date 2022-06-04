@@ -50,9 +50,6 @@ int main(int argc, char **argv)
 }
 #else
 
-static const int minZoom = 0;
-static const int maxZoom = 18;
-
 #if 1
 static double boundx0 = -0.5;
 static double boundy0 = 51.25;
@@ -125,9 +122,6 @@ public:
 	}
 };
 
-static GoogleProjection gprj(maxZoom + 1);
-
-
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
@@ -141,8 +135,6 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	printf("Rendered %d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
 	fflush(NULL);
 }
-
-
 
 int rx_process(const struct protocol *req)
 {
@@ -192,7 +184,6 @@ int process_loop(int fd, int x, int y, int z, const char * map)
 	return ret;
 }
 
-
 int main(int argc, char **argv)
 {
 	const char *spath = RENDER_SOCKET;
@@ -205,24 +196,26 @@ int main(int argc, char **argv)
 	struct timeval start, end;
 	struct timeval start_all, end_all;
 	int num, num_all = 0;
-	const char * mapname = "default";
-	int verbose = 0;
+	const char * mapname = XMLCONFIG_DEFAULT;
+	int maxZoom = MAX_ZOOM;
+	int minZoom = 0;
 	int numThreads = 1;
 
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
 			{"map",         required_argument, 0, 'm'},
+			{"max-zoom",    required_argument, 0, 'Z'},
+			{"min-zoom",    required_argument, 0, 'z'},
 			{"num-threads", required_argument, 0, 'n'},
 			{"socket",      required_argument, 0, 's'},
-			{"verbose",     no_argument,       0, 'v'},
 
 			{"help",        no_argument,       0, 'h'},
 			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "m:n:s:vhV", long_options, &option_index);
+		c = getopt_long(argc, argv, "m:Z:z:n:s:hV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -237,10 +230,6 @@ int main(int argc, char **argv)
 				mapname = strdup(optarg);
 				break;
 
-			case 'v':   /* -v, --verbose */
-				verbose = 1;
-				break;
-
 			case 'n':   /* -n, --num-threads */
 				numThreads = atoi(optarg);
 
@@ -251,15 +240,37 @@ int main(int argc, char **argv)
 
 				break;
 
+			case 'z':   /* -z, --min-zoom */
+				minZoom = atoi(optarg);
+
+				if (minZoom < 0 || minZoom > MAX_ZOOM) {
+					fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
+					return 1;
+				}
+
+				break;
+
+			case 'Z':   /* -Z, --max-zoom */
+				maxZoom = atoi(optarg);
+
+				if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
+					fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
+					return 1;
+				}
+
+				break;
+
 			case 'h':   /* -h, --help */
-				fprintf(stderr, "Usage: speedtest [OPTION] ...\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
+				fprintf(stderr, "Usage: render_speedtest [OPTION] ...\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '%s')\n", XMLCONFIG_DEFAULT);
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				return -1;
+				exit(0);
 
 			case 'V':
 				fprintf(stdout, "%s\n", VERSION);
@@ -267,12 +278,11 @@ int main(int argc, char **argv)
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);
-				break;
+				exit(1);
 		}
 	}
 
-
-
+	static GoogleProjection gprj(maxZoom + 1);
 
 	fprintf(stderr, "Rendering client\n");
 
