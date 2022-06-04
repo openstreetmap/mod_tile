@@ -22,6 +22,7 @@
 #include "catch.hpp"
 
 #include "metatile.h"
+#include "config.h"
 #include "gen_tile.h"
 #include "render_config.h"
 #include "request_queue.h"
@@ -135,6 +136,146 @@ void * fetch_thread(void * arg)
 	}
 
 	return NULL;
+}
+
+TEST_CASE("render_expired", "render expired")
+{
+
+	SECTION("render_expired startup --help", "should start and show help message") {
+		int ret = system("./render_expired -h");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 0);
+	}
+
+	SECTION("render_expired startup --version", "should start and show version number") {
+		FILE *pipe = popen("./render_expired -V", "r");
+		std::string output;
+		char buffer[strlen(VERSION) + 1];
+		fgets(buffer, sizeof(buffer), pipe);
+		output += buffer;
+		pclose(pipe);
+		REQUIRE(output == VERSION);
+	}
+
+	SECTION("render_expired startup unrecognized option", "should return 1") {
+		int ret = system("./render_expired --doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_expired startup invalid option", "should return 1") {
+		int ret = system("./render_expired -doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+}
+
+TEST_CASE("render_list", "render list")
+{
+
+	SECTION("render_list startup --help", "should start and show help message") {
+		int ret = system("./render_list -h");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 0);
+	}
+
+	SECTION("render_list startup --version", "should start and show version number") {
+		FILE *pipe = popen("./render_list -V", "r");
+		std::string output;
+		char buffer[strlen(VERSION) + 1];
+		fgets(buffer, sizeof(buffer), pipe);
+		output += buffer;
+		pclose(pipe);
+		REQUIRE(output == VERSION);
+	}
+
+	SECTION("render_list startup unrecognized option", "should return 1") {
+		int ret = system("./render_list --doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list startup invalid option", "should return 1") {
+		int ret = system("./render_list -doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+}
+
+TEST_CASE("render_old", "render old")
+{
+
+	SECTION("render_old startup --help", "should start and show help message") {
+		int ret = system("./render_old -h");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 0);
+	}
+
+	SECTION("render_old startup --version", "should start and show version number") {
+		FILE *pipe = popen("./render_old -V", "r");
+		std::string output;
+		char buffer[strlen(VERSION) + 1];
+		fgets(buffer, sizeof(buffer), pipe);
+		output += buffer;
+		pclose(pipe);
+		REQUIRE(output == VERSION);
+	}
+
+	SECTION("render_old startup unrecognized option", "should return 1") {
+		int ret = system("./render_old --doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_old startup invalid option", "should return 1") {
+		int ret = system("./render_old -doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+}
+
+TEST_CASE("render_speedtest", "render speed test")
+{
+
+	SECTION("render_speedtest startup --help", "should start and show help message") {
+		int ret = system("./render_speedtest -h");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 0);
+	}
+
+	SECTION("render_speedtest startup --version", "should start and show version number") {
+		FILE *pipe = popen("./render_speedtest -V", "r");
+		std::string output;
+		char buffer[strlen(VERSION) + 1];
+		fgets(buffer, sizeof(buffer), pipe);
+		output += buffer;
+		pclose(pipe);
+		REQUIRE(output == VERSION);
+	}
+
+	SECTION("render_speedtest startup unrecognized option", "should return 1") {
+		int ret = system("./render_speedtest --doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_speedtest startup invalid option", "should return 1") {
+		int ret = system("./render_speedtest -doesnotexit");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
 }
 
 TEST_CASE("renderd/queueing", "request queueing")
@@ -601,6 +742,23 @@ TEST_CASE("renderd", "tile generation")
 		REQUIRE(ret == 0);
 	}
 
+	SECTION("renderd startup --version", "should start and show version number") {
+		FILE *pipe = popen("./renderd -V", "r");
+		std::string output;
+		char buffer[strlen(VERSION) + 1];
+		fgets(buffer, sizeof(buffer), pipe);
+		output += buffer;
+		pclose(pipe);
+		REQUIRE(output == VERSION);
+	}
+
+	SECTION("renderd startup --config fakefile.conf --foreground", "should not start and return 1") {
+		int ret = system("./renderd -c fakefile.conf -f");
+		ret = WEXITSTATUS(ret);
+		//CAPTURE( ret );
+		REQUIRE(ret == 1);
+	}
+
 	SECTION("renderd startup unrecognized option", "should return 1") {
 		int ret = system("./renderd --doesnotexit");
 		ret = WEXITSTATUS(ret);
@@ -993,5 +1151,6 @@ int main(int argc, char* const argv[])
 	pthread_mutex_init(&item_counter_lock, NULL);
 	int result = Catch::Main(argc, argv);
 	pthread_mutex_destroy(&item_counter_lock);
+	fclose(stream);
 	return result;
 }

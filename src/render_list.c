@@ -227,7 +227,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  1 0 1\n");
 				fprintf(stderr, "  1 1 1\n");
 				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-				return -1;
+				exit(0);
 
 			case 'V':
 				fprintf(stdout, "%s\n", VERSION);
@@ -235,7 +235,7 @@ int main(int argc, char **argv)
 
 			default:
 				fprintf(stderr, "unhandled char '%c'\n", c);
-				break;
+				exit(1);
 		}
 	}
 
