@@ -166,7 +166,7 @@ TEST_CASE("render_expired", "render expired")
 	}
 
 	SECTION("render_expired startup invalid option", "should return 1") {
-		int ret = system("./render_expired -doesnotexit");
+		int ret = system("./render_expired -oesnotexit");
 		ret = WEXITSTATUS(ret);
 		//CAPTURE( ret );
 		REQUIRE(ret == 1);
