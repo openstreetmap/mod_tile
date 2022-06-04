@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-// https://github.com/philsquared/Catch/wiki/Supplying-your-own-main()
+// https://github.com/catchorg/Catch2/blob/v2.13.9/docs/own-main.md#let-catch2-take-full-control-of-args-and-config
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
@@ -1149,7 +1149,7 @@ int main(int argc, char* const argv[])
 	//setvbuf(stream, 0, _IOLBF, 0); // No Buffering
 	openlog("renderd", LOG_PID | LOG_PERROR, LOG_DAEMON);
 	pthread_mutex_init(&item_counter_lock, NULL);
-	int result = Catch::Main(argc, argv);
+	int result = Catch::Session().run(argc, argv);
 	pthread_mutex_destroy(&item_counter_lock);
 	fclose(stream);
 	return result;
