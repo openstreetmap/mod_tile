@@ -46,7 +46,7 @@ typedef struct {
 	int num_threads;
 } renderd_config;
 
-typedef struct {
+typedef struct xmlconfigitem {
 	char xmlname[XMLCONFIG_MAX];
 	char xmlfile[PATH_MAX];
 	char xmluri[PATH_MAX];
