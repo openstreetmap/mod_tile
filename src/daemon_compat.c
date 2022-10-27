@@ -30,7 +30,7 @@
 #include "config.h"
 #ifndef HAVE_DAEMON
 
-#ifdef HAVE_SYS_CDEFS_C
+#ifdef HAVE_SYS_CDEFS_H
 #include <sys/cdefs.h>
 #endif
 
