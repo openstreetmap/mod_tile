@@ -44,10 +44,10 @@
 #include "g_logger.h"
 
 // extern "C" {
-#ifdef __FreeBSD__
-#include <iniparser.h>
-#else
+#ifdef HAVE_INIPARSER_INIPARSER_H
 #include <iniparser/iniparser.h>
+#else
+#include <iniparser.h>
 #endif
 // }
 
