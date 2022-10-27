@@ -31,7 +31,7 @@ fi
 PKG_CHECK_MODULES([GLIB], [glib-2.0])
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/socket.h sys/time.h syslog.h unistd.h utime.h paths.h sys/cdefs.h sys/loadavg.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/socket.h sys/time.h syslog.h unistd.h utime.h paths.h sys/cdefs.h sys/loadavg.h iniparser.h iniparser/iniparser.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
@@ -59,6 +59,10 @@ AC_CHECK_LIB(rados, rados_version, [
     LIBRADOS_LDFLAGS='-lrados'
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
+AC_CHECK_LIB(iniparser, iniparser_load, [
+    INIPARSER_LDFLAGS='-liniparser'
+    AC_SUBST(INIPARSER_LDFLAGS)
+], [AC_MSG_ERROR([Unable to find libiniparser])])
 
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
