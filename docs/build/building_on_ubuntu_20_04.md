@@ -1,7 +1,7 @@
 # Building on Ubuntu 20.04
 
 This documents step by step on how to compile and put into use the software `mod_tile` and `renderd`.
-Please see our [Continous Integration script](../../.github/workflows/build-and-test-ubuntu-20-04.yml) for more detail.
+Please see our [Continuous Integration script](../../.github/workflows/build-and-test.yml) for more detail.
 
 ```shell
 #!/usr/bin/env bash
