@@ -2,15 +2,12 @@
 name: Build & Test
 
 on:
-  pull_request:
-  push:
-    branches:
-      - master
-      - develop
+  - pull_request
+  - push
 
 jobs:
-  build-and-test:
-    name: ${{ matrix.image }}
+  Linux:
+    name: ${{ matrix.image }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,145 +15,116 @@ jobs:
           - 'centos:7'
           - 'debian:10'
           - 'debian:11'
-          - 'fedora:33'
-          - 'fedora:34'
+          - 'debian:testing'
+          - 'fedora:36'
+          - 'fedora:37'
+          - 'fedora:rawhide'
           - 'ubuntu:20.04'
+        build_system:
+          - CMake
+        compiler:
+          - GNU
         on_default_branch:
-          - ${{ contains(github.ref, 'master') }}
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
           - image: 'ubuntu:22.04'
+            build_system: Autotools
+            compiler: GNU
+          - image: 'ubuntu:22.04'
+            build_system: Autotools
+            compiler: LLVM
+          - image: 'ubuntu:22.04'
+            build_system: CMake
+            compiler: GNU
+          - image: 'ubuntu:22.04'
+            build_system: CMake
+            compiler: LLVM
         exclude:
           - on_default_branch: false
       fail-fast: false
     container:
+      env:
+        BUILD_TYPE: Debug
+        CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
+        CFLAGS: ${{ (matrix.build_system == 'CMake' && matrix.compiler == 'GNU') && '--coverage' || '' }}
+        CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+        CXXFLAGS: ${{ (matrix.build_system == 'CMake' && matrix.compiler == 'GNU') && '--coverage' || '' }}
       image: ${{ matrix.image }}
     steps:
+      - name: Install `git` (Amazon Linux 2)
+        run: yum --assumeyes install git
+        if: matrix.image == 'amazonlinux:2'
+
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install Dependencies (CentOS)
-        uses: ./.github/actions/yum/install
-        with:
-          dependencies: epel-release
-          groups: >-
-            ${{ env.centos-build-group-dependencies }}
-          packages: >-
-            ${{ env.centos-build-dependencies }}
-            ${{ env.centos-mapnik-build-dependencies }}
-            ${{ env.centos-test-dependencies }}
-        if: ${{ startsWith(matrix.image, 'centos:') }}
-
-      - name: Install Dependencies (Debian)
-        uses: ./.github/actions/apt-get/install
-        with:
-          packages: >-
-            ${{ env.debian-build-dependencies }}
-            ${{ env.debian-test-dependencies }}
-        if: ${{ startsWith(matrix.image, 'debian:') }}
-
-      - name: Install Dependencies (Fedora)
-        uses: ./.github/actions/yum/install
-        with:
-          groups: >-
-            ${{ env.fedora-build-group-dependencies }}
-          packages: >-
-            ${{ env.fedora-build-dependencies }}
-            ${{ env.defora-test-dependencies }}
-        if: ${{ startsWith(matrix.image, 'fedora:') }}
-
-      - name: Install Dependencies (Ubuntu)
-        uses: ./.github/actions/apt-get/install
-        with:
-          packages: >-
-            ${{ env.ubuntu-build-dependencies }}
-            ${{ env.ubuntu-test-dependencies }}
-        if: ${{ startsWith(matrix.image, 'ubuntu:') }}
-
-      - name: Build `mapnik`
-        uses: ./.github/actions/mapnik/build-and-install
-        with:
-          version: ${{ env.centos-mapnik-build-version }}
-        if: ${{ startsWith(matrix.image, 'centos:') }}
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
 
       - name: Build `mod_tile`
         uses: ./.github/actions/build
 
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
       - name: Install `mod_tile`
         uses: ./.github/actions/install
 
-      - name: Configure Apache HTTP Server
-        uses: ./.github/actions/apache/configure
+  macOS:
+    env:
+      BUILD_TYPE: Release
+      CFLAGS: -Wno-implicit-function-declaration
+      LDFLAGS: -undefined dynamic_lookup
+      LIBRARY_PATH: /usr/local/lib
+    name: ${{ matrix.image }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
+    runs-on: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - macos-11
+        build_system:
+          - CMake
+        compiler:
+          - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
+        include:
+          - image: macos-12
+            build_system: Autotools
+            compiler: LLVM
+          - image: macos-12
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Set ICU_ROOT
+        run: |
+          echo "ICU_ROOT=$(brew --prefix icu4c)" >> ${GITHUB_ENV}
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
 
       - name: Test `mod_tile`
         uses: ./.github/actions/test
-        timeout-minutes: 5
 
-env:
-  centos-build-group-dependencies: >-
-    "Development Tools"
-  centos-build-dependencies: >-
-    cairo-devel
-    glib2-devel
-    httpd-devel
-    iniparser-devel
-    libcurl-devel
-    libmemcached-devel
-    librados2-devel
-  centos-test-dependencies: >-
-    httpd
-  centos-mapnik-build-dependencies: >-
-    boost169-devel
-    freetype-devel
-    gdal-devel
-    harfbuzz-devel
-    libicu-devel
-    libjpeg-turbo-devel
-    libpng-devel
-    libtiff-devel
-    libwebp-devel
-    libxml2-devel
-    postgresql-devel
-    proj-devel
-    python2
-    sqlite-devel
-    zlib-devel
-  centos-mapnik-build-version: 3.0.24
-  debian-build-dependencies: >-
-    apache2-dev
-    libcairo2-dev
-    libcurl4-gnutls-dev
-    libglib2.0-dev
-    libiniparser-dev
-    libmapnik-dev
-    libmemcached-dev
-    librados-dev
-  debian-test-dependencies: >-
-    apache2
-    libjs-leaflet
-  fedora-build-group-dependencies: >-
-    "C Development Tools and Libraries"
-    "Development Libraries"
-    "Development Tools"
-  fedora-build-dependencies: >-
-    cairo-devel
-    glib2-devel
-    httpd-devel
-    iniparser-devel
-    libcurl-devel
-    libmemcached-devel
-    librados-devel
-    mapnik-devel
-  fedora-test-dependencies: >-
-    httpd
-  ubuntu-build-dependencies: >-
-    apache2-dev
-    libcairo2-dev
-    libcurl4-gnutls-dev
-    libglib2.0-dev
-    libiniparser-dev
-    libmapnik-dev
-    libmemcached-dev
-    librados-dev
-  ubuntu-test-dependencies: >-
-    apache2
-    libjs-leaflet
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
+  FreeBSD:
+    if: contains(github.ref, 'master') || contains(github.ref, 'develop')
+    name: FreeBSD (CMake) (LLVM)
+    runs-on: macos-12
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies, Build, Test & Install `mod_tile`
+        uses: ./.github/actions/freebsd

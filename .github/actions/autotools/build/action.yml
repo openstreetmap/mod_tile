@@ -1,0 +1,15 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Run `./autogen.sh`
+      run: ./autogen.sh
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Run `./configure`
+      run: ./configure
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Run `make`
+      run: make
+      shell: bash --noprofile --norc -euxo pipefail {0}

@@ -2,22 +2,10 @@
 runs:
   using: composite
   steps:
-    - name: Link `iniparser.h` to `iniparser/iniparser.h`
-      run: |
-        if [ ! -f /usr/include/iniparser/iniparser.h ]; then
-          mkdir --parents /usr/include/iniparser
-          ln --symbolic ../iniparser.h /usr/include/iniparser/iniparser.h
-        fi
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Build `mod_tile` (Autotools)
+      uses: ./.github/actions/autotools/build
+      if: matrix.build_system == 'Autotools'
 
-    - name: Run `./autogen.sh`
-      run: ./autogen.sh
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Run `./configure`
-      run: ./configure
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Run `make`
-      run: make
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Build `mod_tile` (CMake)
+      uses: ./.github/actions/cmake/build
+      if: matrix.build_system == 'CMake'

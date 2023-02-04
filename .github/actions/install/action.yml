@@ -2,10 +2,10 @@
 runs:
   using: composite
   steps:
-    - name: Run `make install`
-      run: make install
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Install `mod_tile` (Autotools)
+      uses: ./.github/actions/autotools/install
+      if: matrix.build_system == 'Autotools'
 
-    - name: Run `make install-mod_tile`
-      run: make install-mod_tile
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Install `mod_tile` (CMake)
+      uses: ./.github/actions/cmake/install
+      if: matrix.build_system == 'CMake'

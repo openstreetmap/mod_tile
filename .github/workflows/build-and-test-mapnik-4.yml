@@ -29,21 +29,23 @@ jobs:
       - name: Checkout `mod_tile`
         uses: actions/checkout@v3
 
-      - name: Install Dependencies (Debian)
-        uses: ./.github/actions/apt-get/install
+      - name: Install dependencies (Debian)
+        uses: ./.github/actions/dependencies/install
         with:
-          packages: >-
+          debian-build-dependencies: >-
             ${{ env.debian-build-dependencies }}
             ${{ env.debian-mapnik-build-dependencies }}
+          debian-test-dependencies: >-
             ${{ env.debian-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'debian:') }}
 
       - name: Install Dependencies (Ubuntu)
-        uses: ./.github/actions/apt-get/install
+        uses: ./.github/actions/dependencies/install
         with:
-          packages: >-
+          ubuntu-build-dependencies: >-
             ${{ env.ubuntu-build-dependencies }}
             ${{ env.ubuntu-mapnik-build-dependencies }}
+          ubuntu-test-dependencies: >-
             ${{ env.ubuntu-test-dependencies }}
         if: ${{ startsWith(matrix.image, 'ubuntu:') }}
 
@@ -70,15 +72,11 @@ jobs:
       - name: Build `mod_tile`
         uses: ./.github/actions/build
 
-      - name: Install `mod_tile`
-        uses: ./.github/actions/install
-
-      - name: Configure Apache HTTP Server
-        uses: ./.github/actions/apache/configure
-
       - name: Test `mod_tile`
         uses: ./.github/actions/test
-        timeout-minutes: 5
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
 
 env:
   debian-build-dependencies: >-
