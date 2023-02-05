@@ -1,0 +1,15 @@
+---
+inputs:
+  packages:
+    description: List of package(s) to install
+    required: true
+  options:
+    default: --yes
+    description: Option(s) to pass
+
+runs:
+  using: composite
+  steps:
+    - name: Install package(s)
+      run: ${{ !matrix.image && 'sudo' || '' }} pkg install ${{ inputs.options }} ${{ inputs.packages }}
+      shell: bash --noprofile --norc -euxo pipefail {0}

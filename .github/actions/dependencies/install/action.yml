@@ -45,6 +45,17 @@ inputs:
   fedora-test-dependencies:
     default: >-
       httpd
+  freebsd-build-dependencies:
+    default: >-
+      apache24
+      cairo
+      coreutils
+      curl
+      glib
+      iniparser
+      libmemcached
+      mapnik
+      pkgconf
   macos-build-dependencies:
     default: >-
       apr
@@ -166,6 +177,15 @@ runs:
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
       if: startsWith(matrix.image, 'fedora:')
 
+    - name: Install Dependencies (FreeBSD)
+      uses: ./.github/actions/dependencies/install/pkg
+      with:
+        packages: >-
+          ${{ inputs.freebsd-build-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake' }}
+          ${{ matrix.compiler == 'GNU' && 'gcc' || 'llvm' }}
+      if: github.job == 'FreeBSD'
+
     - name: Install Dependencies (macOS)
       uses: ./.github/actions/dependencies/install/brew
       with:
@@ -174,7 +194,7 @@ runs:
           ${{ inputs.macos-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake' }}
           ${{ matrix.compiler == 'GNU' && 'gcc' || '' }}
-      if: runner.os == 'macOS'
+      if: github.job == 'macOS'
 
     - name: Install Dependencies (Ubuntu)
       uses: ./.github/actions/dependencies/install/apt-get
