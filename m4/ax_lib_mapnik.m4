@@ -22,7 +22,8 @@
 #   This macro calls:
 #
 #     AC_SUBST(MAPNIK_CFLAGS)
-#     AC_SUBST(MAPNIK_LDFLAGS)
+#     AC_SUBST(MAPNIK_LIBS)
+#     AC_SUBST(MAPNIK_VERSION)
 #
 #   And sets:
 #
@@ -57,7 +58,7 @@ AC_DEFUN([AX_LIB_MAPNIK],
     )
 
     MAPNIK_CFLAGS=""
-    MAPNIK_LDFLAGS=""
+    MAPNIK_LIBS=""
     MAPNIK_VERSION=""
 
     dnl
@@ -74,7 +75,7 @@ AC_DEFUN([AX_LIB_MAPNIK],
             AC_MSG_CHECKING([for mapnik libraries])
 
             MAPNIK_CFLAGS="`$MAPNIK_CONFIG --cflags`"
-            MAPNIK_LDFLAGS="`$MAPNIK_CONFIG --libs` `$MAPNIK_CONFIG --ldflags` `$MAPNIK_CONFIG --dep-libs`"
+            MAPNIK_LIBS="`$MAPNIK_CONFIG --libs` `$MAPNIK_CONFIG --ldflags` `$MAPNIK_CONFIG --dep-libs`"
             MAPNIK_VERSION=`$MAPNIK_CONFIG --version`
 
             AC_DEFINE([HAVE_MAPNIK], [1],
@@ -88,8 +89,8 @@ AC_DEFUN([AX_LIB_MAPNIK],
         fi
     fi
 
-    AC_SUBST([MAPNIK_VERSION])
     AC_SUBST([MAPNIK_CFLAGS])
-    AC_SUBST([MAPNIK_LDFLAGS])
+    AC_SUBST([MAPNIK_LIBS])
+    AC_SUBST([MAPNIK_VERSION])
 ])
 

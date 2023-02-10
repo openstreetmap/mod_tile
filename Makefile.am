@@ -47,7 +47,7 @@ renderd_SOURCES = \
 	src/protocol_helper.c \
 	$(STORE_SOURCES)
 renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
-renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
+renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LIBS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 renderd_DATA = etc/renderd/renderd.conf
 
 render_speedtest_SOURCES = \
@@ -99,7 +99,7 @@ gen_tile_test_SOURCES = \
 	$(STORE_SOURCES)
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
-gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
+gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LIBS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
