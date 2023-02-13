@@ -16,7 +16,12 @@ jobs:
       matrix:
         image:
           - 'debian:11'
-          - 'ubuntu:22.04'
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') }}
+        include:
+          - image: 'ubuntu:22.04'
+        exclude:
+          - on_default_branch: false
       fail-fast: false
     container:
       image: ${{ matrix.image }}
