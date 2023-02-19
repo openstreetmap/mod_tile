@@ -65,7 +65,7 @@ jobs:
           cmake --build mapnik-build
 
       - name: Install `mapnik`
-        run: cmake --build mapnik-build --target install
+        run: cmake --install mapnik-build
 
       - name: Build `mod_tile`
         uses: ./.github/actions/build
