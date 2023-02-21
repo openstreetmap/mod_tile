@@ -71,7 +71,7 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
 		chunk->memory = malloc(realsize);
 	}
 
-	g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: writing a chunk: Position %i, size %i", chunk->size, realsize);
+	g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: writing a chunk: Position %lu, size %lu", chunk->size, realsize);
 
 	memcpy(&(chunk->memory[chunk->size]), contents, realsize);
 	chunk->size += realsize;
@@ -143,7 +143,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 				ctx->cache.st_stat.expired = 0;
 				res = curl_easy_getinfo(ctx->ctx, CURLINFO_FILETIME, &(ctx->cache.st_stat.mtime));
 				ctx->cache.st_stat.atime = 0;
-				g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: Read file of size %i", chunk.size);
+				g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: Read file of size %lu", chunk.size);
 				break;
 			}
 
@@ -173,7 +173,7 @@ static int ro_http_proxy_tile_read(struct storage_backend * store, const char *x
 
 	if (ro_http_proxy_tile_retrieve(store, xmlconfig, options, x, y, z) > 0) {
 		if (ctx->cache.st_stat.size > sz) {
-			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %i %i", sz, ctx->cache.st_stat.size);
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %lu %li", sz, ctx->cache.st_stat.size);
 			return -1;
 		}
 
@@ -218,7 +218,7 @@ static int ro_http_proxy_metatile_write(struct storage_backend * store, const ch
 
 static int ro_http_proxy_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
 {
-	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_delete: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
