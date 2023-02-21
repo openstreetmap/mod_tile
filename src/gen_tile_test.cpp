@@ -142,16 +142,17 @@ TEST_CASE("render_expired", "render expired")
 {
 
 	SECTION("render_expired startup --help", "should start and show help message") {
+		// flawfinder: ignore
 		int ret = system("./render_expired -h");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 0);
 	}
 
 	SECTION("render_expired startup --version", "should start and show version number") {
+		// flawfinder: ignore
 		FILE *pipe = popen("./render_expired -V", "r");
 		std::string output;
-		char buffer[strlen(VERSION) + 1];
+		char buffer[sizeof(VERSION)];
 		fgets(buffer, sizeof(buffer), pipe);
 		output += buffer;
 		pclose(pipe);
@@ -159,16 +160,16 @@ TEST_CASE("render_expired", "render expired")
 	}
 
 	SECTION("render_expired startup unrecognized option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_expired --doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("render_expired startup invalid option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_expired -oesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 }
@@ -177,16 +178,17 @@ TEST_CASE("render_list", "render list")
 {
 
 	SECTION("render_list startup --help", "should start and show help message") {
+		// flawfinder: ignore
 		int ret = system("./render_list -h");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 0);
 	}
 
 	SECTION("render_list startup --version", "should start and show version number") {
+		// flawfinder: ignore
 		FILE *pipe = popen("./render_list -V", "r");
 		std::string output;
-		char buffer[strlen(VERSION) + 1];
+		char buffer[sizeof(VERSION)];
 		fgets(buffer, sizeof(buffer), pipe);
 		output += buffer;
 		pclose(pipe);
@@ -194,16 +196,16 @@ TEST_CASE("render_list", "render list")
 	}
 
 	SECTION("render_list startup unrecognized option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_list --doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("render_list startup invalid option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_list -doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 }
@@ -212,16 +214,17 @@ TEST_CASE("render_old", "render old")
 {
 
 	SECTION("render_old startup --help", "should start and show help message") {
+		// flawfinder: ignore
 		int ret = system("./render_old -h");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 0);
 	}
 
 	SECTION("render_old startup --version", "should start and show version number") {
+		// flawfinder: ignore
 		FILE *pipe = popen("./render_old -V", "r");
 		std::string output;
-		char buffer[strlen(VERSION) + 1];
+		char buffer[sizeof(VERSION)];
 		fgets(buffer, sizeof(buffer), pipe);
 		output += buffer;
 		pclose(pipe);
@@ -229,16 +232,16 @@ TEST_CASE("render_old", "render old")
 	}
 
 	SECTION("render_old startup unrecognized option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_old --doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("render_old startup invalid option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_old -doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 }
@@ -247,16 +250,17 @@ TEST_CASE("render_speedtest", "render speed test")
 {
 
 	SECTION("render_speedtest startup --help", "should start and show help message") {
+		// flawfinder: ignore
 		int ret = system("./render_speedtest -h");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 0);
 	}
 
 	SECTION("render_speedtest startup --version", "should start and show version number") {
+		// flawfinder: ignore
 		FILE *pipe = popen("./render_speedtest -V", "r");
 		std::string output;
-		char buffer[strlen(VERSION) + 1];
+		char buffer[sizeof(VERSION)];
 		fgets(buffer, sizeof(buffer), pipe);
 		output += buffer;
 		pclose(pipe);
@@ -264,16 +268,16 @@ TEST_CASE("render_speedtest", "render speed test")
 	}
 
 	SECTION("render_speedtest startup unrecognized option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_speedtest --doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("render_speedtest startup invalid option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./render_speedtest -doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 }
@@ -736,16 +740,17 @@ TEST_CASE("renderd", "tile generation")
 	}
 
 	SECTION("renderd startup --help", "should start and show help message") {
+		// flawfinder: ignore
 		int ret = system("./renderd -h");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 0);
 	}
 
 	SECTION("renderd startup --version", "should start and show version number") {
+		// flawfinder: ignore
 		FILE *pipe = popen("./renderd -V", "r");
 		std::string output;
-		char buffer[strlen(VERSION) + 1];
+		char buffer[sizeof(VERSION)];
 		fgets(buffer, sizeof(buffer), pipe);
 		output += buffer;
 		pclose(pipe);
@@ -753,23 +758,23 @@ TEST_CASE("renderd", "tile generation")
 	}
 
 	SECTION("renderd startup --config fakefile.conf --foreground", "should not start and return 1") {
+		// flawfinder: ignore
 		int ret = system("./renderd -c fakefile.conf -f");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("renderd startup unrecognized option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./renderd --doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 
 	SECTION("renderd startup invalid option", "should return 1") {
+		// flawfinder: ignore
 		int ret = system("./renderd -doesnotexit");
 		ret = WEXITSTATUS(ret);
-		//CAPTURE( ret );
 		REQUIRE(ret == 1);
 	}
 }
@@ -909,7 +914,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 
 		for (int yy = 0; yy < METATILE; yy++) {
 			for (int xx = 0; xx < METATILE; xx++) {
-				sprintf(buf, "DEADBEAF %i %i", xx, yy);
+				snprintf(buf, 8196, "DEADBEAF %i %i", xx, yy);
 				std::string tile_data(buf);
 				tiles.set(xx, yy, tile_data);
 			}
@@ -922,7 +927,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 			for (int xx = 0; xx < METATILE; xx++) {
 				tile_size = store->tile_read(store, "default", "", 1024 + METATILE + xx, 1024 + yy, 10, buf, 8195, &compressed, msg);
 				REQUIRE(tile_size == 12);
-				sprintf(buf_tmp, "DEADBEAF %i %i", xx, yy);
+				snprintf(buf_tmp, 8196, "DEADBEAF %i %i", xx, yy);
 				REQUIRE(memcmp(buf_tmp, buf, 11) == 0);
 			}
 		}
@@ -955,7 +960,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 
 		for (int yy = 0; yy < METATILE; yy++) {
 			for (int xx = 0; xx < (METATILE >> 1); xx++) {
-				sprintf(buf, "DEADBEAF %i %i", xx, yy);
+				snprintf(buf, 8196, "DEADBEAF %i %i", xx, yy);
 				std::string tile_data(buf);
 				tiles.set(xx, yy, tile_data);
 			}
@@ -972,7 +977,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 					REQUIRE(tile_size == 0);
 				} else {
 					REQUIRE(tile_size == 12);
-					sprintf(buf_tmp, "DEADBEAF %i %i", xx, yy);
+					snprintf(buf_tmp, 8196, "DEADBEAF %i %i", xx, yy);
 					REQUIRE(memcmp(buf_tmp, buf, 11) == 0);
 				}
 			}
@@ -987,10 +992,8 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		struct storage_backend * store = NULL;
 		struct stat_info sinfo;
 		char * buf;
-		char * buf_tmp;
 
 		buf = (char *)malloc(8196);
-		buf_tmp = (char *)malloc(8196);
 
 		store = init_storage_backend(tile_dir);
 		REQUIRE(store != NULL);
@@ -999,7 +1002,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 
 		for (int yy = 0; yy < METATILE; yy++) {
 			for (int xx = 0; xx < METATILE; xx++) {
-				sprintf(buf, "DEADBEAF %i %i", xx, yy);
+				snprintf(buf, 8196, "DEADBEAF %i %i", xx, yy);
 				std::string tile_data(buf);
 				tiles.set(xx, yy, tile_data);
 			}
@@ -1018,7 +1021,6 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		REQUIRE(sinfo.size < 0);
 
 		free(buf);
-		free(buf_tmp);
 		store->close_storage(store);
 	}
 
@@ -1026,10 +1028,8 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		struct storage_backend * store = NULL;
 		struct stat_info sinfo;
 		char * buf;
-		char * buf_tmp;
 
 		buf = (char *)malloc(8196);
-		buf_tmp = (char *)malloc(8196);
 
 		store = init_storage_backend(tile_dir);
 		REQUIRE(store != NULL);
@@ -1038,7 +1038,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 
 		for (int yy = 0; yy < METATILE; yy++) {
 			for (int xx = 0; xx < METATILE; xx++) {
-				sprintf(buf, "DEADBEAF %i %i", xx, yy);
+				snprintf(buf, 8196, "DEADBEAF %i %i", xx, yy);
 				std::string tile_data(buf);
 				tiles.set(xx, yy, tile_data);
 			}
@@ -1058,7 +1058,6 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		REQUIRE(sinfo.expired > 0);
 
 		free(buf);
-		free(buf_tmp);
 		store->close_storage(store);
 	}
 
