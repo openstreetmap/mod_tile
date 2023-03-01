@@ -46,7 +46,6 @@ inputs:
     default: >-
       httpd
   macos-build-dependencies:
-    # `pkg-config` is required until actions/runner-images/pull/7125 is live
     default: >-
       apr
       cairo
@@ -56,7 +55,6 @@ inputs:
       iniparser
       libmemcached
       mapnik
-      pkg-config
   macos-test-dependencies:
     default: >-
       coreutils
