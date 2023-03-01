@@ -246,7 +246,7 @@ also provides built-in features to scale to multi server rendering set-ups.
 Copyright and copyleft
 ----------------------
 
-Copyright (c) 2007 - 2022 by mod_tile contributors (see `AUTHORS <./AUTHORS>`__)
+Copyright (c) 2007 - 2023 by mod_tile contributors (see `AUTHORS <./AUTHORS>`__)
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
