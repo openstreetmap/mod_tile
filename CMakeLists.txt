@@ -4,7 +4,7 @@
 #
 #-----------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.7 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 #-----------------------------------------------------------------------------
@@ -42,9 +42,13 @@ find_package(Cairo REQUIRED)
 find_package(GLib REQUIRED)
 find_package(HTTPD REQUIRED)
 find_package(IniParser REQUIRED)
+find_package(LibMapnik REQUIRED)
 find_package(LibMemcached)
 find_package(LibRados)
-find_package(Mapnik REQUIRED)
+
+if(LibMapnik_VERSION STRGREATER_EQUAL "4")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
 
 # Programs
 find_program(APXS_EXECUTABLE apxs REQUIRED)
@@ -130,8 +134,8 @@ set(VERSION ${PROJECT_VERSION})
 #-----------------------------------------------------------------------------
 
 configure_file(
-    ${PROJECT_SOURCE_DIR}/includes/config.h.in
-    ${PROJECT_SOURCE_DIR}/includes/config.h
+  ${PROJECT_SOURCE_DIR}/includes/config.h.in
+  ${PROJECT_SOURCE_DIR}/includes/config.h
 )
 
 #-----------------------------------------------------------------------------

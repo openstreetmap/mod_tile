@@ -7,7 +7,11 @@ on:
 
 jobs:
   Linux:
-    name: ${{ matrix.image }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
+    name: >-
+      ${{ matrix.image }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+      ${{ matrix.mapnik_latest && '(Latest Mapnik)' || '' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,6 +28,8 @@ jobs:
           - CMake
         compiler:
           - GNU
+        mapnik_latest:
+          - false
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
@@ -39,6 +45,14 @@ jobs:
           - image: 'ubuntu:22.04'
             build_system: CMake
             compiler: LLVM
+          - image: 'debian:11'
+            build_system: CMake
+            compiler: GNU
+            mapnik_latest: true
+          - image: 'ubuntu:22.04'
+            build_system: CMake
+            compiler: GNU
+            mapnik_latest: true
         exclude:
           - on_default_branch: false
       fail-fast: false
