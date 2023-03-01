@@ -19,7 +19,7 @@ runs:
 
     - name: Cache "Download `Mapnik`" & "Build & Install `Mapnik`"
       id: cache-mapnik
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /usr/local/src/mapnik-${{ inputs.version }}
         key: ${{ matrix.image }}-mapnik-${{ inputs.version }}
