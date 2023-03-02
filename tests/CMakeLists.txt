@@ -54,9 +54,12 @@ execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
 #-----------------------------------------------------------------------------
 
 set(MAP_NAME "default")
-set(TILE_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
-set(TILE_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
-set(TILE_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_URL}")
+set(TILE_PNG_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
+set(TILE_PNG_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
+set(TILE_PNG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG_URL}")
+set(TILE_WEBP_SHA256SUM "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4")
+set(TILE_WEBP_URL "http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp")
+set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
 
 configure_file(
   renderd.conf.in
@@ -161,39 +164,44 @@ add_test(
   "
 )
 add_test(
-  NAME download_tile
+  NAME download_tiles
   COMMAND ${BASH} -c "
-    until $(${TILE_CMD} --output tile.png); do
+    until $(${TILE_PNG_CMD} --output tile.png); do
+      echo 'Sleeping 1s';
+      sleep 1;
+    done
+    until $(${TILE_WEBP_CMD} --output tile.webp); do
       echo 'Sleeping 1s';
       sleep 1;
     done
   "
 )
 add_test(
-  NAME check_tile
+  NAME check_tiles
   COMMAND ${BASH} -c "
-    echo '${TILE_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c
+    echo '${TILE_PNG_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c
+    echo '${TILE_WEBP_SHA256SUM}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c
   "
 )
 add_test(
   NAME dirty_tile
   COMMAND ${BASH} -c "
-    TILE_STATUS_CMD=\"${TILE_CMD}/status | cut -d. -f2\"
-    TILE_STATUS_OUTPUT_OLD=$(\${TILE_STATUS_CMD})
+    TILE_PNG_STATUS_CMD=\"${TILE_PNG_CMD}/status | cut -d. -f2\"
+    TILE_PNG_STATUS_OUTPUT_OLD=$(\${TILE_PNG_STATUS_CMD})
     sleep 5;
-    TILE_DIRTY_OUTPUT=$(${TILE_CMD}/dirty)
-    if [ \"\${TILE_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
+    TILE_PNG_DIRTY_OUTPUT=$(${TILE_PNG_CMD}/dirty)
+    if [ \"\${TILE_PNG_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
       exit 1;
     fi
-    until [ \"\${TILE_STATUS_OUTPUT_OLD}\" != \"$(\${TILE_STATUS_CMD})\" ]; do
+    until [ \"\${TILE_PNG_STATUS_OUTPUT_OLD}\" != \"$(\${TILE_PNG_STATUS_CMD})\" ]; do
       echo 'Sleeping 1s';
       sleep 1;
     done
   "
 )
 add_test(
-  NAME remove_tile
-  COMMAND ${RM} -v tile.png
+  NAME remove_tiles
+  COMMAND ${RM} -v tile.png tile.webp
 )
 add_test(
   NAME stop_renderd
@@ -260,24 +268,24 @@ set_tests_properties(render_old PROPERTIES
   FIXTURES_REQUIRED httpd_started
   TIMEOUT 20
 )
-set_tests_properties(download_tile PROPERTIES
+set_tests_properties(download_tiles PROPERTIES
   FIXTURES_REQUIRED httpd_started
-  FIXTURES_SETUP tile_downloaded
+  FIXTURES_SETUP tiles_downloaded
   TIMEOUT 10
 )
-set_tests_properties(check_tile PROPERTIES
-  DEPENDS download_tile
-  FIXTURES_REQUIRED "httpd_started;tile_downloaded"
-  REQUIRED_FILES tile.png
+set_tests_properties(check_tiles PROPERTIES
+  DEPENDS download_tiles
+  FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
+  REQUIRED_FILES "tile.png;tile.webp"
 )
 set_tests_properties(dirty_tile PROPERTIES
-  DEPENDS download_tile
-  FIXTURES_REQUIRED "httpd_started;tile_downloaded"
-  REQUIRED_FILES tile.png
+  DEPENDS download_tiles
+  FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
+  REQUIRED_FILES "tile.png;tile.webp"
   TIMEOUT 20
 )
-set_tests_properties(remove_tile PROPERTIES
-  DEPENDS download_tile
-  FIXTURES_CLEANUP tile_downloaded
-  REQUIRED_FILES tile.png
+set_tests_properties(remove_tiles PROPERTIES
+  DEPENDS download_tiles
+  FIXTURES_CLEANUP tiles_downloaded
+  REQUIRED_FILES "tile.png;tile.webp"
 )

@@ -8,6 +8,12 @@ TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 URI=/tiles/renderd-example
 XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
 
+[@MAP_NAME@_webp]
+TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TYPE=webp image/webp webp
+URI=/tiles/renderd-example-webp
+XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+
 [renderd1]
 iphostname=127.0.0.1
 ipport=8881
