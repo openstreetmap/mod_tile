@@ -3,7 +3,6 @@ inputs:
   build-dependencies:
     default:  >-
       apache24
-      bash
       boost-all
       cairo
       ceph14
@@ -19,7 +18,6 @@ inputs:
       iniparser
       libjpeg-turbo
       libmemcached
-      libxml2
       png
       proj
       python39
@@ -56,41 +54,39 @@ runs:
           https://github.com/mapnik/mapnik/releases/download/v${{ inputs.mapnik-version }}/mapnik-v${{ inputs.mapnik-version }}.tar.bz2 \
           | tar --extract --bzip2 --strip-components=1 --file=-
         curl --location --silent \
-          https://github.com/mapnik/mapnik/commit/81103491b467e17218140f50bc0bb9dc8c1f0317.patch \
+          https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
+          | patch -F3 -Np1
+        curl --location --silent \
+          https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
+          | patch -F3 -Np1
+        curl --location --silent \
+          https://github.com/mapnik/mapnik/commit/7f0daee8b37d8cf6eff32529b1762ffd5104f3f3.patch \
           | patch -F3 -Np1
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: mapnik-src
       if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
-
-    - name: Cache dependency packages
-      uses: actions/cache@v3
-      with:
-        path: pkgs
-        key: freebsd-vm:0.3.0-pkgs
 
     - name: Install dependencies, Build, Test & Install `mod_tile`
       uses: vmactions/freebsd-vm@v0.3.0
       with:
         mem: 4096
         prepare: |
-          setenv PKG_CACHEDIR ${GITHUB_WORKSPACE}/pkgs
           pkg install --yes ${{ inputs.build-dependencies }}
           pkg upgrade --yes
           set JOBS=`sysctl -n hw.ncpu`
           setenv JOBS ${JOBS}
-          setenv PROJ_LIB /usr/local/share/proj
           setenv PYTHON python${{ inputs.python-version }}
           cd ${GITHUB_WORKSPACE}/mapnik-src
-          bash configure \
+          sh configure \
+            CPP_TESTS=False \
+            DEMO=False \
             FAST=True \
             HB_INCLUDES=/usr/local/include/harfbuzz \
             HB_LIBS=/usr/local/lib \
             ICU_INCLUDES=/usr/local/include \
             ICU_LIBS=/usr/local/lib \
-            OPTIMIZATION=0 \
-            PROJ_INCLUDES=/usr/local/include/proj \
-            PROJ_LIBS=/usr/local/lib
-          gmake PYTHON=${PYTHON}
+            OPTIMIZATION=0 && \
+          gmake PYTHON=${PYTHON} && \
           gmake install PYTHON=${PYTHON}
         release: 13.1
         run: |
