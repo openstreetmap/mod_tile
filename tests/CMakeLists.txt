@@ -57,6 +57,9 @@ set(MAP_NAME "default")
 set(TILE_PNG_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
 set(TILE_PNG_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
 set(TILE_PNG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG_URL}")
+set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
+set(TILE_PNG32_URL "http://localhost:8081/tiles/renderd-example-png32/9/297/191.png")
+set(TILE_PNG32_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG32_URL}")
 set(TILE_WEBP_SHA256SUM "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4")
 set(TILE_WEBP_URL "http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp")
 set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
@@ -170,6 +173,10 @@ add_test(
       echo 'Sleeping 1s';
       sleep 1;
     done
+    until $(${TILE_PNG32_CMD} --output tile.png32); do
+      echo 'Sleeping 1s';
+      sleep 1;
+    done
     until $(${TILE_WEBP_CMD} --output tile.webp); do
       echo 'Sleeping 1s';
       sleep 1;
@@ -180,6 +187,7 @@ add_test(
   NAME check_tiles
   COMMAND ${BASH} -c "
     echo '${TILE_PNG_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c
+    echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c
     echo '${TILE_WEBP_SHA256SUM}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c
   "
 )
@@ -201,7 +209,7 @@ add_test(
 )
 add_test(
   NAME remove_tiles
-  COMMAND ${RM} -v tile.png tile.webp
+  COMMAND ${RM} -v tile.png tile.png32 tile.webp
 )
 add_test(
   NAME stop_renderd
@@ -271,21 +279,21 @@ set_tests_properties(render_old PROPERTIES
 set_tests_properties(download_tiles PROPERTIES
   FIXTURES_REQUIRED httpd_started
   FIXTURES_SETUP tiles_downloaded
-  TIMEOUT 10
+  TIMEOUT 20
 )
 set_tests_properties(check_tiles PROPERTIES
   DEPENDS download_tiles
   FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
-  REQUIRED_FILES "tile.png;tile.webp"
+  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
 )
 set_tests_properties(dirty_tile PROPERTIES
   DEPENDS download_tiles
   FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
-  REQUIRED_FILES "tile.png;tile.webp"
+  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
   TIMEOUT 20
 )
 set_tests_properties(remove_tiles PROPERTIES
   DEPENDS download_tiles
   FIXTURES_CLEANUP tiles_downloaded
-  REQUIRED_FILES "tile.png;tile.webp"
+  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
 )

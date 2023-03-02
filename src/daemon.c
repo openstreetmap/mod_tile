@@ -1090,9 +1090,9 @@ int main(int argc, char **argv)
 
 	for (iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
 		if (maps[iconf].xmlname[0] != 0) {
-			g_logger(G_LOG_LEVEL_INFO, "config map %d:   name(%s) file(%s) uri(%s) htcp(%s) host(%s)",
+			g_logger(G_LOG_LEVEL_INFO, "config map %d:   name(%s) file(%s) uri(%s) output_format(%s) htcp(%s) host(%s)",
 				 iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri,
-				 maps[iconf].htcpip, maps[iconf].host);
+				 maps[iconf].output_format, maps[iconf].htcpip, maps[iconf].host);
 		}
 	}
 

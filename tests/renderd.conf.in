@@ -8,6 +8,12 @@ TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 URI=/tiles/renderd-example
 XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
 
+[@MAP_NAME@_png32]
+TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TYPE=png image/png png32
+URI=/tiles/renderd-example-png32
+XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+
 [@MAP_NAME@_webp]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=webp image/webp webp
