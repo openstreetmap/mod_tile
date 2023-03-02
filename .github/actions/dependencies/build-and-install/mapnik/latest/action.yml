@@ -21,7 +21,6 @@ runs:
 
     - name: Build `Mapnik`
       run: |
-        curl --silent https://patch-diff.githubusercontent.com/raw/mapnik/mapnik/pull/4382.patch | patch -Np1 -dmapnik-src
         export CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL:-$(nproc)}
         cmake -S mapnik-src -B mapnik-build \
           -DBUILD_DEMO_VIEWER:BOOL=OFF \
@@ -32,6 +31,6 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: steps.cache-mapnik.outputs.cache-hit != 'true'
 
-    - name: Install `mapnik`
+    - name: Install `Mapnik`
       run: cmake --install mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
