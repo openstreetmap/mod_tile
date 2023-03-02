@@ -55,12 +55,18 @@ execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
 
 set(MAP_NAME "default")
 
-set(TILE_PNG_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
+set(TILE_DEFAULT_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
+set(TILE_JPG_URL "http://localhost:8081/tiles/renderd-example-jpg/9/297/191.jpg")
+set(TILE_PNG256_URL "http://localhost:8081/tiles/renderd-example-png256/9/297/191.png")
 set(TILE_PNG32_URL "http://localhost:8081/tiles/renderd-example-png32/9/297/191.png")
 set(TILE_WEBP_URL "http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp")
 
-set(TILE_PNG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG_URL}")
-set(TILE_PNG_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
+set(TILE_DEFAULT_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_DEFAULT_URL}")
+set(TILE_DEFAULT_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
+set(TILE_JPG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_JPG_URL}")
+set(TILE_JPG_SHA256SUM "e09c3406c02f03583dadf0c8404c2d3efdc06a40d399e381ed2f47f49fde42d7")
+set(TILE_PNG256_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG256_URL}")
+set(TILE_PNG256_SHA256SUM "${TILE_DEFAULT_SHA256SUM}")
 set(TILE_PNG32_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG32_URL}")
 set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
 set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
@@ -172,7 +178,15 @@ add_test(
 add_test(
   NAME download_tiles
   COMMAND ${BASH} -c "
-    until $(${TILE_PNG_CMD} --output tile.png); do
+    until $(${TILE_DEFAULT_CMD} --output tile.png); do
+      echo 'Sleeping 1s';
+      sleep 1;
+    done
+    until $(${TILE_JPG_CMD} --output tile.jpg); do
+      echo 'Sleeping 1s';
+      sleep 1;
+    done
+    until $(${TILE_PNG256_CMD} --output tile.png256); do
       echo 'Sleeping 1s';
       sleep 1;
     done
@@ -189,22 +203,24 @@ add_test(
 add_test(
   NAME check_tiles
   COMMAND ${BASH} -c "
-    echo '${TILE_PNG_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c
-    echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c
-    (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c)
+    (echo '${TILE_DEFAULT_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c) && \
+    (echo '${TILE_JPG_SHA256SUM}  tile.jpg' | ${SHA256SUM_EXECUTABLE} -c) && \
+    (echo '${TILE_PNG256_SHA256SUM}  tile.png256' | ${SHA256SUM_EXECUTABLE} -c) && \
+    (echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c) && \
+    ((echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c))
   "
 )
 add_test(
   NAME dirty_tile
   COMMAND ${BASH} -c "
-    TILE_PNG_STATUS_CMD=\"${TILE_PNG_CMD}/status | cut -d. -f2\"
-    TILE_PNG_STATUS_OUTPUT_OLD=$(\${TILE_PNG_STATUS_CMD})
+    TILE_STATUS_CMD=\"${TILE_DEFAULT_CMD}/status | cut -d. -f2\"
+    TILE_STATUS_OUTPUT_OLD=$(\${TILE_STATUS_CMD})
     sleep 5;
-    TILE_PNG_DIRTY_OUTPUT=$(${TILE_PNG_CMD}/dirty)
-    if [ \"\${TILE_PNG_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
+    TILE_DIRTY_OUTPUT=$(${TILE_DEFAULT_CMD}/dirty)
+    if [ \"\${TILE_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
       exit 1;
     fi
-    until [ \"\${TILE_PNG_STATUS_OUTPUT_OLD}\" != \"$(\${TILE_PNG_STATUS_CMD})\" ]; do
+    until [ \"\${TILE_STATUS_OUTPUT_OLD}\" != \"$(\${TILE_STATUS_CMD})\" ]; do
       echo 'Sleeping 1s';
       sleep 1;
     done
@@ -212,7 +228,7 @@ add_test(
 )
 add_test(
   NAME remove_tiles
-  COMMAND ${RM} -v tile.png tile.png32 tile.webp
+  COMMAND ${RM} -v tile.png tile.jpg tile.png256 tile.png32 tile.webp
 )
 add_test(
   NAME stop_renderd
@@ -287,16 +303,16 @@ set_tests_properties(download_tiles PROPERTIES
 set_tests_properties(check_tiles PROPERTIES
   DEPENDS download_tiles
   FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
-  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
+  REQUIRED_FILES "tile.png;tile.jpg;tile.png256;tile.png32;tile.webp"
 )
 set_tests_properties(dirty_tile PROPERTIES
   DEPENDS download_tiles
   FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
-  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
+  REQUIRED_FILES "tile.png;tile.jpg;tile.png256;tile.png32;tile.webp"
   TIMEOUT 20
 )
 set_tests_properties(remove_tiles PROPERTIES
   DEPENDS download_tiles
   FIXTURES_CLEANUP tiles_downloaded
-  REQUIRED_FILES "tile.png;tile.png32;tile.webp"
+  REQUIRED_FILES "tile.png;tile.jpg;tile.png256;tile.png32;tile.webp"
 )
