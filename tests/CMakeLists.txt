@@ -54,15 +54,18 @@ execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
 #-----------------------------------------------------------------------------
 
 set(MAP_NAME "default")
-set(TILE_PNG_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
+
 set(TILE_PNG_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
-set(TILE_PNG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG_URL}")
-set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
 set(TILE_PNG32_URL "http://localhost:8081/tiles/renderd-example-png32/9/297/191.png")
-set(TILE_PNG32_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG32_URL}")
-set(TILE_WEBP_SHA256SUM "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4")
 set(TILE_WEBP_URL "http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp")
+
+set(TILE_PNG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG_URL}")
+set(TILE_PNG_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
+set(TILE_PNG32_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG32_URL}")
+set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
 set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
+set(TILE_WEBP_SHA256SUM_6 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp6
+set(TILE_WEBP_SHA256SUM_7 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp7
 
 configure_file(
   renderd.conf.in
@@ -188,7 +191,7 @@ add_test(
   COMMAND ${BASH} -c "
     echo '${TILE_PNG_SHA256SUM}  tile.png' | ${SHA256SUM_EXECUTABLE} -c
     echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c
-    echo '${TILE_WEBP_SHA256SUM}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c
+    (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c)
   "
 )
 add_test(
