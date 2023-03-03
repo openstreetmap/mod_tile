@@ -33,12 +33,13 @@ make
 sudo mkdir --parents /run/renderd /var/cache/renderd/tiles
 
 # Move files of example map
-sudo cp -r "utils/example-map" /var/www/example-map
+sudo mkdir --parents /usr/share/renderd/
+sudo cp -r "utils/example-map" /usr/share/renderd/example-map
 
 # Link leaflet library
 sudo ln --symbolic \
   /usr/share/javascript/leaflet \
-  /var/www/example-map/leaflet
+  /usr/share/renderd/example-map/leaflet
 
 # Add configuration
 sudo cp "etc/renderd/renderd.conf.examples" /etc/renderd.conf
