@@ -47,6 +47,11 @@ sudo cp "etc/apache2/renderd.conf" /etc/apach2/conf.d/renderd.conf
 sudo cp "etc/apache2/renderd-example-map.conf" \
   /etc/apache2/conf-enabled/renderd-example-map.conf
 
+# Apply Debian specific changes to configuration files
+sudo sed --in-place \
+  "s#/usr/lib/mapnik/3.0/input#/usr/lib/mapnik/3.1/input#g" \
+  /etc/renderd.conf
+
 # Add and activate mod_tile for Apache
 echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" \
   | sudo tee --append /etc/apache2/mods-enabled/mod_tile.load
