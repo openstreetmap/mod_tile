@@ -65,4 +65,4 @@ sudo systemctl --now enable apache2
 sudo renderd -f
 ```
 
-Then you can visit: `http://localhost/example-map`
+Then you can visit: `http://localhost:8081/renderd-example-map`
