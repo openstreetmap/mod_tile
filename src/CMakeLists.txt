@@ -7,7 +7,7 @@
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 
 include_directories(SYSTEM ${APR_INCLUDE_DIRS} ${Cairo_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS} ${GLib_INCLUDE_DIRS} ${HTTPD_INCLUDE_DIRS})
-include_directories(SYSTEM ${ICU_INCLUDE_DIRS} ${IniParser_INCLUDE_DIRS} ${LibMemcached_INCLUDE_DIRS} ${LibRados_INCLUDE_DIRS} ${Mapnik_INCLUDE_DIRS})
+include_directories(SYSTEM ${ICU_INCLUDE_DIRS} ${IniParser_INCLUDE_DIRS} ${LibMapnik_INCLUDE_DIRS} ${LibMemcached_INCLUDE_DIRS} ${LibRados_INCLUDE_DIRS})
 
 link_directories(${CMAKE_LIBRARY_PATH})
 
@@ -162,7 +162,7 @@ set(renderd_LIBS
   ${COMMON_LIBRARIES}
   ${ICU_LIBRARIES}
   ${IniParser_LIBRARIES}
-  ${Mapnik_LIBRARIES}
+  ${LibMapnik_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(renderd ${renderd_SRCS})

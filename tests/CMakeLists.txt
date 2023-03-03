@@ -23,19 +23,23 @@ find_program(CURL_EXECUTABLE NAMES curl REQUIRED)
 find_program(HTTPD_EXECUTABLE NAMES ${APXS_PROGNAME} REQUIRED)
 find_program(ID_EXECUTABLE NAMES id REQUIRED)
 find_program(KILL_EXECUTABLE NAMES kill REQUIRED)
-find_program(MAPNIK_CONFIG_EXECUTABLE NAMES mapnik-config REQUIRED)
 find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
 
-execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --fonts
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  OUTPUT_VARIABLE MAPNIK_FONTS_DIR
-)
-
-execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --input-plugins
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  OUTPUT_VARIABLE MAPNIK_INPUT_DIR
-)
+if(LibMapnik_VERSION STRLESS "4")
+  find_program(MAPNIK_CONFIG_EXECUTABLE NAMES mapnik-config REQUIRED)
+  execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --fonts
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE MAPNIK_FONTS_DIR
+  )
+  execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --input-plugins
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE MAPNIK_PLUGINS_DIR
+  )
+elseif(LibMapnik_VERSION STRGREATER_EQUAL "4")
+  pkg_get_variable(MAPNIK_FONTS_DIR libmapnik fonts_dir)
+  pkg_get_variable(MAPNIK_PLUGINS_DIR libmapnik plugins_dir)
+endif()
 
 execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
   OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -54,8 +58,8 @@ set(TILE_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
 set(TILE_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_URL}")
 
 configure_file(
-    renderd.conf.in
-    conf/renderd.conf
+  renderd.conf.in
+  conf/renderd.conf
 )
 
 configure_file(

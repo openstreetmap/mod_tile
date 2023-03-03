@@ -1,58 +1,11 @@
 ---
-inputs:
-  tile_url:
-    description: Tile URL for testing `mod_tile` module
-    required: false
-    default: http://localhost:8081/tiles/renderd-example/9/297/191.png
-  tile_sha224sum:
-    description: Tile sha224sum for testing `mod_tile` module
-    required: false
-    default: 9cd82e5af9d9002a1c75126ebdb7bf054ec0b7ed0db228dfb0a09bae
-
 runs:
   using: composite
   steps:
-    - name: Start `renderd`
-      env:
-        G_MESSAGES_DEBUG: all
-      run: renderd --foreground &> /var/log/renderd.log &
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Test `mod_tile` (Autotools)
+      uses: ./.github/actions/autotools/test
+      if: matrix.build_system == 'Autotools'
 
-    - name: Start Apache HTTP Server
-      run: |
-        if command -v httpd &> /dev/null; then
-          httpd -k start
-        elif command -v apachectl &> /dev/null; then
-          apachectl -k start
-        else
-          exit -1
-        fi
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Run `make test`
-      run: make test
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Wait for Apache HTTP Server
-      run: |
-        while ! curl --fail ${{ inputs.tile_url }} &> /dev/null
-        do
-          sleep 5
-        done
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Curl `tile_url`
-      run: |
-        curl --silent ${{ inputs.tile_url }} > /tmp/tile.png
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Create `tile.sha224sum` file
-      run: |
-        echo "${{ inputs.tile_sha224sum }} /tmp/tile.png" > /tmp/tile.sha224sum
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Verify `tile_sha224sum`
-      run: |
-        sha224sum --check /tmp/tile.sha224sum \
-          || (ps auxw && tail --lines=+1 /tmp/tile.png /var/log/renderd.log /var/log/httpd/* /var/log/apache2/* && exit -1)
-      shell: bash --noprofile --norc -euxo pipefail {0}
+    - name: Test `mod_tile` (CMake)
+      uses: ./.github/actions/cmake/test
+      if: matrix.build_system == 'CMake'

@@ -1,0 +1,7 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Install `mod_tile`
+      run: cmake --install build
+      shell: bash --noprofile --norc -euxo pipefail {0}

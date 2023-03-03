@@ -1,0 +1,205 @@
+---
+inputs:
+  debian-build-dependencies:
+    default: >-
+      apache2-dev
+      libcairo2-dev
+      libcurl4-gnutls-dev
+      libglib2.0-dev
+      libiniparser-dev
+      libmemcached-dev
+      librados-dev
+  debian-mapnik-latest-build-dependencies:
+    default: >-
+      cmake
+      git
+      libboost-filesystem-dev
+      libboost-program-options-dev
+      libboost-regex-dev
+      libfreetype6-dev
+      libgdal-dev
+      libharfbuzz-dev
+      libicu-dev
+      libjpeg-dev
+      libpq-dev
+      libproj-dev
+      libsqlite3-dev
+      libtiff-dev
+      libwebp-dev
+      libxml2-dev
+      postgresql-server-dev-all
+  debian-test-dependencies:
+    default: >-
+      apache2
+  fedora-build-dependencies:
+    default: >-
+      cairo-devel
+      glib2-devel
+      httpd-devel
+      iniparser-devel
+      libcurl-devel
+      libmemcached-devel
+      librados-devel
+      mapnik-devel
+      sqlite-devel
+  fedora-test-dependencies:
+    default: >-
+      httpd
+  macos-build-dependencies:
+    default: >-
+      apr
+      cairo
+      curl
+      glib
+      httpd
+      iniparser
+      libmemcached
+      mapnik
+  macos-test-dependencies:
+    default: >-
+      coreutils
+  rhel-build-dependencies:
+    default: >-
+      cairo-devel
+      glib2-devel
+      httpd-devel
+      iniparser-devel
+      libcurl-devel
+      libmemcached-devel
+      librados2-devel
+  rhel-test-dependencies:
+    default: >-
+      httpd
+  rhel-mapnik-build-dependencies:
+    default: >-
+      boost-devel
+      bzip2
+      freetype-devel
+      gdal-devel
+      harfbuzz-devel
+      libicu-devel
+      libjpeg-turbo-devel
+      libpng-devel
+      libtiff-devel
+      libwebp-devel
+      libxml2-devel
+      make
+      postgresql-devel
+      proj-devel
+      python3
+      sqlite-devel
+      tar
+      zlib-devel
+  ubuntu-build-dependencies:
+    default: >-
+      apache2-dev
+      libcairo2-dev
+      libcurl4-gnutls-dev
+      libglib2.0-dev
+      libiniparser-dev
+      libmemcached-dev
+      librados-dev
+  ubuntu-mapnik-latest-build-dependencies:
+    default: >-
+      cmake
+      git
+      libboost-filesystem-dev
+      libboost-program-options-dev
+      libboost-regex-dev
+      libfreetype6-dev
+      libgdal-dev
+      libharfbuzz-dev
+      libicu-dev
+      libjpeg-dev
+      libpq-dev
+      libproj-dev
+      libsqlite3-dev
+      libtiff-dev
+      libwebp-dev
+      libxml2-dev
+      postgresql-server-dev-all
+  ubuntu-test-dependencies:
+    default: >-
+      apache2
+  mapnik-build-version-centos-stream:
+    default: 3.1.0
+  mapnik-build-version-amazonlinux2-centos7:
+    default: 3.0.17
+
+runs:
+  using: composite
+  steps:
+    - name: Install Dependencies (Amazon Linux/CentOS/CentOS Stream)
+      uses: ./.github/actions/dependencies/install/yum
+      with:
+        dependencies: epel-release
+        packages: >-
+          ${{ inputs.rhel-build-dependencies }}
+          ${{ inputs.rhel-mapnik-build-dependencies }}
+          ${{ inputs.rhel-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake3' || 'autoconf automake redhat-rpm-config' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+      if: |
+        startsWith(matrix.image, 'amazonlinux:') ||
+        startsWith(matrix.image, 'centos:') ||
+        startsWith(matrix.image, 'quay.io/centos/centos:stream')
+
+    - name: Install Dependencies (Debian)
+      uses: ./.github/actions/dependencies/install/apt-get
+      with:
+        packages: >-
+          ${{ inputs.debian-build-dependencies }}
+          ${{ matrix.mapnik_latest && inputs.debian-mapnik-latest-build-dependencies || 'libmapnik-dev' }}
+          ${{ inputs.debian-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || '' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
+      if: startsWith(matrix.image, 'debian:')
+
+    - name: Install Dependencies (Fedora)
+      uses: ./.github/actions/dependencies/install/yum
+      with:
+        packages: >-
+          ${{ inputs.fedora-build-dependencies }}
+          ${{ inputs.fedora-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+      if: startsWith(matrix.image, 'fedora:')
+
+    - name: Install Dependencies (macOS)
+      uses: ./.github/actions/dependencies/install/brew
+      with:
+        packages: >-
+          ${{ inputs.macos-build-dependencies }}
+          ${{ inputs.macos-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake' }}
+          ${{ matrix.compiler == 'GNU' && 'gcc' || '' }}
+      if: runner.os == 'macOS'
+
+    - name: Install Dependencies (Ubuntu)
+      uses: ./.github/actions/dependencies/install/apt-get
+      with:
+        packages: >-
+          ${{ inputs.ubuntu-build-dependencies }}
+          ${{ matrix.mapnik_latest && inputs.ubuntu-mapnik-latest-build-dependencies || 'libmapnik-dev' }}
+          ${{ inputs.ubuntu-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || '' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
+      if: startsWith(matrix.image, 'ubuntu:')
+
+    - name: Build & Install `mapnik` (Amazon Linux 2/CentOS 7)
+      uses: ./.github/actions/dependencies/build-and-install/mapnik
+      with:
+        version: ${{ inputs.mapnik-build-version-amazonlinux2-centos7 }}
+      if: matrix.image == 'amazonlinux:2' || matrix.image == 'centos:7'
+
+    - name: Build & Install `mapnik` (CentOS Stream)
+      uses: ./.github/actions/dependencies/build-and-install/mapnik
+      with:
+        version: ${{ inputs.mapnik-build-version-centos-stream }}
+      if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
+
+    - name: Build & Install latest `mapnik` (Debian/Ubuntu)
+      uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
+      if: |
+        matrix.mapnik_latest &&
+        (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:'))

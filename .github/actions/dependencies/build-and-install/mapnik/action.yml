@@ -1,0 +1,64 @@
+---
+inputs:
+  version:
+    description: Version of Mapnik to build & install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install `gcc-c++` (CentOS 7)
+      uses: ./.github/actions/dependencies/install/yum
+      with:
+        packages: gcc-c++
+      if: matrix.image == 'centos:7' && matrix.compiler == 'LLVM'
+
+    - name: Create `Mapnik` source directory
+      run: |
+        mkdir mapnik-src
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Cache "Download `Mapnik`" & "Build `Mapnik`"
+      id: cache-mapnik-src
+      uses: actions/cache@v3
+      with:
+        path: mapnik-src
+        key: ${{ matrix.image }}-${{ matrix.compiler }}-mapnik-${{ inputs.version }}
+
+    - name: Download `Mapnik`
+      run: |
+        curl --silent --location \
+          https://github.com/mapnik/mapnik/releases/download/v${{ inputs.version }}/mapnik-v${{ inputs.version }}.tar.bz2 \
+          | tar --extract --bzip2 --strip-components=1 --file=-
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src
+      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+
+    - name: Build `Mapnik`
+      run: |
+        # Export variables
+        export GDAL_DATA=/usr/share/gdal
+        export JOBS=${JOBS:-$(nproc)}
+        export PROJ_LIB=/usr/share/proj
+        export PYTHON=${PYTHON:-python3}
+
+        # Create GDAL_DATA/PROJ_LIB directories
+        mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
+
+        # Configure & build
+        ./configure FAST=True \
+          PREFIX="/usr" \
+          OPTIMIZATION=0
+         make PYTHON=${PYTHON} || make PYTHON=${PYTHON}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src
+      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+
+    - name: Install `Mapnik`
+      run: |
+        # Export `PYTHON`
+        export PYTHON=${PYTHON:-python3}
+
+        make install PYTHON=${PYTHON}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src
