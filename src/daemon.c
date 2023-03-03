@@ -832,8 +832,10 @@ int main(int argc, char **argv)
 	char buffer[PATH_MAX];
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section(s)");
+
 	for (int section = 0; section < iniparser_getnsec(ini); section++) {
 		const char *name = iniparser_getsecname(ini, section);
+
 		if (strncmp(name, "renderd", 7) == 0) {
 			/* this is a renderd config section */
 			int render_sec = 0;
@@ -894,14 +896,17 @@ int main(int argc, char **argv)
 	}
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section(s)");
+
 	for (int section = 0; section < iniparser_getnsec(ini); section++) {
 		const char *name = iniparser_getsecname(ini, section);
+
 		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
 			/* this is a map config section */
 			if (config.num_threads == NULL || config.tile_dir == NULL) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "No valid (active) renderd config section available");
 				exit(7);
 			}
+
 			iconf++;
 
 			g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section %i: %s", iconf, name);
