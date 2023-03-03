@@ -18,6 +18,7 @@
 #ifndef GEN_TILE_H
 #define GEN_TILE_H
 
+#include "daemon.h"
 #include "protocol.h"
 
 #ifdef __cplusplus
@@ -37,6 +38,11 @@ struct item {
 	enum queueEnum inQueue;
 	enum queueEnum originatedQueue;
 };
+
+typedef struct {
+	int num_maps;
+	struct xmlconfigitem *maps;
+} render_thread_args;
 
 //int render(Map &m, int x, int y, int z, const char *filename);
 void *render_thread(void *);

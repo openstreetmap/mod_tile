@@ -391,12 +391,14 @@ void render_init(const char *plugins_dir, const char* font_dir, int font_dir_rec
 
 void *render_thread(void * arg)
 {
-	xmlconfigitem * parentxmlconfig = (xmlconfigitem *)arg;
-	xmlmapconfig maps[XMLCONFIGS_MAX];
+	render_thread_args * parentargs = (render_thread_args *) arg;
+	int num_maps = parentargs->num_maps;
+	xmlconfigitem * parentxmlconfig = parentargs->maps;
+	xmlmapconfig * maps = new xmlmapconfig[num_maps];
 	int i, iMaxConfigs;
 	int render_time;
 
-	for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
+	for (iMaxConfigs = 0; iMaxConfigs < num_maps; ++iMaxConfigs) {
 		if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) {
 			break;
 		}
@@ -553,6 +555,13 @@ void *render_thread(void * arg)
 			sleep(1); // TODO: Use an event to indicate there are new requests
 		}
 	}
+
+	for (i = 0; i < iMaxConfigs; ++i) {
+		free(maps[i].prj);
+		free(maps[i].store);
+	}
+
+	delete[] maps;
 
 	return NULL;
 }

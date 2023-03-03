@@ -812,6 +812,7 @@ int main(int argc, char **argv)
 
 	g_logger(G_LOG_LEVEL_INFO, "Initialising request_queue");
 
+	int num_maps = 0;
 	xmlconfigitem maps[XMLCONFIGS_MAX];
 	bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
 
@@ -1019,6 +1020,8 @@ int main(int argc, char **argv)
 		}
 	}
 
+	num_maps = iconf + 1;
+
 	if (config.ipport > 0) {
 		g_logger(G_LOG_LEVEL_INFO, "config renderd: ip socket=%s:%i", config.iphostname, config.ipport);
 	} else {
@@ -1065,7 +1068,7 @@ int main(int argc, char **argv)
 			 config_slaves[i].pid_filename);
 	}
 
-	for (iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
+	for (iconf = 0; iconf < num_maps; ++iconf) {
 		if (maps[iconf].xmlname[0] != 0) {
 			g_logger(G_LOG_LEVEL_INFO, "config map %d:   name(%s) file(%s) uri(%s) htcp(%s) host(%s)",
 				 iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri,
@@ -1122,8 +1125,12 @@ int main(int argc, char **argv)
 
 	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
 
+	render_thread_args arg_render_thread;
+	arg_render_thread.num_maps = num_maps;
+	arg_render_thread.maps = maps;
+
 	for (i = 0; i < config.num_threads; i++) {
-		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
+		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)&arg_render_thread)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "error spawning render thread");
 			close(fd);
 			exit(7);
