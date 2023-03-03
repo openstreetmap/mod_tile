@@ -1,9 +1,3 @@
-[renderd]
-pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd.pid
-socketname=@PROJECT_BINARY_DIR@/tests/run/renderd.sock
-stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd.stats
-tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
-
 [mapnik]
 font_dir_recurse=true
 font_dir=@MAPNIK_FONTS_DIR@
@@ -13,3 +7,16 @@ plugins_dir=@MAPNIK_PLUGINS_DIR@
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 URI=/tiles/renderd-example
 XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+
+[renderd1]
+iphostname=127.0.0.1
+ipport=8881
+pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.pid
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.stats
+tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
+
+[renderd]
+pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd.pid
+socketname=@PROJECT_BINARY_DIR@/tests/run/renderd.sock
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd.stats
+tile_dir=@PROJECT_BINARY_DIR@/tests/tiles

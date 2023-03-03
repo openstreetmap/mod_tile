@@ -103,8 +103,10 @@ add_test(
 add_test(
   NAME start_renderd
   COMMAND ${BASH} -c "
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground > ${PROJECT_BINARY_DIR}/tests/logs/renderd.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd1.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     ${BASH} ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
   "
@@ -156,6 +158,7 @@ add_test(
   NAME stop_renderd
   COMMAND ${BASH} -c "
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
+    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
   "
 )
 add_test(
