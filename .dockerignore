@@ -9,3 +9,11 @@
 !src
 !tests
 !utils/example-map
+
+# AutoTools
+!autogen.sh
+!configure.ac
+!etc/renderd/renderd.conf
+!m4
+!Makefile.am
+!modules.mk
