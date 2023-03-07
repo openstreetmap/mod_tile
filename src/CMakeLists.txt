@@ -6,8 +6,20 @@
 
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 
-include_directories(SYSTEM ${APR_INCLUDE_DIRS} ${Cairo_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS} ${GLib_INCLUDE_DIRS} ${HTTPD_INCLUDE_DIRS})
-include_directories(SYSTEM ${ICU_INCLUDE_DIRS} ${IniParser_INCLUDE_DIRS} ${LibMapnik_INCLUDE_DIRS} ${LibMemcached_INCLUDE_DIRS} ${LibRados_INCLUDE_DIRS})
+include_directories(SYSTEM
+  ${APR_INCLUDE_DIRS}
+  ${CAIRO_INCLUDE_DIRS}
+  ${CURL_INCLUDE_DIRS}
+  ${GLIB_INCLUDE_DIRS}
+  ${HTTPD_INCLUDE_DIRS}
+)
+include_directories(SYSTEM
+  ${ICU_INCLUDE_DIRS}
+  ${INIPARSER_INCLUDE_DIRS}
+  ${LIBMAPNIK_INCLUDE_DIRS}
+  ${LIBMEMCACHED_INCLUDE_DIRS}
+  ${LIBRADOS_INCLUDE_DIRS}
+)
 
 link_directories(${CMAKE_LIBRARY_PATH})
 
@@ -16,7 +28,7 @@ set(COMMON_SRCS
   sys_utils.c
 )
 set(COMMON_LIBRARIES
-  ${GLib_LIBRARIES}
+  ${GLIB_LIBRARIES}
   Threads::Threads
 )
 
@@ -31,10 +43,10 @@ set(STORE_SRCS
   store.c
 )
 set(STORE_LIBRARIES
-  ${Cairo_LIBRARIES}
+  ${CAIRO_LIBRARIES}
   ${CURL_LIBRARIES}
-  ${LibMemcached_LIBRARIES}
-  ${LibRados_LIBRARIES}
+  ${LIBMEMCACHED_LIBRARIES}
+  ${LIBRADOS_LIBRARIES}
 )
 
 #-----------------------------------------------------------------------------
@@ -161,8 +173,8 @@ set(renderd_SRCS
 set(renderd_LIBS
   ${COMMON_LIBRARIES}
   ${ICU_LIBRARIES}
-  ${IniParser_LIBRARIES}
-  ${LibMapnik_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
+  ${LIBMAPNIK_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(renderd ${renderd_SRCS})
@@ -174,7 +186,7 @@ target_link_libraries(renderd ${renderd_LIBS})
 #
 #-----------------------------------------------------------------------------
 
-if (ENABLE_TESTS)
+if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 #
 #  gen_tile_test
@@ -183,7 +195,7 @@ if (ENABLE_TESTS)
 
 set(gen_tile_test_SRCS
   ${renderd_SRCS}
-	gen_tile_test.cpp
+  gen_tile_test.cpp
 )
 set(gen_tile_test_LIBS
   ${renderd_LIBS}

@@ -10,7 +10,7 @@ on:
 
 jobs:
   astyle:
-    name: Lint with `astyle`
+    name: Lint with `Artistic Style`
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -43,3 +43,18 @@ jobs:
             printf "\t${ASTYLE_CMD}\n" | tr -s ' '
             exit 1
           fi
+
+  cmakelint:
+    name: Lint with `CMakeLint`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Provision environment
+        run: pip install --user cmakelint
+      - name: Run linter
+        run: |
+          cmakelint \
+            CMakeLists.txt \
+            */CMakeLists.txt \
+            */*.cmake

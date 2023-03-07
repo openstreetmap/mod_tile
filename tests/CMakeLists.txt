@@ -91,9 +91,11 @@ add_test(
 add_test(
   NAME start_renderd
   COMMAND ${BASH} -c "
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd0.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground \
+      --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd0.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd0.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground \
+      --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd1.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     ${BASH} ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
@@ -186,7 +188,11 @@ add_test(
     (echo '${TILE_JPG_SHA256SUM}  tile.jpg' | ${SHA256SUM_EXECUTABLE} -c) && \
     (echo '${TILE_PNG256_SHA256SUM}  tile.png256' | ${SHA256SUM_EXECUTABLE} -c) && \
     (echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c) && \
-    ((echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_4}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c))
+    ( \
+      (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_4}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) \
+    )
   "
   WORKING_DIRECTORY tests
 )
