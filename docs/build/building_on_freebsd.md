@@ -5,6 +5,7 @@ This document provides users with step-by-step instructions on how to compile an
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
 ## FreeBSD 12/13
+
 ```shell
 #!/usr/bin/env sh
 

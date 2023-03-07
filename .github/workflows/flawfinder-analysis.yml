@@ -10,7 +10,7 @@ on:
     branches:
       - master
   schedule:
-    - cron: '44 0 * * 4'
+    - cron: "44 0 * * 4"
 
 jobs:
   flawfinder:
@@ -27,8 +27,8 @@ jobs:
       - name: flawfinder_scan
         uses: david-a-wheeler/flawfinder@2.0.19
         with:
-          arguments: '--sarif includes src'
-          output: 'flawfinder_results.sarif'
+          arguments: "--sarif includes src"
+          output: "flawfinder_results.sarif"
 
       - name: Upload analysis results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2

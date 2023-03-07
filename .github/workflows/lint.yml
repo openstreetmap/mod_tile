@@ -2,11 +2,8 @@
 name: Lint
 
 on:
-  pull_request:
-  push:
-    branches:
-      - master
-      - develop
+  - pull_request
+  - push
 
 jobs:
   astyle:
@@ -58,3 +55,15 @@ jobs:
             CMakeLists.txt \
             */CMakeLists.txt \
             */*.cmake
+
+  prettier:
+    name: Lint with `Prettier`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Provision environment
+        run: npm install prettier
+      - name: Run linter
+        run: |
+          npx prettier --check .

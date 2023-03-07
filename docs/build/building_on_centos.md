@@ -7,6 +7,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 _CentOS does not provide a `mapnik`/`mapnik-devel` package, so it will first need to be built & installed, which is beyond the scope of this document, please visit the project's [installation document on GitHub](https://github.com/mapnik/mapnik/blob/master/INSTALL.md) or our [Continuous Integration script](/.github/actions/dependencies/build-and-install/mapnik/action.yml) for more information._
 
 ## CentOS 7
+
 ```shell
 #!/usr/bin/env bash
 
