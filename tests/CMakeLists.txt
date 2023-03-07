@@ -101,15 +101,12 @@ add_test(
   COMMAND ${MKDIR_EXECUTABLE} -p -v logs run tiles
 )
 add_test(
-  NAME start_renderd
-  COMMAND ${BASH} -c "
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd1.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    ${BASH} ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-  "
+  NAME start_renderd_slave_0
+  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs --slave 0
+)
+add_test(
+  NAME start_renderd_slave_1
+  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs --slave 1
 )
 add_test(
   NAME start_httpd
@@ -155,9 +152,14 @@ add_test(
   COMMAND ${RM} -v tile.png
 )
 add_test(
-  NAME stop_renderd
+  NAME stop_renderd_slave_0
   COMMAND ${BASH} -c "
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
+  "
+)
+add_test(
+  NAME stop_renderd_slave_1
+  COMMAND ${BASH} -c "
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
   "
 )
@@ -178,24 +180,34 @@ add_test(
 set_tests_properties(create_dirs PROPERTIES
   FIXTURES_SETUP httpd_started
 )
-set_tests_properties(start_renderd PROPERTIES
+set_tests_properties(start_renderd_slave_0 PROPERTIES
   DEPENDS create_dirs
+  ENVIRONMENT "G_MESSAGES_DEBUG=all"
+  FIXTURES_SETUP httpd_started
+)
+set_tests_properties(start_renderd_slave_1 PROPERTIES
+  DEPENDS create_dirs
+  ENVIRONMENT "G_MESSAGES_DEBUG=all"
   FIXTURES_SETUP httpd_started
 )
 set_tests_properties(start_httpd PROPERTIES
   DEPENDS create_dirs
   FIXTURES_SETUP httpd_started
 )
-set_tests_properties(stop_renderd PROPERTIES
+set_tests_properties(stop_renderd_slave_0 PROPERTIES
   FIXTURES_CLEANUP httpd_started
   REQUIRED_FILES run/renderd.pid
+)
+set_tests_properties(stop_renderd_slave_1 PROPERTIES
+  FIXTURES_CLEANUP httpd_started
+  REQUIRED_FILES run/renderd1.pid
 )
 set_tests_properties(stop_httpd PROPERTIES
   FIXTURES_CLEANUP httpd_started
   REQUIRED_FILES run/httpd.pid
 )
 set_tests_properties(clear_dirs PROPERTIES
-  DEPENDS "stop_renderd;stop_httpd"
+  DEPENDS "stop_renderd_slave_0;stop_renderd_slave_1;stop_httpd"
   FIXTURES_CLEANUP httpd_started
   REQUIRED_FILES "logs;run;tiles"
 )

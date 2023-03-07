@@ -64,7 +64,7 @@ static int max_load = MAX_LOAD_OLD;
 static time_t planetTime;
 static struct timeval start, end;
 
-int foreground = 1;
+int log_to_std_streams = 1;
 
 
 

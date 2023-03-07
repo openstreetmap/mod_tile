@@ -1,4 +1,4 @@
-.TH RENDERD 1 "May 21, 2022"
+.TH RENDERD 1 "March 8, 2023"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 renderd \- Rendering daemon for rendering OpenStreetMap tiles.
@@ -15,19 +15,27 @@ command.
 is a rendering daemon for map tiles with the mapnik library. It receives render requests
 on a socket. Renderd queues requests in a number of different queues to manage load while 
 rendering the requests with the mapnik library. By default renderd will start as a daemon.
-It will log information in the syslog.
+It will write logs to systemd journal or syslog.
 .PP
 .SH OPTIONS
 This programs follow the usual GNU command line syntax, with long
 options starting with two dashes (`-').
 A summary of options is included below.
 .TP
-\fB\-f\fR|\-\-foreground
-Run renderd in the foreground for debugging purposes.
-.TP
 \fB\-c\fR|\-\-config
 Set the location of the config file used to configure the various parameters of renderd,
 like the mapnik style sheet. The default is /etc/renderd.conf
+.TP
+\fB\-f\fR|\-\-foreground
+Run renderd in the foreground. Logs will be written to stderr/stdout rather than to systemd journal or syslog.
+.br
+This option and \fB\-l\fR|\-\-logpath are mutually exclusive.
+.TP
+\fB\-l\fR|\-\-logpath
+Set the location of a directory to which logs will be written to rather than to systemd journal or syslog. The files will be
+named "renderd.stdout.log" and "renderd.stderr.log".
+.br
+This option and \fB\-f\fR|\-\-foreground are mutually exclusive.
 .TP
 \fB\-s\fR|\-\-slave
 Renderd can be used in a distributed fashion across multiple rendering servers. The master renderd handles queuing and

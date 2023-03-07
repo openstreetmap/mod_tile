@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <syslog.h>
 
-extern int foreground;
+extern int log_to_std_streams;
 
 const char *g_logger_level_name(int log_level)
 {
@@ -75,7 +75,7 @@ void g_logger(int log_level, const char *format, ...)
 
 	const GLogField log_fields_prefixed[] = {{"MESSAGE", log_message_prefixed, -1}};
 
-	if (foreground == 1) {
+	if (log_to_std_streams == 1) {
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
 			case G_LOG_LEVEL_ERROR:

@@ -90,7 +90,7 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
-extern int foreground;
+extern int log_to_std_streams;
 
 struct projectionconfig {
 	double bound_x0;

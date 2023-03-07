@@ -99,7 +99,7 @@ char *mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
-int foreground = 0;
+int log_to_std_streams = 0;
 
 struct storage_backends {
 	struct storage_backend ** stores;

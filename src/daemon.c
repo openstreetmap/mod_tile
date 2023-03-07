@@ -68,7 +68,7 @@ static renderd_config config;
 
 int noSlaveRenders;
 
-int foreground = 0;
+int log_to_std_streams = 0;
 
 struct request_queue * render_request_queue;
 
@@ -737,13 +737,18 @@ int main(int argc, char **argv)
 
 	int c;
 	int active_slave = 0;
+	int foreground = 0;
+	int nochdir = 0;
+	int noclose = 0;
 	char config_file_name[PATH_MAX] = RENDERD_CONFIG;
+	char *log_path = 0;
 
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
 			{"config",     required_argument, 0, 'c'},
 			{"foreground", no_argument,       0, 'f'},
+			{"logpath",    required_argument, 0, 'l'},
 			{"slave",      required_argument, 0, 's'},
 
 			{"help",       no_argument,       0, 'h'},
@@ -751,7 +756,7 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "c:fs:hV", long_options, &option_index);
+		c = getopt_long(argc, argv, "c:fl:s:hV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -760,11 +765,18 @@ int main(int argc, char **argv)
 		switch (c) {
 			case 'f':
 				foreground = 1;
+				log_to_std_streams = 1;
 				break;
 
 			case 'c':
-				strncpy(config_file_name, optarg, PATH_MAX - 1);
-				config_file_name[PATH_MAX - 1] = 0;
+				snprintf(config_file_name, sizeof(config_file_name), "%s", optarg);
+				break;
+
+			case 'l':
+				log_path = malloc(PATH_MAX);
+				snprintf(log_path, PATH_MAX, "%s", optarg);
+				log_to_std_streams = 1;
+				noclose = 1;
 				break;
 
 			case 's':
@@ -780,6 +792,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Mapnik rendering daemon\n");
 				fprintf(stderr, "  -c, --config=CONFIG   set location of config file (default %s)\n", RENDERD_CONFIG);
 				fprintf(stderr, "  -f, --foreground      run in foreground\n");
+				fprintf(stderr, "  -l, --logpath=DIR     write log output to files rather than to systemd journal or syslog\n");
 				fprintf(stderr, "  -s, --slave=CONFIG_NR set which render slave this is (default 0)\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help            display this help and exit\n");
@@ -799,6 +812,52 @@ int main(int argc, char **argv)
 	if (access(config_file_name, F_OK) != 0) {
 		fprintf(stderr, "Config file '%s' does not exist, please specify a valid file with -c/--config\n", config_file_name);
 		exit(1);
+	}
+
+	if (foreground && log_path != NULL) {
+		fprintf(stderr, "Cannot specify both '-f/--foreground' and '-l/--logpath' options\n");
+		exit(1);
+	} else if (log_path != NULL) {
+		char *stdout_log_file_name = malloc(PATH_MAX);
+		char *stderr_log_file_name = malloc(PATH_MAX);
+
+		snprintf(stdout_log_file_name, PATH_MAX, "%s/%s", log_path, "renderd.stdout.log");
+		snprintf(stderr_log_file_name, PATH_MAX, "%s/%s", log_path, "renderd.stderr.log");
+		free(log_path);
+
+		FILE * stdout_log_file = fopen(stdout_log_file_name, "w");
+
+		if (stdout_log_file == NULL) {
+			perror("Failed to open file to write stdout logs to");
+			exit(1);
+		} else {
+			fclose(stdout_log_file);
+			fprintf(stderr, "Writing stdout logs to file '%s'\n", stdout_log_file_name);
+
+			if (freopen(stdout_log_file_name, "a", stdout) == NULL) {
+				fclose(stdout);
+				exit(1);
+			}
+		}
+
+		free(stdout_log_file_name);
+
+		FILE * stderr_log_file = fopen(stderr_log_file_name, "w");
+
+		if (stderr_log_file == NULL) {
+			perror("Failed to open file to write stderr logs to");
+			exit(1);
+		} else {
+			fclose(stderr_log_file);
+			fprintf(stderr, "Writing stderr logs to file '%s'\n", stderr_log_file_name);
+
+			if (freopen(stderr_log_file_name, "a", stderr) == NULL) {
+				fclose(stderr);
+				exit(1);
+			}
+		}
+
+		free(stderr_log_file_name);
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started (version %s)", VERSION);
@@ -1111,7 +1170,7 @@ int main(int argc, char **argv)
 	if (foreground) {
 		g_logger(G_LOG_LEVEL_INFO, "Running in foreground mode...");
 	} else {
-		if (daemon(0, 0) != 0) {
+		if (daemon(nochdir, noclose) != 0) {
 			g_logger(G_LOG_LEVEL_ERROR, "can't daemonize: %s", strerror(errno));
 		}
 
