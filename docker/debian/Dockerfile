@@ -27,7 +27,8 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
         libiniparser-dev \
         libmapnik-dev \
         libmemcached-dev \
-        librados-dev
+        librados-dev \
+        netbase
 
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src

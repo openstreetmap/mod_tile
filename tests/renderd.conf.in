@@ -4,44 +4,51 @@ font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
 plugins_dir=@MAPNIK_PLUGINS_DIR@
 
 [@DEFAULT_MAP_NAME@]
-HTCPHOST=@HTTPD0_HOST@
-TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
-URI=/tiles/@DEFAULT_MAP_NAME@
+HOST=@HTTPD0_HOST@
+HTCPHOST=@HTTPD1_HOST@
+PARAMETERIZE_STYLE=language
+TILEDIR=@TILE_DIR@
+URI=/tiles/@DEFAULT_MAP_NAME@/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [jpg]
-TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TILEDIR=@TILE_DIR@
 TYPE=jpg image/jpeg jpeg
-URI=/tiles/jpg
+URI=/tiles/jpg/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [png256]
-TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TILEDIR=@TILE_DIR@
 TYPE=png image/png png256
-URI=/tiles/png256
+URI=/tiles/png256/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [png32]
-TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TILEDIR=@TILE_DIR@
 TYPE=png image/png png32
-URI=/tiles/png32
+URI=/tiles/png32/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [webp]
-TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
+TILEDIR=@TILE_DIR@
 TYPE=webp image/webp webp
-URI=/tiles/webp
+URI=/tiles/webp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
 iphostname=@RENDERD1_HOST@
 ipport=@RENDERD1_PORT@
-pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.pid
-stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.stats
-tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
+pid_file=@RENDERD1_PID@
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd1_@STORAGE_BACKEND@.stats
+tile_dir=@TILE_DIR@
 
 [renderd0]
-pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd0.pid
-socketname=@PROJECT_BINARY_DIR@/tests/run/renderd0.sock
-stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd0.stats
-tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
+pid_file=@RENDERD0_PID@
+socketname=@RENDERD0_SOCKET@
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd0_@STORAGE_BACKEND@.stats
+tile_dir=@TILE_DIR@
+
+[renderd2]
+pid_file=@RENDERD2_PID@
+socketname=@RENDERD2_SOCKET@
+tile_dir=@TILE_DIR@

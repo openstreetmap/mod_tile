@@ -1,4 +1,8 @@
 ---
+inputs:
+  options:
+    default: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure
+
 runs:
   using: composite
   steps:
@@ -10,7 +14,7 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Test `mod_tile`
-      run: ctest --exclude-regex 'clear_dirs|remove_tiles' --output-on-failure
+      run: ctest ${{ inputs.options }}
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
 
