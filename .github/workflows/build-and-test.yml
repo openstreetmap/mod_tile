@@ -142,3 +142,53 @@ jobs:
 
       - name: Install dependencies, Build, Test & Install `mod_tile`
         uses: ./.github/actions/freebsd
+
+  Coverage:
+    name: Build, Test & Report Coverage
+    runs-on: ubuntu-latest
+    env:
+      CFLAGS: --coverage
+      CXXFLAGS: --coverage
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+        with:
+          ubuntu-test-dependencies: >-
+            apache2
+            lcov
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/cmake/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/cmake/test
+
+      - name: Process `mod_tile` coverage results
+        run: |
+          ctest -T coverage
+          lcov \
+            --capture \
+            --directory . \
+            --output-file coverage.info
+          lcov \
+            --output-file coverage.info \
+            --remove coverage.info \
+            "${GITHUB_WORKSPACE}/includes/catch.hpp" \
+            "${GITHUB_WORKSPACE}/src/gen_tile_test.cpp" \
+            "/usr/*"
+          genhtml coverage.info --output-directory coverage
+        working-directory: build
+
+      - name: Upload `mod_tile` coverage results artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Coverage Results
+          path: build/coverage
+
+      - name: Report `mod_tile` coverage results to `codecov.io`
+        uses: codecov/codecov-action@v3
+        with:
+          files: build/coverage.info
