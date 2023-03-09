@@ -98,15 +98,15 @@ add_test(
 )
 add_test(
   NAME create_dirs
-  COMMAND ${MKDIR_EXECUTABLE} -p -v logs run tiles
+  COMMAND ${MKDIR_EXECUTABLE} -p -v logs/slave_0 logs/slave_1 run tiles
 )
 add_test(
   NAME start_renderd_slave_0
-  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs --slave 0
+  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs/slave_0 --slave 0
 )
 add_test(
   NAME start_renderd_slave_1
-  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs --slave 1
+  COMMAND renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --logpath ${PROJECT_BINARY_DIR}/tests/logs/slave_1 --slave 1
 )
 add_test(
   NAME start_httpd
