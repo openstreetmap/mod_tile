@@ -803,14 +803,13 @@ int main(int argc, char **argv)
 
 	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started (version %s)", VERSION);
 
+	g_logger(G_LOG_LEVEL_INFO, "Initialising request queue");
 	render_request_queue = request_queue_init();
 
 	if (render_request_queue == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");
 		exit(1);
 	}
-
-	g_logger(G_LOG_LEVEL_INFO, "Initialising request_queue");
 
 	xmlconfigitem maps[XMLCONFIGS_MAX];
 	bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
@@ -819,9 +818,11 @@ int main(int argc, char **argv)
 	bzero(config_slaves, sizeof(renderd_config) * MAX_SLAVES);
 	bzero(&config, sizeof(renderd_config));
 
+	g_logger(G_LOG_LEVEL_INFO, "Parsing config file: %s", config_file_name);
 	dictionary *ini = iniparser_load(config_file_name);
 
-	if (! ini) {
+	if (!ini) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file: %s", config_file_name);
 		exit(1);
 	}
 
@@ -830,18 +831,85 @@ int main(int argc, char **argv)
 	int iconf = -1;
 	char buffer[PATH_MAX];
 
+	g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section(s)");
+
 	for (int section = 0; section < iniparser_getnsec(ini); section++) {
 		const char *name = iniparser_getsecname(ini, section);
-		g_logger(G_LOG_LEVEL_INFO, "Parsing section %s", name);
+
+		if (strncmp(name, "renderd", 7) == 0) {
+			/* this is a renderd config section */
+			int render_sec = 0;
+
+			if (sscanf(name, "renderd%i", &render_sec) != 1) {
+				render_sec = 0;
+			}
+
+			g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section %i: %s", render_sec, name);
+
+			if (render_sec >= MAX_SLAVES) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Can't handle more than %i renderd config sections",
+					 MAX_SLAVES);
+				exit(7);
+			}
+
+			snprintf(buffer, sizeof(buffer), "%s:socketname", name);
+			config_slaves[render_sec].socketname = iniparser_getstring(ini,
+							       buffer, (char *) RENDER_SOCKET);
+			snprintf(buffer, sizeof(buffer), "%s:iphostname", name);
+			config_slaves[render_sec].iphostname = iniparser_getstring(ini,
+							       buffer, "");
+			snprintf(buffer, sizeof(buffer), "%s:ipport", name);
+			config_slaves[render_sec].ipport = iniparser_getint(ini, buffer, 0);
+			snprintf(buffer, sizeof(buffer), "%s:num_threads", name);
+			config_slaves[render_sec].num_threads = iniparser_getint(ini,
+								buffer, NUM_THREADS);
+			snprintf(buffer, sizeof(buffer), "%s:tile_dir", name);
+			config_slaves[render_sec].tile_dir = iniparser_getstring(ini,
+							     buffer, (char *) HASH_PATH);
+			snprintf(buffer, sizeof(buffer), "%s:stats_file", name);
+			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
+					buffer, NULL);
+			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
+			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
+					buffer, (char *) PIDFILE);
+
+			if (render_sec == active_slave) {
+				config.socketname = config_slaves[render_sec].socketname;
+				config.iphostname = config_slaves[render_sec].iphostname;
+				config.ipport = config_slaves[render_sec].ipport;
+				config.num_threads = config_slaves[render_sec].num_threads;
+				config.tile_dir = config_slaves[render_sec].tile_dir;
+				config.stats_filename
+					= config_slaves[render_sec].stats_filename;
+				config.pid_filename
+					= config_slaves[render_sec].pid_filename;
+				config.mapnik_plugins_dir = iniparser_getstring(ini,
+							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
+				config.mapnik_font_dir = iniparser_getstring(ini,
+							 "mapnik:font_dir", (char *) FONT_DIR);
+				config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
+								 "mapnik:font_dir_recurse", FONT_RECURSE);
+			} else {
+				noSlaveRenders += config_slaves[render_sec].num_threads;
+			}
+		}
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section(s)");
+
+	for (int section = 0; section < iniparser_getnsec(ini); section++) {
+		const char *name = iniparser_getsecname(ini, section);
 
 		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
-			if (config.tile_dir == NULL) {
+			/* this is a map config section */
+			if (config.num_threads == NULL || config.tile_dir == NULL) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "No valid (active) renderd config section available");
 				exit(7);
 			}
 
-			/* this is a map section */
 			iconf++;
+
+			g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section %i: %s", iconf, name);
 
 			if (iconf >= XMLCONFIGS_MAX) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "Config: more than %d configurations found", XMLCONFIGS_MAX);
@@ -960,62 +1028,6 @@ int main(int argc, char **argv)
 			 * as it is needed to configure mapniks number of connections
 			 */
 			maps[iconf].num_threads = config.num_threads;
-
-		} else if (strncmp(name, "renderd", 7) == 0) {
-			int render_sec = 0;
-
-			if (sscanf(name, "renderd%i", &render_sec) != 1) {
-				render_sec = 0;
-			}
-
-			g_logger(G_LOG_LEVEL_INFO, "Parsing render section %i", render_sec);
-
-			if (render_sec >= MAX_SLAVES) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Can't handle more than %i render sections",
-					 MAX_SLAVES);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:socketname", name);
-			config_slaves[render_sec].socketname = iniparser_getstring(ini,
-							       buffer, (char *) RENDER_SOCKET);
-			snprintf(buffer, sizeof(buffer), "%s:iphostname", name);
-			config_slaves[render_sec].iphostname = iniparser_getstring(ini,
-							       buffer, "");
-			snprintf(buffer, sizeof(buffer), "%s:ipport", name);
-			config_slaves[render_sec].ipport = iniparser_getint(ini, buffer, 0);
-			snprintf(buffer, sizeof(buffer), "%s:num_threads", name);
-			config_slaves[render_sec].num_threads = iniparser_getint(ini,
-								buffer, NUM_THREADS);
-			snprintf(buffer, sizeof(buffer), "%s:tile_dir", name);
-			config_slaves[render_sec].tile_dir = iniparser_getstring(ini,
-							     buffer, (char *) HASH_PATH);
-			snprintf(buffer, sizeof(buffer), "%s:stats_file", name);
-			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
-					buffer, NULL);
-			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
-			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
-					buffer, (char *) PIDFILE);
-
-			if (render_sec == active_slave) {
-				config.socketname = config_slaves[render_sec].socketname;
-				config.iphostname = config_slaves[render_sec].iphostname;
-				config.ipport = config_slaves[render_sec].ipport;
-				config.num_threads = config_slaves[render_sec].num_threads;
-				config.tile_dir = config_slaves[render_sec].tile_dir;
-				config.stats_filename
-					= config_slaves[render_sec].stats_filename;
-				config.pid_filename
-					= config_slaves[render_sec].pid_filename;
-				config.mapnik_plugins_dir = iniparser_getstring(ini,
-							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
-				config.mapnik_font_dir = iniparser_getstring(ini,
-							 "mapnik:font_dir", (char *) FONT_DIR);
-				config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
-								 "mapnik:font_dir_recurse", FONT_RECURSE);
-			} else {
-				noSlaveRenders += config_slaves[render_sec].num_threads;
-			}
 		}
 	}
 
