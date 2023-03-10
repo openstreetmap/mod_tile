@@ -15,17 +15,25 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef SYS_UTILS_H
-#define SYS_UTILS_H
+#ifndef RENDERD_CONFIG_H
+#define RENDERD_CONFIG_H
+
+#include "render_config.h"
+#include "renderd.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-double get_load_avg(void);
+extern int num_slave_threads;
+extern renderd_config config;
+extern renderd_config config_slaves[MAX_SLAVES];
+extern xmlconfigitem maps[XMLCONFIGS_MAX];
+
+int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum);
+void process_config_file(const char *config_file_name, int active_slave, int log_level);
 
 #ifdef __cplusplus
 }
 #endif
-
 #endif

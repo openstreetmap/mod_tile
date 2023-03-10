@@ -18,37 +18,42 @@
 // https://github.com/catchorg/Catch2/blob/v2.13.9/docs/own-main.md#let-catch2-take-full-control-of-args-and-config
 #define CATCH_CONFIG_RUNNER
 
+#include <cstdio>
+#include <glib.h>
+#include <iostream>
+#include <limits.h>
+#include <mapnik/version.hpp>
+#include <math.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string>
+#include <strings.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <syslog.h>
+#include <time.h>
+#include <tuple>
+#include <unistd.h>
+
 #include "catch/catch.hpp"
 #include "config.h"
 #include "g_logger.h"
 #include "gen_tile.h"
 #include "metatile.h"
+#include "protocol.h"
 #include "protocol_helper.h"
 #include "render_config.h"
 #include "renderd.h"
 #include "request_queue.h"
 #include "store.h"
 #include "string.h"
-#include <cstddef>
-#include <glib.h>
-#include <iostream>
-#include <mapnik/version.hpp>
-#include <sstream>
-#include <stdlib.h>
-#include <string>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <syslog.h>
-#include <time.h>
-#include <unistd.h>
 
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
 #ifdef __FreeBSD__
-#include <pthread.h>
 #include <sys/wait.h>
 #endif
 
@@ -966,7 +971,7 @@ TEST_CASE("renderd", "tile generation")
 		REQUIRE((std::string)req->xmlname == expected_xmlname);
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Ignoring unknown command unknown fd(" + std::to_string(pipefd[1]));
+		found = err_log_lines.find("Ignoring invalid command Unknown fd(" + std::to_string(pipefd[1]));
 		REQUIRE(found > -1);
 
 		// Valid command
@@ -977,7 +982,7 @@ TEST_CASE("renderd", "tile generation")
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Ignoring unknown command NotDone fd(" + std::to_string(pipefd[1]));
+		found = err_log_lines.find("Ignoring invalid command NotDone fd(" + std::to_string(pipefd[1]));
 		REQUIRE(found > -1);
 
 		free(req);

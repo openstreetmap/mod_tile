@@ -374,7 +374,7 @@ void *render_thread(void * arg)
 	g_logger(G_LOG_LEVEL_DEBUG, "Starting render thread: %lu", (unsigned long) pthread_self());
 
 	for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
-		if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) {
+		if (parentxmlconfig[iMaxConfigs].xmlname == NULL || parentxmlconfig[iMaxConfigs].xmlfile == NULL) {
 			break;
 		}
 
@@ -405,7 +405,7 @@ void *render_thread(void * arg)
 				 * up the mapnik datasources to support larger postgres connection pools
 				 */
 				if (parentxmlconfig[iMaxConfigs].num_threads > 10) {
-					g_logger(G_LOG_LEVEL_INFO, "Updating max_connection parameter for mapnik layers to reflect thread count");
+					g_logger(G_LOG_LEVEL_DEBUG, "Updating max_connection parameter for mapnik layers to reflect thread count");
 					parameterize_map_max_connections(maps[iMaxConfigs].map, parentxmlconfig[iMaxConfigs].num_threads);
 				}
 
@@ -428,7 +428,7 @@ void *render_thread(void * arg)
 								     maps[iMaxConfigs].htcphost);
 
 				if (maps[iMaxConfigs].htcpsock > 0) {
-					g_logger(G_LOG_LEVEL_INFO, "Successfully opened socket for HTCP cache expiry");
+					g_logger(G_LOG_LEVEL_DEBUG, "Successfully opened socket for HTCP cache expiry");
 				} else {
 					g_logger(G_LOG_LEVEL_ERROR, "Failed to open socket for HTCP cache expiry");
 				}

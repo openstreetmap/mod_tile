@@ -33,14 +33,14 @@ set(COMMON_LIBRARIES
 )
 
 set(STORE_SRCS
-  store_file_utils.c
+  store.c
   store_file.c
+  store_file_utils.c
   store_memcached.c
   store_null.c
   store_rados.c
   store_ro_composite.c
   store_ro_http_proxy.c
-  store.c
 )
 set(STORE_LIBRARIES
   ${CAIRO_LIBRARIES}
@@ -168,6 +168,7 @@ set(renderd_SRCS
   parameterize_style.cpp
   protocol_helper.c
   renderd.c
+  renderd_config.c
   request_queue.c
 )
 set(renderd_LIBS
@@ -180,13 +181,13 @@ set(renderd_LIBS
 add_executable(renderd ${renderd_SRCS})
 target_link_libraries(renderd ${renderd_LIBS})
 
+if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 #
 #  Test targets
 #
 #-----------------------------------------------------------------------------
 
-if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 #
 #  gen_tile_test
@@ -201,10 +202,9 @@ set(gen_tile_test_LIBS
   ${renderd_LIBS}
 )
 add_executable(gen_tile_test ${gen_tile_test_SRCS})
-target_compile_options(gen_tile_test PRIVATE -DMAIN_ALREADY_DEFINED)
+target_compile_definitions(gen_tile_test PRIVATE MAIN_ALREADY_DEFINED)
 target_include_directories(gen_tile_test PRIVATE ${PROJECT_SOURCE_DIR}/tests)
 target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
-set_target_properties(gen_tile_test PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests
-)
+set_target_properties(gen_tile_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests)
+
 endif()
