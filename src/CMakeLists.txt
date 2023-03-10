@@ -87,9 +87,11 @@ set(render_expired_SRCS
   protocol_helper.c
   render_expired.c
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_expired_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_expired ${render_expired_SRCS})
