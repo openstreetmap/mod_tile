@@ -818,46 +818,39 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot specify both '-f/--foreground' and '-l/--logpath' options\n");
 		exit(1);
 	} else if (log_path != NULL) {
-		char *stdout_log_file_name = malloc(PATH_MAX);
-		char *stderr_log_file_name = malloc(PATH_MAX);
+		char *stderr_log_file;
+		char *stdout_log_file;
+		struct stat sb;
 
-		snprintf(stdout_log_file_name, PATH_MAX, "%s/%s", log_path, "renderd.stdout.log");
-		snprintf(stderr_log_file_name, PATH_MAX, "%s/%s", log_path, "renderd.stderr.log");
+		if (stat(log_path, &sb) == 0) {
+			if (S_ISDIR(sb.st_mode)) {
+				stderr_log_file = malloc(PATH_MAX);
+				stdout_log_file = malloc(PATH_MAX);
+				snprintf(stderr_log_file, PATH_MAX, "%s/renderd.%s.log", log_path, "stderr");
+				snprintf(stdout_log_file, PATH_MAX, "%s/renderd.%s.log", log_path, "stdout");
+				fprintf(stderr, "Logs will be written to '%s' and '%s'\n", stderr_log_file, stdout_log_file);
+
+				if (freopen(stdout_log_file, "a", stdout) == NULL) {
+					fprintf(stderr, "Log file error (%s): %s\n", stdout_log_file, strerror(errno));
+					exit(1);
+				}
+
+				if (freopen(stderr_log_file, "a", stderr) == NULL) {
+					fprintf(stderr, "Log file error (%s): %s\n", stderr_log_file, strerror(errno));
+					exit(1);
+				}
+			} else {
+				fprintf(stderr, "Log path '%s' is not a directory\n", log_path);
+				exit(1);
+			}
+		} else {
+			fprintf(stderr, "Log path error (%s): %s\n", log_path, strerror(errno));
+			exit(1);
+		}
+
 		free(log_path);
-
-		FILE * stdout_log_file = fopen(stdout_log_file_name, "w");
-
-		if (stdout_log_file == NULL) {
-			perror("Failed to open file to write stdout logs to");
-			exit(1);
-		} else {
-			fclose(stdout_log_file);
-			fprintf(stderr, "Writing stdout logs to file '%s'\n", stdout_log_file_name);
-
-			if (freopen(stdout_log_file_name, "a", stdout) == NULL) {
-				fclose(stdout);
-				exit(1);
-			}
-		}
-
-		free(stdout_log_file_name);
-
-		FILE * stderr_log_file = fopen(stderr_log_file_name, "w");
-
-		if (stderr_log_file == NULL) {
-			perror("Failed to open file to write stderr logs to");
-			exit(1);
-		} else {
-			fclose(stderr_log_file);
-			fprintf(stderr, "Writing stderr logs to file '%s'\n", stderr_log_file_name);
-
-			if (freopen(stderr_log_file_name, "a", stderr) == NULL) {
-				fclose(stderr);
-				exit(1);
-			}
-		}
-
-		free(stderr_log_file_name);
+		free(stderr_log_file);
+		free(stdout_log_file);
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started (version %s)", VERSION);
