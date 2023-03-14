@@ -2726,10 +2726,10 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->max_load_old = MAX_LOAD_OLD;
 	scfg->max_load_missing = MAX_LOAD_MISSING;
 	scfg->veryold_threshold = VERYOLD_THRESHOLD;
-	strncpy(scfg->renderd_socket_name, RENDER_SOCKET, PATH_MAX - 1);
+	strncpy(scfg->renderd_socket_name, RENDERD_SOCKET, PATH_MAX - 1);
 	scfg->renderd_socket_name[PATH_MAX - 1] = 0;
 	scfg->renderd_socket_port = 0;
-	strncpy(scfg->tile_dir, HASH_PATH, PATH_MAX - 1);
+	strncpy(scfg->tile_dir, RENDERD_TILE_DIR, PATH_MAX - 1);
 	scfg->tile_dir[PATH_MAX - 1] = 0;
 	memset(&(scfg->cache_extended_hostname), 0, PATH_MAX);
 	scfg->cache_extended_duration = 0;

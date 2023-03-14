@@ -44,7 +44,7 @@
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 
-const char * tile_dir_default = HASH_PATH;
+const char * tile_dir_default = RENDERD_TILE_DIR;
 
 #ifndef METATILE
 #warning("render_old not implemented for non-metatile mode. Feel free to submit fix")
@@ -191,7 +191,7 @@ void render_layer(const char *tilepath, const char *name)
 
 int main(int argc, char **argv)
 {
-	char spath[PATH_MAX] = RENDER_SOCKET;
+	char spath[PATH_MAX] = RENDERD_SOCKET;
 	char *config_file = RENDERD_CONFIG;
 	const char *tile_dir = tile_dir_default;
 	char *map = NULL;
@@ -320,7 +320,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -m, --map=STYLE                   Instead of going through all styls of CONFIG, only use a specific map-style\n");
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" RENDERD_TILE_DIR "')\n");
 				fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");

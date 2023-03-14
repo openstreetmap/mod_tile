@@ -186,7 +186,7 @@ int process_loop(int fd, int x, int y, int z, const char * map)
 
 int main(int argc, char **argv)
 {
-	const char *spath = RENDER_SOCKET;
+	const char *spath = RENDERD_SOCKET;
 	int fd;
 	struct sockaddr_un addr;
 	int ret = 0;

@@ -1,12 +1,12 @@
 [mapnik]
-font_dir_recurse=true
 font_dir=@MAPNIK_FONTS_DIR@
+font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
 plugins_dir=@MAPNIK_PLUGINS_DIR@
 
 [@MAP_NAME@]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 URI=/tiles/renderd-example
-XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
 iphostname=127.0.0.1

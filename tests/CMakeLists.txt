@@ -13,34 +13,19 @@
 include(Dart)
 
 execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
-  OUTPUT_VARIABLE APXS_PROGNAME
+  OUTPUT_VARIABLE HTTPD_PROGNAME
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
 find_package(UnixCommands REQUIRED)
 find_program(CAT_EXECUTABLE NAMES cat REQUIRED)
 find_program(CURL_EXECUTABLE NAMES curl REQUIRED)
-find_program(HTTPD_EXECUTABLE NAMES ${APXS_PROGNAME} REQUIRED)
+find_program(HTTPD_EXECUTABLE NAMES ${HTTPD_PROGNAME} REQUIRED)
 find_program(ID_EXECUTABLE NAMES id REQUIRED)
 find_program(KILL_EXECUTABLE NAMES kill REQUIRED)
 find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
-
-if(LibMapnik_VERSION STRLESS "4")
-  find_program(MAPNIK_CONFIG_EXECUTABLE NAMES mapnik-config REQUIRED)
-  execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --fonts
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE MAPNIK_FONTS_DIR
-  )
-  execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --input-plugins
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE MAPNIK_PLUGINS_DIR
-  )
-elseif(LibMapnik_VERSION STRGREATER_EQUAL "4")
-  pkg_get_variable(MAPNIK_FONTS_DIR libmapnik fonts_dir)
-  pkg_get_variable(MAPNIK_PLUGINS_DIR libmapnik plugins_dir)
-endif()
 
 execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
   OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -66,24 +51,6 @@ configure_file(
 configure_file(
   httpd.conf.in
   conf/httpd.conf
-)
-
-configure_file(
-  ../utils/example-map/index.html
-  www/index.html
-  COPYONLY
-)
-
-configure_file(
-  ../utils/example-map/mapnik.xml
-  www/mapnik.xml
-  COPYONLY
-)
-
-configure_file(
-  ../utils/example-map/very_simplified_land_polygons.gpkg
-  www/very_simplified_land_polygons.gpkg
-  COPYONLY
 )
 
 #-----------------------------------------------------------------------------
