@@ -37,7 +37,6 @@ jobs:
           ubuntu-mapnik-latest-build-dependencies: >-
             cmake
             git
-            libboost-filesystem-dev
             libboost-program-options-dev
             libboost-regex-dev
             libfreetype6-dev

@@ -35,6 +35,7 @@ runs:
           -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
           -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
           -DCMAKE_BUILD_TYPE:STRING=Release \
+          -DCMAKE_CXX_STANDARD:STRING=17 \
           -DCMAKE_INSTALL_PREFIX:PATH=/usr
         cmake --build mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
