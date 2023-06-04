@@ -17,7 +17,7 @@ runs:
     - name: Archive test artifacts on failure
       if: failure()
       run: |
-        TAR_FILENAME=${{ matrix.image }}-${{ matrix.compiler }}.tar.gz
+        TAR_FILENAME=${{ matrix.image || matrix.os }}-${{ matrix.compiler }}.tar.gz
         TAR_FILENAME=$(echo "${TAR_FILENAME}" | sed 's/:/-/g')
         tar -zcf /tmp/${TAR_FILENAME} tests
       shell: bash --noprofile --norc -euxo pipefail {0}
