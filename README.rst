@@ -70,6 +70,7 @@ distributions:
 * `Debian </docs/build/building_on_debian.md>`__
 * `Fedora </docs/build/building_on_fedora.md>`__
 * `FreeBSD </docs/build/building_on_freebsd.md>`__
+* `macOS </docs/build/building_on_macos.md>`__
 * `Ubuntu </docs/build/building_on_ubuntu.md>`__
 
 Configuration
