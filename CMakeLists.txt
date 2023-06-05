@@ -23,6 +23,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 set(ENABLE_MAN ON CACHE BOOL "Build man pages")
 set(ENABLE_TESTS OFF CACHE BOOL "Build test suite")
+set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation directory")
 
 #-----------------------------------------------------------------------------
 #
@@ -105,6 +106,10 @@ execute_process(COMMAND ${APXS_EXECUTABLE} -q exp_libexecdir
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+if(NOT CMAKE_INSTALL_MODULESDIR)
+  set(CMAKE_INSTALL_MODULESDIR ${HTTPD_MODULES_DIR})
+endif()
+
 if(Cairo_FOUND)
   set(HAVE_CAIRO 1)
 endif()
@@ -160,7 +165,7 @@ install(
     render_old
     render_speedtest
     renderd
-  LIBRARY DESTINATION ${HTTPD_MODULES_DIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_MODULESDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
