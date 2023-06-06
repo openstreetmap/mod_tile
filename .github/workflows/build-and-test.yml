@@ -97,6 +97,7 @@ jobs:
       matrix:
         image:
           - macos-11
+          - macos-12
         build_system:
           - CMake
         compiler:
@@ -104,10 +105,10 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
-          - image: macos-12
+          - image: macos-13
             build_system: Autotools
             compiler: LLVM
-          - image: macos-12
+          - image: macos-13
             build_system: CMake
             compiler: LLVM
         exclude:

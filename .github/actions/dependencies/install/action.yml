@@ -55,6 +55,7 @@ inputs:
       iniparser
       libmemcached
       mapnik
+      pkg-config
   macos-test-dependencies:
     default: >-
       coreutils
