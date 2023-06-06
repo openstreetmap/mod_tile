@@ -78,7 +78,7 @@ inputs:
       gdal-devel
       harfbuzz-devel
       libicu-devel
-      libjpeg-turbo-devel
+      libjpeg-devel
       libpng-devel
       libtiff-devel
       libwebp-devel
