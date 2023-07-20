@@ -146,23 +146,23 @@ add_test(
   NAME download_tiles
   COMMAND ${BASH} -c "
     until $(${TILE_DEFAULT_CMD} --output tile.png); do
-      echo 'Sleeping 1s';
+      echo 'Sleeping 1s (DEFAULT)';
       sleep 1;
     done
     until $(${TILE_JPG_CMD} --output tile.jpg); do
-      echo 'Sleeping 1s';
+      echo 'Sleeping 1s (JPG)';
       sleep 1;
     done
     until $(${TILE_PNG256_CMD} --output tile.png256); do
-      echo 'Sleeping 1s';
+      echo 'Sleeping 1s (PNG256)';
       sleep 1;
     done
     until $(${TILE_PNG32_CMD} --output tile.png32); do
-      echo 'Sleeping 1s';
+      echo 'Sleeping 1s (PNG32)';
       sleep 1;
     done
     until $(${TILE_WEBP_CMD} --output tile.webp); do
-      echo 'Sleeping 1s';
+      echo 'Sleeping 1s (WEBP)';
       sleep 1;
     done
   "
