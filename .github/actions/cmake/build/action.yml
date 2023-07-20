@@ -11,11 +11,11 @@ runs:
 
     - name: Prepare `build` directory
       run: |
-        cmake -S . -B build \
+        cmake -B build -S . \
           -LA \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
-          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX:-/usr/local} \
-          -DENABLE_TESTS=1
+          -DCMAKE_BUILD_TYPE:STRING=${BUILD_TYPE:-Debug} \
+          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr/local} \
+          -DENABLE_TESTS:BOOL=ON
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Build `mod_tile`

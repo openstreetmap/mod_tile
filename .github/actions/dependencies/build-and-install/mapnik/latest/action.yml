@@ -25,7 +25,7 @@ runs:
         cmake -S mapnik-src -B mapnik-build \
           -DBUILD_DEMO_VIEWER:BOOL=OFF \
           -DBUILD_TESTING:BOOL=OFF \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE:STRING=Release \
           -DCMAKE_INSTALL_PREFIX:PATH=/usr
         cmake --build mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
