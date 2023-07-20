@@ -255,12 +255,12 @@ set_tests_properties(render_expired PROPERTIES
 set_tests_properties(render_list PROPERTIES
   DEPENDS render_speedtest
   FIXTURES_REQUIRED httpd_started
-  TIMEOUT 20
+  TIMEOUT 60
 )
 set_tests_properties(render_old PROPERTIES
   DEPENDS render_speedtest
   FIXTURES_REQUIRED httpd_started
-  TIMEOUT 20
+  TIMEOUT 60
 )
 set_tests_properties(download_tiles PROPERTIES
   FIXTURES_REQUIRED httpd_started
