@@ -25,6 +25,7 @@ find_program(ID_EXECUTABLE NAMES id REQUIRED)
 find_program(KILL_EXECUTABLE NAMES kill REQUIRED)
 find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
+find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
 if(LibMapnik_VERSION STRLESS "4")
   find_program(MAPNIK_CONFIG_EXECUTABLE NAMES mapnik-config REQUIRED)
@@ -120,6 +121,46 @@ add_test(
   COMMAND render_speedtest --map ${MAP_NAME} --max-zoom 10 --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock
 )
 add_test(
+  NAME render_expired
+  COMMAND ${BASH} -c "
+    echo '0/0/0' | ${PROJECT_BINARY_DIR}/src/render_expired \
+      --map ${MAP_NAME} \
+      --max-zoom 5 \
+      --min-zoom 0 \
+      --num-threads 1 \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
+  "
+)
+add_test(
+  NAME render_list
+  COMMAND ${BASH} -c "
+    ${PROJECT_BINARY_DIR}/src/render_list \
+      --all \
+      --force \
+      --map ${MAP_NAME} \
+      --max-zoom 5 \
+      --min-zoom 0 \
+      --num-threads 1 \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
+  "
+)
+add_test(
+  NAME render_old
+  COMMAND ${BASH} -c "
+    ${TOUCH_EXECUTABLE} -d '+1 month' ${PROJECT_BINARY_DIR}/tests/tiles/planet-import-complete
+    ${PROJECT_BINARY_DIR}/src/render_old \
+      --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf \
+      --map ${MAP_NAME} \
+      --max-zoom 5 \
+      --min-zoom 0 \
+      --num-threads 1 \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
+  "
+)
+add_test(
   NAME download_tile
   COMMAND ${BASH} -c "
     until $(${TILE_CMD} --output tile.png); do
@@ -203,6 +244,21 @@ set_tests_properties(clear_dirs PROPERTIES
 set_tests_properties(render_speedtest PROPERTIES
   FIXTURES_REQUIRED httpd_started
   TIMEOUT 60
+)
+set_tests_properties(render_expired PROPERTIES
+  DEPENDS render_speedtest
+  FIXTURES_REQUIRED httpd_started
+  TIMEOUT 20
+)
+set_tests_properties(render_list PROPERTIES
+  DEPENDS render_speedtest
+  FIXTURES_REQUIRED httpd_started
+  TIMEOUT 20
+)
+set_tests_properties(render_old PROPERTIES
+  DEPENDS render_speedtest
+  FIXTURES_REQUIRED httpd_started
+  TIMEOUT 20
 )
 set_tests_properties(download_tile PROPERTIES
   FIXTURES_REQUIRED httpd_started
