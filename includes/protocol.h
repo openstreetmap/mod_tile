@@ -18,6 +18,8 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include "config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -34,9 +36,15 @@ extern "C" {
  */
 #define TILE_PATH_MAX (256)
 #define PROTO_VER (3)
-#define RENDER_SOCKET "/run/renderd/renderd.sock"
-#define RENDER_HOST "localhost"
-#define RENDER_PORT 7654
+#ifndef RENDERD_SOCKET
+#define RENDERD_SOCKET "/run/renderd/renderd.sock"
+#endif
+#ifndef RENDERD_HOST
+#define RENDERD_HOST "localhost"
+#endif
+#ifndef RENDERD_PORT
+#define RENDERD_PORT 7654
+#endif
 #define XMLCONFIG_MAX 41
 
 enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };

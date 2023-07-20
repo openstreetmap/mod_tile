@@ -18,6 +18,8 @@
 #ifndef RENDER_CONFIG_H
 #define RENDER_CONFIG_H
 
+#include "config.h"
+
 #define MAX_ZOOM 20
 
 // MAX_SIZE is the biggest file which we will return to the user
@@ -25,7 +27,9 @@
 
 // With directory hashing enabled we rewrite the path so that tiles are really stored here instead
 #define DIRECTORY_HASH
-#define HASH_PATH "/var/cache/renderd/tiles"
+#ifndef RENDERD_TILE_DIR
+#define RENDERD_TILE_DIR "/var/cache/renderd/tiles"
+#endif
 
 // TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
 // this is now only used if DIRECTORY_HASH is undefined
@@ -45,20 +49,34 @@
 #define VERYOLD_THRESHOLD 31536000000000
 
 // Location of osm.xml file
+#ifndef RENDERD_CONFIG
 #define RENDERD_CONFIG "/etc/renderd.conf"
+#endif
 // The XML configuration used if one is not provided
+#ifndef XMLCONFIG_DEFAULT
 #define XMLCONFIG_DEFAULT "default"
+#endif
 // Maximum number of configurations that mod tile will allow
+#ifndef XMLCONFIGS_MAX
 #define XMLCONFIGS_MAX 10
+#endif
 // Default PID file path
-#define PIDFILE "/run/renderd/renderd.pid"
+#ifndef RENDERD_PIDFILE
+#define RENDERD_PIDFILE "/run/renderd/renderd.pid"
+#endif
 
 // Mapnik input plugins (will need to adjust for 32 bit libs)
-#define MAPNIK_PLUGINS "/usr/local/lib64/mapnik/input"
+#ifndef MAPNIK_PLUGINS_DIR
+#define MAPNIK_PLUGINS_DIR "/usr/local/lib64/mapnik/input"
+#endif
 
 // Default directory to search for fonts. Recursion can be enabled if desired.
-#define FONT_DIR "/usr/local/lib64/mapnik/fonts"
-#define FONT_RECURSE 0
+#ifndef MAPNIK_FONTS_DIR
+#define MAPNIK_FONTS_DIR "/usr/local/lib64/mapnik/fonts"
+#endif
+#ifndef MAPNIK_FONTS_DIR_RECURSE
+#define MAPNIK_FONTS_DIR_RECURSE 0
+#endif
 
 // Typical interval between planet imports, used as basis for tile expiry times
 #define PLANET_INTERVAL (7 * 24 * 60 * 60)

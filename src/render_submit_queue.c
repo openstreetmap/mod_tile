@@ -254,13 +254,13 @@ int make_connection(const char *spath)
 		// Create a network socket
 		const char *d = strchr(spath, ':');
 		char *hostname;
-		u_int16_t port = RENDER_PORT;
+		u_int16_t port = RENDERD_PORT;
 		char port_s[6];
 		size_t spath_len = strlen(spath);
 		size_t hostname_len = d ? d - spath : spath_len;
 
 		if (!hostname_len) {
-			hostname = strdup(RENDER_HOST);
+			hostname = strdup(RENDERD_HOST);
 		} else {
 			hostname = malloc(hostname_len + sizeof('\0'));
 			assert(hostname != NULL);
@@ -271,7 +271,7 @@ int make_connection(const char *spath)
 			port = atoi(d + 1);
 
 			if (!port) {
-				port = RENDER_PORT;
+				port = RENDERD_PORT;
 			}
 		}
 

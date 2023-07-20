@@ -39,7 +39,7 @@
 #include "store.h"
 #include "render_submit_queue.h"
 
-const char * tile_dir_default = HASH_PATH;
+const char * tile_dir_default = RENDERD_TILE_DIR;
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the repsective zoom level; since we only
@@ -94,7 +94,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 int main(int argc, char **argv)
 {
-	char *spath = strdup(RENDER_SOCKET);
+	char *spath = strdup(RENDERD_SOCKET);
 	const char *mapname_default = XMLCONFIG_DEFAULT;
 	const char *mapname = mapname_default;
 	const char *tile_dir = tile_dir_default;
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" HASH_PATH "')\n");
+				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" RENDERD_TILE_DIR "')\n");
 				fprintf(stderr, "  -T, --touch-from=ZOOM             when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");

@@ -854,7 +854,7 @@ int main(int argc, char **argv)
 
 			snprintf(buffer, sizeof(buffer), "%s:socketname", name);
 			config_slaves[render_sec].socketname = iniparser_getstring(ini,
-							       buffer, (char *) RENDER_SOCKET);
+							       buffer, (char *) RENDERD_SOCKET);
 			snprintf(buffer, sizeof(buffer), "%s:iphostname", name);
 			config_slaves[render_sec].iphostname = iniparser_getstring(ini,
 							       buffer, "");
@@ -865,13 +865,13 @@ int main(int argc, char **argv)
 								buffer, NUM_THREADS);
 			snprintf(buffer, sizeof(buffer), "%s:tile_dir", name);
 			config_slaves[render_sec].tile_dir = iniparser_getstring(ini,
-							     buffer, (char *) HASH_PATH);
+							     buffer, (char *) RENDERD_TILE_DIR);
 			snprintf(buffer, sizeof(buffer), "%s:stats_file", name);
 			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
 					buffer, NULL);
 			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
 			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
-					buffer, (char *) PIDFILE);
+					buffer, (char *) RENDERD_PIDFILE);
 
 			if (render_sec == active_slave) {
 				config.socketname = config_slaves[render_sec].socketname;
@@ -884,11 +884,11 @@ int main(int argc, char **argv)
 				config.pid_filename
 					= config_slaves[render_sec].pid_filename;
 				config.mapnik_plugins_dir = iniparser_getstring(ini,
-							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS);
+							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS_DIR);
 				config.mapnik_font_dir = iniparser_getstring(ini,
-							 "mapnik:font_dir", (char *) FONT_DIR);
+							 "mapnik:font_dir", (char *) MAPNIK_FONTS_DIR);
 				config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
-								 "mapnik:font_dir_recurse", FONT_RECURSE);
+								 "mapnik:font_dir_recurse", MAPNIK_FONTS_DIR_RECURSE);
 			} else {
 				noSlaveRenders += config_slaves[render_sec].num_threads;
 			}
@@ -902,7 +902,7 @@ int main(int argc, char **argv)
 
 		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
 			/* this is a map config section */
-			if (config.num_threads == NULL || config.tile_dir == NULL) {
+			if (config.num_threads == 0 || config.tile_dir == NULL) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "No valid (active) renderd config section available");
 				exit(7);
 			}

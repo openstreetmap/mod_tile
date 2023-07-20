@@ -90,12 +90,12 @@ jobs:
       CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib
-    name: ${{ matrix.image }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
-    runs-on: ${{ matrix.image }}
+    name: ${{ matrix.os }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        image:
+        os:
           - macos-11
           - macos-12
         build_system:
@@ -105,10 +105,10 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
-          - image: macos-13
+          - os: macos-13
             build_system: Autotools
             compiler: LLVM
-          - image: macos-13
+          - os: macos-13
             build_system: CMake
             compiler: LLVM
         exclude:
