@@ -8,24 +8,17 @@ on:
       - master
       - develop
 
-env:
-  test-dependencies: >-
-    astyle
-
 jobs:
   astyle:
     name: Lint with `astyle`
     runs-on: ubuntu-latest
-    container:
-      image: ubuntu:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Provision environment
         uses: ./.github/actions/dependencies/install/apt-get
         with:
-          packages: >-
-            ${{ env.test-dependencies }}
+          packages: astyle
       - name: Check if any modifications were made by `astyle`
         env:
           ASTYLE_CMD: >-

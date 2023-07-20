@@ -185,7 +185,9 @@ runs:
           ${{ inputs.ubuntu-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || '' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
-      if: startsWith(matrix.image, 'ubuntu:')
+      if: |
+        startsWith(matrix.image, 'ubuntu:') ||
+        (!matrix.image && runner.os == 'Linux')
 
     - name: Build & Install `mapnik` (Amazon Linux 2/CentOS 7)
       uses: ./.github/actions/dependencies/build-and-install/mapnik

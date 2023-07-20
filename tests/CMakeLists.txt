@@ -198,8 +198,8 @@ add_test(
 add_test(
   NAME stop_renderd
   COMMAND ${BASH} -c "
-    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
+    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
   "
 )
 add_test(
