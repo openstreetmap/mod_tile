@@ -30,8 +30,11 @@ runs:
         release: 13.1
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu)
+          export LIBRARY_PATH=/usr/local/lib
           cmake -B build -S . \
-            -DCMAKE_LIBRARY_PATH:PATH=/usr/local/lib \
+            -LA \
+            -DCMAKE_BUILD_TYPE:STRING=${BUILD_TYPE:-Release} \
+            -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr/local} \
             -DENABLE_TESTS:BOOL=ON
           cmake --build build
           ctest --test-dir build

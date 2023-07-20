@@ -58,7 +58,6 @@ jobs:
       fail-fast: false
     container:
       env:
-        BUILD_TYPE: Debug
         CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
         CFLAGS: ${{ (matrix.build_system == 'CMake' && matrix.compiler == 'GNU') && '--coverage' || '' }}
         CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
@@ -86,7 +85,6 @@ jobs:
 
   macOS:
     env:
-      BUILD_TYPE: Release
       CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib

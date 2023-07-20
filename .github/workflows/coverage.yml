@@ -9,6 +9,7 @@ jobs:
     name: Build, Test & Report Coverage
     runs-on: ubuntu-latest
     env:
+      BUILD_TYPE: Debug
       CFLAGS: --coverage
       CXXFLAGS: --coverage
     steps:
