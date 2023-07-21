@@ -1,0 +1,11 @@
+*
+!cmake
+!CMakeLists.txt
+!docs/man
+!etc/apache2/renderd-example-map.conf
+!etc/apache2/tile.load.in
+!etc/renderd/renderd.conf.in
+!includes
+!src
+!tests
+!utils/example-map

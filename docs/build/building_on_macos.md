@@ -55,6 +55,10 @@ sudo cp -av /tmp/mod_tile_src/utils/example-map /usr/local/share/renderd/example
 sed 's#/usr/share/#/usr/local/share/#g' /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf | sudo tee /usr/local/etc/httpd/extra/renderd-example-map.conf
 printf '\nInclude /usr/local/etc/httpd/extra/httpd-tile.conf\nInclude /usr/local/etc/httpd/extra/renderd-example-map.conf\n' | sudo tee -a /usr/local/etc/httpd/httpd.conf
 printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/local/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-jpg]\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-png256]\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
 
 # Start services
 httpd

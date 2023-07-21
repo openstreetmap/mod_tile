@@ -57,9 +57,10 @@ set(TILE_DEFAULT_TILEJSON_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}/tiles/${DEFA
 set(TILE_JPG_SHA256SUM "e09c3406c02f03583dadf0c8404c2d3efdc06a40d399e381ed2f47f49fde42d7")
 set(TILE_PNG256_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
 set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
-set(TILE_WEBP_SHA256SUM_4 "ef3862a57831b21ec69c15be196e1e2b4fea66246c361142631b9fa22b85decc") # libwebp.so.4
-set(TILE_WEBP_SHA256SUM_6 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp.so.6
-set(TILE_WEBP_SHA256SUM_7 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
+set(TILE_WEBP_SHA256SUM_01 "ef3862a57831b21ec69c15be196e1e2b4fea66246c361142631b9fa22b85decc") # libwebp.so.4
+set(TILE_WEBP_SHA256SUM_02 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp.so.6
+set(TILE_WEBP_SHA256SUM_03 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
+set(TILE_WEBP_SHA256SUM_04 "904593e291cce2561138bd83b704588c02c16630b8c133d78d535b8986e901af") # libwebp.so.7
 
 set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
 
@@ -278,14 +279,16 @@ add_test(
     (echo '${TILE_PNG32_SHA256SUM}  tile.png32.0' | ${SHA256SUM_EXECUTABLE} -c) && \
     (echo '${TILE_PNG32_SHA256SUM}  tile.png32.1' | ${SHA256SUM_EXECUTABLE} -c) && \
     ( \
-      (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_4}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) \
+      (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) \
     ) && \
     ( \
-      (echo '${TILE_WEBP_SHA256SUM_7}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_4}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) \
+      (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+      (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) \
     )
   "
   WORKING_DIRECTORY tests

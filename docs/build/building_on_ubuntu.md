@@ -4,6 +4,8 @@ This document provides users with step-by-step instructions on how to compile an
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
+A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
+
 # Ubuntu 20.04/22.04
 
 ```shell
@@ -54,6 +56,10 @@ sudo cp -av /tmp/mod_tile_src/utils/example-map /usr/share/renderd/example-map
 # Add configuration
 sudo cp -av /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf
 printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-jpg]\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-png256]\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
+printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
 
 # Enable configuration
 a2enmod tile
