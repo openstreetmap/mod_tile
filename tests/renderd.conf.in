@@ -12,25 +12,25 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=jpg image/jpeg jpeg
 URI=/tiles/renderd-example-jpg
-XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [@MAP_NAME@_png256]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=png image/png png256
 URI=/tiles/renderd-example-png256
-XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [@MAP_NAME@_png32]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=png image/png png32
 URI=/tiles/renderd-example-png32
-XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [@MAP_NAME@_webp]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=webp image/webp webp
 URI=/tiles/renderd-example-webp
-XML=@PROJECT_BINARY_DIR@/tests/www/mapnik.xml
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
 iphostname=127.0.0.1
