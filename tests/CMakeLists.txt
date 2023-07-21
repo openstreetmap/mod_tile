@@ -10,7 +10,7 @@
 #
 #-----------------------------------------------------------------------------
 
-include(Dart)
+include(CTest)
 
 execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
   OUTPUT_VARIABLE HTTPD_PROGNAME
