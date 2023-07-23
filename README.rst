@@ -97,7 +97,7 @@ Copy the apache configuration file to its place, too:
 
     $ sudo cp -av etc/apache2/renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf
 
-Add a map configuration for example-map to ``/etc/renderd.conf`:
+Add a map configuration for example-map to ``/etc/renderd.conf``:
 
 ::
 
@@ -107,7 +107,13 @@ Add a map configuration for example-map to ``/etc/renderd.conf`:
     XML=/usr/share/renderd/example-map/mapnik.xml
     ' | sudo tee -a /etc/renderd.conf
 
-Start the rendering daemon
+Ensure the `/var/run/renderd` directory exists:
+
+::
+
+    $ sudo mkdir -p /var/run/renderd
+
+Start the rendering daemon:
 
 ::
 
