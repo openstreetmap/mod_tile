@@ -34,13 +34,13 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
 iphostname=127.0.0.1
-ipport=8881
+ipport=@RENDERD1_PORT@
 pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.pid
 stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.stats
 tile_dir=@PROJECT_BINARY_DIR@/tests/tiles
 
-[renderd]
-pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd.pid
-socketname=@PROJECT_BINARY_DIR@/tests/run/renderd.sock
-stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd.stats
+[renderd0]
+pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd0.pid
+socketname=@PROJECT_BINARY_DIR@/tests/run/renderd0.sock
+stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd0.stats
 tile_dir=@PROJECT_BINARY_DIR@/tests/tiles

@@ -39,12 +39,15 @@ execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
 #-----------------------------------------------------------------------------
 
 set(MAP_NAME "default")
+set(HTTPD0_PORT "59980")
+set(HTTPD1_PORT "59981")
+set(RENDERD1_PORT "59991")
 
-set(TILE_DEFAULT_URL "http://localhost:8081/tiles/renderd-example/9/297/191.png")
-set(TILE_JPG_URL "http://localhost:8081/tiles/renderd-example-jpg/9/297/191.jpg")
-set(TILE_PNG256_URL "http://localhost:8081/tiles/renderd-example-png256/9/297/191.png")
-set(TILE_PNG32_URL "http://localhost:8081/tiles/renderd-example-png32/9/297/191.png")
-set(TILE_WEBP_URL "http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp")
+set(TILE_DEFAULT_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example/9/297/191.png")
+set(TILE_JPG_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-jpg/9/297/191.jpg")
+set(TILE_PNG256_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-png256/9/297/191.png")
+set(TILE_PNG32_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-png32/9/297/191.png")
+set(TILE_WEBP_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-webp/9/297/191.webp")
 
 set(TILE_DEFAULT_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_DEFAULT_URL}")
 set(TILE_DEFAULT_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
@@ -88,8 +91,8 @@ add_test(
 add_test(
   NAME start_renderd
   COMMAND ${BASH} -c "
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd0.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
+    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd0.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd1.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
@@ -104,7 +107,7 @@ add_test(
 )
 add_test(
   NAME render_speedtest
-  COMMAND render_speedtest --map ${MAP_NAME} --max-zoom 10 --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock
+  COMMAND render_speedtest --map ${MAP_NAME} --max-zoom 10 --socket ${PROJECT_BINARY_DIR}/tests/run/renderd0.sock
   WORKING_DIRECTORY tests
 )
 add_test(
@@ -115,7 +118,7 @@ add_test(
       --max-zoom 5 \
       --min-zoom 0 \
       --num-threads 1 \
-      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd0.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
   WORKING_DIRECTORY tests
@@ -130,7 +133,7 @@ add_test(
       --max-zoom 5 \
       --min-zoom 0 \
       --num-threads 1 \
-      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd0.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
   WORKING_DIRECTORY tests
@@ -145,7 +148,7 @@ add_test(
       --max-zoom 5 \
       --min-zoom 0 \
       --num-threads 1 \
-      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
+      --socket ${PROJECT_BINARY_DIR}/tests/run/renderd0.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
   WORKING_DIRECTORY tests
@@ -213,7 +216,7 @@ add_test(
   NAME stop_renderd
   COMMAND ${BASH} -c "
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
-    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
+    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd0.pid) && ${RM} run/renderd0.pid
   "
   WORKING_DIRECTORY tests
 )
@@ -246,7 +249,7 @@ set_tests_properties(start_httpd PROPERTIES
 )
 set_tests_properties(stop_renderd PROPERTIES
   FIXTURES_CLEANUP httpd_started
-  REQUIRED_FILES run/renderd.pid
+  REQUIRED_FILES "run/renderd0.pid;run/renderd1.pid"
 )
 set_tests_properties(stop_httpd PROPERTIES
   FIXTURES_CLEANUP httpd_started
