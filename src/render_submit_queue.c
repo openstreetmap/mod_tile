@@ -35,8 +35,6 @@
 #include "protocol_helper.h"
 #include "render_config.h"
 
-#define QMAX 32
-
 static pthread_mutex_t qLock;
 static pthread_mutex_t qStatsLock;
 static pthread_cond_t qCondNotEmpty;
@@ -44,6 +42,7 @@ static pthread_cond_t qCondNotFull;
 
 static int maxLoad = 0;
 
+static unsigned int qMaxLen;
 static unsigned int qLen;
 struct qItem {
 	char *mapname;
@@ -201,7 +200,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 	pthread_mutex_lock(&qLock);
 
-	while (qLen == QMAX) {
+	while (qLen == qMaxLen) {
 		int ret = pthread_cond_wait(&qCondNotFull, &qLock);
 
 		if (ret != 0) {
@@ -399,6 +398,8 @@ void spawn_workers(int num, const char *spath, int max_load)
 	pthread_mutex_init(&qStatsLock, NULL);
 	pthread_cond_init(&qCondNotEmpty, NULL);
 	pthread_cond_init(&qCondNotFull, NULL);
+
+	qMaxLen = no_workers;
 
 	printf("Starting %d rendering threads\n", no_workers);
 	workers = calloc(sizeof(pthread_t), no_workers);
