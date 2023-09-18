@@ -37,8 +37,8 @@
 
 #define QMAX 32
 
-pthread_mutex_t qLock;
-pthread_mutex_t qStatsLock;
+static pthread_mutex_t qLock;
+static pthread_mutex_t qStatsLock;
 static pthread_cond_t qCondNotEmpty;
 static pthread_cond_t qCondNotFull;
 
