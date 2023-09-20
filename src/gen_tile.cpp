@@ -305,6 +305,8 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 
 			map->parameterize_function(map_parameterized, options);
 
+			map_parameterized.load_fonts();
+
 			mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized, buf, map->scale);
 			ren.apply();
 		} else {
@@ -423,6 +425,10 @@ void *render_thread(void * arg)
 
 			try {
 				mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+
+				if (!maps[iMaxConfigs].parameterize_function) {
+					maps[iMaxConfigs].map.load_fonts();
+				}
 
 				/* If we have more than 10 rendering threads configured, we need to fix
 				 * up the mapnik datasources to support larger postgres connection pools
