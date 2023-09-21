@@ -300,14 +300,19 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
 
 	try {
-		Map map_parameterized = map->map;
-
 		if (map->parameterize_function) {
-			map->parameterize_function(map_parameterized, options);
-		}
+			Map map_parameterized = map->map;
 
-		mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized, buf, map->scale);
-		ren.apply();
+			map->parameterize_function(map_parameterized, options);
+
+			map_parameterized.load_fonts();
+
+			mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized, buf, map->scale);
+			ren.apply();
+		} else {
+			mapnik::agg_renderer<mapnik::image_32> ren(map->map, buf, map->scale);
+			ren.apply();
+		}
 	} catch (std::exception const& ex) {
 		g_logger(G_LOG_LEVEL_ERROR, "failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x + render_size_tx - 1, y, y + render_size_ty - 1);
 		g_logger(G_LOG_LEVEL_ERROR, "  reason: %s", ex.what());
@@ -420,6 +425,10 @@ void *render_thread(void * arg)
 
 			try {
 				mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+
+				if (!maps[iMaxConfigs].parameterize_function) {
+					maps[iMaxConfigs].map.load_fonts();
+				}
 
 				/* If we have more than 10 rendering threads configured, we need to fix
 				 * up the mapnik datasources to support larger postgres connection pools
