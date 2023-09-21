@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-#define HASHIDX_SIZE 2213
-
 typedef struct {
 	long noDirtyRender;
 	long noReqRender;
@@ -75,5 +73,3 @@ void request_queue_copy_stats(struct request_queue * queue, stats_struct * stats
 }
 #endif
 #endif
-
-

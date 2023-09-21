@@ -107,17 +107,17 @@
 //Legacy - not needed on new installs
 //#undef METATILEFALLBACK
 
-// Metatiles are much larger in size so we don't need big queues to handle large areas
+// Typical osm.org render server can render 7 metatiles per second, and has average load of 4.5 metatiles per second.
+// Queue depth of (7 - 4.5) * 86400 = 216000 moves the load from the busy part of the day to the night time
+#define DIRTY_LIMIT (216000)
+#define HASHIDX_SIZE (477856)
+
 #ifdef METATILE
 #define QUEUE_MAX (64)
 #define REQ_LIMIT (32)
-#define DIRTY_LIMIT (1000)
-
 #else
 #define QUEUE_MAX (1024)
 #define REQ_LIMIT (512)
-#define DIRTY_LIMIT (10000)
-#define HASHIDX_SIZE 22123
 #endif
 
 // Penalty for client making an invalid request (in seconds)
