@@ -35,15 +35,14 @@
 #include "protocol_helper.h"
 #include "render_config.h"
 
-#define QMAX 32
-
-pthread_mutex_t qLock;
-pthread_mutex_t qStatsLock;
+static pthread_mutex_t qLock;
+static pthread_mutex_t qStatsLock;
 static pthread_cond_t qCondNotEmpty;
 static pthread_cond_t qCondNotFull;
 
 static int maxLoad = 0;
 
+static unsigned int qMaxLen;
 static unsigned int qLen;
 struct qItem {
 	char *mapname;
@@ -139,7 +138,6 @@ static int process(struct protocol * cmd, int fd)
 
 static struct protocol * fetch(void)
 {
-	struct protocol * cmd;
 	pthread_mutex_lock(&qLock);
 
 	while (qLen == 0) {
@@ -157,32 +155,30 @@ static struct protocol * fetch(void)
 		exit(1);
 	}
 
-	cmd = malloc(sizeof(struct protocol));
-	memset(cmd, 0, sizeof(struct protocol));
+	struct qItem *e = qHead;
 
-	cmd->ver = 2;
-	cmd->cmd = cmdRenderBulk;
-	cmd->z = qHead->z;
-	cmd->x = qHead->x;
-	cmd->y = qHead->y;
-	strncpy(cmd->xmlname, qHead->mapname, XMLCONFIG_MAX - 1);
-
-	if (qHead == qTail) {
-		free(qHead->mapname);
-		free(qHead);
+	if (--qLen == 0) {
 		qHead = NULL;
 		qTail = NULL;
-		qLen = 0;
 	} else {
-		struct qItem *e = qHead;
 		qHead = qHead->next;
-		free(e->mapname);
-		free(e);
-		qLen--;
 	}
 
 	pthread_cond_signal(&qCondNotFull);
 	pthread_mutex_unlock(&qLock);
+
+	struct protocol * cmd = malloc(sizeof(struct protocol));;
+
+	cmd->ver = 2;
+	cmd->cmd = cmdRenderBulk;
+	cmd->z = e->z;
+	cmd->x = e->x;
+	cmd->y = e->y;
+	strncpy(cmd->xmlname, e->mapname, XMLCONFIG_MAX - 1);
+
+	free(e->mapname);
+	free(e);
+
 	return cmd;
 }
 
@@ -204,7 +200,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 	pthread_mutex_lock(&qLock);
 
-	while (qLen == QMAX) {
+	while (qLen == qMaxLen) {
 		int ret = pthread_cond_wait(&qCondNotFull, &qLock);
 
 		if (ret != 0) {
@@ -402,6 +398,8 @@ void spawn_workers(int num, const char *spath, int max_load)
 	pthread_mutex_init(&qStatsLock, NULL);
 	pthread_cond_init(&qCondNotEmpty, NULL);
 	pthread_cond_init(&qCondNotFull, NULL);
+
+	qMaxLen = no_workers;
 
 	printf("Starting %d rendering threads\n", no_workers);
 	workers = calloc(sizeof(pthread_t), no_workers);
