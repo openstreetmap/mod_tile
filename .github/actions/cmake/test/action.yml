@@ -10,16 +10,16 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Test `mod_tile`
-      run: ctest --exclude-regex 'clear_dirs|remove_tile' --output-on-failure
+      run: ctest --exclude-regex 'clear_dirs|remove_tiles' --output-on-failure
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
 
     - name: Archive test artifacts on failure
       if: failure()
       run: |
-        TAR_FILENAME=${{ matrix.image || matrix.os }}-${{ matrix.compiler }}.tar.gz
+        TAR_FILENAME=${{ matrix.image || matrix.os || github.job }}-${{ matrix.compiler }}.tar.gz
         TAR_FILENAME=$(echo "${TAR_FILENAME}" | sed 's/:/-/g')
-        tar -zcf /tmp/${TAR_FILENAME} tests
+        tar -zcf ${{ runner.temp }}/${TAR_FILENAME} tests
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
 
@@ -28,4 +28,4 @@ runs:
       uses: actions/upload-artifact@v3
       with:
         name: Test Artifacts
-        path: /tmp/*.tar.gz
+        path: ${{ runner.temp }}/*.tar.gz

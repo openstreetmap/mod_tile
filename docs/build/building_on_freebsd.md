@@ -4,13 +4,9 @@ This document provides users with step-by-step instructions on how to compile an
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
-## FreeBSD 13.0/13.1/13.2
+## FreeBSD 12/13
 ```shell
 #!/usr/bin/env sh
-
-# Mapnik & GDAL w/ working GPKG support are not in the `quarterly` repository (2023.05.04)
-sudo mkdir -p /usr/local/etc/pkg/repos
-sudo sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf > /usr/local/etc/pkg/repos/FreeBSD.conf
 
 # Update installed packages
 sudo pkg upgrade --yes

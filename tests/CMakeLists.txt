@@ -83,6 +83,7 @@ add_test(
 add_test(
   NAME create_dirs
   COMMAND ${MKDIR_EXECUTABLE} -p -v logs run tiles
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME start_renderd
@@ -94,14 +95,17 @@ add_test(
     echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
     ${BASH} ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME start_httpd
   COMMAND ${HTTPD_EXECUTABLE} -e debug -f ${PROJECT_BINARY_DIR}/tests/conf/httpd.conf -k start
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME render_speedtest
   COMMAND render_speedtest --map ${MAP_NAME} --max-zoom 10 --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME render_expired
@@ -114,6 +118,7 @@ add_test(
       --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME render_list
@@ -128,6 +133,7 @@ add_test(
       --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME render_old
@@ -142,6 +148,7 @@ add_test(
       --socket ${PROJECT_BINARY_DIR}/tests/run/renderd.sock \
       --tile-dir ${PROJECT_BINARY_DIR}/tests/tiles
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME download_tiles
@@ -167,6 +174,7 @@ add_test(
       sleep 1;
     done
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME check_tiles
@@ -177,6 +185,7 @@ add_test(
     (echo '${TILE_PNG32_SHA256SUM}  tile.png32' | ${SHA256SUM_EXECUTABLE} -c) && \
     ((echo '${TILE_WEBP_SHA256SUM_7}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_6}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c) || (echo '${TILE_WEBP_SHA256SUM_4}  tile.webp' | ${SHA256SUM_EXECUTABLE} -c))
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME dirty_tile
@@ -193,10 +202,12 @@ add_test(
       sleep 1;
     done
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME remove_tiles
   COMMAND ${RM} -v tile.png tile.jpg tile.png256 tile.png32 tile.webp
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME stop_renderd
@@ -204,18 +215,21 @@ add_test(
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd.pid) && ${RM} run/renderd.pid
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME stop_httpd
   COMMAND ${BASH} -c "
     ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/httpd.pid) && ${RM} run/httpd.pid
   "
+  WORKING_DIRECTORY tests
 )
 add_test(
   NAME clear_dirs
   COMMAND ${BASH} -c "
     ${RM} -f -r -v logs/* run/* tiles/*
   "
+  WORKING_DIRECTORY tests
 )
 
 

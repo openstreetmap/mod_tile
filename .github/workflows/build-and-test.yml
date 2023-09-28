@@ -59,9 +59,7 @@ jobs:
     container:
       env:
         CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
-        CFLAGS: ${{ (matrix.build_system == 'CMake' && matrix.compiler == 'GNU') && '--coverage' || '' }}
         CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
-        CXXFLAGS: ${{ (matrix.build_system == 'CMake' && matrix.compiler == 'GNU') && '--coverage' || '' }}
       image: ${{ matrix.image }}
     steps:
       - name: Install `git` (Amazon Linux 2)
@@ -88,7 +86,10 @@ jobs:
       CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib
-    name: ${{ matrix.os }} (${{ matrix.build_system }}) (${{ matrix.compiler }})
+    name: >-
+      ${{ matrix.os }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -132,12 +133,51 @@ jobs:
         uses: ./.github/actions/install
 
   FreeBSD:
-    if: contains(github.ref, 'master') || contains(github.ref, 'develop')
-    name: FreeBSD (CMake) (LLVM)
-    runs-on: macos-12
+    env:
+      BUILD_PARALLEL_LEVEL: 4
+      LIBRARY_PATH: /usr/local/lib
+      TMPDIR: /tmp
+    name: >-
+      ${{ matrix.box_generic }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        box_generic:
+          - freebsd12
+        build_system:
+          - CMake
+        compiler:
+          - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
+        include:
+          - box_generic: freebsd13
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install dependencies, Build, Test & Install `mod_tile`
-        uses: ./.github/actions/freebsd
+      - name: Provision VM
+        uses: hummeltech/freebsd-vagrant-action@v1.3
+        with:
+          box: generic/${{ matrix.box_generic }}
+          cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
+          memory: 4096
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
