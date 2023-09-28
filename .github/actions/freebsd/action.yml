@@ -4,7 +4,6 @@ inputs:
     default:  >-
       apache24
       cairo
-      ceph14
       cmake
       coreutils
       curl
