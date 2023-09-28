@@ -14,7 +14,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   LoadModule tile_module @PROJECT_BINARY_DIR@/src/mod_tile.so
 </IfModule>
 
-<VirtualHost *:8081>
+<VirtualHost *:@HTTPD0_PORT@>
   LoadTileConfigFile @PROJECT_BINARY_DIR@/tests/conf/renderd.conf
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
@@ -29,14 +29,14 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileMaxLoadMissing 5
   ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 10
-  ModTileRenderdSocketName @PROJECT_BINARY_DIR@/tests/run/renderd.sock
+  ModTileRenderdSocketName @PROJECT_BINARY_DIR@/tests/run/renderd0.sock
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
   ModTileTileDir @PROJECT_BINARY_DIR@/tests/tiles
 </VirtualHost>
 
-<VirtualHost *:8181>
+<VirtualHost *:@HTTPD1_PORT@>
   LoadTileConfigFile @PROJECT_BINARY_DIR@/tests/conf/renderd.conf
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
@@ -51,7 +51,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileMaxLoadMissing 5
   ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 10
-  ModTileRenderdSocketAddr 127.0.0.1 8881
+  ModTileRenderdSocketAddr 127.0.0.1 @RENDERD1_PORT@
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
@@ -61,8 +61,8 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 CustomLog logs/access_log "%h %l %u %t \"%r\" %>s %b"
 ErrorLog logs/error_log
 Group @NOGROUP_NAME@
-Listen 8081
-Listen 8181
+Listen @HTTPD0_PORT@
+Listen @HTTPD1_PORT@
 LogLevel debug
 PidFile run/httpd.pid
 ServerName localhost
