@@ -9,7 +9,6 @@ inputs:
       curl
       glib
       iniparser
-      libmemcached
       mapnik
       pkgconf
     description: List of build dependency package(s) to install
