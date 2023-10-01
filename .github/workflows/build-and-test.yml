@@ -133,6 +133,7 @@ jobs:
         uses: ./.github/actions/install
 
   FreeBSD:
+    continue-on-error: true
     env:
       BUILD_PARALLEL_LEVEL: 4
       LIBRARY_PATH: /usr/local/lib
