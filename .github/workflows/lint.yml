@@ -51,7 +51,7 @@ jobs:
         run: pip install --user cmakelint
       - name: Run linter
         run: |
-          cmakelint \
+          cmakelint --linelength=125 \
             CMakeLists.txt \
             */CMakeLists.txt \
             */*.cmake
