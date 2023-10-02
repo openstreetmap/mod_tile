@@ -67,7 +67,7 @@ jobs:
         if: matrix.image == 'amazonlinux:2'
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
@@ -114,7 +114,7 @@ jobs:
           - on_default_branch: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
@@ -162,7 +162,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: hummeltech/freebsd-vagrant-action@v1.3
