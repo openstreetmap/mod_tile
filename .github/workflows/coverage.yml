@@ -2,7 +2,11 @@
 name: Coverage
 
 on:
-  - push
+  pull_request:
+  push:
+    branches:
+      - develop
+      - master
 
 jobs:
   Coverage:
@@ -47,6 +51,9 @@ jobs:
             "/usr/*"
           genhtml coverage.info --output-directory coverage
         working-directory: build
+
+      - name: Write coverage summary to `$GITHUB_STEP_SUMMARY`
+        run: lcov --summary build/coverage.info | sed 's/^  /* /g' >> ${GITHUB_STEP_SUMMARY}
 
       - name: Upload `mod_tile` coverage results artifact
         uses: actions/upload-artifact@v3

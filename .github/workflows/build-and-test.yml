@@ -2,8 +2,8 @@
 name: Build & Test
 
 on:
-  - pull_request
-  - push
+  pull_request:
+  push:
 
 jobs:
   Linux:
