@@ -5,6 +5,7 @@ This document provides users with step-by-step instructions on how to compile an
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
 ## Debian 10/11/12
+
 ```shell
 #!/usr/bin/env bash
 

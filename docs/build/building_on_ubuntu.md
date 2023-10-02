@@ -5,6 +5,7 @@ This document provides users with step-by-step instructions on how to compile an
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
 # Ubuntu 20.04/22.04
+
 ```shell
 #!/usr/bin/env bash
 

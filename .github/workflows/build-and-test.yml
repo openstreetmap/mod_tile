@@ -2,8 +2,8 @@
 name: Build & Test
 
 on:
-  - pull_request
-  - push
+  pull_request:
+  push:
 
 jobs:
   Linux:
@@ -16,14 +16,14 @@ jobs:
     strategy:
       matrix:
         image:
-          - 'centos:7'
-          - 'debian:11'
-          - 'debian:12'
-          - 'debian:testing'
-          - 'fedora:37'
-          - 'fedora:38'
-          - 'fedora:rawhide'
-          - 'ubuntu:20.04'
+          - "centos:7"
+          - "debian:11"
+          - "debian:12"
+          - "debian:testing"
+          - "fedora:37"
+          - "fedora:38"
+          - "fedora:rawhide"
+          - "ubuntu:20.04"
         build_system:
           - CMake
         compiler:
@@ -33,23 +33,23 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
-          - image: 'ubuntu:22.04'
+          - image: "ubuntu:22.04"
             build_system: Autotools
             compiler: GNU
-          - image: 'ubuntu:22.04'
+          - image: "ubuntu:22.04"
             build_system: Autotools
             compiler: LLVM
-          - image: 'ubuntu:22.04'
+          - image: "ubuntu:22.04"
             build_system: CMake
             compiler: GNU
-          - image: 'ubuntu:22.04'
+          - image: "ubuntu:22.04"
             build_system: CMake
             compiler: LLVM
-          - image: 'debian:12'
+          - image: "debian:12"
             build_system: CMake
             compiler: GNU
             mapnik_latest: true
-          - image: 'ubuntu:22.04'
+          - image: "ubuntu:22.04"
             build_system: CMake
             compiler: GNU
             mapnik_latest: true
@@ -67,7 +67,7 @@ jobs:
         if: matrix.image == 'amazonlinux:2'
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
@@ -114,7 +114,7 @@ jobs:
           - on_default_branch: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
@@ -162,7 +162,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: hummeltech/freebsd-vagrant-action@v1.3

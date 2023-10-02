@@ -5,6 +5,7 @@ This document provides users with step-by-step instructions on how to compile an
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
 ## FreeBSD 12/13
+
 ```shell
 #!/usr/bin/env sh
 
@@ -29,6 +30,7 @@ sudo pkg install --yes \
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu)
+export LIBRARY_PATH="/usr/local/lib"
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build
 cd /tmp/mod_tile_src
@@ -36,7 +38,6 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
-  -DCMAKE_LIBRARY_PATH:PATH=/usr/local/lib \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .
 ctest

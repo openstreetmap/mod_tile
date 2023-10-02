@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>renderd example map</title>
@@ -22,20 +22,20 @@
 
       var png = L.tileLayer(
         "http://localhost:8081/tiles/renderd-example/{z}/{x}/{y}.png",
-        options
+        options,
       );
 
       var jpg = L.tileLayer(
         "http://localhost:8081/tiles/renderd-example-jpg/{z}/{x}/{y}.jpg",
-        options
+        options,
       );
       var png32 = L.tileLayer(
         "http://localhost:8081/tiles/renderd-example-png32/{z}/{x}/{y}.png",
-        options
+        options,
       );
       var webp = L.tileLayer(
         "http://localhost:8081/tiles/renderd-example-webp/{z}/{x}/{y}.webp",
-        options
+        options,
       );
 
       var map = L.map("map", {

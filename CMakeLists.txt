@@ -39,15 +39,15 @@ find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
 
 find_package(APR REQUIRED)
-find_package(Cairo REQUIRED)
-find_package(GLib REQUIRED)
+find_package(CAIRO REQUIRED)
+find_package(GLIB REQUIRED)
 find_package(HTTPD REQUIRED)
-find_package(IniParser REQUIRED)
-find_package(LibMapnik REQUIRED)
-find_package(LibMemcached)
-find_package(LibRados)
+find_package(INIPARSER REQUIRED)
+find_package(LIBMAPNIK REQUIRED)
+find_package(LIBMEMCACHED)
+find_package(LIBRADOS)
 
-if(LibMapnik_VERSION STRGREATER_EQUAL "4")
+if(LIBMAPNIK_VERSION STRGREATER_EQUAL "4")
   set(CMAKE_CXX_STANDARD 14)
 endif()
 
@@ -111,7 +111,7 @@ execute_process(COMMAND ${APXS_EXECUTABLE} -q sysconfdir
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-if(LibMapnik_VERSION STRLESS "4")
+if(LIBMAPNIK_VERSION STRLESS "4")
   find_program(MAPNIK_CONFIG_EXECUTABLE NAMES mapnik-config REQUIRED)
   execute_process(COMMAND ${MAPNIK_CONFIG_EXECUTABLE} --fonts
     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -121,7 +121,7 @@ if(LibMapnik_VERSION STRLESS "4")
     OUTPUT_STRIP_TRAILING_WHITESPACE
     OUTPUT_VARIABLE MAPNIK_PLUGINS_DIR
   )
-elseif(LibMapnik_VERSION STRGREATER_EQUAL "4")
+elseif(LIBMAPNIK_VERSION STRGREATER_EQUAL "4")
   pkg_get_variable(MAPNIK_FONTS_DIR libmapnik fonts_dir)
   pkg_get_variable(MAPNIK_PLUGINS_DIR libmapnik plugins_dir)
 endif()
@@ -130,7 +130,7 @@ if(NOT CMAKE_INSTALL_MODULESDIR)
   set(CMAKE_INSTALL_MODULESDIR ${HTTPD_LIBEXECDIR})
 endif()
 
-if(Cairo_FOUND)
+if(CAIRO_FOUND)
   set(HAVE_CAIRO 1)
 endif()
 
@@ -138,11 +138,11 @@ if(CURL_FOUND)
   set(HAVE_LIBCURL 1)
 endif()
 
-if(LibMemcached_FOUND)
+if(LIBMEMCACHED_FOUND)
   set(HAVE_LIBMEMCACHED 1)
 endif()
 
-if(LibRados_FOUND)
+if(LIBRADOS_FOUND)
   set(HAVE_LIBRADOS 1)
 endif()
 
@@ -266,16 +266,16 @@ install(
 )
 
 # Man files
-if (ENABLE_MAN)
-install(
-  FILES
-    docs/man/render_expired.1
-    docs/man/render_list.1
-    docs/man/render_old.1
-    docs/man/render_speedtest.1
-    docs/man/renderd.1
-  DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
-)
+if(ENABLE_MAN)
+  install(
+    FILES
+      docs/man/render_expired.1
+      docs/man/render_list.1
+      docs/man/render_old.1
+      docs/man/render_speedtest.1
+      docs/man/renderd.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  )
 endif()
 
 #-----------------------------------------------------------------------------
@@ -284,7 +284,7 @@ endif()
 #
 #-----------------------------------------------------------------------------
 
-if (ENABLE_TESTS)
-enable_testing()
-add_subdirectory(tests)
+if(ENABLE_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
 endif()

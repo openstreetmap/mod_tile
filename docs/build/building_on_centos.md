@@ -7,6 +7,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 _CentOS does not provide a `mapnik`/`mapnik-devel` package, so it will first need to be built & installed, which is beyond the scope of this document, please visit the project's [installation document on GitHub](https://github.com/mapnik/mapnik/blob/master/INSTALL.md) or our [Continuous Integration script](/.github/actions/dependencies/build-and-install/mapnik/action.yml) for more information._
 
 ## CentOS 7
+
 ```shell
 #!/usr/bin/env bash
 
@@ -39,7 +40,9 @@ sudo yum --assumeyes --setopt=install_weak_deps=False install \
   proj
 
 # Download, Build, Test & Install `mod_tile`
+export CFLAGS="-I/usr/include/boost169"
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+export CXXFLAGS="-I/usr/include/boost169"
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build
 cd /tmp/mod_tile_src
@@ -47,8 +50,6 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake3 -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
-  -DCMAKE_CXX_FLAGS:STRING="-I/usr/include/boost169" \
-  -DCMAKE_C_FLAGS:STRING="-I/usr/include/boost169" \
   -DENABLE_TESTS:BOOL=ON
 cmake3 --build .
 ctest3
