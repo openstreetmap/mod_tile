@@ -66,8 +66,13 @@ jobs:
         run: yum --assumeyes install git
         if: matrix.image == 'amazonlinux:2'
 
+      - name: Checkout code (CentOS 7)
+        uses: actions/checkout@v3
+        if: matrix.image == 'centos:7'
+
       - name: Checkout code
         uses: actions/checkout@v4
+        if: matrix.image != 'centos:7'
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
