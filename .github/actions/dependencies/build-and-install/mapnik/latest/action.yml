@@ -22,7 +22,7 @@ runs:
     - name: Build `Mapnik`
       run: |
         export CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL:-$(nproc)}
-        cmake -S mapnik-src -B mapnik-build \
+        cmake -B mapnik-build -S mapnik-src \
           -DBUILD_DEMO_VIEWER:BOOL=OFF \
           -DBUILD_TESTING:BOOL=OFF \
           -DCMAKE_BUILD_TYPE:STRING=Release \

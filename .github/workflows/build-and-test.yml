@@ -23,6 +23,7 @@ jobs:
           - "fedora:37"
           - "fedora:38"
           - "fedora:rawhide"
+          - "opensuse/leap:15"
           - "ubuntu:20.04"
         build_system:
           - CMake
@@ -65,6 +66,10 @@ jobs:
       - name: Install `git` (Amazon Linux 2)
         run: yum --assumeyes install git
         if: matrix.image == 'amazonlinux:2'
+
+      - name: Install `git` (openSUSE)
+        run: zypper --non-interactive install git
+        if: startsWith(matrix.image, 'opensuse/')
 
       - name: Checkout code (CentOS 7)
         uses: actions/checkout@v3

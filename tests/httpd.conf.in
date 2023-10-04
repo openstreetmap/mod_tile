@@ -60,14 +60,14 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 
 CustomLog logs/access_log "%h %l %u %t \"%r\" %>s %b"
 ErrorLog logs/error_log
-Group @NOGROUP_NAME@
+Group @WWW_GROUP_NAME@
 Listen @HTTPD0_PORT@
 Listen @HTTPD1_PORT@
 LogLevel debug
 PidFile run/httpd.pid
 ServerName localhost
 ServerRoot @PROJECT_BINARY_DIR@/tests
-User nobody
+User @WWW_USER_NAME@
 
 <IfModule !access_compat_module>
   LoadModule access_compat_module @HTTPD_LIBEXECDIR@/mod_access_compat.so
@@ -84,9 +84,20 @@ User nobody
 <IfModule !log_config_module>
   LoadModule log_config_module @HTTPD_LIBEXECDIR@/mod_log_config.so
 </IfModule>
-<IfModule !mpm_event_module>
-  LoadModule mpm_event_module @HTTPD_LIBEXECDIR@/mod_mpm_event.so
-</IfModule>
+<If "-f '@HTTPD_LIBEXECDIR@/mod_mpm_event.so'">
+  <IfModule !mpm_prefork_module>
+    <IfModule !mpm_event_module>
+      LoadModule mpm_event_module @HTTPD_LIBEXECDIR@/mod_mpm_event.so
+    </IfModule>
+  </IfModule>
+</If>
+<If "-f '@HTTPD_LIBEXECDIR@/mod_mpm_prefork.so'">
+  <IfModule !mpm_event_module>
+    <IfModule !mpm_prefork_module>
+      LoadModule mpm_prefork_module @HTTPD_LIBEXECDIR@/mod_mpm_prefork.so
+    </IfModule>
+  </IfModule>
+</If>
 <IfModule !unixd_module>
   LoadModule unixd_module @HTTPD_LIBEXECDIR@/mod_unixd.so
 </IfModule>
