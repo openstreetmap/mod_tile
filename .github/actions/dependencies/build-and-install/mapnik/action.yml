@@ -7,12 +7,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install `gcc-c++` (CentOS 7)
-      uses: ./.github/actions/dependencies/install/yum
-      with:
-        packages: gcc-c++
-      if: matrix.image == 'centos:7' && matrix.compiler == 'LLVM'
-
     - name: Create `Mapnik` source directory
       run: |
         mkdir mapnik-src
@@ -46,9 +40,12 @@ runs:
         mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
 
         # Configure & build
-        ./configure FAST=True \
-          PREFIX="/usr" \
-          OPTIMIZATION=0
+        ./configure \
+          CC=${CC:-gcc} \
+          CXX=${CXX:-g++} \
+          FAST=True \
+          OPTIMIZATION=0 \
+          PREFIX="/usr"
          make PYTHON=${PYTHON} || make PYTHON=${PYTHON}
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: mapnik-src

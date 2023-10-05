@@ -27,11 +27,6 @@ find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
-execute_process(COMMAND ${ID_EXECUTABLE} -gn nobody
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  OUTPUT_VARIABLE NOGROUP_NAME
-)
-
 #-----------------------------------------------------------------------------
 #
 #  Test configurations
@@ -42,6 +37,7 @@ set(MAP_NAME "default")
 set(HTTPD0_PORT "59980")
 set(HTTPD1_PORT "59981")
 set(RENDERD1_PORT "59991")
+set(WWW_USER_NAME "nobody")
 
 set(TILE_DEFAULT_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example/9/297/191.png")
 set(TILE_JPG_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-jpg/9/297/191.jpg")
@@ -61,6 +57,11 @@ set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
 set(TILE_WEBP_SHA256SUM_4 "ef3862a57831b21ec69c15be196e1e2b4fea66246c361142631b9fa22b85decc") # libwebp.so.4
 set(TILE_WEBP_SHA256SUM_6 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp.so.6
 set(TILE_WEBP_SHA256SUM_7 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
+
+execute_process(COMMAND ${ID_EXECUTABLE} -gn ${WWW_USER_NAME}
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  OUTPUT_VARIABLE WWW_GROUP_NAME
+)
 
 configure_file(
   renderd.conf.in

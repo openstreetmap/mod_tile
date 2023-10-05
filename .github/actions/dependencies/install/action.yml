@@ -70,6 +70,45 @@ inputs:
   macos-test-dependencies:
     default: >-
       coreutils
+  opensuse-build-dependencies:
+    default: >-
+      apache2-devel
+      cairo-devel
+      curl
+      glib2-devel
+      libcurl-devel
+      libiniparser-devel
+      libmemcached-devel
+      librados-devel
+  opensuse-test-dependencies:
+    default: >-
+      apache2
+      apache2-event
+      apache2-prefork
+  opensuse-mapnik-build-dependencies:
+    default: >-
+      bzip2
+      freetype-devel
+      gdal-devel
+      harfbuzz-devel
+      libboost_filesystem1_75_0-devel
+      libboost_headers1_75_0-devel
+      libboost_program_options1_75_0-devel
+      libboost_regex1_75_0-devel
+      libboost_system1_75_0-devel
+      libicu-devel
+      libjpeg8-devel
+      libpng16-devel
+      libtiff-devel
+      libwebp-devel
+      libxml2-devel
+      make
+      postgresql-devel
+      proj-devel
+      python3
+      sqlite3-devel
+      tar
+      zlib-devel
   rhel-build-dependencies:
     default: >-
       cairo-devel
@@ -137,6 +176,8 @@ inputs:
     default: 3.1.0
   mapnik-build-version-amazonlinux2-centos7:
     default: 3.0.17
+  mapnik-build-version-opensuse:
+    default: 3.1.0
 
 runs:
   using: composite
@@ -151,6 +192,7 @@ runs:
           ${{ inputs.rhel-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake3' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+          ${{ matrix.image == 'centos:7' && matrix.compiler == 'LLVM' && 'gcc-c++' || '' }}
       if: |
         startsWith(matrix.image, 'amazonlinux:') ||
         startsWith(matrix.image, 'centos:') ||
@@ -196,6 +238,17 @@ runs:
           ${{ matrix.compiler == 'GNU' && 'gcc' || '' }}
       if: github.job == 'macOS'
 
+    - name: Install Dependencies (openSUSE)
+      uses: ./.github/actions/dependencies/install/zypper
+      with:
+        packages: >-
+          ${{ inputs.opensuse-build-dependencies }}
+          ${{ inputs.opensuse-mapnik-build-dependencies }}
+          ${{ inputs.opensuse-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'automake' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc12 gcc12-c++' }}
+      if: startsWith(matrix.image, 'opensuse/')
+
     - name: Install Dependencies (Ubuntu)
       uses: ./.github/actions/dependencies/install/apt-get
       with:
@@ -209,6 +262,19 @@ runs:
         startsWith(matrix.image, 'ubuntu:') ||
         (!matrix.image && runner.os == 'Linux')
 
+    - name: Link `gcc`/`g++` (openSUSE)
+      run: |
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 40
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 40
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      if: startsWith(matrix.image, 'opensuse/') && matrix.compiler == 'GNU'
+
+    - name: Add `nobody` user/group (openSUSE)
+      run: |
+        useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      if: startsWith(matrix.image, 'opensuse/')
+
     - name: Build & Install `mapnik` (Amazon Linux 2/CentOS 7)
       uses: ./.github/actions/dependencies/build-and-install/mapnik
       with:
@@ -221,8 +287,18 @@ runs:
         version: ${{ inputs.mapnik-build-version-centos-stream }}
       if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
+    - name: Build & Install `mapnik` (openSUSE)
+      uses: ./.github/actions/dependencies/build-and-install/mapnik
+      with:
+        version: ${{ inputs.mapnik-build-version-opensuse }}
+      if: (!matrix.mapnik_latest && startsWith(matrix.image, 'opensuse/'))
+
     - name: Build & Install latest `mapnik` (Debian/Ubuntu)
       uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
       if: |
         matrix.mapnik_latest &&
         (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:'))
+
+    - name: Build & Install latest `mapnik` (openSUSE)
+      uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
+      if: (matrix.mapnik_latest && startsWith(matrix.image, 'opensuse/'))
