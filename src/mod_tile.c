@@ -2075,6 +2075,9 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
+	// this configuration option should be deprecated and be replaced by
+	// a version of AddTileConfig with "extension=xxx"
+	// how to log a warning here?
 	if (strcmp(fileExtension, "png") == 0) {
 		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png", NULL, NULL, 0, NULL, NULL, NULL, 0);
 	}
@@ -2086,11 +2089,46 @@ static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const cha
 	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png", NULL, NULL, 0, NULL, NULL, NULL, 0);
 }
 
-static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name)
+static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *args)
 {
-	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, "png", "image/png", NULL, NULL, 0, NULL, NULL, NULL, 0);
-}
+	const char *baseuri = ap_getword_conf(cmd->pool, &args);
+	if (!baseuri) return("AddTileConfig error");
+	const char *name = ap_getword_conf(cmd->pool, &args);
+	if (!name) return("AddTileConfig error");
+	int maxzoom = MAX_ZOOM;
+	int minzoom = 0;
+	const char *extension = "png";
+	const char *mimeType = "image/png";
+	char *token = ap_getword_conf(cmd->pool, &args);
+	while(token)
+	{
+		char *eq = strchr(token, '=');
+		if (eq)
+		{
+			*eq++=0;
+			if (!strcmp(token, "maxzoom"))
+			{
+				maxzoom = atoi(eq);
+			}
+			else if (!strcmp(token, "minzoom"))
+			{
+				minzoom = atoi(eq);
+			}
+			else if (!strcmp(token, "extension"))
+			{
+				extension = eq;
+			}
+			else if (!strcmp(token, "mimetype"))
+			{
+				mimeType = eq;
+			}
+		}
+		if (!*args) break;
+		token = ap_getword_conf(cmd->pool, &args);
+	}
 
+	return _add_tile_config(cmd, mconfig, baseuri, name, minzoom, maxzoom, 1, 1, extension, mimeType, NULL,NULL,0,NULL,NULL,NULL,0);
+}
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
 {
 	FILE * hini ;
@@ -2816,12 +2854,12 @@ static const command_rec tile_cmds[] = {
 		OR_OPTIONS,                      /* where available */
 		"load an entire renderd config file"  /* directive description */
 	),
-	AP_INIT_TAKE2(
+	AP_INIT_RAW_ARGS(
 		"AddTileConfig",                 /* directive name */
 		add_tile_config,                 /* config action routine */
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
-		"path and name of renderd config to use"  /* directive description */
+		"path, name, and optional key-value pairs for renderd config to use" /* directive description */
 	),
 	AP_INIT_TAKE3(
 		"AddTileMimeConfig",         /* directive name */
