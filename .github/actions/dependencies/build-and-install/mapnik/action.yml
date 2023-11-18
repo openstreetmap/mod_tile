@@ -31,8 +31,7 @@ runs:
     - name: Build `Mapnik`
       run: |
         # Export variables
-        export CUSTOM_CFLAGS="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H"
-        export CUSTOM_CXXFLAGS="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H"
+        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"
         export GDAL_DATA=/usr/share/gdal
         export JOBS=${JOBS:-$(nproc)}
         export PROJ_LIB=/usr/share/proj
@@ -46,6 +45,7 @@ runs:
           CC="${CC:-gcc}" \
           CUSTOM_CFLAGS="${CUSTOM_CFLAGS:-}" \
           CUSTOM_CXXFLAGS="${CUSTOM_CXXFLAGS:-}" \
+          CUSTOM_DEFINES="${CUSTOM_DEFINES:-}" \
           CUSTOM_LDFLAGS="${CUSTOM_LDFLAGS:-}" \
           CXX="${CXX:-g++}" \
           FAST=True \
