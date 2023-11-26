@@ -11,7 +11,6 @@ jobs:
       ${{ matrix.image }}
       (${{ matrix.build_system }})
       (${{ matrix.compiler }})
-      ${{ matrix.mapnik_latest && '(Latest Mapnik)' || '' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -20,17 +19,16 @@ jobs:
           - "debian:11"
           - "debian:12"
           - "debian:testing"
-          - "fedora:37"
           - "fedora:38"
+          - "fedora:39"
           - "fedora:rawhide"
           - "opensuse/leap:15"
           - "ubuntu:20.04"
+          - "ubuntu:rolling"
         build_system:
           - CMake
         compiler:
           - GNU
-        mapnik_latest:
-          - false
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
@@ -46,14 +44,6 @@ jobs:
           - image: "ubuntu:22.04"
             build_system: CMake
             compiler: LLVM
-          - image: "debian:12"
-            build_system: CMake
-            compiler: GNU
-            mapnik_latest: true
-          - image: "ubuntu:22.04"
-            build_system: CMake
-            compiler: GNU
-            mapnik_latest: true
         exclude:
           - on_default_branch: false
       fail-fast: false
@@ -91,6 +81,47 @@ jobs:
       - name: Install `mod_tile`
         uses: ./.github/actions/install
 
+  Linux-Latest-Mapnik:
+    continue-on-error: true
+    name: >-
+      ${{ matrix.image }}
+      (Latest Mapnik)
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - "debian:12"
+          - "ubuntu:22.04"
+        build_system:
+          - CMake
+        compiler:
+          - GNU
+        mapnik_latest:
+          - true
+      fail-fast: false
+    container:
+      env:
+        CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
+        CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
   macOS:
     env:
       CFLAGS: -Wno-implicit-function-declaration
@@ -105,7 +136,6 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-11
           - macos-12
         build_system:
           - CMake
@@ -145,7 +175,7 @@ jobs:
   FreeBSD:
     continue-on-error: true
     env:
-      BUILD_PARALLEL_LEVEL: 4
+      BUILD_PARALLEL_LEVEL: 2
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-
@@ -156,7 +186,7 @@ jobs:
     strategy:
       matrix:
         box_generic:
-          - freebsd12
+          - freebsd13
         build_system:
           - CMake
         compiler:
@@ -164,7 +194,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
-          - box_generic: freebsd13
+          - box_generic: freebsd14
             build_system: CMake
             compiler: LLVM
         exclude:

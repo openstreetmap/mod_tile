@@ -4,7 +4,7 @@ This document provides users with step-by-step instructions on how to compile an
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
-## Fedora 34/35/36/37/38
+## Fedora 34/35/36/37/38/39
 
 ```shell
 #!/usr/bin/env bash
