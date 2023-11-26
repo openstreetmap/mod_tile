@@ -1,4 +1,4 @@
-.TH RENDER_EXPIRED 1 "May 21, 2022"
+.TH RENDER_EXPIRED 1 "Nov 25, 2023"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 render_expired \- expires a list of map tiles so that they get re-rendered.
@@ -64,6 +64,9 @@ When expiring tiles of ZOOM or higher, delete them instead of re-rendering (defa
 .TP
 \fB\-T\fR|\-\-touch-from=ZOOM
 when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
+.TP
+\-\-no-progress
+Disable display of progress messages (default is off)
 .TP
 \fB\-h\fR|\-\-help
 Print out a help text for render_expired

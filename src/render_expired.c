@@ -106,6 +106,7 @@ int main(int argc, char **argv)
 	int deleteFrom = -1;
 	int touchFrom = -1;
 	int doRender = 0;
+	int progress = 1;
 	int i;
 	struct storage_backend * store;
 	char name[PATH_MAX];
@@ -134,6 +135,7 @@ int main(int argc, char **argv)
 			{"socket",      required_argument, 0, 's'},
 			{"tile-dir",    required_argument, 0, 't'},
 			{"touch-from",  required_argument, 0, 'T'},
+			{"no-progress", no_argument,       0, 'N'},
 			{"verbose",     no_argument,       0, 'v'},
 
 			{"help",        no_argument,       0, 'h'},
@@ -212,6 +214,10 @@ int main(int argc, char **argv)
 
 			case 'l':   /* -l, --max-load */
 				maxLoad = atoi(optarg);
+				break;
+
+			case 'N':   /* --no-progress */
+				progress = 0;
 				break;
 
 			case 'v':   /* -v, --verbose */
@@ -333,7 +339,7 @@ int main(int argc, char **argv)
 		//printf("loop: x=%d y=%d z=%d up to z=%d\n", x, y, z, minZoom);
 		num_read++;
 
-		if (num_read % 100 == 0) {
+		if (progress && (num_read % 100) == 0) {
 			printf("Read and expanded %i tiles from list.\n", num_read);
 		}
 
