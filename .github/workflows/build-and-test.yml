@@ -105,7 +105,6 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-11
           - macos-12
         build_system:
           - CMake
