@@ -145,7 +145,7 @@ jobs:
   FreeBSD:
     continue-on-error: true
     env:
-      BUILD_PARALLEL_LEVEL: 4
+      BUILD_PARALLEL_LEVEL: 2
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-
@@ -156,7 +156,7 @@ jobs:
     strategy:
       matrix:
         box_generic:
-          - freebsd12
+          - freebsd13
         build_system:
           - CMake
         compiler:
@@ -164,7 +164,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') }}
         include:
-          - box_generic: freebsd13
+          - box_generic: freebsd14
             build_system: CMake
             compiler: LLVM
         exclude:
