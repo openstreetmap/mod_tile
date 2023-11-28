@@ -46,7 +46,7 @@ jobs:
           lcov \
             --output-file coverage.info \
             --remove coverage.info \
-            "${GITHUB_WORKSPACE}/includes/catch.hpp" \
+            "${GITHUB_WORKSPACE}/includes/catch/catch.hpp" \
             "${GITHUB_WORKSPACE}/src/gen_tile_test.cpp" \
             "/usr/*"
           genhtml coverage.info --output-directory coverage
