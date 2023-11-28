@@ -1,0 +1,78 @@
+---
+name: Install Package & Test
+
+on:
+  - push
+
+jobs:
+  install-package-and-test:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - "debian:11"
+          - "debian:12"
+          - "ubuntu:22.04"
+      fail-fast: false
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mod_tile & renderd
+        uses: ./.github/actions/dependencies/install/apt-get
+        with:
+          packages: >-
+            apache2
+            curl
+            libapache2-mod-tile
+            renderd
+
+      - name: Prepare
+        run: |
+          mkdir -p /usr/share/renderd
+          cp -av utils/example-map /usr/share/renderd/
+          cp -av etc/apache2/renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf
+          printf '
+          [example-map]
+          URI=/tiles/renderd-example
+          XML=/usr/share/renderd/example-map/mapnik.xml
+
+          [example-map-jpg]
+          TYPE=jpg image/jpeg jpeg
+          URI=/tiles/renderd-example-jpg
+          XML=/usr/share/renderd/example-map/mapnik.xml
+
+          [example-map-png256]
+          TYPE=png image/png png256
+          URI=/tiles/renderd-example-png256
+          XML=/usr/share/renderd/example-map/mapnik.xml
+
+          [example-map-png32]
+          TYPE=png image/png png32
+          URI=/tiles/renderd-example-png32
+          XML=/usr/share/renderd/example-map/mapnik.xml
+
+          [example-map-webp]
+          TYPE=webp image/webp webp
+          URI=/tiles/renderd-example-webp
+          XML=/usr/share/renderd/example-map/mapnik.xml
+          ' | tee -a /etc/renderd.conf
+          mkdir -p /var/run/renderd
+          renderd
+          a2enmod tile
+          a2ensite renderd-example-map
+          apache2ctl restart
+        shell: bash --noprofile --norc -euxo pipefail {0}
+
+      - name: Test
+        run: |
+          until $(curl --fail --output tile.png --silent http://localhost:8081/tiles/renderd-example/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          echo 'dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08  tile.png' | sha256sum --check
+        shell: bash --noprofile --norc -euxo pipefail {0}
+        timeout-minutes: 1
