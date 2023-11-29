@@ -1,0 +1,303 @@
+.TH RENDERD.CONF 5 "November 29, 2023"
+.\" Please adjust this date whenever revising the manpage.
+
+.SH NAME
+renderd.conf \- Configuration file of rendering daemon for rendering OpenStreetMap tiles.
+
+.SH SYNOPSIS
+renderd.conf
+
+.SH DESCRIPTION
+This manual page documents briefly the
+.B renderd.conf
+configuration file.
+.PP
+.B renderd.conf
+is an INI configuration file for use with
+.B renderd(1).
+.PP
+The default location is
+.B '/etc/renderd.conf'
+(e.g.
+.B RENDERD_CONFIG)
+.PP
+All options are case-insensitive unless otherwise specified.
+
+
+.SH RENDERD
+Options belonging to a
+.B [renderd*]
+section.
+.PP
+There must be at least one
+.B renderd*
+section (e.g.
+.B 'renderd'
+or
+.B 'renderd0').
+.PP
+By default, there can be up to
+.B '5'
+(e.g.
+.B MAX_SLAVES
+)
+.B renderd*
+sections (e.g.
+.B 'renderd0'
+-
+.B 'renderd4').
+
+.TP
+.B iphostname
+Specify the IP address/hostname to be used for communication with
+.B renderd.
+This must be specified in combination with
+.B ipport.
+This option and
+.B socketname
+are mutually exclusive.
+
+.TP
+.B ipport
+Specify the port to be used for communication with
+.B renderd.
+This must be specified in combination with
+.B iphostname.
+This option and
+.B socketname
+are mutually exclusive.
+
+.TP
+.B num_threads
+Specify the number of threads to be used for
+.B renderd.
+The default value is
+.B '4'
+(e.g.
+.B NUM_THREADS).
+
+.TP
+.B pid_file
+Specify the PID file to be used by
+.B renderd.
+This is only written to when
+.B renderd
+is not running in
+.B foreground
+mode (e.g. without
+.B '--foreground'
+/
+.B '-f').
+The default value is
+.B '/var/run/renderd/renderd.pid'
+(e.g.
+.B RENDERD_PIDFILE).
+
+.TP
+.B socketname
+Specify a file path to be used as a unix domain socket for communication with
+.B renderd.
+This option and
+.B iphostname
+/
+.B ipport
+are mutually exclusive.
+The default value is
+.B '/var/run/renderd/renderd.sock'
+(e.g.
+.B RENDERD_SOCKET).
+
+.TP
+.B stats_file
+Specify a file path into which statistics will be written by
+.B renderd.
+The default is to not write to a stats file.
+
+.TP
+.B tile_dir
+Specify a directory path into which tiles will be written by
+.B renderd.
+The default value is
+.B '/var/cache/renderd/tiles'
+(e.g.
+.B RENDERD_TILE_DIR).
+
+
+.SH MAPNIK
+Options belonging to the
+.B [mapnik]
+section.
+
+.TP
+.B font_dir
+Specify a directory path where fonts are searched for by
+.B libmapnik.
+The default value is the output of
+.B 'mapnik-config --fonts'
+/
+.B 'pkgconf --variable=fonts_dir libmapnik'
+(e.g.
+.B MAPNIK_FONTS_DIR).
+
+.TP
+.B font_dir_recurse
+Specify whether or not to recurse the
+.B font_dir
+when searching for fonts by
+.B libmapnik.
+The default value is
+.B 'false'
+/
+.B '0'
+(e.g.
+.B MAPNIK_FONTS_DIR_RECURSE).
+
+.TP
+.B plugins_dir
+Specify a directory path where input plugins are searched for by
+.B libmapnik.
+The default value is the output of
+.B 'mapnik-config --input-plugins'
+/
+.B 'pkgconf --variable=plugins_dir libmapnik'
+(e.g.
+.B MAPNIK_PLUGINS_DIR).
+
+
+.SH MAP SECTION
+Options belonging a map section.
+.PP
+Section names must be unique and can neither begin with
+.B renderd
+nor be equal to
+.B mapnik.
+(e.g.
+.B 'default'
+or
+.B 'map0').
+
+.TP
+.B ASPECTX
+Only used by
+.B mod_tile.
+The default value is
+.B '1'.
+This option is case-sensitive.
+
+.TP
+.B ASPECTY
+Only used by
+.B mod_tile.
+The default value is
+.B '1'.
+This option is case-sensitive.
+
+.TP
+.B ATTRIBUTION
+Only used by
+.B mod_tile.
+The default value is
+.B '&copy;<a href="http://www.openstreetmap.org/">OpenStreetMap</a> and <a href="http://wiki.openstreetmap.org/wiki/Contributors">contributors</a>, <a href="http://opendatacommons.org/licenses/odbl/">(ODbL)</a>'
+(e.g.
+.B DEFAULT_ATTRIBUTION).
+This option is case-sensitive.
+
+.TP
+.B CORS
+Only used by
+.B mod_tile.
+This option is case-sensitive.
+
+.TP
+.B DESCRIPTION
+Only used by
+.B mod_tile.
+This option is case-sensitive.
+
+.TP
+.B htcphost
+Only used by
+.B renderd.
+
+.TP
+.B host
+Only used by
+.B renderd.
+
+.TP
+.B MAXZOOM
+The default value is
+.B '20'
+(e.g.
+.B MAX_ZOOM).
+This option is case-sensitive.
+
+.TP
+.B MINZOOM
+The default value is
+.B '0'.
+This option is case-sensitive.
+
+.TP
+.B PARAMETERIZE_STYLE
+This option is case-sensitive.
+
+.TP
+.B SERVER_ALIAS
+Only used by
+.B mod_tile.
+This option is case-sensitive.
+
+.TP
+.B scale
+Only used by
+.B renderd.
+The default value is
+.B '1.0'.
+
+.TP
+.B TILEDIR
+Specify a directory path into which tiles will be written by
+.B renderd.
+The default value is
+.B '/var/cache/renderd/tiles'
+(e.g.
+.B RENDERD_TILE_DIR).
+This option is case-sensitive.
+
+.TP
+.B tilesize
+Only used by
+.B renderd.
+The default value is
+.B '256'.
+
+.TP
+.B TYPE
+Specify the tile configuration (in the format
+.B '<extension> <mime-type> <output-format>')
+for this section
+(e.g.
+.B 'png image/png png256').
+This option is case-sensitive.
+
+.TP
+.B URI
+Specify the URI prefix with which tiles can be accessed for this section.
+This option is case-sensitive.
+
+.TP
+.B xml
+Specify the file path of the Mapnik configuration XML file for this section.
+Only used by
+.B renderd.
+
+
+.SH SEE ALSO
+.BR renderd(1)
+.BR
+
+.SH AUTHOR
+renderd was written by Jon Burgess, and other OpenStreetMap project members.
+.PP
+This manual page was written by OpenStreetMap authors.
