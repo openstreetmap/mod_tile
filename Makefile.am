@@ -28,6 +28,7 @@ noinst_PROGRAMS = gen_tile_test
 
 man_MANS = \
 	docs/man/renderd.1 \
+	docs/man/renderd.conf.5 \
 	docs/man/render_expired.1 \
 	docs/man/render_list.1 \
 	docs/man/render_old.1 \
