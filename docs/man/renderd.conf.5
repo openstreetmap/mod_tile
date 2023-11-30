@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "November 29, 2023"
+.TH RENDERD.CONF 5 "November 30, 2023"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -30,22 +30,22 @@ Options belonging to a
 section.
 .PP
 There must be at least one
-.B renderd*
+.B [renderd*]
 section (e.g.
-.B 'renderd'
+.B [renderd]
 or
-.B 'renderd0').
+.B [renderd0]).
 .PP
 By default, there can be up to
 .B '5'
 (e.g.
 .B MAX_SLAVES
 )
-.B renderd*
+.B [renderd*]
 sections (e.g.
-.B 'renderd0'
+.B [renderd0]
 -
-.B 'renderd4').
+.B [renderd4]).
 
 .TP
 .B iphostname
@@ -78,7 +78,7 @@ The default value is
 
 .TP
 .B pid_file
-Specify the PID file to be used by
+Specify the file path into which the PID will be written by
 .B renderd.
 This is only written to when
 .B renderd
@@ -95,7 +95,7 @@ The default value is
 
 .TP
 .B socketname
-Specify a file path to be used as a unix domain socket for communication with
+Specify the file path to be used as a unix domain socket for communication with
 .B renderd.
 This option and
 .B iphostname
@@ -109,13 +109,13 @@ The default value is
 
 .TP
 .B stats_file
-Specify a file path into which statistics will be written by
+Specify the file path into which statistics will be written by
 .B renderd.
 The default is to not write to a stats file.
 
 .TP
 .B tile_dir
-Specify a directory path into which tiles will be written by
+Specify the directory path into which tiles will be written by
 .B renderd.
 The default value is
 .B '/var/cache/renderd/tiles'
@@ -130,7 +130,7 @@ section.
 
 .TP
 .B font_dir
-Specify a directory path where fonts are searched for by
+Specify the directory path where fonts are searched for by
 .B libmapnik.
 The default value is the output of
 .B 'mapnik-config --fonts'
@@ -154,7 +154,7 @@ The default value is
 
 .TP
 .B plugins_dir
-Specify a directory path where input plugins are searched for by
+Specify the directory path where input plugins are searched for by
 .B libmapnik.
 The default value is the output of
 .B 'mapnik-config --input-plugins'
@@ -172,9 +172,9 @@ Section names must be unique and can neither begin with
 nor be equal to
 .B mapnik.
 (e.g.
-.B 'default'
+.B [default]
 or
-.B 'map0').
+.B [map0]).
 
 .TP
 .B ASPECTX
@@ -257,7 +257,7 @@ The default value is
 
 .TP
 .B TILEDIR
-Specify a directory path into which tiles will be written by
+Specify the directory path into which tiles will be written by
 .B renderd.
 The default value is
 .B '/var/cache/renderd/tiles'
