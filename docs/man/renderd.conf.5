@@ -20,11 +20,11 @@ All option names are \fBcase-insensitive\fR unless otherwise specified.
 .SH RENDERD
 Options belonging to a \fB[renderd]\fR section.
 .PP
-\fB[renderd]\fR section names must begin with \fB[renderd]\fR.
-.PP
 There must be at least one \fB[renderd]\fR section (e.g. \fB[renderd]\fR or \fB[renderd0]\fR).
 .PP
 By default, there can be up to \fB5\fR (macro definition \fB'MAX_SLAVES'\fR) \fB[renderd]\fR sections (e.g. \fB[renderd0]\fR - \fB[renderd4]\fR).
+.PP
+\fB[renderd]\fR section names must begin with \fB[renderd]\fR.
 
 .TP
 .B iphostname
@@ -70,6 +70,8 @@ The default value is \fB'/var/cache/renderd/tiles'\fR (macro definition \fB'REND
 Options belonging to the \fB[mapnik]\fR section.
 .PP
 There can be only one \fB[mapnik]\fR section.
+.PP
+\fB[mapnik]\fR section name must be equal to \fB[mapnik]\fR.
 
 .TP
 .B font_dir
