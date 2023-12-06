@@ -260,7 +260,7 @@ runs:
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
       if: |
         startsWith(matrix.image, 'ubuntu:') ||
-        (!matrix.image && runner.os == 'Linux')
+        (!matrix.image && github.job != 'FreeBSD' && runner.os == 'Linux')
 
     - name: Link `gcc`/`g++` (openSUSE)
       run: |

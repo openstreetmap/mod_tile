@@ -182,7 +182,7 @@ jobs:
       ${{ matrix.box_generic }}
       (${{ matrix.build_system }})
       (${{ matrix.compiler }})
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         box_generic:
@@ -205,7 +205,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Provision VM
-        uses: hummeltech/freebsd-vagrant-action@v1.3
+        uses: hummeltech/freebsd-vagrant-action@v1.4
         with:
           box: generic/${{ matrix.box_generic }}
           cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
