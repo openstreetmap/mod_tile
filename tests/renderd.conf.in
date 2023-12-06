@@ -33,7 +33,7 @@ URI=/tiles/renderd-example-webp
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
-iphostname=127.0.0.1
+iphostname=@RENDERD1_HOST@
 ipport=@RENDERD1_PORT@
 pid_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.pid
 stats_file=@PROJECT_BINARY_DIR@/tests/run/renderd1.stats

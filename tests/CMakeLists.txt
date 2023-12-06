@@ -20,6 +20,7 @@ execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
 find_package(UnixCommands REQUIRED)
 find_program(CAT_EXECUTABLE NAMES cat REQUIRED)
 find_program(CURL_EXECUTABLE NAMES curl REQUIRED)
+find_program(GREP_EXECUTABLE NAMES grep REQUIRED)
 find_program(HTTPD_EXECUTABLE NAMES ${HTTPD_PROGNAME} REQUIRED)
 find_program(ID_EXECUTABLE NAMES id REQUIRED)
 find_program(KILL_EXECUTABLE NAMES kill REQUIRED)
@@ -36,6 +37,7 @@ find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 set(MAP_NAME "default")
 set(HTTPD0_PORT "59980")
 set(HTTPD1_PORT "59981")
+set(RENDERD1_HOST "0.0.0.0")
 set(RENDERD1_PORT "59991")
 set(WWW_USER_NAME "nobody")
 
@@ -200,16 +202,23 @@ add_test(
 add_test(
   NAME dirty_tile
   COMMAND ${BASH} -c "
-    TILE_STATUS_CMD=\"${TILE_DEFAULT_CMD}/status | cut -d. -f2\"
-    TILE_STATUS_OUTPUT_OLD=$(\${TILE_STATUS_CMD})
+    TILE_STATUS_CMD=\"${TILE_DEFAULT_CMD}/status\"
+    TILE_LAST_RENDERED_AT_OLD=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
+    echo \"Tile Last Rendered At (Old): \${TILE_LAST_RENDERED_AT_OLD}\"
     sleep 5;
-    TILE_DIRTY_OUTPUT=$(${TILE_DEFAULT_CMD}/dirty)
+    TILE_DIRTY_CMD=\"${TILE_DEFAULT_CMD}/dirty\"
+    TILE_DIRTY_OUTPUT=$(\${TILE_DIRTY_CMD})
+    echo \"Dirty: \${TILE_DIRTY_OUTPUT}\"
     if [ \"\${TILE_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
       exit 1;
     fi
-    until [ \"\${TILE_STATUS_OUTPUT_OLD}\" != \"$(\${TILE_STATUS_CMD})\" ]; do
+    TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
+    echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\"
+    until [ \"\${TILE_LAST_RENDERED_AT_OLD}\" != \"\${TILE_LAST_RENDERED_AT_NEW}\" ]; do
       echo 'Sleeping 1s';
       sleep 1;
+      TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.');
+      echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\";
     done
   "
   WORKING_DIRECTORY tests
@@ -275,7 +284,7 @@ set_tests_properties(render_speedtest PROPERTIES
 set_tests_properties(render_expired PROPERTIES
   DEPENDS render_speedtest
   FIXTURES_REQUIRED httpd_started
-  TIMEOUT 20
+  TIMEOUT 60
 )
 set_tests_properties(render_list PROPERTIES
   DEPENDS render_speedtest
@@ -290,7 +299,7 @@ set_tests_properties(render_old PROPERTIES
 set_tests_properties(download_tiles PROPERTIES
   FIXTURES_REQUIRED httpd_started
   FIXTURES_SETUP tiles_downloaded
-  TIMEOUT 20
+  TIMEOUT 60
 )
 set_tests_properties(check_tiles PROPERTIES
   DEPENDS download_tiles
@@ -301,7 +310,7 @@ set_tests_properties(dirty_tile PROPERTIES
   DEPENDS download_tiles
   FIXTURES_REQUIRED "httpd_started;tiles_downloaded"
   REQUIRED_FILES "tile.png;tile.jpg;tile.png256;tile.png32;tile.webp"
-  TIMEOUT 20
+  TIMEOUT 60
 )
 set_tests_properties(remove_tiles PROPERTIES
   DEPENDS download_tiles

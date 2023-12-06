@@ -51,7 +51,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileMaxLoadMissing 5
   ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 10
-  ModTileRenderdSocketAddr 127.0.0.1 @RENDERD1_PORT@
+  ModTileRenderdSocketAddr @RENDERD1_HOST@ @RENDERD1_PORT@
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
