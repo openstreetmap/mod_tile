@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "November 30, 2023"
+.TH RENDERD.CONF 5 "2023-12-08" "mod_tile v0.6.1"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -100,61 +100,74 @@ There must be at least one \fB[map]\fR section.
 
 .TP
 .B ASPECTX
+Specify the X aspect to be used by \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
 The default value is \fB'1'\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B ASPECTY
+Specify the Y aspect to be used by \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
 The default value is \fB'1'\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B ATTRIBUTION
+Specify the data attribution to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
-The default value is \fB'&copy;<a href="http://www.openstreetmap.org/">OpenStreetMap</a> and <a href="http://wiki.openstreetmap.org/wiki/Contributors">contributors</a>, <a href="http://opendatacommons.org/licenses/odbl/">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
+The default value is \fB'&copy;<a href=\\\\\\"http://www.openstreetmap.org/\\\\\\">OpenStreetMap</a> and <a href=\\\\\\"http://wiki.openstreetmap.org/wiki/Contributors\\\\\\">contributors</a>, <a href=\\\\\\"http://opendatacommons.org/licenses/odbl/\\\\\\">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B CORS
+Specify the CORS configuration for \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B DESCRIPTION
+Specify the description to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B htcphost
+Specify the IP address/hostname of the HTCP Host to be used by \fBrenderd\fR for HTCP cache expiry.
 Only used by \fBrenderd\fR.
 
 .TP
 .B host
+Specify the IP address/hostname of the Host to be used by \fBrenderd\fR for HTCP cache expiry.
 Only used by \fBrenderd\fR.
 
 .TP
 .B MAXZOOM
+Specify the maximum zoom level for this section.
 The default value is \fB'20'\fR (macro definition \fB'MAX_ZOOM'\fR).
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B MINZOOM
+Specify the minimum zoom level for this section.
 The default value is \fB'0'\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B PARAMETERIZE_STYLE
+Specify the parameterization style/function to be used for this section.
+The value of \fB'language'\fR seems to be the only one supported.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B SERVER_ALIAS
+Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
 This option name is \fBcase-sensitive\fR.
 
 .TP
 .B scale
+Specify the scale for this section.
 Only used by \fBrenderd\fR.
 The default value is \fB'1.0'\fR.
 
@@ -166,6 +179,7 @@ This option name is \fBcase-sensitive\fR.
 
 .TP
 .B tilesize
+Specify the tile size for this section.
 Only used by \fBrenderd\fR.
 The default value is \fB'256'\fR.
 
