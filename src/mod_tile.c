@@ -986,11 +986,12 @@ static int tile_handler_dirty(request_rec *r)
 		return DECLINED;
 	}
 
-	// Is /dirty URL enabled?
 	sconf = r->server->module_config;
 	scfg = ap_get_module_config(sconf, &tile_module);
 
+	// Is /dirty URL enabled?
 	if (!scfg->enableDirtyUrl) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "tile_handler_dirty: /dirty URL is not enabled");
 		return HTTP_NOT_FOUND;
 	}
 
@@ -1139,6 +1140,8 @@ static int tile_storage_hook(request_rec *r)
 
 static int tile_handler_status(request_rec *r)
 {
+	ap_conf_vector_t *sconf;
+	tile_server_conf *scfg;
 	enum tileState state;
 	char mtime_str[APR_CTIME_LEN];
 	char atime_str[APR_CTIME_LEN];
@@ -1150,11 +1153,12 @@ static int tile_handler_status(request_rec *r)
 		return DECLINED;
 	}
 
-	// Is /status URL enabled?
-	ap_conf_vector_t *sconf = r->server->module_config;
-	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
+	sconf = r->server->module_config;
+	scfg = ap_get_module_config(sconf, &tile_module);
 
+	// Is /status URL enabled?
 	if (!scfg->enableStatusUrl) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "tile_handler_status: /status URL is not enabled");
 		return HTTP_NOT_FOUND;
 	}
 
