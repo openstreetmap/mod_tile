@@ -31,6 +31,7 @@ inputs:
   debian-test-dependencies:
     default: >-
       apache2
+      jq
   fedora-build-dependencies:
     default: >-
       cairo-devel
@@ -45,6 +46,7 @@ inputs:
   fedora-test-dependencies:
     default: >-
       httpd
+      jq
   freebsd-build-dependencies:
     default: >-
       apache24
@@ -56,6 +58,9 @@ inputs:
       libmemcached
       mapnik
       pkgconf
+  freebsd-test-dependencies:
+    default: >-
+      jq
   macos-build-dependencies:
     default: >-
       apr
@@ -70,6 +75,7 @@ inputs:
   macos-test-dependencies:
     default: >-
       coreutils
+      jq
   opensuse-build-dependencies:
     default: >-
       apache2-devel
@@ -85,6 +91,7 @@ inputs:
       apache2
       apache2-event
       apache2-prefork
+      jq
   opensuse-mapnik-build-dependencies:
     default: >-
       bzip2
@@ -121,6 +128,7 @@ inputs:
   rhel-test-dependencies:
     default: >-
       httpd
+      jq
   rhel-mapnik-build-dependencies:
     default: >-
       boost-devel
@@ -172,6 +180,7 @@ inputs:
   ubuntu-test-dependencies:
     default: >-
       apache2
+      jq
   mapnik-build-version-centos-stream:
     default: 3.1.0
   mapnik-build-version-amazonlinux2-centos7:
@@ -224,6 +233,7 @@ runs:
       with:
         packages: >-
           ${{ inputs.freebsd-build-dependencies }}
+          ${{ inputs.freebsd-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake' }}
           ${{ matrix.compiler == 'GNU' && 'gcc' || 'llvm' }}
       if: github.job == 'FreeBSD'
