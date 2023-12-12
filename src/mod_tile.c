@@ -989,6 +989,12 @@ static int tile_handler_dirty(request_rec *r)
 	sconf = r->server->module_config;
 	scfg = ap_get_module_config(sconf, &tile_module);
 
+	// Is /dirty URL enabled?
+	if (!scfg->enableDirtyUrl) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "tile_handler_dirty: /dirty URL is not enabled");
+		return HTTP_NOT_FOUND;
+	}
+
 	if (scfg->bulkMode) {
 		return OK;
 	}
@@ -1134,6 +1140,8 @@ static int tile_storage_hook(request_rec *r)
 
 static int tile_handler_status(request_rec *r)
 {
+	ap_conf_vector_t *sconf;
+	tile_server_conf *scfg;
 	enum tileState state;
 	char mtime_str[APR_CTIME_LEN];
 	char atime_str[APR_CTIME_LEN];
@@ -1143,6 +1151,15 @@ static int tile_handler_status(request_rec *r)
 
 	if (strcmp(r->handler, "tile_status")) {
 		return DECLINED;
+	}
+
+	sconf = r->server->module_config;
+	scfg = ap_get_module_config(sconf, &tile_module);
+
+	// Is /status URL enabled?
+	if (!scfg->enableStatusUrl) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "tile_handler_status: /status URL is not enabled");
+		return HTTP_NOT_FOUND;
 	}
 
 	rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
@@ -2672,6 +2689,20 @@ static const char *mod_tile_bulk_mode(cmd_parms *cmd, void *mconfig, int bulkMod
 	return NULL;
 }
 
+static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int enableStatusUrl)
+{
+	tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+	scfg->enableStatusUrl = enableStatusUrl;
+	return NULL;
+}
+
+static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int enableDirtyUrl)
+{
+	tile_server_conf *scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
+	scfg->enableDirtyUrl = enableDirtyUrl;
+	return NULL;
+}
+
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *bucketsize_string, const char *topuprate_string)
 {
 	int bucketsize;
@@ -2751,6 +2782,8 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	scfg->delaypoolRenderSize = AVAILABLE_RENDER_BUCKET_SIZE;
 	scfg->delaypoolRenderRate = RENDER_TOPUP_RATE;
 	scfg->bulkMode = 0;
+	scfg->enableStatusUrl = 1;
+	scfg->enableDirtyUrl = 1;
 
 
 	return scfg;
@@ -2793,6 +2826,8 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	scfg->delaypoolRenderSize = scfg_over->delaypoolRenderSize;
 	scfg->delaypoolRenderRate = scfg_over->delaypoolRenderRate;
 	scfg->bulkMode = scfg_over->bulkMode;
+	scfg->enableStatusUrl = scfg_over->enableStatusUrl;
+	scfg->enableDirtyUrl = scfg_over->enableDirtyUrl;
 
 	//Construct a table of minimum cache times per zoom level
 	for (i = 0; i <= MAX_ZOOM_SERVER; i++) {
@@ -2983,6 +3018,20 @@ static const command_rec tile_cmds[] = {
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
 		"On Off - make all requests to renderd with bulk render priority, never mark tiles dirty"  /* directive description */
+	),
+	AP_INIT_FLAG(
+		"ModTileEnableStatusURL",        /* directive name */
+		mod_tile_enable_status_url,      /* config action routine */
+		NULL,                            /* argument to include in call */
+		OR_OPTIONS,                      /* where available */
+		"On Off - whether to handle .../status urls "  /* directive description */
+	),
+	AP_INIT_FLAG(
+		"ModTileEnableDirtyURL",         /* directive name */
+		mod_tile_enable_dirty_url,       /* config action routine */
+		NULL,                            /* argument to include in call */
+		OR_OPTIONS,                      /* where available */
+		"On Off - whether to handle .../dirty urls "  /* directive description */
 	),
 	{NULL}
 };

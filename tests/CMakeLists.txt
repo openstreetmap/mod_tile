@@ -47,15 +47,21 @@ set(TILE_PNG256_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-png25
 set(TILE_PNG32_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-png32/9/297/191.png")
 set(TILE_WEBP_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example-webp/9/297/191.webp")
 
-set(TILE_DEFAULT_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_DEFAULT_URL}")
+set(TILE_DIRTY_OFF_URL "http://localhost:${HTTPD1_PORT}/tiles/renderd-example/9/297/191.png/dirty")
+set(TILE_DIRTY_ON_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example/9/297/191.png/dirty")
+set(TILE_STATUS_OFF_URL "http://localhost:${HTTPD1_PORT}/tiles/renderd-example/9/297/191.png/status")
+set(TILE_STATUS_ON_URL "http://localhost:${HTTPD0_PORT}/tiles/renderd-example/9/297/191.png/status")
+
+set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
+set(TILE_DEFAULT_CMD "${CURL_CMD} ${TILE_DEFAULT_URL}")
 set(TILE_DEFAULT_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
-set(TILE_JPG_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_JPG_URL}")
+set(TILE_JPG_CMD "${CURL_CMD} ${TILE_JPG_URL}")
 set(TILE_JPG_SHA256SUM "e09c3406c02f03583dadf0c8404c2d3efdc06a40d399e381ed2f47f49fde42d7")
-set(TILE_PNG256_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG256_URL}")
+set(TILE_PNG256_CMD "${CURL_CMD} ${TILE_PNG256_URL}")
 set(TILE_PNG256_SHA256SUM "${TILE_DEFAULT_SHA256SUM}")
-set(TILE_PNG32_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_PNG32_URL}")
+set(TILE_PNG32_CMD "${CURL_CMD} ${TILE_PNG32_URL}")
 set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
-set(TILE_WEBP_CMD "${CURL_EXECUTABLE} --fail --silent ${TILE_WEBP_URL}")
+set(TILE_WEBP_CMD "${CURL_CMD} ${TILE_WEBP_URL}")
 set(TILE_WEBP_SHA256SUM_4 "ef3862a57831b21ec69c15be196e1e2b4fea66246c361142631b9fa22b85decc") # libwebp.so.4
 set(TILE_WEBP_SHA256SUM_6 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp.so.6
 set(TILE_WEBP_SHA256SUM_7 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
@@ -202,24 +208,34 @@ add_test(
 add_test(
   NAME dirty_tile
   COMMAND ${BASH} -c "
-    TILE_STATUS_CMD=\"${TILE_DEFAULT_CMD}/status\"
-    TILE_LAST_RENDERED_AT_OLD=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
+    TILE_DIRTY_ON_CMD=\"${CURL_CMD} ${TILE_DIRTY_ON_URL}\"
+    TILE_STATUS_ON_CMD=\"${CURL_CMD} ${TILE_STATUS_ON_URL}\"
+    TILE_LAST_RENDERED_AT_OLD=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
     echo \"Tile Last Rendered At (Old): \${TILE_LAST_RENDERED_AT_OLD}\"
     sleep 5;
-    TILE_DIRTY_CMD=\"${TILE_DEFAULT_CMD}/dirty\"
-    TILE_DIRTY_OUTPUT=$(\${TILE_DIRTY_CMD})
-    echo \"Dirty: \${TILE_DIRTY_OUTPUT}\"
-    if [ \"\${TILE_DIRTY_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
+    TILE_DIRTY_ON_OUTPUT=$(\${TILE_DIRTY_ON_CMD})
+    echo \"Dirty: \${TILE_DIRTY_ON_OUTPUT}\"
+    if [ \"\${TILE_DIRTY_ON_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
       exit 1;
     fi
-    TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
+    TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
     echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\"
     until [ \"\${TILE_LAST_RENDERED_AT_OLD}\" != \"\${TILE_LAST_RENDERED_AT_NEW}\" ]; do
       echo 'Sleeping 1s';
       sleep 1;
-      TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.');
+      TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.');
       echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\";
     done
+    TILE_DIRTY_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TILE_DIRTY_OFF_URL})
+    echo \"Dirty Off code: '\${TILE_DIRTY_OFF_CODE}'\"
+    if [ \"\${TILE_DIRTY_OFF_CODE}\" != \"404\" ]; then
+      exit 1;
+    fi
+    TILE_STATUS_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TILE_STATUS_OFF_URL})
+    echo \"Status Off code: '\${TILE_STATUS_OFF_CODE}'\"
+    if [ \"\${TILE_STATUS_OFF_CODE}\" != \"404\" ]; then
+      exit 1;
+    fi
   "
   WORKING_DIRECTORY tests
 )
