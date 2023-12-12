@@ -8,5 +8,5 @@ runs:
   using: composite
   steps:
     - name: Install package(s)
-      run: brew install ${{ inputs.packages }}
+      run: brew install ${{ inputs.packages }} || true
       shell: bash --noprofile --norc -euxo pipefail {0}
