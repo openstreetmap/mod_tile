@@ -1,0 +1,208 @@
+.TH RENDERD.CONF 5 "2023-12-08" "mod_tile v0.6.1"
+.\" Please adjust this date whenever revising the manpage.
+
+.SH NAME
+renderd.conf \- Configuration file of rendering daemon for rendering OpenStreetMap tiles.
+
+.SH SYNOPSIS
+renderd.conf
+
+.SH DESCRIPTION
+This manual page documents briefly the \fBrenderd.conf\fR configuration file.
+.PP
+\fBrenderd.conf\fR is an INI configuration file for use with \fBrenderd(1)\fR.
+.PP
+The default location is \fB'/etc/renderd.conf'\fR (macro definition \fB'RENDERD_CONFIG'\fR).
+.PP
+All option names are \fBcase-insensitive\fR unless otherwise specified.
+
+
+.SH RENDERD
+Options belonging to a \fB[renderd]\fR section.
+.PP
+There must be at least one \fB[renderd]\fR section (e.g. \fB[renderd]\fR or \fB[renderd0]\fR).
+.PP
+By default, there can be up to \fB5\fR (macro definition \fB'MAX_SLAVES'\fR) \fB[renderd]\fR sections (e.g. \fB[renderd0]\fR - \fB[renderd4]\fR).
+.PP
+\fB[renderd]\fR section names must begin with \fB[renderd]\fR.
+
+.TP
+.B iphostname
+Specify the IP address/hostname to be used for communication with \fBrenderd\fR.
+This must be specified in combination with \fBipport\fR.
+This option and \fBsocketname\fR are mutually exclusive.
+
+.TP
+.B ipport
+Specify the port number to be used for communication with \fBrenderd\fR.
+This must be specified in combination with \fBiphostname\fR.
+This option and \fBsocketname\fR are mutually exclusive.
+
+.TP
+.B num_threads
+Specify the number of threads to be used for \fBrenderd\fR.
+The default value is \fB'4'\fR (macro definition \fB'NUM_THREADS'\fR).
+
+.TP
+.B pid_file
+Specify the file path into which the PID will be written by \fBrenderd\fR.
+It is only written to when \fBrenderd\fR is not running in \fBforeground\fR mode (e.g. without \fB'--foreground'\fR / \fB'-f')\fR.
+The default value is \fB'/var/run/renderd/renderd.pid'\fR (macro definition \fB'RENDERD_PIDFILE'\fR).
+
+.TP
+.B socketname
+Specify the file path to be used as a unix domain socket for communication with \fBrenderd\fR.
+This option and \fBiphostname\fR / \fBipport\fR are mutually exclusive.
+The default value is \fB'/var/run/renderd/renderd.sock'\fR (macro definition \fB'RENDERD_SOCKET'\fR).
+
+.TP
+.B stats_file
+Specify the file path into which statistics will be written by \fBrenderd\fR.
+By default, a stats file will not be created.
+
+.TP
+.B tile_dir
+Specify the directory path into which tiles will be written by \fBrenderd\fR.
+The default value is \fB'/var/cache/renderd/tiles'\fR (macro definition \fB'RENDERD_TILE_DIR'\fR).
+
+
+.SH MAPNIK
+Options belonging to the \fB[mapnik]\fR section.
+.PP
+There can be only one \fB[mapnik]\fR section.
+.PP
+\fB[mapnik]\fR section name must be equal to \fB[mapnik]\fR.
+
+.TP
+.B font_dir
+Specify the directory path where fonts are searched for by \fBlibmapnik\fR.
+The default value is the output of \fB'mapnik-config --fonts'\fR / \fB'pkgconf --variable=fonts_dir libmapnik'\fR (macro definition \fB'MAPNIK_FONTS_DIR'\fR).
+
+.TP
+.B font_dir_recurse
+Specify whether or not to recurse the \fBfont_dir\fR when searching for fonts by \fBlibmapnik\fR.
+The default value is \fB'false'\fR / \fB'0'\fR (macro definition \fB'MAPNIK_FONTS_DIR_RECURSE'\fR).
+
+.TP
+.B plugins_dir
+Specify the directory path where input plugins are searched for by \fBlibmapnik\fR.
+The default value is the output of \fB'mapnik-config --input-plugins'\fR / \fB'pkgconf --variable=plugins_dir libmapnik'\fR (macro definition \fB'MAPNIK_PLUGINS_DIR'\fR).
+
+
+.SH MAP SECTION
+Options belonging a \fB[map]\fR section.
+.PP
+There must be at least one \fB[map]\fR section.
+.PP
+\fB[map]\fR section names can neither begin with \fB[renderd]\fR nor be equal to \fB[mapnik]\fR.
+.PP
+\fB[map]\fR section names can be anything else, but they must all be unique.
+
+.TP
+.B ASPECTX
+Specify the X aspect to be used by \fBmod_tile\fR.
+Only used by \fBmod_tile\fR.
+The default value is \fB'1'\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B ASPECTY
+Specify the Y aspect to be used by \fBmod_tile\fR.
+Only used by \fBmod_tile\fR.
+The default value is \fB'1'\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B ATTRIBUTION
+Specify the data attribution to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
+Only used by \fBmod_tile\fR.
+The default value is \fB'&copy;<a href=\\\\\\"http://www.openstreetmap.org/\\\\\\">OpenStreetMap</a> and <a href=\\\\\\"http://wiki.openstreetmap.org/wiki/Contributors\\\\\\">contributors</a>, <a href=\\\\\\"http://opendatacommons.org/licenses/odbl/\\\\\\">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B CORS
+Specify the CORS configuration for \fBmod_tile\fR.
+Only used by \fBmod_tile\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B DESCRIPTION
+Specify the description to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
+Only used by \fBmod_tile\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B htcphost
+Specify the IP address/hostname of the HTCP Host to be used by \fBrenderd\fR for HTCP cache expiry.
+Only used by \fBrenderd\fR.
+
+.TP
+.B host
+Specify the IP address/hostname of the Host to be used by \fBrenderd\fR for HTCP cache expiry.
+Only used by \fBrenderd\fR.
+
+.TP
+.B MAXZOOM
+Specify the maximum zoom level for this section.
+The default value is \fB'20'\fR (macro definition \fB'MAX_ZOOM'\fR).
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B MINZOOM
+Specify the minimum zoom level for this section.
+The default value is \fB'0'\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B PARAMETERIZE_STYLE
+Specify the parameterization style/function to be used for this section.
+The value of \fB'language'\fR seems to be the only one supported.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B SERVER_ALIAS
+Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
+Only used by \fBmod_tile\fR.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B scale
+Specify the scale for this section.
+Only used by \fBrenderd\fR.
+The default value is \fB'1.0'\fR.
+
+.TP
+.B TILEDIR
+Specify the directory path into which tiles will be written by \fBrenderd\fR.
+The default value is \fB'/var/cache/renderd/tiles'\fR (macro definition \fB'RENDERD_TILE_DIR'\fR).
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B tilesize
+Specify the tile size for this section.
+Only used by \fBrenderd\fR.
+The default value is \fB'256'\fR.
+
+.TP
+.B TYPE
+Specify the tile configuration (in the format \fB'<extension> <mime-type> <output-format>'\fR) for this section (e.g. \fB'png image/png png256'\fR).
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B URI
+Specify the URI prefix with which tiles can be accessed for this section.
+This option name is \fBcase-sensitive\fR.
+
+.TP
+.B xml
+Specify the file path of the Mapnik configuration XML file for this section.
+Only used by \fBrenderd\fR.
+
+.SH SEE ALSO
+.BR renderd(1)
+.BR
+
+.SH AUTHOR
+renderd was written by Jon Burgess, and other OpenStreetMap project members.
+.PP
+This manual page was written by OpenStreetMap authors.

@@ -1,11 +1,14 @@
-.TH RENDERD 1 "May 21, 2022"
+.TH RENDERD "1" "2023-12-08" "mod_tile v0.6.1"
 .\" Please adjust this date whenever revising the manpage.
+
 .SH NAME
 renderd \- Rendering daemon for rendering OpenStreetMap tiles.
+
 .SH SYNOPSIS
 .B renderd
 .RI [ options ]
-.br
+.BR
+
 .SH DESCRIPTION
 This manual page documents briefly the
 .B renderd
@@ -17,6 +20,7 @@ on a socket. Renderd queues requests in a number of different queues to manage l
 rendering the requests with the mapnik library. By default renderd will start as a daemon.
 It will log information in the syslog.
 .PP
+
 .SH OPTIONS
 This programs follow the usual GNU command line syntax, with long
 options starting with two dashes (`-').
@@ -40,9 +44,11 @@ Print out a help text for renderd
 \fB\-V\fR|\-\-version
 Print out the version number for renderd
 .PP
+
 .SH SEE ALSO
-.BR renderd.conf (1),
-.br
+.BR renderd.conf(5)
+.BR
+
 .SH AUTHOR
 renderd was written by Jon Burgess, and other OpenStreetMap project members.
 .PP

@@ -1,11 +1,14 @@
-.TH RENDER_EXPIRED 1 "Nov 25, 2023"
+.TH RENDER_EXPIRED "1" "2023-12-08" "mod_tile v0.6.1"
 .\" Please adjust this date whenever revising the manpage.
+
 .SH NAME
 render_expired \- expires a list of map tiles so that they get re-rendered.
+
 .SH SYNOPSIS
 .B render_expired
 .RI [ options ] <  "expire.list"
-.br
+.BR
+
 .SH DESCRIPTION
 This manual page documents briefly the
 .B render_expired
@@ -14,27 +17,28 @@ command.
 .B render_expired
 is a helper utility that takes a list of map tiles from stdin and expires them such that they will get re-rendered.
 Render_expired has three potential strategies of how to expire map tiles:
-.br
+.BR
 1) Render tiles directly: Render_expired can connect to the renderd socket and submit rendering requests for expired tiles directly
-.br
+.BR
 2) Delete tiles: Render_expired can delete expired tiles from disk. The next time the tile then gets viewed it will get re-rendered, assuming a dynamic rendering setup like mod_tile is installed
-.br
+.BR
 3) Mark tiles as dirty: A dynamic tile rendering system like mod_tile decides if a tile needs re-rendering by comparing the timestamp of the tile with the time of the planet-import-complet timestamp. Render_expired can set the timestamp of a tile back many years, ensuring it is older than the db import time, thus causeing the tile to be considered dirty and in need for re-render.
 .PP
 These three strategies can be combined and applied at different zoom levels. E.g. Zoom level 17-18 get deleted, z11 - z16 get marked dirty and z6 - z10 get rendered directly.
 .PP
 Render_expired takes a list of tiles from stdin which should be expired. The format of the list is one tile per line specified as z/x/y.
-.br
+.BR
 1/0/1
-.br
+.BR
 1/1/1
-.br
+.BR
 1/0/0
-.br
+.BR
 1/1/0
 .PP
 render_expired will automatically expand the list to cover the effected tiles at other zoom levels.
 .PP
+
 .SH OPTIONS
 This program follows the usual GNU command line syntax, with long
 options starting with two dashes (`-').
@@ -74,10 +78,11 @@ Print out a help text for render_expired
 \fB\-V\fR|\-\-version
 Print out the version number for render_expired
 .PP
+
 .SH SEE ALSO
-.BR renderd (1),
-.BR mod_tile (1).
-.br
+.BR renderd(1)
+.BR
+
 .SH AUTHOR
 render_expire was written by OpenStreetMap project members.
 .PP
