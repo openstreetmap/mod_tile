@@ -43,7 +43,7 @@ cmake -B . -S /tmp/mod_tile_src \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .
 ctest
-sudo cmake --install . --strip
+sudo cmake --install . --prefix /usr/local --strip
 
 # Create /usr/local/share/renderd directory
 sudo mkdir -p /usr/local/share/renderd
