@@ -3,33 +3,33 @@ font_dir=@MAPNIK_FONTS_DIR@
 font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
 plugins_dir=@MAPNIK_PLUGINS_DIR@
 
-[@MAP_NAME@]
+[@DEFAULT_MAP_NAME@]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
-URI=/tiles/renderd-example
+URI=/tiles/@DEFAULT_MAP_NAME@
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
-[@MAP_NAME@_jpg]
+[jpg]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=jpg image/jpeg jpeg
-URI=/tiles/renderd-example-jpg
+URI=/tiles/jpg
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
-[@MAP_NAME@_png256]
+[png256]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=png image/png png256
-URI=/tiles/renderd-example-png256
+URI=/tiles/png256
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
-[@MAP_NAME@_png32]
+[png32]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=png image/png png32
-URI=/tiles/renderd-example-png32
+URI=/tiles/png32
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
-[@MAP_NAME@_webp]
+[webp]
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 TYPE=webp image/webp webp
-URI=/tiles/renderd-example-webp
+URI=/tiles/webp
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 [renderd1]
