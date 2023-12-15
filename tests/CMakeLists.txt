@@ -63,6 +63,42 @@ set(TILE_WEBP_SHA256SUM_7 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf665
 
 set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
 
+set(HTTPD_START_CMD
+  "${HTTPD_EXECUTABLE} -e debug -f ${PROJECT_BINARY_DIR}/tests/conf/httpd.conf -k start"
+)
+string(REPLACE ";" "\n" HTTPD_START_CMD_STR "${HTTPD_START_CMD}")
+
+set(HTTPD_STOP_CMD
+  "${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/httpd.pid)"
+  "${RM} run/httpd.pid"
+)
+string(REPLACE ";" "\n" HTTPD_STOP_CMD_STR "${HTTPD_STOP_CMD}")
+
+set(HTTPD_PID
+  "run/httpd.pid"
+)
+
+set(RENDERD_START_CMD
+  "$<TARGET_FILE:renderd> --config conf/renderd.conf --foreground --slave 0 > logs/renderd0.log 2>&1 &"
+  "printf \${!} > run/renderd0.pid"
+  "$<TARGET_FILE:renderd> --config conf/renderd.conf --foreground --slave 1 > logs/renderd1.log 2>&1 &"
+  "printf \${!} > run/renderd1.pid"
+)
+string(REPLACE ";" "\n" RENDERD_START_CMD_STR "${RENDERD_START_CMD}")
+
+set(RENDERD_STOP_CMD
+  "${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid)"
+  "${RM} run/renderd1.pid"
+  "${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd0.pid)"
+  "${RM} run/renderd0.pid"
+)
+string(REPLACE ";" "\n" RENDERD_STOP_CMD_STR "${RENDERD_STOP_CMD}")
+
+set(RENDERD_PIDS
+  "run/renderd0.pid"
+  "run/renderd1.pid"
+)
+
 execute_process(COMMAND ${ID_EXECUTABLE} -gn ${WWW_USER_NAME}
   OUTPUT_STRIP_TRAILING_WHITESPACE
   OUTPUT_VARIABLE WWW_GROUP_NAME
@@ -96,21 +132,12 @@ add_test(
 )
 add_test(
   NAME start_renderd
-  COMMAND ${BASH} -c "
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground \
-      --slave 0 > ${PROJECT_BINARY_DIR}/tests/logs/renderd0.log 2>&1 &' > ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd0.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo '${PROJECT_BINARY_DIR}/src/renderd --config ${PROJECT_BINARY_DIR}/tests/conf/renderd.conf --foreground \
-      --slave 1 > ${PROJECT_BINARY_DIR}/tests/logs/renderd1.log 2>&1 &' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'printf \${!} > ${PROJECT_BINARY_DIR}/tests/run/renderd1.pid' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    echo 'exit 0' >> ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-    ${BASH} ${PROJECT_BINARY_DIR}/tests/renderd_start.sh
-  "
+  COMMAND ${BASH} -c "${RENDERD_START_CMD_STR}"
   WORKING_DIRECTORY tests
 )
 add_test(
   NAME start_httpd
-  COMMAND ${HTTPD_EXECUTABLE} -e debug -f ${PROJECT_BINARY_DIR}/tests/conf/httpd.conf -k start
+  COMMAND ${BASH} -c "${HTTPD_START_CMD_STR}"
   WORKING_DIRECTORY tests
 )
 add_test(
@@ -299,17 +326,12 @@ add_test(
 )
 add_test(
   NAME stop_renderd
-  COMMAND ${BASH} -c "
-    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd1.pid) && ${RM} run/renderd1.pid
-    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/renderd0.pid) && ${RM} run/renderd0.pid
-  "
+  COMMAND ${BASH} -c "${RENDERD_STOP_CMD_STR}"
   WORKING_DIRECTORY tests
 )
 add_test(
   NAME stop_httpd
-  COMMAND ${BASH} -c "
-    ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} run/httpd.pid) && ${RM} run/httpd.pid
-  "
+  COMMAND ${BASH} -c "${HTTPD_STOP_CMD_STR}"
   WORKING_DIRECTORY tests
 )
 add_test(
@@ -334,11 +356,11 @@ set_tests_properties(start_httpd PROPERTIES
 )
 set_tests_properties(stop_renderd PROPERTIES
   FIXTURES_CLEANUP httpd_started
-  REQUIRED_FILES "run/renderd0.pid;run/renderd1.pid"
+  REQUIRED_FILES "${RENDERD_PIDS}"
 )
 set_tests_properties(stop_httpd PROPERTIES
   FIXTURES_CLEANUP httpd_started
-  REQUIRED_FILES run/httpd.pid
+  REQUIRED_FILES "${HTTPD_PID}"
 )
 set_tests_properties(clear_dirs PROPERTIES
   DEPENDS "stop_renderd;stop_httpd"
