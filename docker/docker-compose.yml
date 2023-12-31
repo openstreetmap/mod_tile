@@ -1,0 +1,185 @@
+---
+version: "3.8"
+
+services:
+  centos-7:
+    build:
+      context: ..
+      dockerfile: docker/centos/7/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+    ulimits:
+      nofile: 40000
+  centos-stream-8:
+    build:
+      args:
+        centos_stream_version: "8"
+        extra_repository: powertools
+      context: ..
+      dockerfile: docker/centos/stream/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  centos-stream-9:
+    build:
+      args:
+        centos_stream_version: "9"
+        extra_repository: crb
+      context: ..
+      dockerfile: docker/centos/stream/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  debian-10:
+    build:
+      args:
+        libmapnik_version: "3.0"
+        debian_version: "10"
+      context: ..
+      dockerfile: docker/debian/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  debian-11:
+    build:
+      args:
+        libmapnik_version: "3.1"
+        debian_version: "11"
+      context: ..
+      dockerfile: docker/debian/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  debian-12:
+    build:
+      args:
+        libmapnik_version: "3.1"
+        debian_version: "12"
+      context: ..
+      dockerfile: docker/debian/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  debian-testing:
+    build:
+      args:
+        libmapnik_version: "3.1"
+        debian_version: testing
+      context: ..
+      dockerfile: docker/debian/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-34:
+    build:
+      args:
+        fedora_version: "34"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-35:
+    build:
+      args:
+        fedora_version: "35"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-36:
+    build:
+      args:
+        fedora_version: "36"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-37:
+    build:
+      args:
+        fedora_version: "37"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-38:
+    build:
+      args:
+        fedora_version: "38"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-39:
+    build:
+      args:
+        fedora_version: "39"
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  fedora-rawhide:
+    build:
+      args:
+        fedora_version: rawhide
+      context: ..
+      dockerfile: docker/fedora/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  opensuse-leap-15:
+    build:
+      args:
+        boost_version: "1_75_0"
+        opensuse_version: leap:15
+      context: ..
+      dockerfile: docker/opensuse/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  opensuse-tumbleweed:
+    build:
+      args:
+        opensuse_version: tumbleweed
+      context: ..
+      dockerfile: docker/opensuse/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  ubuntu-20.04:
+    build:
+      args:
+        libmapnik_version: "3.0"
+        ubuntu_version: "20.04"
+      context: ..
+      dockerfile: docker/ubuntu/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  ubuntu-22.04:
+    build:
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: "22.04"
+      context: ..
+      dockerfile: docker/ubuntu/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081
+  ubuntu-devel:
+    build:
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: devel
+      context: ..
+      dockerfile: docker/ubuntu/Dockerfile
+    env_file: .env
+    ports:
+      - 8081:8081

@@ -1,5 +1,5 @@
 ---
-name: flawfinder
+name: Flawfinder Analysis
 
 on:
   pull_request:

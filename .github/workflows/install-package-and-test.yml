@@ -2,7 +2,12 @@
 name: Install Package & Test
 
 on:
-  - push
+  pull_request:
+  push:
+    paths:
+      - "etc/**"
+      - "utils/**"
+      - ".github/workflows/install-package-and-test.yml"
 
 jobs:
   install-package-and-test:

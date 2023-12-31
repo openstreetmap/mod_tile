@@ -1,0 +1,58 @@
+---
+name: Docker Image Build
+
+on:
+  pull_request:
+  push:
+    paths:
+      - "docker/**"
+      - ".github/workflows/docker-image-build.yml"
+
+jobs:
+  docker-image-build:
+    name: Build & Test (${{ matrix.service-name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service-name:
+          - centos-7
+          - centos-stream-8
+          - centos-stream-9
+          - debian-11
+          - debian-12
+          - debian-testing
+          - fedora-38
+          - fedora-39
+          - fedora-rawhide
+          - opensuse-leap-15
+          - opensuse-tumbleweed
+          - ubuntu-20.04
+          - ubuntu-22.04
+          - ubuntu-devel
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build & Start
+        run: docker compose up --build --detach ${{ matrix.service-name }}
+        working-directory: docker
+
+      - name: Test
+        run: |
+          until $(curl --fail --output tile.png --silent http://localhost:8081/tiles/renderd-example/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          echo 'dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08  tile.png' | sha256sum --check
+        timeout-minutes: 1
+
+      - name: Show logs
+        if: failure()
+        run: docker compose logs
+        working-directory: docker
+
+      - name: Stop
+        if: success() || failure()
+        run: docker compose down --volumes
+        working-directory: docker
