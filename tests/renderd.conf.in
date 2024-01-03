@@ -4,6 +4,7 @@ font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
 plugins_dir=@MAPNIK_PLUGINS_DIR@
 
 [@DEFAULT_MAP_NAME@]
+HTCPHOST=@HTTPD0_HOST@
 TILEDIR=@PROJECT_BINARY_DIR@/tests/tiles
 URI=/tiles/@DEFAULT_MAP_NAME@
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
