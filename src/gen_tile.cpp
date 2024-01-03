@@ -39,7 +39,7 @@
 
 #include "gen_tile.h"
 #include "render_config.h"
-#include "daemon.h"
+#include "renderd.h"
 #include "store.h"
 #include "metatile.h"
 #include "protocol.h"

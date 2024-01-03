@@ -36,7 +36,7 @@
 
 #include "config.h"
 #include "render_config.h"
-#include "daemon.h"
+#include "renderd.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "protocol_helper.h"
@@ -58,7 +58,7 @@
 #ifndef MAIN_ALREADY_DEFINED
 static pthread_t *render_threads;
 static pthread_t *slave_threads;
-static struct sigaction sigPipeAction;
+static struct sigaction sigPipeAction, sigExitAction;
 static pthread_t stats_thread;
 #endif
 
@@ -103,6 +103,9 @@ static const char *cmdStr(enum protoCmd c)
 			return "unknown";
 	}
 }
+
+
+
 
 void send_response(struct item *item, enum protoCmd rsp, int render_time)
 {
@@ -1094,6 +1097,7 @@ int main(int argc, char **argv)
 	}
 
 	fd = server_socket_init(&config);
+
 #if 0
 
 	if (fcntl(fd, F_SETFD, O_RDWR | O_NONBLOCK) < 0) {
@@ -1112,20 +1116,13 @@ int main(int argc, char **argv)
 		exit(6);
 	}
 
-	sigaction(SIGHUP, &(struct sigaction) {
-		.sa_handler = (void *) request_exit,
-		.sa_flags = SA_RESTART
-	}, NULL);
+	sigExitAction.sa_handler = (void *) request_exit;
 
-	sigaction(SIGINT, &(struct sigaction) {
-		.sa_handler = (void *) request_exit,
-		.sa_flags = SA_RESTART
-	}, NULL);
+	sigaction(SIGHUP, &sigExitAction, NULL);
 
-	sigaction(SIGTERM, &(struct sigaction) {
-		.sa_handler = (void *) request_exit,
-		.sa_flags = SA_RESTART
-	}, NULL);
+	sigaction(SIGINT, &sigExitAction, NULL);
+
+	sigaction(SIGTERM, &sigExitAction, NULL);
 
 	render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 

@@ -37,7 +37,7 @@ man_MANS = \
 renderddir = $(sysconfdir)
 
 renderd_SOURCES = \
-	src/daemon.c \
+	src/renderd.c \
 	src/daemon_compat.c \
 	src/gen_tile.cpp \
 	src/sys_utils.c \
@@ -52,7 +52,7 @@ renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER
 renderd_DATA = etc/renderd/renderd.conf
 
 render_speedtest_SOURCES = \
-	src/speedtest.cpp \
+	src/render_speedtest.cpp \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
 	src/sys_utils.c \
@@ -91,7 +91,7 @@ gen_tile_test_SOURCES = \
 	src/metatile.cpp \
 	src/request_queue.c \
 	src/protocol_helper.c \
-	src/daemon.c \
+	src/renderd.c \
 	src/daemon_compat.c \
 	src/gen_tile.cpp \
 	src/sys_utils.c \
