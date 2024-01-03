@@ -104,9 +104,6 @@ static const char *cmdStr(enum protoCmd c)
 	}
 }
 
-
-
-
 void send_response(struct item *item, enum protoCmd rsp, int render_time)
 {
 	struct protocol *req = &item->req;
@@ -1107,7 +1104,6 @@ int main(int argc, char **argv)
 
 #endif
 
-	//sigPipeAction.sa_handler = pipe_handler;
 	sigPipeAction.sa_handler = SIG_IGN;
 
 	if (sigaction(SIGPIPE, &sigPipeAction, NULL) < 0) {
@@ -1115,6 +1111,21 @@ int main(int argc, char **argv)
 		close(fd);
 		exit(6);
 	}
+
+	sigaction(SIGHUP, &(struct sigaction) {
+		.sa_handler = (void *) request_exit,
+		.sa_flags = SA_RESTART
+	}, NULL);
+
+	sigaction(SIGINT, &(struct sigaction) {
+		.sa_handler = (void *) request_exit,
+		.sa_flags = SA_RESTART
+	}, NULL);
+
+	sigaction(SIGTERM, &(struct sigaction) {
+		.sa_handler = (void *) request_exit,
+		.sa_flags = SA_RESTART
+	}, NULL);
 
 	render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
 
