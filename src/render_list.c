@@ -357,7 +357,6 @@ int main(int argc, char **argv)
 
 			if (force || (s.size < 0) || (s.expired)) {
 				// missing or old, render it
-				//ret = process_loop(fd, mapname, x, y, z);
 				enqueue(mapname, x, y, z);
 				num_render++;
 

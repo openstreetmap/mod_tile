@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef DAEMON_H
-#define DAEMON_H
+#ifndef RENDERD_H
+#define RENDERD_H
 
 #ifdef __cplusplus
 extern "C" {

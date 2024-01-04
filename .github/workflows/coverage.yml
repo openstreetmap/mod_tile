@@ -34,9 +34,6 @@ jobs:
       - name: Test `mod_tile`
         uses: ./.github/actions/cmake/test
 
-      - name: Test `mod_tile` again (to gather more coverage data)
-        uses: ./.github/actions/cmake/test
-
       - name: Process `mod_tile` coverage results
         run: |
           ctest -T coverage

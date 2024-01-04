@@ -89,9 +89,13 @@
 #define REQUEST_TIMEOUT (3)
 #define FD_INVALID (-1)
 
-
+#ifndef MIN
 #define MIN(x,y) ((x)<(y)?(x):(y))
+#endif
+
+#ifndef MAX
 #define MAX(x,y) ((x)>(y)?(x):(y))
+#endif
 
 #define MAX_CONNECTIONS (2048)
 

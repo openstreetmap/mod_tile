@@ -186,7 +186,6 @@ jobs:
     strategy:
       matrix:
         box_generic:
-          - freebsd12
           - freebsd13
         build_system:
           - CMake

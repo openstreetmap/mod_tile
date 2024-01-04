@@ -143,8 +143,8 @@ target_link_libraries(render_old ${render_old_LIBS})
 set(render_speedtest_SRCS
   ${COMMON_SRCS}
   protocol_helper.c
+  render_speedtest.cpp
   render_submit_queue.c
-  speedtest.cpp
 )
 set(render_speedtest_LIBS
   ${COMMON_LIBRARIES}
@@ -163,11 +163,11 @@ set(renderd_SRCS
   ${STORE_SRCS}
   cache_expire.c
   daemon_compat.c
-  daemon.c
   gen_tile.cpp
   metatile.cpp
   parameterize_style.cpp
   protocol_helper.c
+  renderd.c
   request_queue.c
 )
 set(renderd_LIBS
