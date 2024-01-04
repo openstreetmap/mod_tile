@@ -76,8 +76,6 @@ int foreground = 1;
 
 static double minmax(double a, double b, double c)
 {
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)>(y)?(x):(y))
 	a = MAX(a, b);
 	a = MIN(a, c);
 	return a;
