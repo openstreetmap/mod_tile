@@ -53,7 +53,7 @@ const std::string metaTile::get(int x, int y)
 	return tile[x][y];
 }
 
-// Returns the offset within the meta-tile index table
+// Returns the offset within the metatile index table
 int metaTile::xyz_to_meta_offset(int x, int y, int z)
 {
 	unsigned char mask = METATILE - 1;

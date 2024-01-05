@@ -43,7 +43,7 @@ const char * tile_dir_default = RENDERD_TILE_DIR;
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the repsective zoom level; since we only
-// need them for meta tile levels, even if someone were to render level 20,
+// need them for metatile levels, even if someone were to render level 20,
 // we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
 // levels) - this saves us the hassle of working with a tree structure.
 
@@ -51,16 +51,6 @@ const char * tile_dir_default = RENDERD_TILE_DIR;
    (tile_requested[z][((x)*twopow[z]+(y))/(8*sizeof(int))]>>(((x)*twopow[z]+(y))%(8*sizeof(int))))&0x01
 #define SET_TILE_REQUESTED(z,x,y) \
    tile_requested[z][((x)*twopow[z]+(y))/(8*sizeof(int))] |= (0x01 << (((x)*twopow[z]+(y))%(8*sizeof(int))));
-
-
-#ifndef METATILE
-#warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "render_expired not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-#else
 
 // tile marking arrays
 unsigned int **tile_requested;
@@ -112,7 +102,7 @@ int main(int argc, char **argv)
 	char name[PATH_MAX];
 
 	// excess_zoomlevels is how many zoom levels at the large end
-	// we can ignore because their tiles will share one meta tile.
+	// we can ignore because their tiles will share one metatile.
 	// with the default METATILE==8 this is 3.
 	int excess_zoomlevels = 0;
 	int mt = METATILE;
@@ -399,7 +389,7 @@ int main(int argc, char **argv)
 				{
 				    gettimeofday(&end, NULL);
 				    printf("\n");
-				    printf("Meta tiles rendered: ");
+				    printf("Metatiles rendered: ");
 				    display_rate(start, end, num_render);
 				    printf("Total tiles rendered: ");
 				    display_rate(start, end, num_render * METATILE * METATILE);
@@ -443,16 +433,15 @@ int main(int argc, char **argv)
 
 	gettimeofday(&end, NULL);
 	printf("\nTotal for all tiles rendered\n");
-	printf("Meta tiles rendered: ");
+	printf("Metatiles rendered: ");
 	display_rate(start, end, num_render);
 	printf("Total tiles rendered: ");
 	display_rate(start, end, num_render * METATILE * METATILE);
 	printf("Total tiles in input: %d\n", num_read);
 	printf("Total tiles expanded from input: %d\n", num_all);
-	printf("Total meta tiles deleted: %d\n", num_unlink);
-	printf("Total meta tiles touched: %d\n", num_touch);
+	printf("Total metatiles deleted: %d\n", num_unlink);
+	printf("Total metatiles touched: %d\n", num_touch);
 	printf("Total tiles ignored (not on disk): %d\n", num_ignore);
 
 	return 0;
 }
-#endif

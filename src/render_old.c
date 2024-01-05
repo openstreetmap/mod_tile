@@ -46,15 +46,6 @@
 
 const char * tile_dir_default = RENDERD_TILE_DIR;
 
-#ifndef METATILE
-#warning("render_old not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "render_old not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-#else
-
 #define INILINE_MAX 256
 static int minZoom = 0;
 static int maxZoom = MAX_ZOOM;
@@ -400,7 +391,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&end, NULL);
 	printf("\nTotal for all tiles rendered\n");
-	printf("Meta tiles rendered: ");
+	printf("Metatiles rendered: ");
 	display_rate(start, end, num_render);
 	printf("Total tiles rendered: ");
 	display_rate(start, end, num_render * METATILE * METATILE);
@@ -409,4 +400,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-#endif

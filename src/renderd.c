@@ -166,17 +166,12 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 	item->duplicates = NULL;
 	item->fd = (req->cmd == cmdDirty) ? FD_INVALID : fd;
 
-#ifdef METATILE
 	/* Round down request co-ordinates to the neareast N (should be a power of 2)
 	 * Note: request path is no longer consistent but this will be recalculated
 	 * when the metatile is being rendered.
 	 */
 	item->mx = item->req.x & ~(METATILE - 1);
 	item->my = item->req.y & ~(METATILE - 1);
-#else
-	item->mx = item->req.x;
-	item->my = item->req.y;
-#endif
 
 	return request_queue_add_request(render_request_queue, item);
 }
