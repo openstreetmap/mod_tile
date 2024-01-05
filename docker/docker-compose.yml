@@ -150,3 +150,35 @@ services:
       args:
         libmapnik_version: "3.1"
         ubuntu_version: "devel"
+  ubuntu-devel-full:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: "devel"
+    depends_on:
+      - postgres
+    entrypoint: /entrypoint.sh
+    environment:
+      DOWNLOAD_PBF: http://download.geofabrik.de/africa/eritrea-latest.osm.pbf
+      PGDATABASE: gis
+      PGHOST: postgres
+      PGUSER: renderer
+    volumes:
+      - data:/data
+      - ./ubuntu/entrypoint.sh:/entrypoint.sh:ro
+  postgres:
+    env_file: .env
+    environment:
+      POSTGRES_DB: gis
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: renderer
+    image: postgis/postgis
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 1gb
+
+volumes:
+  data:
+  pgdata:
