@@ -64,11 +64,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 	strncat(name_replace, ") as name", 255);
 
 	for (i = 0; i < m.layer_count(); i++) {
-#if MAPNIK_VERSION >= 300000
 		mapnik::layer& l = m.get_layer(i);
-#else
-		mapnik::layer& l = m.getLayer(i);
-#endif
 		mapnik::parameters params = l.datasource()->params();
 
 		if (params.find("table") != params.end()) {
@@ -79,11 +75,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 				size_t pos = str.find(",name");
 				str.replace(pos, 5, name_replace);
 				params["table"] = str;
-#if MAPNIK_VERSION >= 200200
 				l.set_datasource(mapnik::datasource_cache::instance().create(params));
-#else
-				l.set_datasource(mapnik::datasource_cache::instance()->create(params));
-#endif
 			}
 		}
 

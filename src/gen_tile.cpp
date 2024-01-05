@@ -53,26 +53,14 @@
 #include <netdb.h>
 #endif
 
-#if MAPNIK_VERSION >= 300000
 #define image_data_32 image_rgba8
 #define image_32 image_rgba8
 #include <mapnik/image.hpp>
 #include <mapnik/image_view_any.hpp>
-#else
-#include <mapnik/graphics.hpp>
-#if MAPNIK_VERSION < 200000
-#include <mapnik/envelope.hpp>
-#define image_32 Image32
-#define image_data_32 ImageData32
-#define box2d Envelope
-#define zoom_to_box zoomToBox
-#else
 #if MAPNIK_VERSION >= 400000
 #include <mapnik/geometry/box2d.hpp>
 #else
 #include <mapnik/box2d.hpp>
-#endif
-#endif
 #endif
 
 
@@ -222,11 +210,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads)
 	char * tmp = (char *)malloc(20);
 
 	for (i = 0; i < m.layer_count(); i++) {
-#if MAPNIK_VERSION >= 300000
 		layer& l = m.get_layer(i);
-#else
-		layer& l = m.getLayer(i);
-#endif
 		parameters params = l.datasource()->params();
 
 		if (params.find("max_size") == params.end()) {
@@ -234,11 +218,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads)
 			params["max_size"] = std::string(tmp);
 		}
 
-#if MAPNIK_VERSION >= 200200
 		l.set_datasource(datasource_cache::instance().create(params));
-#else
-		l.set_datasource(datasource_cache::instance()->create(params));
-#endif
 	}
 
 	free(tmp);
@@ -324,12 +304,8 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 
 	for (yy = 0; yy < render_size_ty; yy++) {
 		for (xx = 0; xx < render_size_tx; xx++) {
-#if MAPNIK_VERSION >= 300000
 			mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
 			struct mapnik::image_view_any vw(vw1);
-#else
-			mapnik::image_view<mapnik::image_data_32> vw(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf.data());
-#endif
 			tiles.set(xx, yy, save_to_string(vw, map->output_format));
 		}
 	}
@@ -386,12 +362,7 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
 	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
-
-#if MAPNIK_VERSION >= 200200
 	mapnik::datasource_cache::instance().register_datasources(plugins_dir);
-#else
-	mapnik::datasource_cache::instance()->register_datasources(plugins_dir);
-#endif
 	load_fonts(font_dir, font_dir_recurse);
 }
 
