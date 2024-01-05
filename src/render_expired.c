@@ -34,7 +34,7 @@
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the respective zoom level; since we only
-// need them for meta tile levels, even if someone were to render level 20,
+// need them for metatile levels, even if someone were to render level 20,
 // we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
 // levels) - this saves us the hassle of working with a tree structure.
 
@@ -42,16 +42,6 @@
 	(tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] >> (((x) * twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
 #define SET_TILE_REQUESTED(z, x, y) \
 	tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01 << (((x) * twopow[z] + (y)) % (8 * sizeof(int))));
-
-#ifndef METATILE
-#warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "render_expired not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-
-#else
 
 // tile marking arrays
 unsigned int **tile_requested;
@@ -117,7 +107,7 @@ int main(int argc, char **argv)
 	struct storage_backend *store;
 
 	// excess_zoomlevels is how many zoom levels at the large end
-	// we can ignore because their tiles will share one meta tile.
+	// we can ignore because their tiles will share one metatile.
 	// with the default METATILE==8 this is 3.
 	int excess_zoomlevels = 0;
 	int mt = METATILE;
@@ -523,5 +513,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-#endif

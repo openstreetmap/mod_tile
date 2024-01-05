@@ -15,10 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-/* Meta-tile optimised file storage
+/* Metatile optimised file storage
  *
  * Instead of storing each individual tile as a file,
- * bundle the 8x8 meta tile into a special meta-file.
+ * bundle the 8x8 metatile into a special meta-file.
  * This reduces the Inode usage and more efficient
  * utilisation of disk space.
  */
