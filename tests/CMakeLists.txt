@@ -42,7 +42,7 @@ set(HTTPD0_PORT_BASE "59000")
 set(HTTPD1_HOST "localhost")
 set(HTTPD1_PORT_BASE "59100")
 set(MEMCACHED_HOST "localhost")
-set(MEMCACHED_PORT "51211")
+set(MEMCACHED_PORT_BASE "60000")
 set(RENDERD1_HOST "localhost")
 set(RENDERD1_PORT_BASE "59500")
 set(WWW_USER_NAME "nobody")
@@ -126,8 +126,9 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
   set(RENDERD2_SOCKET "${PROJECT_BINARY_DIR}/tests/run/renderd2_${STORAGE_BACKEND}.sock")
   set(RENDERD_CONF "${PROJECT_BINARY_DIR}/tests/conf/renderd_${STORAGE_BACKEND}.conf")
   if(STORAGE_BACKEND STREQUAL "memcached_default")
-    set(MEMCACHED_HOST "localhost")
     set(MEMCACHED_PORT "11211")
+  else()
+    math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${TILE_DIR_INDEX}")
   endif()
 
   configure_file(
@@ -330,8 +331,9 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
 
   foreach(MAP_NAME IN LISTS MAP_NAMES)
     string(REGEX REPLACE "[0-9]+" "" EXTENSION ${MAP_NAME})
-    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
+    set(TILE_PATH "/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
+    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_PATH}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_PATH}")
     add_test(
       NAME download_tile_${MAP_NAME}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -497,11 +499,12 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
     add_test(
       NAME download_tile_parameterization_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        until ${CURL_CMD} \"http://${HTTPD0_HOST}:${HTTPD0_PORT}/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png\"; do
+        TILE_PATH=\"/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png\"
+        until ${CURL_CMD} \"http://${HTTPD0_HOST}:${HTTPD0_PORT}\${TILE_PATH}\"; do
           echo 'Sleeping 1s (${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png.0)';
           sleep 1;
         done
-        until ${CURL_CMD} \"http://${HTTPD1_HOST}:${HTTPD1_PORT}/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png\"; do
+        until ${CURL_CMD} \"http://${HTTPD1_HOST}:${HTTPD1_PORT}\${TILE_PATH}\"; do
         echo 'Sleeping 1s (${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png.1)';
           sleep 1;
         done
