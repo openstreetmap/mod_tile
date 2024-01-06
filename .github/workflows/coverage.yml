@@ -26,7 +26,9 @@ jobs:
         with:
           ubuntu-test-dependencies: >-
             apache2
+            jq
             lcov
+            memcached
 
       - name: Build `mod_tile`
         uses: ./.github/actions/cmake/build
@@ -36,7 +38,6 @@ jobs:
 
       - name: Process `mod_tile` coverage results
         run: |
-          ctest -T coverage
           lcov \
             --capture \
             --directory . \

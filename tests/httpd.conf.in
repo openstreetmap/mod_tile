@@ -15,7 +15,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 </IfModule>
 
 <VirtualHost @HTTPD0_HOST@:@HTTPD0_PORT@>
-  LoadTileConfigFile @PROJECT_BINARY_DIR@/tests/conf/renderd.conf
+  LoadTileConfigFile @RENDERD_CONF@
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
   ModTileCacheDurationLowZoom 9 518400
@@ -31,15 +31,15 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileMaxLoadMissing 5
   ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 10
-  ModTileRenderdSocketName @PROJECT_BINARY_DIR@/tests/run/renderd0.sock
+  ModTileRenderdSocketName @RENDERD0_SOCKET@
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
-  ModTileTileDir @PROJECT_BINARY_DIR@/tests/tiles
+  ModTileTileDir @TILE_DIR@
 </VirtualHost>
 
 <VirtualHost @HTTPD1_HOST@:@HTTPD1_PORT@>
-  LoadTileConfigFile @PROJECT_BINARY_DIR@/tests/conf/renderd.conf
+  LoadTileConfigFile @RENDERD_CONF@
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
   ModTileCacheDurationLowZoom 9 518400
@@ -59,16 +59,16 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
-  ModTileTileDir @PROJECT_BINARY_DIR@/tests/tiles
+  ModTileTileDir @TILE_DIR@
 </VirtualHost>
 
-CustomLog logs/access_log "%h %l %u %t \"%r\" %>s %b"
-ErrorLog logs/error_log
+CustomLog @HTTPD_LOG_ACCESS@ "%h %l %u %t \"%r\" %>s %b"
+ErrorLog @HTTPD_LOG_ERROR@
 Group @WWW_GROUP_NAME@
 Listen @HTTPD0_PORT@
 Listen @HTTPD1_PORT@
 LogLevel debug
-PidFile run/httpd.pid
+PidFile @HTTPD_PID@
 ServerName localhost
 ServerRoot @PROJECT_BINARY_DIR@/tests
 User @WWW_USER_NAME@
