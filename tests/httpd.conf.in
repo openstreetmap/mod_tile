@@ -15,6 +15,10 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 </IfModule>
 
 <VirtualHost @HTTPD0_HOST@:@HTTPD0_PORT@>
+  AddTileConfig /add_tile_config_sock/ add_tile_config_sock extension=jpg maxzoom=15 mimetype=image/jpeg minzoom=10 tile_dir=@TILE_DIR@
+  AddTileConfig /download_add_tile_config/ @DEFAULT_MAP_NAME@ extension=png maxzoom=20 mimetype=image/png minzoom=0 tile_dir=@TILE_DIR@
+  AddTileMimeConfig /add_tile_mime_config_js_sock/ add_tile_mime_config_js_sock js
+  AddTileMimeConfig /add_tile_mime_config_png_sock/ add_tile_mime_config_png_sock png
   LoadTileConfigFile @RENDERD_CONF@
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
@@ -39,6 +43,10 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 </VirtualHost>
 
 <VirtualHost @HTTPD1_HOST@:@HTTPD1_PORT@>
+  AddTileConfig /add_tile_config_tcp/ add_tile_config_tcp extension=jpg maxzoom=15 mimetype=image/jpeg minzoom=10 tile_dir=@TILE_DIR@
+  AddTileConfig /download_add_tile_config/ @DEFAULT_MAP_NAME@ extension=png maxzoom=20 mimetype=image/png minzoom=0 tile_dir=@TILE_DIR@
+  AddTileMimeConfig /add_tile_mime_config_js_tcp/ add_tile_mime_config_js_tcp js
+  AddTileMimeConfig /add_tile_mime_config_png_tcp/ add_tile_mime_config_png_tcp png
   LoadTileConfigFile @RENDERD_CONF@
   ModTileBulkMode Off
   ModTileCacheDurationDirty 900
