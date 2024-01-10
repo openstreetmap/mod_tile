@@ -45,11 +45,15 @@ set(MEMCACHED_HOST "localhost")
 set(MEMCACHED_PORT_BASE "60000")
 set(RENDERD1_HOST "localhost")
 set(RENDERD1_PORT_BASE "59500")
-set(WWW_USER_NAME "nobody")
+
+set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
 
 set(MAP_NAMES "jpg" "png256" "png32" "webp")
 
-set(TILE_ZXY "9/297/191")
+set(TESTS_CONF_DIR "${PROJECT_BINARY_DIR}/tests/conf")
+set(TESTS_LOGS_DIR "${PROJECT_BINARY_DIR}/tests/logs")
+set(TESTS_RUN_DIR "${PROJECT_BINARY_DIR}/tests/run")
+set(TESTS_TILES_DIR "${PROJECT_BINARY_DIR}/tests/tiles")
 
 set(TILE_JPG_SHA256SUM "e09c3406c02f03583dadf0c8404c2d3efdc06a40d399e381ed2f47f49fde42d7")
 set(TILE_PNG256_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
@@ -59,7 +63,9 @@ set(TILE_WEBP_SHA256SUM_02 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a
 set(TILE_WEBP_SHA256SUM_03 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
 set(TILE_WEBP_SHA256SUM_04 "904593e291cce2561138bd83b704588c02c16630b8c133d78d535b8986e901af") # libwebp.so.7
 
-set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
+set(TILE_ZXY "9/297/191")
+
+set(WWW_USER_NAME "nobody")
 
 execute_process(COMMAND ${ID_EXECUTABLE} -gn ${WWW_USER_NAME}
   OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -71,19 +77,16 @@ execute_process(COMMAND ${ID_EXECUTABLE} -un
   OUTPUT_VARIABLE USER_NAME
 )
 
-# Storage backend name (for display only)
+# Storage backend name (for test display and configuration only)
 set(STORAGE_BACKENDS file)
-# Value of TILE_DIR in renderd.conf/httpd.conf
-set(TILE_DIRS "${PROJECT_BINARY_DIR}/tests/tiles")
 
 if(MEMCACHED_EXECUTABLE AND LIBMEMCACHED_FOUND)
-  # Add MemcacheD storage backend/TILE_DIR
-  list(APPEND TILE_DIRS "memcached://") # "memcached://${MEMCACHED_HOST}:${MEMCACHED_PORT}")
-  list(APPEND STORAGE_BACKENDS memcached_default) # memcached_custom)
+  # Add MemcacheD storage backend
+  list(APPEND STORAGE_BACKENDS memcached_custom memcached_default)
 endif()
 
-list(LENGTH TILE_DIRS TILE_DIRS_LENGTH)
-math(EXPR TILE_DIRS_LENGTH "${TILE_DIRS_LENGTH} - 1")
+list(LENGTH STORAGE_BACKENDS STORAGE_BACKENDS_LENGTH)
+math(EXPR STORAGE_BACKENDS_LENGTH "${STORAGE_BACKENDS_LENGTH} - 1")
 
 #-----------------------------------------------------------------------------
 #
@@ -97,73 +100,104 @@ add_test(
   WORKING_DIRECTORY src
 )
 
-foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
-  list(GET TILE_DIRS ${TILE_DIR_INDEX} TILE_DIR)
-  list(GET STORAGE_BACKENDS ${TILE_DIR_INDEX} STORAGE_BACKEND)
+foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
+  # Get STORAGE_BACKEND from lists
+  list(GET STORAGE_BACKENDS ${STORAGE_BACKEND_INDEX} STORAGE_BACKEND)
 
   # Increment Ports
-  math(EXPR HTTPD0_PORT "${HTTPD0_PORT_BASE} + ${TILE_DIR_INDEX}")
-  math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${TILE_DIR_INDEX}")
-  math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${TILE_DIR_INDEX}")
+  math(EXPR HTTPD0_PORT "${HTTPD0_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
+  math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
+  math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
+  if(STORAGE_BACKEND STREQUAL "memcached_custom")
+    math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
+  elseif(STORAGE_BACKEND STREQUAL "memcached_default")
+    set(MEMCACHED_PORT "11211")
+  endif()
 
+  # Set STORAGE_BACKEND-level directory names
+  set(TEST_CONF_DIR "${TESTS_CONF_DIR}/${STORAGE_BACKEND}")
+  set(TEST_LOGS_DIR "${TESTS_LOGS_DIR}/${STORAGE_BACKEND}")
+  set(TEST_RUN_DIR "${TESTS_RUN_DIR}/${STORAGE_BACKEND}")
+  set(TEST_TILES_DIR "${TESTS_TILES_DIR}/${STORAGE_BACKEND}")
+
+  # Set STORAGE_BACKEND-level URLs
   set(METRICS_OFF_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}/metrics")
   set(METRICS_ON_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}/metrics")
   set(MOD_TILE_OFF_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}/mod_tile")
   set(MOD_TILE_ON_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}/mod_tile")
   set(TILE_DEFAULT_TILEJSON_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}/tiles/${DEFAULT_MAP_NAME}/tile-layer.json")
 
-  set(HTTPD_CONF "${PROJECT_BINARY_DIR}/tests/conf/httpd_${STORAGE_BACKEND}.conf")
-  set(HTTPD_LOG_ACCESS "${PROJECT_BINARY_DIR}/tests/logs/httpd_access_${STORAGE_BACKEND}.log")
-  set(HTTPD_LOG_ERROR "${PROJECT_BINARY_DIR}/tests/logs/httpd_error_${STORAGE_BACKEND}.log")
-  set(HTTPD_PID "${PROJECT_BINARY_DIR}/tests/run/httpd_${STORAGE_BACKEND}.pid")
-  set(RENDERD0_LOG "${PROJECT_BINARY_DIR}/tests/logs/renderd0_${STORAGE_BACKEND}.log")
-  set(RENDERD0_PID "${PROJECT_BINARY_DIR}/tests/run/renderd0_${STORAGE_BACKEND}.pid")
-  set(RENDERD0_SOCKET "${PROJECT_BINARY_DIR}/tests/run/renderd0_${STORAGE_BACKEND}.sock")
-  set(RENDERD1_LOG "${PROJECT_BINARY_DIR}/tests/logs/renderd1_${STORAGE_BACKEND}.log")
-  set(RENDERD1_PID "${PROJECT_BINARY_DIR}/tests/run/renderd1_${STORAGE_BACKEND}.pid")
-  set(RENDERD2_LOG "${PROJECT_BINARY_DIR}/tests/logs/renderd2_${STORAGE_BACKEND}.log")
-  set(RENDERD2_PID "${PROJECT_BINARY_DIR}/tests/run/renderd2_${STORAGE_BACKEND}.pid")
-  set(RENDERD2_SOCKET "${PROJECT_BINARY_DIR}/tests/run/renderd2_${STORAGE_BACKEND}.sock")
-  set(RENDERD_CONF "${PROJECT_BINARY_DIR}/tests/conf/renderd_${STORAGE_BACKEND}.conf")
-  if(STORAGE_BACKEND STREQUAL "memcached_default")
-    set(MEMCACHED_PORT "11211")
-  else()
-    math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${TILE_DIR_INDEX}")
+  # Set STORAGE_BACKEND-level config file/log/pid/socket file names
+  set(HTTPD_CONF "${TEST_CONF_DIR}/httpd.conf")
+  set(HTTPD_LOG "${TEST_LOGS_DIR}/httpd.log")
+  set(HTTPD_LOG_ACCESS "${TEST_LOGS_DIR}/httpd_access.log")
+  set(HTTPD_LOG_ERROR "${TEST_LOGS_DIR}/httpd_error.log")
+  set(HTTPD_PID "${TEST_RUN_DIR}/httpd.pid")
+  set(MEMCACHED_LOG "${TEST_LOGS_DIR}/memcached.log")
+  set(MEMCACHED_PID "${TEST_RUN_DIR}/memcached.pid")
+  set(RENDERD0_LOG "${TEST_LOGS_DIR}/renderd0.log")
+  set(RENDERD0_PID "${TEST_RUN_DIR}/renderd0.pid")
+  set(RENDERD0_SOCKET "${TEST_RUN_DIR}/renderd0.sock")
+  set(RENDERD1_LOG "${TEST_LOGS_DIR}/renderd1.log")
+  set(RENDERD1_PID "${TEST_RUN_DIR}/renderd1.pid")
+  set(RENDERD2_LOG "${TEST_LOGS_DIR}/renderd2.log")
+  set(RENDERD2_PID "${TEST_RUN_DIR}/renderd2.pid")
+  set(RENDERD2_SOCKET "${TEST_RUN_DIR}/renderd2.sock")
+  set(RENDERD_CONF "${TEST_CONF_DIR}/renderd.conf")
+
+  # Set TILE_DIR value
+  if(STORAGE_BACKEND STREQUAL "file")
+    # Use TEST_TILES_DIR for file backend
+    set(TILE_DIR "${TEST_TILES_DIR}")
+  elseif(STORAGE_BACKEND STREQUAL "memcached_custom")
+    # MemcacheD backend "custom" host:port
+    set(TILE_DIR "memcached://${MEMCACHED_HOST}:${MEMCACHED_PORT}")
+  elseif(STORAGE_BACKEND STREQUAL "memcached_default")
+    # MemcacheD backend "default"
+    set(TILE_DIR "memcached://")
   endif()
 
+  # Generate renderd.conf file
   configure_file(
     renderd.conf.in
     ${RENDERD_CONF}
   )
 
+  # Generate httpd.conf filelogs
   configure_file(
     httpd.conf.in
     ${HTTPD_CONF}
   )
 
+  # Set list of service start commands
   set(SERVICES_START_CMDS
     "$<TARGET_FILE:renderd> --config ${RENDERD_CONF} --foreground --slave 0 > ${RENDERD0_LOG} 2>&1 &"
     "printf \${!} > ${RENDERD0_PID}"
     "$<TARGET_FILE:renderd> --config ${RENDERD_CONF} --foreground --slave 1 > ${RENDERD1_LOG} 2>&1 &"
     "printf \${!} > ${RENDERD1_PID}"
     "$<TARGET_FILE:renderd> --config ${RENDERD_CONF} --slave 2"
-    "${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -k start"
+    "${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -k start > ${HTTPD_LOG} 2>&1"
   )
 
-  if(STORAGE_BACKEND STREQUAL "memcached_custom" OR STORAGE_BACKEND STREQUAL "memcached_default")
+  # Conditionally append memcached start commands to SERVICES_START_CMDS based on STORAGE_BACKEND value
+  if(STORAGE_BACKEND MATCHES "memcached_.+")
     list(APPEND SERVICES_START_CMDS
-      "${MEMCACHED_EXECUTABLE} -l ${MEMCACHED_HOST} -p ${MEMCACHED_PORT} -u ${USER_NAME} -vvv \
-        > logs/memcached.log 2>&1 &"
-      "printf \${!} > run/memcached.pid"
+      "${MEMCACHED_EXECUTABLE} -l ${MEMCACHED_HOST} -p ${MEMCACHED_PORT} -u ${USER_NAME} -vvv > ${MEMCACHED_LOG} 2>&1 &"
+      "printf \${!} > ${MEMCACHED_PID}"
     )
   endif()
 
+  # Join MAP_NAMES with spaces into MAP_NAMES_STR (to support bash for loop)
   string(REPLACE ";" " " MAP_NAMES_STR "${MAP_NAMES}")
+  # Join SERVICES_START_CMDS with newlines into SERVICES_START_CMDS_STR
   string(REPLACE ";" "\n" SERVICES_START_CMDS_STR "${SERVICES_START_CMDS}")
 
   add_test(
     NAME create_dirs_${STORAGE_BACKEND}
-    COMMAND ${MKDIR_EXECUTABLE} -p -v logs run tiles
+    COMMAND ${MKDIR_EXECUTABLE} -p -v
+      ${TEST_LOGS_DIR}
+      ${TEST_RUN_DIR}
+      ${TEST_TILES_DIR}
     WORKING_DIRECTORY tests
   )
   set_tests_properties(create_dirs_${STORAGE_BACKEND} PROPERTIES
@@ -180,9 +214,11 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
   )
 
   foreach(SOCKET_TYPE sock tcp)
+    # Use socket file as --socket value for communicating with renderd process
     if(SOCKET_TYPE STREQUAL "sock")
       set(SOCKET ${RENDERD0_SOCKET})
     endif()
+    # Use TCP host:port as --socket value for communicating with renderd process
     if(SOCKET_TYPE STREQUAL "tcp")
       set(SOCKET ${RENDERD1_HOST}:${RENDERD1_PORT})
     endif()
@@ -208,27 +244,6 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
       TIMEOUT 60
     )
     add_test(
-      NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        echo '0/0/0' | $<TARGET_FILE:render_expired> \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --no-progress \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --touch-from 0 \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
-    )
-    add_test(
       NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0/0/0' | $<TARGET_FILE:render_expired> \
@@ -245,6 +260,27 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
       WORKING_DIRECTORY tests
     )
     set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS "render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND};render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}"
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
+    add_test(
+      NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        echo '0/0/0' | $<TARGET_FILE:render_expired> \
+          --map ${DEFAULT_MAP_NAME} \
+          --max-zoom 5 \
+          --min-zoom 0 \
+          --no-progress \
+          --num-threads 1 \
+          --socket ${SOCKET} \
+          --tile-dir ${TILE_DIR} \
+          --touch-from 0 \
+          --verbose
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 60
@@ -293,7 +329,7 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
     add_test(
       NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        ${TOUCH_EXECUTABLE} -d '+1 month' ${PROJECT_BINARY_DIR}/tests/tiles/planet-import-complete
+        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
         $<TARGET_FILE:render_old> \
           --config ${RENDERD_CONF} \
           --map ${DEFAULT_MAP_NAME} \
@@ -327,22 +363,82 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 60
     )
+    add_test(
+      NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        CONFIG_NAME=\"add_tile_config_${SOCKET_TYPE}\"
+        SEARCH_LINE=\$(grep -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+        SEARCH_STRS=(
+          \" at /\${CONFIG_NAME}/ \"
+          \" extension .jpg \"
+          \" mime type image/jpeg$\"
+          # \" tile directory ${TILE_DIR} \"
+          \" tile directory ${RENDERD_TILE_DIR} \"
+          \" zooms 10 - 15 \"
+        )
+        echo \"Searching log line '\${SEARCH_LINE}'\"
+        for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
+          echo \"\tFor '\${SEARCH_STR}'\"
+          echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+        done
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
+    add_test(
+      NAME add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        for SEARCH_CONFIG in js png; do
+          CONFIG_NAME=\"add_tile_mime_config_\${SEARCH_CONFIG}_${SOCKET_TYPE}\"
+          MIME_TYPE=image/png
+          if [ \"\${SEARCH_CONFIG}\" = \"js\" ]; then
+            MIME_TYPE=text/javascript
+          fi
+          SEARCH_LINE=\$(grep -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+          SEARCH_STRS=(
+            \" at /\${CONFIG_NAME}/ \"
+            \" extension .\${SEARCH_CONFIG} \"
+            \" mime type \${MIME_TYPE}$\"
+            \" tile directory ${RENDERD_TILE_DIR} \"
+            \" zooms 0 - 20 \"
+          )
+          # echo \"Searching log line '\${SEARCH_LINE}'\"
+          # for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
+          #   echo \"\tFor '\${SEARCH_STR}'\"
+          #   echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+          # done
+          # SEARCH_LINE=\$(grep \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | grep -m1 \"\${CONFIG_NAME}\")
+          # echo \"Searching log line '\${SEARCH_LINE}'\"
+          # SEARCH_STR=\"AddTileConfig /\${CONFIG_NAME}/ \${CONFIG_NAME} mimetype=\${MIME_TYPE} extension=\${SEARCH_CONFIG}\"
+          # echo \"\tFor '\${SEARCH_STR}'\"
+          # echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+        done
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
   endforeach()
 
   foreach(MAP_NAME IN LISTS MAP_NAMES)
+    # Set EXTENSION from MAP_NAME (only works for map names containing an actual extension)
     string(REGEX REPLACE "[0-9]+" "" EXTENSION ${MAP_NAME})
-    set(TILE_PATH "/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
-    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_PATH}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_PATH}")
+    set(TILE_URL_PATH "/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
+    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    set(TILE_FILE_NAME "tile.${MAP_NAME}.${STORAGE_BACKEND}")
     add_test(
       NAME download_tile_${MAP_NAME}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        until $(${CURL_CMD} ${HTTPD0_URL} --output tile.${MAP_NAME}.0); do
-          echo 'Sleeping 1s (${MAP_NAME}.0)';
+        until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
+          echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
           sleep 1;
         done
-        until $(${CURL_CMD} ${HTTPD1_URL} --output tile.${MAP_NAME}.1); do
-          echo 'Sleeping 1s (${MAP_NAME}.1)';
+        until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
+          echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
           sleep 1;
         done
       "
@@ -394,36 +490,74 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
     )
     add_test(
       NAME remove_tile_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${RM} -v tile.${MAP_NAME}.0 tile.${MAP_NAME}.1
+      COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
       WORKING_DIRECTORY tests
     )
     set_tests_properties(remove_tile_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS_ON download_tile_${MAP_NAME}_${STORAGE_BACKEND}
       FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
-      REQUIRED_FILES "tile.${MAP_NAME}.0;tile.${MAP_NAME}.1"
+      REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
     )
   endforeach()
+
+  # set(TILE_URL_PATH "/download_add_tile_config/${TILE_ZXY}.png")
+  # set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+  # set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+  # set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
+  # add_test(
+  #   NAME download_tile_add_tile_config_${STORAGE_BACKEND}
+  #   COMMAND ${BASH} -c "
+  #     until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
+  #       echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
+  #       sleep 1;
+  #     done
+  #     until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
+  #       echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
+  #       sleep 1;
+  #     done
+  #   "
+  #   WORKING_DIRECTORY tests
+  # )
+  # set_tests_properties(download_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
+  #   FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+  #   FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
+  #   TIMEOUT 10
+  # )
+  # add_test(
+  #   NAME remove_tile_add_tile_config_${STORAGE_BACKEND}
+  #   COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
+  #   WORKING_DIRECTORY tests
+  # )
+  # set_tests_properties(remove_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
+  #   DEPENDS_ON download_tile_add_tile_config_${STORAGE_BACKEND}
+  #   FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
+  #   REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
+  # )
 
   add_test(
     NAME check_tiles_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
-      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      # (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      # (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.parameterization.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.parameterization.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       ( \
-        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) \
+        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) \
       ) && \
       ( \
-        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) \
+        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
+        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) \
       )
     "
     WORKING_DIRECTORY tests
@@ -471,7 +605,7 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
   add_test(
     NAME stop_services_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
-      for SERVICE_PID_FILE in run/*.pid; do
+      for SERVICE_PID_FILE in ${TEST_RUN_DIR}/*.pid; do
         ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} \${SERVICE_PID_FILE});
         ${RM} \${SERVICE_PID_FILE};
         sleep 1;
@@ -485,27 +619,33 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
   add_test(
     NAME clear_dirs_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
-      ${RM} -f -r -v logs/* run/* tiles/*
+      ${RM} -f -r -v \
+        ${TEST_LOGS_DIR}/* \
+        ${TEST_RUN_DIR}/* \
+        ${TEST_TILES_DIR}/*
     "
     WORKING_DIRECTORY tests
   )
   set_tests_properties(clear_dirs_${STORAGE_BACKEND} PROPERTIES
     DEPENDS stop_services_${STORAGE_BACKEND}
     FIXTURES_CLEANUP services_started_${STORAGE_BACKEND}
-    REQUIRED_FILES "logs;run;tiles"
+    REQUIRED_FILES "${TEST_LOGS_DIR};${TEST_RUN_DIR};${TEST_TILES_DIR}"
   )
 
   if(STORAGE_BACKEND STREQUAL "file")
+    set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png")
+    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    set(TILE_FILE_NAME "tile.parameterization.${STORAGE_BACKEND}")
     add_test(
       NAME download_tile_parameterization_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        TILE_PATH=\"/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png\"
-        until ${CURL_CMD} \"http://${HTTPD0_HOST}:${HTTPD0_PORT}\${TILE_PATH}\"; do
-          echo 'Sleeping 1s (${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png.0)';
+        until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
+          echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
           sleep 1;
         done
-        until ${CURL_CMD} \"http://${HTTPD1_HOST}:${HTTPD1_PORT}\${TILE_PATH}\"; do
-        echo 'Sleeping 1s (${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png.1)';
+        until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
+          echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
           sleep 1;
         done
       "
@@ -513,7 +653,18 @@ foreach(TILE_DIR_INDEX RANGE ${TILE_DIRS_LENGTH})
     )
     set_tests_properties(download_tile_parameterization_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
       TIMEOUT 10
+    )
+    add_test(
+      NAME remove_tile_parameterization_${STORAGE_BACKEND}
+      COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(remove_tile_parameterization_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS_ON download_tile_parameterization_${STORAGE_BACKEND}
+      FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
+      REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
     )
   endif()
 
