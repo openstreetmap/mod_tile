@@ -674,6 +674,18 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       COMMAND ${BASH} -c "
         TILE_DEFAULT_TILEJSON_CMD=\"${CURL_CMD} ${TILE_DEFAULT_TILEJSON_URL}\"
         TILE_DEFAULT_TILEJSON_OUTPUT=$(\${TILE_DEFAULT_TILEJSON_CMD})
+        TILE_DEFAULT_TILEJSON_ATTRIBUTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
+        if [ \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\" != \"Attribution for ${DEFAULT_MAP_NAME}\" ]; then
+          exit 1;
+        fi
+        TILE_DEFAULT_TILEJSON_DESCRIPTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
+        if [ \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION}\" != \"Description for ${DEFAULT_MAP_NAME}\" ]; then
+          exit 1;
+        fi
+        TILE_DEFAULT_TILEJSON_NAME=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .name)
+        if [ \"\${TILE_DEFAULT_TILEJSON_NAME}\" != \"${DEFAULT_MAP_NAME}\" ]; then
+          exit 1;
+        fi
         TILE_DEFAULT_TILEJSON_VERSION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tilejson)
         if [ \"\${TILE_DEFAULT_TILEJSON_VERSION}\" != \"2.0.0\" ]; then
           exit 1;
