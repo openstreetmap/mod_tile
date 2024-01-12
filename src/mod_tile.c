@@ -2092,60 +2092,63 @@ static const char *_add_tile_config(cmd_parms *cmd, void *mconfig,
 
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char * fileExtension)
 {
-	// this configuration option should be deprecated and be replaced by
-	// a version of AddTileConfig with "extension=xxx"
-	// how to log a warning here?
-	if (strcmp(fileExtension, "png") == 0) {
-		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png", NULL, NULL, 0, NULL, NULL, NULL, 0);
-	}
+	char *cors = NULL;
+	char *mimeType = "image/png";
 
 	if (strcmp(fileExtension, "js") == 0) {
-		return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "text/javascript", NULL, NULL, 0, NULL, "*", NULL, 0);
+		cors = "*";
+		mimeType = "text/javascript";
 	}
 
-	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, "image/png", NULL, NULL, 0, NULL, NULL, NULL, 0);
+	ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->server,
+		     "AddTileMimeConfig will be deprecated in a future release, please use the following instead: AddTileConfig %s %s mimetype=%s extension=%s",
+		     baseuri, name, mimeType, fileExtension);
+	return _add_tile_config(cmd, mconfig, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, mimeType, NULL, NULL, 0, NULL, cors, NULL, 0);
 }
 
-static const char *add_tile_config(cmd_parms *cmd, void *mconfig, const char *args)
+static const char *add_tile_config(cmd_parms *cmd, void *mconfig, int argc, char *const argv[])
 {
-	const char *baseuri = ap_getword_conf(cmd->pool, &args);
-	if (!baseuri) return("AddTileConfig error");
-	const char *name = ap_getword_conf(cmd->pool, &args);
-	if (!name) return("AddTileConfig error");
+	if (argc < 1) {
+		return ("AddTileConfig error, URL path not defined");
+	}
+
+	if (argc < 2) {
+		return ("AddTileConfig error, name of renderd config not defined");
+	}
+
 	int maxzoom = MAX_ZOOM;
 	int minzoom = 0;
-	const char *extension = "png";
-	const char *mimeType = "image/png";
-	char *token = ap_getword_conf(cmd->pool, &args);
-	while(token)
-	{
-		char *eq = strchr(token, '=');
-		if (eq)
-		{
-			*eq++=0;
-			if (!strcmp(token, "maxzoom"))
-			{
-				maxzoom = atoi(eq);
-			}
-			else if (!strcmp(token, "minzoom"))
-			{
-				minzoom = atoi(eq);
-			}
-			else if (!strcmp(token, "extension"))
-			{
-				extension = eq;
-			}
-			else if (!strcmp(token, "mimetype"))
-			{
-				mimeType = eq;
+	char *baseuri = argv[0];
+	char *name = argv[1];
+	char *fileExtension = "png";
+	char *mimeType = "image/png";
+	char *tile_dir = RENDERD_TILE_DIR;
+
+	int i;
+
+	for (i = 2; i < argc; i++) {
+		char *value = strchr(argv[i], '=');
+
+		if (value) {
+			*value++ = 0;
+
+			if (!strcmp(argv[i], "maxzoom")) {
+				maxzoom = strtol(value, NULL, 10);
+			} else if (!strcmp(argv[i], "minzoom")) {
+				minzoom = strtol(value, NULL, 10);
+			} else if (!strcmp(argv[i], "extension")) {
+				fileExtension = value;
+			} else if (!strcmp(argv[i], "mimetype")) {
+				mimeType = value;
+			} else if (!strcmp(argv[i], "tile_dir")) {
+				tile_dir = value;
 			}
 		}
-		if (!*args) break;
-		token = ap_getword_conf(cmd->pool, &args);
 	}
 
-	return _add_tile_config(cmd, mconfig, baseuri, name, minzoom, maxzoom, 1, 1, extension, mimeType, NULL,NULL,0,NULL,NULL,NULL,0);
+	return _add_tile_config(cmd, mconfig, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, NULL, NULL, 0, NULL, NULL, tile_dir, 0);
 }
+
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *conffile)
 {
 	FILE * hini ;
@@ -2889,19 +2892,19 @@ static const command_rec tile_cmds[] = {
 		OR_OPTIONS,                      /* where available */
 		"load an entire renderd config file"  /* directive description */
 	),
-	AP_INIT_RAW_ARGS(
+	AP_INIT_TAKE_ARGV(
 		"AddTileConfig",                 /* directive name */
 		add_tile_config,                 /* config action routine */
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
-		"path, name, and optional key-value pairs for renderd config to use" /* directive description */
+		"path, name of renderd config and optional key-value pairs to use" /* directive description */
 	),
 	AP_INIT_TAKE3(
 		"AddTileMimeConfig",         /* directive name */
 		add_tile_mime_config,        /* config action routine */
 		NULL,                        /* argument to include in call */
 		OR_OPTIONS,                  /* where available */
-		"path, name and file extension of renderd config to use"  /* directive description */
+		"path, name of renderd config and file extension to use"  /* directive description */
 	),
 	AP_INIT_TAKE1(
 		"ModTileRequestTimeout",         /* directive name */

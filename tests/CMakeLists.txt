@@ -372,8 +372,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           \" at /\${CONFIG_NAME}/ \"
           \" extension .jpg \"
           \" mime type image/jpeg$\"
-          # \" tile directory ${TILE_DIR} \"
-          \" tile directory ${RENDERD_TILE_DIR} \"
+          \" tile directory ${TILE_DIR} \"
           \" zooms 10 - 15 \"
         )
         echo \"Searching log line '\${SEARCH_LINE}'\"
@@ -404,17 +403,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
             \" tile directory ${RENDERD_TILE_DIR} \"
             \" zooms 0 - 20 \"
           )
-          # echo \"Searching log line '\${SEARCH_LINE}'\"
-          # for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
-          #   echo \"\tFor '\${SEARCH_STR}'\"
-          #   echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
-          # done
-          # SEARCH_LINE=\$(${GREP_EXECUTABLE} \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | \
-          #   ${GREP_EXECUTABLE} -m1 \"\${CONFIG_NAME}\")
-          # echo \"Searching log line '\${SEARCH_LINE}'\"
-          # SEARCH_STR=\"AddTileConfig /\${CONFIG_NAME}/ \${CONFIG_NAME} mimetype=\${MIME_TYPE} extension=\${SEARCH_CONFIG}\"
-          # echo \"\tFor '\${SEARCH_STR}'\"
-          # echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
+          echo \"Searching log line '\${SEARCH_LINE}'\"
+          for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
+            echo \"\tFor '\${SEARCH_STR}'\"
+            echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
+          done
+          SEARCH_LINE=\$(${GREP_EXECUTABLE} \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | \
+            ${GREP_EXECUTABLE} -m1 \"\${CONFIG_NAME}\")
+          echo \"Searching log line '\${SEARCH_LINE}'\"
+          SEARCH_STR=\"AddTileConfig /\${CONFIG_NAME}/ \${CONFIG_NAME} mimetype=\${MIME_TYPE} extension=\${SEARCH_CONFIG}\"
+          echo \"\tFor '\${SEARCH_STR}'\"
+          echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
         done
       "
       WORKING_DIRECTORY tests
@@ -536,47 +535,47 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
   endforeach()
 
-  # set(TILE_URL_PATH "/download_add_tile_config/${TILE_ZXY}.png")
-  # set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-  # set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-  # set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
-  # add_test(
-  #   NAME download_tile_add_tile_config_${STORAGE_BACKEND}
-  #   COMMAND ${BASH} -c "
-  #     until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
-  #       echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
-  #       sleep 1;
-  #     done
-  #     until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
-  #       echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
-  #       sleep 1;
-  #     done
-  #   "
-  #   WORKING_DIRECTORY tests
-  # )
-  # set_tests_properties(download_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
-  #   FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-  #   FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
-  #   TIMEOUT 10
-  # )
-  # add_test(
-  #   NAME remove_tile_add_tile_config_${STORAGE_BACKEND}
-  #   COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
-  #   WORKING_DIRECTORY tests
-  # )
-  # set_tests_properties(remove_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
-  #   DEPENDS_ON download_tile_add_tile_config_${STORAGE_BACKEND}
-  #   FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
-  #   REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
-  # )
+  set(TILE_URL_PATH "/download_add_tile_config/${TILE_ZXY}.png")
+  set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+  set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+  set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
+  add_test(
+    NAME download_tile_add_tile_config_${STORAGE_BACKEND}
+    COMMAND ${BASH} -c "
+      until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
+        echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
+        sleep 1;
+      done
+      until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
+        echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
+        sleep 1;
+      done
+    "
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(download_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
+    FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
+    TIMEOUT 10
+  )
+  add_test(
+    NAME remove_tile_add_tile_config_${STORAGE_BACKEND}
+    COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(remove_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
+    DEPENDS_ON download_tile_add_tile_config_${STORAGE_BACKEND}
+    FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
+    REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
+  )
 
   add_test(
     NAME check_tiles_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
-      # (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      # (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+      (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
@@ -746,14 +745,14 @@ endforeach()
 
 # Test mal-formed HTTPD configuration directives
 set(DIRECTIVES
-  # "AddTileConfig"
-  # "AddTileConfig /bad/"
+  "AddTileConfig"
+  "AddTileConfig /bad/"
   "LoadTileConfigFile"
   "LoadTileConfigFile /tmp/bad/file/name"
 )
 set(DIRECTIVE_ERRORS
-  # "AddTileConfig error, URL path not defined"
-  # "AddTileConfig error, name of renderd config not defined"
+  "AddTileConfig error, URL path not defined"
+  "AddTileConfig error, name of renderd config not defined"
   "LoadTileConfigFile takes one argument, load an entire renderd config file"
   "Unable to open config file"
 )
