@@ -11,12 +11,22 @@ on:
 
 jobs:
   Coverage:
-    name: Build, Test & Report Coverage
+    name: >-
+      Build, Test & Report Coverage
+      ${{ matrix.mapnik_latest && '(Latest Mapnik)' || '' }}
     runs-on: ubuntu-latest
     env:
       BUILD_TYPE: Debug
       CFLAGS: --coverage
       CXXFLAGS: --coverage
+    strategy:
+      matrix:
+        compiler:
+          - GNU
+        mapnik_latest:
+          - false
+          - true
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,11 +34,23 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
         with:
-          ubuntu-test-dependencies: >-
-            apache2
-            jq
-            lcov
-            memcached
+          ubuntu-mapnik-latest-build-dependencies: >-
+            cmake
+            git
+            libboost-filesystem-dev
+            libboost-program-options-dev
+            libboost-regex-dev
+            libfreetype6-dev
+            libgdal-dev
+            libharfbuzz-dev
+            libicu-dev
+            libjpeg-dev
+            libpq-dev
+            libproj-dev
+            libsqlite3-dev
+            libtiff-dev
+            libwebp-dev
+            libxml2-dev
 
       - name: Build `mod_tile`
         uses: ./.github/actions/cmake/build
@@ -36,31 +58,20 @@ jobs:
       - name: Test `mod_tile`
         uses: ./.github/actions/cmake/test
 
-      - name: Process `mod_tile` coverage results
-        run: |
-          lcov \
-            --capture \
-            --directory . \
-            --output-file coverage.info
-          lcov \
-            --output-file coverage.info \
-            --remove coverage.info \
-            "${GITHUB_WORKSPACE}/includes/catch/catch.hpp" \
-            "${GITHUB_WORKSPACE}/src/gen_tile_test.cpp" \
-            "/usr/*"
-          genhtml coverage.info --output-directory coverage
-        working-directory: build
+      - name: Process & Report `mod_tile` coverage results
+        uses: ./.github/actions/coverage
 
       - name: Write coverage summary to `$GITHUB_STEP_SUMMARY`
         run: lcov --summary build/coverage.info | sed 's/^  /* /g' >> ${GITHUB_STEP_SUMMARY}
+
+      - name: Generate `mod_tile` coverage results artifact
+        run: |
+          mkdir -p coverage
+          genhtml coverage.info --output-directory coverage/${{ matrix.mapnik_latest && 'mapnik_latest' || 'mapnik' }}
+        working-directory: build
 
       - name: Upload `mod_tile` coverage results artifact
         uses: actions/upload-artifact@v3
         with:
           name: Coverage Results
           path: build/coverage
-
-      - name: Report `mod_tile` coverage results to `codecov.io`
-        uses: codecov/codecov-action@v3
-        with:
-          files: build/coverage.info
