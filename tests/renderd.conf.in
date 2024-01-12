@@ -1,3 +1,5 @@
+# Test comment 1
+; Test comment 2
 [mapnik]
 font_dir=@MAPNIK_FONTS_DIR@
 font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@

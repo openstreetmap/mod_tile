@@ -48,7 +48,7 @@ set(RENDERD1_PORT_BASE "59500")
 
 set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
 
-set(MAP_NAMES "jpg" "png256" "png32" "webp")
+set(MAP_NAMES jpg png256 png32 webp)
 
 set(TESTS_CONF_DIR "${PROJECT_BINARY_DIR}/tests/conf")
 set(TESTS_LOGS_DIR "${PROJECT_BINARY_DIR}/tests/logs")
@@ -101,16 +101,16 @@ add_test(
 )
 
 foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
-  # Get STORAGE_BACKEND from lists
+  # Get STORAGE_BACKEND from STORAGE_BACKENDS list
   list(GET STORAGE_BACKENDS ${STORAGE_BACKEND_INDEX} STORAGE_BACKEND)
 
   # Increment Ports
   math(EXPR HTTPD0_PORT "${HTTPD0_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  if(STORAGE_BACKEND STREQUAL "memcached_custom")
+  if(STORAGE_BACKEND STREQUAL memcached_custom)
     math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  elseif(STORAGE_BACKEND STREQUAL "memcached_default")
+  elseif(STORAGE_BACKEND STREQUAL memcached_default)
     set(MEMCACHED_PORT "11211")
   endif()
 
@@ -146,13 +146,13 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   set(RENDERD_CONF "${TEST_CONF_DIR}/renderd.conf")
 
   # Set TILE_DIR value
-  if(STORAGE_BACKEND STREQUAL "file")
+  if(STORAGE_BACKEND STREQUAL file)
     # Use TEST_TILES_DIR for file backend
     set(TILE_DIR "${TEST_TILES_DIR}")
-  elseif(STORAGE_BACKEND STREQUAL "memcached_custom")
+  elseif(STORAGE_BACKEND STREQUAL memcached_custom)
     # MemcacheD backend "custom" host:port
     set(TILE_DIR "memcached://${MEMCACHED_HOST}:${MEMCACHED_PORT}")
-  elseif(STORAGE_BACKEND STREQUAL "memcached_default")
+  elseif(STORAGE_BACKEND STREQUAL memcached_default)
     # MemcacheD backend "default"
     set(TILE_DIR "memcached://")
   endif()
@@ -215,11 +215,11 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
 
   foreach(SOCKET_TYPE sock tcp)
     # Use socket file as --socket value for communicating with renderd process
-    if(SOCKET_TYPE STREQUAL "sock")
+    if(SOCKET_TYPE STREQUAL sock)
       set(SOCKET ${RENDERD0_SOCKET})
     endif()
     # Use TCP host:port as --socket value for communicating with renderd process
-    if(SOCKET_TYPE STREQUAL "tcp")
+    if(SOCKET_TYPE STREQUAL tcp)
       set(SOCKET ${RENDERD1_HOST}:${RENDERD1_PORT})
     endif()
 
@@ -367,7 +367,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         CONFIG_NAME=\"add_tile_config_${SOCKET_TYPE}\"
-        SEARCH_LINE=\$(grep -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+        SEARCH_LINE=\$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
         SEARCH_STRS=(
           \" at /\${CONFIG_NAME}/ \"
           \" extension .jpg \"
@@ -379,7 +379,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         echo \"Searching log line '\${SEARCH_LINE}'\"
         for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
           echo \"\tFor '\${SEARCH_STR}'\"
-          echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+          echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
         done
       "
       WORKING_DIRECTORY tests
@@ -396,7 +396,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           if [ \"\${SEARCH_CONFIG}\" = \"js\" ]; then
             MIME_TYPE=text/javascript
           fi
-          SEARCH_LINE=\$(grep -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+          SEARCH_LINE=\$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
           SEARCH_STRS=(
             \" at /\${CONFIG_NAME}/ \"
             \" extension .\${SEARCH_CONFIG} \"
@@ -407,13 +407,14 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           # echo \"Searching log line '\${SEARCH_LINE}'\"
           # for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
           #   echo \"\tFor '\${SEARCH_STR}'\"
-          #   echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+          #   echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
           # done
-          # SEARCH_LINE=\$(grep \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | grep -m1 \"\${CONFIG_NAME}\")
+          # SEARCH_LINE=\$(${GREP_EXECUTABLE} \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | \
+          #   ${GREP_EXECUTABLE} -m1 \"\${CONFIG_NAME}\")
           # echo \"Searching log line '\${SEARCH_LINE}'\"
           # SEARCH_STR=\"AddTileConfig /\${CONFIG_NAME}/ \${CONFIG_NAME} mimetype=\${MIME_TYPE} extension=\${SEARCH_CONFIG}\"
           # echo \"\tFor '\${SEARCH_STR}'\"
-          # echo \"\${SEARCH_LINE}\" | grep -q -e \"\${SEARCH_STR}\" || exit 1
+          # echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
         done
       "
       WORKING_DIRECTORY tests
@@ -421,6 +422,41 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
+    foreach(BAD_ADD_CONFIG add_tile_config add_tile_mime_config_js add_tile_mime_config_png)
+      if(BAD_ADD_CONFIG STREQUAL add_tile_config)
+        set(EXTENSION jpg)
+      elseif(BAD_ADD_CONFIG STREQUAL add_tile_mime_config_js)
+        set(EXTENSION js)
+      elseif(BAD_ADD_CONFIG STREQUAL add_tile_mime_config_png)
+        set(EXTENSION png)
+      endif()
+      set(TILE_URL_PATH "/${BAD_ADD_CONFIG}_${SOCKET_TYPE}/${TILE_ZXY}.${EXTENSION}")
+      set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+      set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+      add_test(
+        NAME bad_download_tile_${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${BASH} -c "
+          echo \"Downloading ${HTTPD0_URL}\"
+          if ${CURL_CMD} ${HTTPD0_URL}; then
+            echo \"Unexpected success.\"
+            exit 1;
+          else
+            exit 0;
+          fi
+          echo \"Downloading ${HTTPD1_URL}\"
+          if ${CURL_CMD} ${HTTPD1_URL}; then
+            echo \"Unexpected success.\"
+            exit 1;
+          else
+            exit 0;
+          fi
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(bad_download_tile_${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      )
+    endforeach()
   endforeach()
 
   foreach(MAP_NAME IN LISTS MAP_NAMES)
@@ -543,8 +579,6 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.parameterization.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.parameterization.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
       (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
       ( \
@@ -632,7 +666,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     REQUIRED_FILES "${TEST_LOGS_DIR};${TEST_RUN_DIR};${TEST_TILES_DIR}"
   )
 
-  if(STORAGE_BACKEND STREQUAL "file")
+  if(STORAGE_BACKEND STREQUAL file)
     set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png")
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
@@ -655,6 +689,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
       TIMEOUT 10
+    )
+    add_test(
+      NAME check_tiles_parameterization_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        (echo '${TILE_PNG256_SHA256SUM}  ${TILE_FILE_NAME}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
+        (echo '${TILE_PNG256_SHA256SUM}  ${TILE_FILE_NAME}.1' | ${SHA256SUM_EXECUTABLE} -c)
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(check_tiles_parameterization_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED tiles_downloaded_${STORAGE_BACKEND}
     )
     add_test(
       NAME remove_tile_parameterization_${STORAGE_BACKEND}
@@ -697,4 +742,53 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
   endif()
+endforeach()
+
+# Test mal-formed HTTPD configuration directives
+set(DIRECTIVES
+  # "AddTileConfig"
+  # "AddTileConfig /bad/"
+  "LoadTileConfigFile"
+  "LoadTileConfigFile /tmp/bad/file/name"
+)
+set(DIRECTIVE_ERRORS
+  # "AddTileConfig error, URL path not defined"
+  # "AddTileConfig error, name of renderd config not defined"
+  "LoadTileConfigFile takes one argument, load an entire renderd config file"
+  "Unable to open config file"
+)
+list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
+math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")
+
+foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
+  set(HTTPD_CONF "${TESTS_CONF_DIR}/httpd_bad_${DIRECTIVE_INDEX}.conf")
+  # Get DIRECTIVE from DIRECTIVES list
+  list(GET DIRECTIVES ${DIRECTIVE_INDEX} DIRECTIVE)
+  # Get DIRECTIVE_ERROR from DIRECTIVE_ERRORS list
+  list(GET DIRECTIVE_ERRORS ${DIRECTIVE_INDEX} DIRECTIVE_ERROR)
+
+  # Generate httpd.conf filelogs
+  configure_file(
+    httpd.conf.in
+    ${HTTPD_CONF}
+  )
+
+  add_test(
+    NAME bad_httpd_config_${DIRECTIVE_INDEX}
+    COMMAND ${BASH} -c "
+      echo \"${DIRECTIVE}\" >> ${HTTPD_CONF}
+      HTTPD_OUTPUT=$(${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -t 2>&1)
+      if [ \"\${?}\" -eq \"0\" ]; then
+        echo \"Unexpected success.\"
+        exit 1;
+      fi
+      if echo \"\${HTTPD_OUTPUT}\" | ${GREP_EXECUTABLE} -q \"${DIRECTIVE_ERROR}\"; then
+        exit 0;
+      else
+        echo \"\${HTTPD_OUTPUT}\"
+        exit 1;
+      fi
+    "
+    WORKING_DIRECTORY tests
+  )
 endforeach()
