@@ -1031,9 +1031,9 @@ int main(int argc, char **argv)
 			snprintf(buffer, sizeof(buffer), "%s:type", name);
 			const char *ini_type = iniparser_getstring(ini, buffer, "png image/png png256");
 
-			const char ini_fileExtension[INILINE_MAX] = "png";
-			const char ini_mimeType[INILINE_MAX] = "image/png";
-			const char ini_outputFormat[INILINE_MAX] = "png256";
+			char ini_fileExtension[INILINE_MAX] = "png";
+			char ini_mimeType[INILINE_MAX] = "image/png";
+			char ini_outputFormat[INILINE_MAX] = "png256";
 
 			sscanf(ini_type, "%[^ ] %[^ ] %[^;#]", ini_fileExtension, ini_mimeType, ini_outputFormat);
 
