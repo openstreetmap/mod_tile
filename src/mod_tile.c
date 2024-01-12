@@ -397,7 +397,7 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 	apr_os_thread_t os_thread = apr_os_thread_current();
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %pp and thread %li",
-		      tile_layer, lifecycle_pool, os_thread);
+		      tile_layer, lifecycle_pool, (unsigned long) os_thread);
 
 	/* In Apache 2.2, we are using the process memory pool, but with mpm_event and mpm_worker, each process has multiple threads.
 	 * As apache's memory pool operations are not thread-safe, we need to wrap everything into a mutex to protect against
@@ -411,7 +411,7 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 	}
 
 	if (stores == NULL) {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backends for this lifecycle %pp, creating it in thread %li", lifecycle_pool, os_thread);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backends for this lifecycle %pp, creating it in thread %li", lifecycle_pool, (unsigned long) os_thread);
 		stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backends));
 		stores->stores = apr_pcalloc(lifecycle_pool, sizeof(struct storage_backend *) * scfg->configs->nelts);
 		stores->noBackends = scfg->configs->nelts;
@@ -420,7 +420,7 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "get_storage_backend: Failed horribly to set user_data!");
 		}
 	} else {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, os_thread);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, (unsigned long) os_thread);
 	}
 
 #ifndef APACHE24
@@ -429,11 +429,11 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 
 	if (stores->stores[tile_layer] == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backend in current lifecycle %pp in thread %li for current tile layer %i",
-			      lifecycle_pool, os_thread, tile_layer);
+			      lifecycle_pool, (unsigned long) os_thread, tile_layer);
 		stores->stores[tile_layer] = init_storage_backend(tile_config->store);
 	} else {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Storage backend found in current lifecycle %pp for current tile layer %i in thread %li",
-			      lifecycle_pool, tile_layer, os_thread);
+			      lifecycle_pool, tile_layer, (unsigned long) os_thread);
 	}
 
 	return stores->stores[tile_layer];
