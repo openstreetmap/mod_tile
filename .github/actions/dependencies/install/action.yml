@@ -32,6 +32,8 @@ inputs:
     default: >-
       apache2
       jq
+      lcov
+      memcached
   fedora-build-dependencies:
     default: >-
       cairo-devel
@@ -47,6 +49,8 @@ inputs:
     default: >-
       httpd
       jq
+      lcov
+      memcached
   freebsd-build-dependencies:
     default: >-
       apache24
@@ -61,6 +65,8 @@ inputs:
   freebsd-test-dependencies:
     default: >-
       jq
+      lcov
+      memcached
   macos-build-dependencies:
     default: >-
       apr
@@ -76,6 +82,8 @@ inputs:
     default: >-
       coreutils
       jq
+      lcov
+      memcached
   opensuse-build-dependencies:
     default: >-
       apache2-devel
@@ -92,6 +100,8 @@ inputs:
       apache2-event
       apache2-prefork
       jq
+      lcov
+      memcached
   opensuse-mapnik-build-dependencies:
     default: >-
       bzip2
@@ -129,6 +139,8 @@ inputs:
     default: >-
       httpd
       jq
+      lcov
+      memcached
   rhel-mapnik-build-dependencies:
     default: >-
       boost-devel
@@ -181,6 +193,8 @@ inputs:
     default: >-
       apache2
       jq
+      lcov
+      memcached
   mapnik-build-version-centos-stream:
     default: 3.1.0
   mapnik-build-version-amazonlinux2-centos7:

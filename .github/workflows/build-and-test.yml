@@ -176,6 +176,7 @@ jobs:
     continue-on-error: true
     env:
       BUILD_PARALLEL_LEVEL: 2
+      CTEST_HOST: localhost
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-

@@ -30,6 +30,15 @@ find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
+# Sets the host to be used for CTest test services
+if(DEFINED ENV{CTEST_HOST})
+  # To the value of environment variable "CTEST_HOST"
+  set(CTEST_HOST "$ENV{CTEST_HOST}")
+else()
+  # Or to 0.0.0.0 by default
+  set(CTEST_HOST "0.0.0.0")
+endif()
+
 #-----------------------------------------------------------------------------
 #
 #  Test configurations
@@ -37,13 +46,13 @@ find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 #-----------------------------------------------------------------------------
 
 set(DEFAULT_MAP_NAME "default")
-set(HTTPD0_HOST "localhost")
+set(HTTPD0_HOST "${CTEST_HOST}")
 set(HTTPD0_PORT_BASE "59000")
-set(HTTPD1_HOST "localhost")
+set(HTTPD1_HOST "${CTEST_HOST}")
 set(HTTPD1_PORT_BASE "59100")
-set(MEMCACHED_HOST "localhost")
+set(MEMCACHED_HOST "${CTEST_HOST}")
 set(MEMCACHED_PORT_BASE "60000")
-set(RENDERD1_HOST "localhost")
+set(RENDERD1_HOST "${CTEST_HOST}")
 set(RENDERD1_PORT_BASE "59500")
 
 set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
