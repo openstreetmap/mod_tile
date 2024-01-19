@@ -23,8 +23,17 @@ runs:
       run: |
         export CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL:-$(nproc)}
         cmake -B mapnik-build -S mapnik-src \
+          -DBUILD_BENCHMARK:BOOL=OFF \
+          -DBUILD_DEMO_CPP:BOOL=OFF \
           -DBUILD_DEMO_VIEWER:BOOL=OFF \
           -DBUILD_TESTING:BOOL=OFF \
+          -DBUILD_UTILITY_GEOMETRY_TO_WKB:BOOL=OFF \
+          -DBUILD_UTILITY_MAPNIK_INDEX:BOOL=OFF \
+          -DBUILD_UTILITY_MAPNIK_RENDER:BOOL=OFF \
+          -DBUILD_UTILITY_OGRINDEX:BOOL=OFF \
+          -DBUILD_UTILITY_PGSQL2SQLITE:BOOL=OFF \
+          -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
+          -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
           -DCMAKE_BUILD_TYPE:STRING=Release \
           -DCMAKE_INSTALL_PREFIX:PATH=/usr
         cmake --build mapnik-build
