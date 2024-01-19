@@ -18,6 +18,7 @@
 #ifndef MODTILE_H
 #define MODTILE_H
 
+#include "protocol.h"
 #include "store.h"
 #include <netinet/in.h>
 
