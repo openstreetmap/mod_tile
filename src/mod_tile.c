@@ -1314,35 +1314,35 @@ static int tile_handler_mod_stats(request_rec *r)
 		return error_message(r, "Failed to acquire lock, can't display stats");
 	}
 
-	ap_rprintf(r, "NoResp200: %li\n", local_stats.noResp200);
-	ap_rprintf(r, "NoResp304: %li\n", local_stats.noResp304);
-	ap_rprintf(r, "NoResp404: %li\n", local_stats.noResp404);
-	ap_rprintf(r, "NoResp503: %li\n", local_stats.noResp503);
-	ap_rprintf(r, "NoResp5XX: %li\n", local_stats.noResp5XX);
-	ap_rprintf(r, "NoRespOther: %li\n", local_stats.noRespOther);
-	ap_rprintf(r, "NoFreshCache: %li\n", local_stats.noFreshCache);
-	ap_rprintf(r, "NoOldCache: %li\n", local_stats.noOldCache);
-	ap_rprintf(r, "NoVeryOldCache: %li\n", local_stats.noVeryOldCache);
-	ap_rprintf(r, "NoFreshRender: %li\n", local_stats.noFreshRender);
-	ap_rprintf(r, "NoOldRender: %li\n", local_stats.noOldRender);
-	ap_rprintf(r, "NoVeryOldRender: %li\n", local_stats.noVeryOldRender);
+	ap_rprintf(r, "NoResp200: %" APR_UINT64_T_FMT "\n", local_stats.noResp200);
+	ap_rprintf(r, "NoResp304: %" APR_UINT64_T_FMT "\n", local_stats.noResp304);
+	ap_rprintf(r, "NoResp404: %" APR_UINT64_T_FMT "\n", local_stats.noResp404);
+	ap_rprintf(r, "NoResp503: %" APR_UINT64_T_FMT "\n", local_stats.noResp503);
+	ap_rprintf(r, "NoResp5XX: %" APR_UINT64_T_FMT "\n", local_stats.noResp5XX);
+	ap_rprintf(r, "NoRespOther: %" APR_UINT64_T_FMT "\n", local_stats.noRespOther);
+	ap_rprintf(r, "NoFreshCache: %" APR_UINT64_T_FMT "\n", local_stats.noFreshCache);
+	ap_rprintf(r, "NoOldCache: %" APR_UINT64_T_FMT "\n", local_stats.noOldCache);
+	ap_rprintf(r, "NoVeryOldCache: %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldCache);
+	ap_rprintf(r, "NoFreshRender: %" APR_UINT64_T_FMT "\n", local_stats.noFreshRender);
+	ap_rprintf(r, "NoOldRender: %" APR_UINT64_T_FMT "\n", local_stats.noOldRender);
+	ap_rprintf(r, "NoVeryOldRender: %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldRender);
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "NoRespZoom%02i: %li\n", i, local_stats.noRespZoom[i]);
+		ap_rprintf(r, "NoRespZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.noRespZoom[i]);
 	}
 
-	ap_rprintf(r, "NoTileBufferReads: %li\n", local_stats.noTotalBufferRetrieval);
-	ap_rprintf(r, "DurationTileBufferReads: %li\n", local_stats.totalBufferRetrievalTime);
+	ap_rprintf(r, "NoTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats.noTotalBufferRetrieval);
+	ap_rprintf(r, "DurationTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats.totalBufferRetrievalTime);
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "NoTileBufferReadZoom%02i: %li\n", i, local_stats.noZoomBufferRetrieval[i]);
-		ap_rprintf(r, "DurationTileBufferReadZoom%02i: %li\n", i, local_stats.zoomBufferRetrievalTime[i]);
+		ap_rprintf(r, "NoTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.noZoomBufferRetrieval[i]);
+		ap_rprintf(r, "DurationTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.zoomBufferRetrievalTime[i]);
 	}
 
 	for (i = 0; i < scfg->configs->nelts; ++i) {
 		tile_config_rec *tile_config = &tile_configs[i];
-		ap_rprintf(r, "NoRes200Layer%s: %li\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
-		ap_rprintf(r, "NoRes404Layer%s: %li\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
+		ap_rprintf(r, "NoRes200Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
+		ap_rprintf(r, "NoRes404Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
 	}
 
 	free(local_stats.noResp200Layer);
@@ -1388,27 +1388,27 @@ static int tile_handler_metrics(request_rec *r)
 
 	ap_rprintf(r, "# HELP modtile_http_responses_total Number of HTTP responses by response code\n");
 	ap_rprintf(r, "# TYPE modtile_http_responses_total counter\n");
-	ap_rprintf(r, "modtile_http_responses_total{status=\"200\"} %li\n", local_stats.noResp200);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"304\"} %li\n", local_stats.noResp304);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"404\"} %li\n", local_stats.noResp404);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"503\"} %li\n", local_stats.noResp503);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"5XX\"} %li\n", local_stats.noResp5XX);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"other\"} %li\n", local_stats.noRespOther);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"200\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp200);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"304\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp304);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"404\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp404);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"503\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp503);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"5XX\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp5XX);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"other\"} %" APR_UINT64_T_FMT "\n", local_stats.noRespOther);
 
 	ap_rprintf(r, "# HELP modtile_tiles_total Tiles served\n");
 	ap_rprintf(r, "# TYPE modtile_tiles_total counter\n");
-	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"no\"} %li\n", local_stats.noFreshCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"no\"} %li\n", local_stats.noOldCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"no\"} %li\n", local_stats.noVeryOldCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"yes\"} %li\n", local_stats.noFreshRender);
-	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"attempted\"} %li\n", local_stats.noOldRender);
-	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"attempted\"} %li\n", local_stats.noVeryOldRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noFreshCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"yes\"} %" APR_UINT64_T_FMT "\n", local_stats.noFreshRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats.noOldRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldRender);
 
 	ap_rprintf(r, "# HELP modtile_zoom_responses_total Tiles served by zoom level\n");
 	ap_rprintf(r, "# TYPE modtile_zoom_responses_total counter\n");
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "modtile_zoom_responses_total{zoom=\"%02i\"} %li\n", i, local_stats.noRespZoom[i]);
+		ap_rprintf(r, "modtile_zoom_responses_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats.noRespZoom[i]);
 	}
 
 
@@ -1416,7 +1416,7 @@ static int tile_handler_metrics(request_rec *r)
 	ap_rprintf(r, "# TYPE modtile_tile_reads_total counter\n");
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "modtile_tile_reads_total{zoom=\"%02i\"} %li\n", i, local_stats.noZoomBufferRetrieval[i]);
+		ap_rprintf(r, "modtile_tile_reads_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats.noZoomBufferRetrieval[i]);
 	}
 
 	ap_rprintf(r, "# HELP modtile_tile_reads_seconds_total Tile buffer duration\n");
@@ -1431,8 +1431,8 @@ static int tile_handler_metrics(request_rec *r)
 
 	for (i = 0; i < scfg->configs->nelts; ++i) {
 		tile_config_rec *tile_config = &tile_configs[i];
-		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"200\"} %li\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
-		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"404\"} %li\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"200\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"404\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
 	}
 
 	free(local_stats.noResp200Layer);
