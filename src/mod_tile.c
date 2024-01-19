@@ -449,7 +449,7 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 
 	stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z);
 
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %li, expired: %i created: %li",
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %" APR_OFF_T_FMT ", expired: %i created: %li",
 		      cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
 
 	r->finfo.mtime = stat.mtime * 1000000;
