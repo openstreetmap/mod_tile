@@ -430,7 +430,7 @@ void print_statistics(void)
 		}
 
 		printf("Zoom %02i: min: %4.1f    avg: %4.1f     max: %4.1f     over a total of %8.1fs in %i requests\n",
-		       i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total /  performance_stats.stat[i].noRendered) / 1000.0,
+		       i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total / (float) performance_stats.stat[i].noRendered) / 1000.0,
 		       performance_stats.stat[i].time_max / 1000.0, performance_stats.stat[i].time_total / 1000.0, performance_stats.stat[i].noRendered);
 	}
 

@@ -546,7 +546,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
 
 		/* Test if the tile we are serving is out of date, then set a low maxAge*/
 		if (state == tileOld) {
-			holdoff = (scfg->cache_duration_dirty / 2) * (rand() / (RAND_MAX
+			holdoff = (scfg->cache_duration_dirty / 2.0) * (rand() / (RAND_MAX
 					+ 1.0));
 			maxAge = scfg->cache_duration_dirty + holdoff;
 		} else {
