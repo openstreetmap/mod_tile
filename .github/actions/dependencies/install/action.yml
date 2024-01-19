@@ -321,7 +321,7 @@ runs:
       uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
       if: |
         matrix.mapnik_latest &&
-        (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:'))
+        (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:') || runner.os == 'Linux')
 
     - name: Build & Install latest `mapnik` (openSUSE)
       uses: ./.github/actions/dependencies/build-and-install/mapnik/latest

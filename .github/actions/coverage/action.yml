@@ -1,0 +1,28 @@
+---
+inputs:
+  lcov-extra-options:
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Process `mod_tile` coverage results
+      run: |
+        ctest -T coverage || true
+        lcov ${{ inputs.lcov-extra-options }} \
+          --capture \
+          --directory . \
+          --output-file coverage.info
+        lcov ${{ inputs.lcov-extra-options }} \
+          --output-file coverage.info \
+          --remove coverage.info \
+          "${GITHUB_WORKSPACE}/includes/catch/catch.hpp" \
+          "${GITHUB_WORKSPACE}/src/gen_tile_test.cpp" \
+          "/usr/*"
+      working-directory: build
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Report `mod_tile` coverage results to `codecov.io`
+      uses: codecov/codecov-action@v3
+      with:
+        files: build/coverage.info
