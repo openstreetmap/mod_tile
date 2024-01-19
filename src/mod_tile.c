@@ -156,7 +156,7 @@ static int socket_init(request_rec *r)
 		hints.ai_canonname = NULL;
 		hints.ai_addr = NULL;
 		hints.ai_next = NULL;
-		sprintf(portnum, "%i", scfg->renderd_socket_port);
+		snprintf(portnum, 16, "%i", scfg->renderd_socket_port);
 
 		s = getaddrinfo(scfg->renderd_socket_name, portnum, &hints, &result);
 

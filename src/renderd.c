@@ -417,7 +417,7 @@ int client_socket_init(renderd_config * sConfig)
 		hints.ai_canonname = NULL;
 		hints.ai_addr = NULL;
 		hints.ai_next = NULL;
-		sprintf(portnum, "%i", sConfig->ipport);
+		snprintf(portnum, 16, "%i", sConfig->ipport);
 
 		s = getaddrinfo(sConfig->iphostname, portnum, &hints, &result);
 

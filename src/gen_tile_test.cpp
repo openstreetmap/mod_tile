@@ -834,7 +834,7 @@ TEST_CASE("storage-backend", "Tile storage backend")
 	}
 
 	tile_dir = (char *) malloc(sizeof(char) * (strlen(tmp) + 15));
-	sprintf(tile_dir, "%s/mod_tile_test", tmp);
+	snprintf(tile_dir, sizeof(char) * (strlen(tmp) + 15), "%s/mod_tile_test", tmp);
 	mkdir(tile_dir, 0777);
 
 	SECTION("storage/initialise", "should return NULL") {
