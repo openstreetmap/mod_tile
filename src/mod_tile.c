@@ -589,8 +589,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Setting tiles maxAge to %ld\n", maxAge);
 
 	apr_table_mergen(t, "Cache-Control",
-			 apr_psprintf(r->pool, "max-age=%" APR_TIME_T_FMT,
-				      maxAge));
+			 apr_psprintf(r->pool, "max-age=%li", maxAge));
 	timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
@@ -1267,8 +1266,7 @@ static int tile_handler_json(request_rec *r)
 	ap_set_content_type(r, "application/json");
 	ap_set_content_length(r, len);
 	apr_table_mergen(t, "Cache-Control",
-			 apr_psprintf(r->pool, "max-age=%" APR_TIME_T_FMT,
-				      maxAge));
+			 apr_psprintf(r->pool, "max-age=%li", maxAge));
 	timestr = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
