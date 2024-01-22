@@ -369,7 +369,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       WORKING_DIRECTORY tests
     )
     set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
       TIMEOUT 60
     )
     add_test(
