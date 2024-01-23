@@ -11,6 +11,9 @@
 #-----------------------------------------------------------------------------
 
 include(CTest)
+include(ProcessorCount)
+
+processorcount(PROCESSOR_COUNT)
 
 execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
   OUTPUT_VARIABLE HTTPD_PROGNAME
@@ -635,6 +638,28 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   set_tests_properties(stats_urls_${STORAGE_BACKEND} PROPERTIES
     FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
   )
+  if(NOT PROCESSOR_COUNT EQUAL 0)
+    # Set CTEST_NUM_SLAVE_THREADS to 5 (renderd1 = 1, renderd2 = 4 [NUM_THREADS])
+    set(CTEST_NUM_SLAVE_THREADS 5)
+    add_test(
+      NAME renderd_num_threads_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        if ! ${GREP_EXECUTABLE} -q \"config renderd: num_threads=${PROCESSOR_COUNT}\" \"${RENDERD0_LOG}\"; then
+          ${GREP_EXECUTABLE} \"config renderd: num_threads=\" \"${RENDERD0_LOG}\"
+          exit 1;
+        fi
+        if ! ${GREP_EXECUTABLE} -q \"config renderd: num_slave_threads=${CTEST_NUM_SLAVE_THREADS}\" \"${RENDERD0_LOG}\"; then
+          ${GREP_EXECUTABLE} \"config renderd: num_slave_threads=\" \"${RENDERD0_LOG}\"
+          exit 1;
+        fi
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(renderd_num_threads_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      REQUIRED_FILES ${RENDERD0_LOG}
+    )
+  endif()
   add_test(
     NAME stop_services_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
