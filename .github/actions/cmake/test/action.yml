@@ -14,7 +14,9 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Test `mod_tile`
-      run: ctest ${{ inputs.options }}
+      run: |
+        export CTEST_PARALLEL_LEVEL=${TEST_PARALLEL_LEVEL:-$(nproc)}
+        ctest ${{ inputs.options }}
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
 

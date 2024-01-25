@@ -127,6 +127,7 @@ jobs:
       CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib
+      TEST_PARALLEL_LEVEL: 1
     name: >-
       ${{ matrix.os }}
       (${{ matrix.build_system }})
@@ -178,6 +179,7 @@ jobs:
       BUILD_PARALLEL_LEVEL: 2
       CTEST_HOST: localhost
       LIBRARY_PATH: /usr/local/lib
+      TEST_PARALLEL_LEVEL: 2
       TMPDIR: /tmp
     name: >-
       ${{ matrix.box_generic }}

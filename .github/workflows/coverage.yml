@@ -19,6 +19,7 @@ jobs:
       BUILD_TYPE: Debug
       CFLAGS: --coverage
       CXXFLAGS: --coverage
+      TEST_PARALLEL_LEVEL: 1
     strategy:
       matrix:
         compiler:
