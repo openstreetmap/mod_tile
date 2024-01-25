@@ -197,15 +197,13 @@ inputs:
       memcached
   mapnik-build-version-centos-stream:
     default: 3.1.0
-  mapnik-build-version-amazonlinux2-centos7:
-    default: 3.0.17
   mapnik-build-version-opensuse:
     default: 3.1.0
 
 runs:
   using: composite
   steps:
-    - name: Install Dependencies (Amazon Linux/CentOS/CentOS Stream)
+    - name: Install Dependencies (CentOS Stream)
       uses: ./.github/actions/dependencies/install/yum
       with:
         dependencies: epel-release
@@ -213,13 +211,9 @@ runs:
           ${{ inputs.rhel-build-dependencies }}
           ${{ inputs.rhel-mapnik-build-dependencies }}
           ${{ inputs.rhel-test-dependencies }}
-          ${{ matrix.build_system == 'CMake' && 'cmake3' || 'autoconf automake redhat-rpm-config' }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
-          ${{ matrix.image == 'centos:7' && matrix.compiler == 'LLVM' && 'gcc-c++' || '' }}
-      if: |
-        startsWith(matrix.image, 'amazonlinux:') ||
-        startsWith(matrix.image, 'centos:') ||
-        startsWith(matrix.image, 'quay.io/centos/centos:stream')
+      if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
     - name: Install Dependencies (Debian)
       uses: ./.github/actions/dependencies/install/apt-get
@@ -298,12 +292,6 @@ runs:
         useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'opensuse/')
-
-    - name: Build & Install `mapnik` (Amazon Linux 2/CentOS 7)
-      uses: ./.github/actions/dependencies/build-and-install/mapnik
-      with:
-        version: ${{ inputs.mapnik-build-version-amazonlinux2-centos7 }}
-      if: matrix.image == 'amazonlinux:2' || matrix.image == 'centos:7'
 
     - name: Build & Install `mapnik` (CentOS Stream)
       uses: ./.github/actions/dependencies/build-and-install/mapnik

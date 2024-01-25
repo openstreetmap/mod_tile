@@ -6,13 +6,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Create `ctest` symbolic link
-      run: |
-        if ! command -v ctest &> /dev/null && command -v ctest3 &> /dev/null; then
-          ln --symbolic ctest3 /usr/bin/ctest
-        fi
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
     - name: Test `mod_tile`
       run: |
         export CTEST_PARALLEL_LEVEL=${TEST_PARALLEL_LEVEL:-$(nproc)}

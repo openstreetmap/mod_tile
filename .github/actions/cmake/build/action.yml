@@ -2,13 +2,6 @@
 runs:
   using: composite
   steps:
-    - name: Create `cmake` symbolic link
-      run: |
-        if ! command -v cmake &> /dev/null && command -v cmake3 &> /dev/null; then
-          ln --symbolic cmake3 /usr/bin/cmake
-        fi
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
     - name: Prepare `build` directory
       run: |
         cmake -B build -S . \
