@@ -20,18 +20,9 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
 
-    - name: Archive test artifacts on failure
-      if: failure()
-      run: |
-        TAR_FILENAME=${{ matrix.image || matrix.os || github.job }}-${{ matrix.compiler }}.tar.gz
-        TAR_FILENAME=$(echo "${TAR_FILENAME}" | sed 's/:/-/g')
-        tar -zcf ${TAR_FILENAME} tests
-      shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: build
-
     - name: Upload test artifacts on failure
-      if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: Test Artifacts
-        path: build/*.tar.gz
+        name: Test Artifacts - ${{ matrix.image || matrix.os || github.job }}-${{ matrix.compiler }}
+        path: build/tests
+      if: failure()

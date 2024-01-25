@@ -67,12 +67,13 @@ jobs:
 
       - name: Generate `mod_tile` coverage results artifact
         run: |
-          mkdir -p coverage
-          genhtml coverage.info --output-directory coverage/${{ matrix.mapnik_latest && 'mapnik_latest' || 'mapnik' }}
+          genhtml coverage.info --output-directory coverage
         working-directory: build
 
       - name: Upload `mod_tile` coverage results artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Coverage Results
-          path: build/coverage
+          name: Coverage Results - ${{ matrix.mapnik_latest && 'mapnik_latest' || 'mapnik' }}
+          path: |
+            build/coverage
+            build/coverage.info
