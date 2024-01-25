@@ -70,7 +70,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileTileDir @TILE_DIR@
 </VirtualHost>
 
-CustomLog @HTTPD_LOG_ACCESS@ "%h %l %u %t \"%r\" %>s %b"
+CustomLog @HTTPD_LOG_ACCESS@ "%A:%p %t \"%r\" %>s %b"
 ErrorLog @HTTPD_LOG_ERROR@
 Group @WWW_GROUP_NAME@
 Listen @HTTPD0_HOST@:@HTTPD0_PORT@
