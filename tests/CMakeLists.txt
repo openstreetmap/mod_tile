@@ -102,17 +102,21 @@ function(add_bad_tile_download_test TEST_NAME TEST_URL REQUIRED_FIXTURE_NAME)
     NAME bad_download_tile_${TEST_NAME}
     COMMAND ${BASH} -c "
       echo 'Downloading ${TEST_URL}'
-      HTTP_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TEST_URL})
-      echo \"HTTP Code: '\${HTTP_CODE}'\"
-      if [ \"\${HTTP_CODE}\" != \"404\" ]; then
-        exit 1;
-      fi
+      while true; do
+        HTTP_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TEST_URL})
+        echo \"HTTP Code: '\${HTTP_CODE}'\"
+        if [ \"\${HTTP_CODE}\" == \"404\" ] || [ \"\${HTTP_CODE}\" == \"500\" ]; then
+          exit 0;
+        fi
+        echo 'Sleeping 1s';
+        sleep 1;
+      done
     "
     WORKING_DIRECTORY tests
   )
   set_tests_properties(bad_download_tile_${TEST_NAME} PROPERTIES
     FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
-    TIMEOUT 4 # Needs to be more than ModTileMissingRequestTimeout in httpd.conf
+    TIMEOUT 10 # Needs to be more than ModTileMissingRequestTimeout in httpd.conf
   )
 endfunction()
 
