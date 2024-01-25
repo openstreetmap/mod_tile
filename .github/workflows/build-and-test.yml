@@ -20,8 +20,10 @@ jobs:
           - "debian:testing"
           - "fedora:38"
           - "fedora:39"
-          - "fedora:rawhide"
+          # - "fedora:rawhide"
           - "opensuse/leap:15"
+          - "quay.io/centos/centos:stream8"
+          - "quay.io/centos/centos:stream9"
           - "ubuntu:20.04"
           - "ubuntu:rolling"
         build_system:
