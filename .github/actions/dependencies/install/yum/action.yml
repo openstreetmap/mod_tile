@@ -28,11 +28,6 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: matrix.image == 'quay.io/centos/centos:stream9'
 
-    - name: Enable EPEL repository (Amazon Linux 2)
-      run: amazon-linux-extras install epel -y
-      shell: bash --noprofile --norc -euxo pipefail {0}
-      if: matrix.image == 'amazonlinux:2' && contains(inputs.dependencies, 'epel-release')
-
     - name: Install dependency package(s)
       run: |
         if [ -n "${{ inputs.dependencies }}" ]; then

@@ -15,14 +15,15 @@ jobs:
     strategy:
       matrix:
         image:
-          - "centos:7"
           - "debian:11"
           - "debian:12"
           - "debian:testing"
           - "fedora:38"
           - "fedora:39"
-          - "fedora:rawhide"
+          # - "fedora:rawhide"
           - "opensuse/leap:15"
+          - "quay.io/centos/centos:stream8"
+          - "quay.io/centos/centos:stream9"
           - "ubuntu:20.04"
           - "ubuntu:rolling"
         build_system:
@@ -53,21 +54,12 @@ jobs:
         CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
       image: ${{ matrix.image }}
     steps:
-      - name: Install `git` (Amazon Linux 2)
-        run: yum --assumeyes install git
-        if: matrix.image == 'amazonlinux:2'
-
       - name: Install `git` (openSUSE)
         run: zypper --non-interactive install git
         if: startsWith(matrix.image, 'opensuse/')
 
-      - name: Checkout code (CentOS 7)
-        uses: actions/checkout@v3
-        if: matrix.image == 'centos:7'
-
       - name: Checkout code
         uses: actions/checkout@v4
-        if: matrix.image != 'centos:7'
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
@@ -127,6 +119,7 @@ jobs:
       CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib
+      TEST_PARALLEL_LEVEL: 1
     name: >-
       ${{ matrix.os }}
       (${{ matrix.build_system }})
@@ -178,6 +171,7 @@ jobs:
       BUILD_PARALLEL_LEVEL: 2
       CTEST_HOST: localhost
       LIBRARY_PATH: /usr/local/lib
+      TEST_PARALLEL_LEVEL: 2
       TMPDIR: /tmp
     name: >-
       ${{ matrix.box_generic }}

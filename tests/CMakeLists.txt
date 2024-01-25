@@ -64,13 +64,7 @@ set(TESTS_LOGS_DIR "${PROJECT_BINARY_DIR}/tests/logs")
 set(TESTS_RUN_DIR "${PROJECT_BINARY_DIR}/tests/run")
 set(TESTS_TILES_DIR "${PROJECT_BINARY_DIR}/tests/tiles")
 
-set(TILE_JPG_SHA256SUM "e09c3406c02f03583dadf0c8404c2d3efdc06a40d399e381ed2f47f49fde42d7")
-set(TILE_PNG256_SHA256SUM "dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08")
-set(TILE_PNG32_SHA256SUM "1006d92152f1e18896e0016fb43201b14bbcf7655955b74495ad3610541d325b")
-set(TILE_WEBP_SHA256SUM_01 "ef3862a57831b21ec69c15be196e1e2b4fea66246c361142631b9fa22b85decc") # libwebp.so.4
-set(TILE_WEBP_SHA256SUM_02 "96fc0455b2269a7bcd4a5b3c9844529c3c77e3bb15f56e72f78a5af3bc15b6b5") # libwebp.so.6
-set(TILE_WEBP_SHA256SUM_03 "a82ef9ba5dc333de88af7b645084c30ab2b01c664e17162cbf6659c287cc4df4") # libwebp.so.7
-set(TILE_WEBP_SHA256SUM_04 "904593e291cce2561138bd83b704588c02c16630b8c133d78d535b8986e901af") # libwebp.so.7
+file(COPY tiles.sha256sum DESTINATION ${PROJECT_BINARY_DIR}/tests)
 
 set(TILE_ZXY "9/297/191")
 
@@ -96,6 +90,76 @@ endif()
 
 list(LENGTH STORAGE_BACKENDS STORAGE_BACKENDS_LENGTH)
 math(EXPR STORAGE_BACKENDS_LENGTH "${STORAGE_BACKENDS_LENGTH} - 1")
+
+#-----------------------------------------------------------------------------
+#
+#  Test functions
+#
+#-----------------------------------------------------------------------------
+
+function(add_bad_tile_download_test TEST_NAME TEST_URL REQUIRED_FIXTURE_NAME)
+  add_test(
+    NAME bad_download_tile_${TEST_NAME}
+    COMMAND ${BASH} -c "
+      echo 'Downloading ${TEST_URL}'
+      while true; do
+        HTTP_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TEST_URL})
+        echo \"HTTP Code: '\${HTTP_CODE}'\"
+        if [ \"\${HTTP_CODE}\" == \"404\" ] || [ \"\${HTTP_CODE}\" == \"500\" ]; then
+          exit 0;
+        fi
+        echo 'Sleeping 1s';
+        sleep 1;
+      done
+    "
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(bad_download_tile_${TEST_NAME} PROPERTIES
+    FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
+    TIMEOUT 10 # Needs to be more than ModTileMissingRequestTimeout in httpd.conf
+  )
+endfunction()
+
+function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME REQUIRED_FIXTURE_NAME)
+  add_test(
+    NAME download_tile_${TEST_NAME}
+    COMMAND ${BASH} -c "
+      echo 'Downloading ${TEST_URL}'
+      until $(${CURL_CMD} ${TEST_URL} --output ${FILE_NAME}); do
+        echo 'Sleeping 1s';
+        sleep 1;
+      done
+    "
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(download_tile_${TEST_NAME} PROPERTIES
+    FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
+    FIXTURES_SETUP ${FIXTURE_NAME}
+    TIMEOUT 10
+  )
+  add_test(
+    NAME check_tile_${TEST_NAME}
+    COMMAND ${BASH} -c "
+      ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} ${FILE_NAME} | ${GREP_EXECUTABLE} OK
+    "
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(check_tile_${TEST_NAME} PROPERTIES
+    DEPENDS_ON download_tile_${TEST_NAME}
+    FIXTURES_REQUIRED ${FIXTURE_NAME}
+    REQUIRED_FILES ${FILE_NAME}
+  )
+  add_test(
+    NAME remove_tile_${TEST_NAME}
+    COMMAND ${RM} -v ${FILE_NAME}
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(remove_tile_${TEST_NAME} PROPERTIES
+    DEPENDS_ON download_tile_${TEST_NAME}
+    FIXTURES_CLEANUP ${FIXTURE_NAME}
+    REQUIRED_FILES ${FILE_NAME}
+  )
+endfunction()
 
 #-----------------------------------------------------------------------------
 #
@@ -269,7 +333,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       WORKING_DIRECTORY tests
     )
     set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS "render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND};render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}"
+      DEPENDS render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 60
     )
@@ -369,7 +433,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       WORKING_DIRECTORY tests
     )
     set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
       TIMEOUT 60
     )
     add_test(
@@ -440,29 +504,16 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       endif()
       set(TILE_URL_PATH "/${BAD_ADD_CONFIG}_${SOCKET_TYPE}/${TILE_ZXY}.${EXTENSION}")
       set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-      set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-      add_test(
-        NAME bad_download_tile_${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND}
-        COMMAND ${BASH} -c "
-          echo \"Downloading ${HTTPD0_URL}\"
-          if ${CURL_CMD} ${HTTPD0_URL}; then
-            echo \"Unexpected success.\"
-            exit 1;
-          else
-            exit 0;
-          fi
-          echo \"Downloading ${HTTPD1_URL}\"
-          if ${CURL_CMD} ${HTTPD1_URL}; then
-            echo \"Unexpected success.\"
-            exit 1;
-          else
-            exit 0;
-          fi
-        "
-        WORKING_DIRECTORY tests
+      add_bad_tile_download_test(
+        ${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND}_0
+        ${HTTPD0_URL}
+        services_started_${STORAGE_BACKEND}
       )
-      set_tests_properties(bad_download_tile_${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+      add_bad_tile_download_test(
+        ${BAD_ADD_CONFIG}_${SOCKET_TYPE}_${STORAGE_BACKEND}_1
+        ${HTTPD1_URL}
+        services_started_${STORAGE_BACKEND}
       )
     endforeach()
   endforeach()
@@ -470,28 +521,23 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   foreach(MAP_NAME IN LISTS MAP_NAMES)
     # Set EXTENSION from MAP_NAME (only works for map names containing an actual extension)
     string(REGEX REPLACE "[0-9]+" "" EXTENSION ${MAP_NAME})
+    set(TILE_FILE_NAME "tile.${MAP_NAME}.${STORAGE_BACKEND}")
     set(TILE_URL_PATH "/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-    set(TILE_FILE_NAME "tile.${MAP_NAME}.${STORAGE_BACKEND}")
-    add_test(
-      NAME download_tile_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
-          echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
-          sleep 1;
-        done
-        until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
-          echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
-          sleep 1;
-        done
-      "
-      WORKING_DIRECTORY tests
+    add_good_tile_download_test(
+      ${MAP_NAME}_${STORAGE_BACKEND}_0
+      ${HTTPD0_URL}
+      ${TILE_FILE_NAME}.0
+      tiles_downloaded_${STORAGE_BACKEND}
+      services_started_${STORAGE_BACKEND}
     )
-    set_tests_properties(download_tile_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
-      TIMEOUT 10
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    add_good_tile_download_test(
+      ${MAP_NAME}_${STORAGE_BACKEND}_1
+      ${HTTPD1_URL}
+      ${TILE_FILE_NAME}.1
+      tiles_downloaded_${STORAGE_BACKEND}
+      services_started_${STORAGE_BACKEND}
     )
     add_test(
       NAME status_and_dirty_${MAP_NAME}_${STORAGE_BACKEND}
@@ -528,85 +574,30 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       WORKING_DIRECTORY tests
     )
     set_tests_properties(status_and_dirty_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS_ON download_tile_${MAP_NAME}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
       TIMEOUT 20
-    )
-    add_test(
-      NAME remove_tile_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(remove_tile_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS_ON download_tile_${MAP_NAME}_${STORAGE_BACKEND}
-      FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
-      REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
     )
   endforeach()
 
+  set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
   set(TILE_URL_PATH "/download_add_tile_config/${TILE_ZXY}.png")
   set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+  add_good_tile_download_test(
+    add_tile_config_${STORAGE_BACKEND}_0
+    ${HTTPD0_URL}
+    ${TILE_FILE_NAME}.0
+    tiles_downloaded_${STORAGE_BACKEND}
+    services_started_${STORAGE_BACKEND}
+  )
   set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-  set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
-  add_test(
-    NAME download_tile_add_tile_config_${STORAGE_BACKEND}
-    COMMAND ${BASH} -c "
-      until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
-        echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
-        sleep 1;
-      done
-      until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
-        echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
-        sleep 1;
-      done
-    "
-    WORKING_DIRECTORY tests
-  )
-  set_tests_properties(download_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
-    FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-    FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
-    TIMEOUT 10
-  )
-  add_test(
-    NAME remove_tile_add_tile_config_${STORAGE_BACKEND}
-    COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
-    WORKING_DIRECTORY tests
-  )
-  set_tests_properties(remove_tile_add_tile_config_${STORAGE_BACKEND} PROPERTIES
-    DEPENDS_ON download_tile_add_tile_config_${STORAGE_BACKEND}
-    FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
-    REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
+  add_good_tile_download_test(
+    add_tile_config_${STORAGE_BACKEND}_1
+    ${HTTPD1_URL}
+    ${TILE_FILE_NAME}.1
+    tiles_downloaded_${STORAGE_BACKEND}
+    services_started_${STORAGE_BACKEND}
   )
 
-  add_test(
-    NAME check_tiles_${STORAGE_BACKEND}
-    COMMAND ${BASH} -c "
-      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_JPG_SHA256SUM}  tile.jpg.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.add_tile_config.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG256_SHA256SUM}  tile.png256.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-      (echo '${TILE_PNG32_SHA256SUM}  tile.png32.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-      ( \
-        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.${STORAGE_BACKEND}.0' | ${SHA256SUM_EXECUTABLE} -c) \
-      ) && \
-      ( \
-        (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-        (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.${STORAGE_BACKEND}.1' | ${SHA256SUM_EXECUTABLE} -c) \
-      )
-    "
-    WORKING_DIRECTORY tests
-  )
-  set_tests_properties(check_tiles_${STORAGE_BACKEND} PROPERTIES
-    FIXTURES_REQUIRED tiles_downloaded_${STORAGE_BACKEND}
-  )
   add_test(
     NAME stats_urls_${STORAGE_BACKEND}
     COMMAND ${BASH} -c "
@@ -675,49 +666,23 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   )
 
   if(STORAGE_BACKEND STREQUAL file)
+    set(TILE_FILE_NAME "tile.parameterization.${STORAGE_BACKEND}")
     set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png")
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+    add_good_tile_download_test(
+      parameterization_${STORAGE_BACKEND}_0
+      ${HTTPD0_URL}
+      ${TILE_FILE_NAME}.0
+      tiles_downloaded_${STORAGE_BACKEND}
+      services_started_${STORAGE_BACKEND}
+    )
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-    set(TILE_FILE_NAME "tile.parameterization.${STORAGE_BACKEND}")
-    add_test(
-      NAME download_tile_parameterization_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        until $(${CURL_CMD} ${HTTPD0_URL} --output ${TILE_FILE_NAME}.0); do
-          echo 'Sleeping 1s (${TILE_FILE_NAME}.0)';
-          sleep 1;
-        done
-        until $(${CURL_CMD} ${HTTPD1_URL} --output ${TILE_FILE_NAME}.1); do
-          echo 'Sleeping 1s (${TILE_FILE_NAME}.1)';
-          sleep 1;
-        done
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(download_tile_parameterization_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      FIXTURES_SETUP tiles_downloaded_${STORAGE_BACKEND}
-      TIMEOUT 10
-    )
-    add_test(
-      NAME check_tiles_parameterization_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        (echo '${TILE_PNG256_SHA256SUM}  ${TILE_FILE_NAME}.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-        (echo '${TILE_PNG256_SHA256SUM}  ${TILE_FILE_NAME}.1' | ${SHA256SUM_EXECUTABLE} -c)
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(check_tiles_parameterization_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED tiles_downloaded_${STORAGE_BACKEND}
-    )
-    add_test(
-      NAME remove_tile_parameterization_${STORAGE_BACKEND}
-      COMMAND ${RM} -v ${TILE_FILE_NAME}.0 ${TILE_FILE_NAME}.1
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(remove_tile_parameterization_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS_ON download_tile_parameterization_${STORAGE_BACKEND}
-      FIXTURES_CLEANUP tiles_downloaded_${STORAGE_BACKEND}
-      REQUIRED_FILES "${TILE_FILE_NAME}.0;${TILE_FILE_NAME}.1"
+    add_good_tile_download_test(
+      parameterization_${STORAGE_BACKEND}_1
+      ${HTTPD1_URL}
+      ${TILE_FILE_NAME}.1
+      tiles_downloaded_${STORAGE_BACKEND}
+      services_started_${STORAGE_BACKEND}
     )
   endif()
 
