@@ -15,28 +15,32 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <iostream>
-
 // https://github.com/catchorg/Catch2/blob/v2.13.9/docs/own-main.md#let-catch2-take-full-control-of-args-and-config
 #define CATCH_CONFIG_RUNNER
 #include "catch/catch.hpp"
 
-#include "metatile.h"
 #include "config.h"
+#include "g_logger.h"
 #include "gen_tile.h"
+#include "metatile.h"
 #include "render_config.h"
 #include "request_queue.h"
 #include "store.h"
-#include <syslog.h>
-#include <sstream>
 #include "string.h"
+#include <cstddef>
+#include <glib.h>
+#include <iostream>
+#include <mapnik/version.hpp>
+#include <sstream>
+#include <stdlib.h>
 #include <string>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-#include <stdlib.h>
+
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
@@ -45,8 +49,6 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #endif
-
-#include <mapnik/version.hpp>
 
 #if MAPNIK_VERSION >= 400000
 #include <mapnik/geometry/box2d.hpp>
@@ -65,6 +67,8 @@ extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x
 // mutex to guard access to the shared render request counter
 static pthread_mutex_t item_counter_lock;
 
+extern int foreground;
+
 std::string get_current_stderr()
 {
 	FILE * input = fopen("stderr.out", "r+");
@@ -81,6 +85,46 @@ std::string get_current_stderr()
 	FILE * input2 = fopen("stderr.out", "w");
 	fclose(input2);
 	fclose(input);
+	return log_lines;
+}
+
+int * capture_stdout()
+{
+	// Flush stdout first if you've previously printed something
+	fflush(stdout);
+
+	// Save stdout so it can be restored later
+	int temp_stdout;
+	temp_stdout = dup(fileno(stdout));
+
+	// Redirect stdout to a new pipe
+	int pipes[2];
+	pipe(pipes);
+	dup2(pipes[1], fileno(stdout));
+
+	// Return temp_stdout & pipes
+	static int temp_stdout_pipes[3];
+	temp_stdout_pipes[0] = temp_stdout;
+	temp_stdout_pipes[1] = pipes[0];
+	temp_stdout_pipes[2] = pipes[1];
+	return temp_stdout_pipes;
+}
+
+std::string get_captured_stdout(int * temp_stdout_pipes)
+{
+	// Terminate captured output with a zero
+	write(temp_stdout_pipes[2], "", 1);
+
+	// Restore stdout
+	fflush(stdout);
+	dup2(temp_stdout_pipes[0], fileno(stdout));
+
+	// Save & return the captured output
+	std::string log_lines;
+	const int buffer_size = 1024;
+	char buffer[buffer_size];
+	read(temp_stdout_pipes[1], buffer, buffer_size);
+	log_lines += buffer;
 	return log_lines;
 }
 
@@ -721,18 +765,18 @@ TEST_CASE("renderd", "tile generation")
 
 	SECTION("render_init 1", "should throw nice error if paths are invalid") {
 		render_init("doesnotexist", "doesnotexist", 1);
-		std::string log_lines = get_current_stderr();
-		int found = log_lines.find("Unable to open font directory: doesnotexist");
-		//std::cout << "a: " << log_lines << "\n";
+		std::string err_log_lines = get_current_stderr();
+		int found = err_log_lines.find("Unable to open font directory: doesnotexist");
+		//std::cout << "a: " << err_log_lines << "\n";
 		REQUIRE(found > -1);
 	}
 
 	// we run this test twice to ensure that our stderr reading is working correctly
 	SECTION("render_init 2", "should throw nice error if paths are invalid") {
 		render_init("doesnotexist", "doesnotexist", 1);
-		std::string log_lines = get_current_stderr();
-		int found = log_lines.find("Unable to open font directory: doesnotexist");
-		//std::cout << "b: " << log_lines << "\n";
+		std::string err_log_lines = get_current_stderr();
+		int found = err_log_lines.find("Unable to open font directory: doesnotexist");
+		//std::cout << "b: " << err_log_lines << "\n";
 		REQUIRE(found > -1);
 	}
 
@@ -793,13 +837,111 @@ TEST_CASE("storage-backend", "Tile storage backend")
 	sprintf(tile_dir, "%s/mod_tile_test", tmp);
 	mkdir(tile_dir, 0777);
 
+	SECTION("storage/initialise", "should return NULL") {
+		foreground = 1;
+		// empty string
+		std::string empty;
+		REQUIRE(init_storage_backend(empty.c_str()) == NULL);
+
+		// invalid path
+		char * tile_dir_invalid;
+		tile_dir_invalid = (char *) malloc(sizeof(char) * (strlen(tile_dir) + 9));
+		sprintf(tile_dir_invalid, "%s/invalid", tile_dir);
+		REQUIRE(init_storage_backend(tile_dir_invalid) == NULL);
+		free(tile_dir_invalid);
+
+		// file
+		char * file_name;
+		file_name = (char *) malloc(sizeof(char) * (strlen(tile_dir) + 6));
+		sprintf(file_name, "%s/file", tile_dir);
+		std::ofstream  file{ file_name };
+		REQUIRE(init_storage_backend(file_name) == NULL);
+		free(file_name);
+
+		// non-existent backend
+		char non_existent_backend[] = "non-existent backend";
+		REQUIRE(init_storage_backend(non_existent_backend) == NULL);
+
+		// Check log output
+		int found;
+		std::string err_log_lines = get_current_stderr();
+
+		// empty string
+		found = err_log_lines.find("init_storage_backend: Options string was empty");
+		REQUIRE(found > -1);
+
+		// invalid path
+		found = err_log_lines.find("init_storage_backend: Failed to stat");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("No such file or directory");
+		REQUIRE(found > -1);
+
+		// file
+		found = err_log_lines.find("is not a directory");
+		REQUIRE(found > -1);
+
+		// non-existent backend
+		found = err_log_lines.find("init_storage_backend: No valid storage backend found for options: non-existent backend");
+		REQUIRE(found > -1);
+	}
+
 	SECTION("storage/initialise", "should return 1") {
 		struct storage_backend * store = NULL;
 
 		store = init_storage_backend(tile_dir);
 		REQUIRE(store != NULL);
 		store->close_storage(store);
+	}
 
+	SECTION("storage/initialise/memcached", "should return 1 or NULL") {
+		foreground = 1;
+		struct storage_backend * store = NULL;
+
+#ifdef HAVE_LIBMEMCACHED
+		REQUIRE(init_storage_backend("memcached://") != NULL);
+#else
+		REQUIRE(init_storage_backend("memcached://") == NULL);
+
+		// Check log output
+		int found;
+		std::string err_log_lines = get_current_stderr();
+		found = err_log_lines.find("init_storage_memcached: Support for memcached has not been compiled into this program");
+		REQUIRE(found > -1);
+#endif
+	}
+
+	SECTION("storage/initialise/null", "should return 1") {
+		struct storage_backend * store = NULL;
+
+		store = init_storage_backend("null://");
+		REQUIRE(store != NULL);
+		store->close_storage(store);
+	}
+
+	SECTION("storage/initialise/rados", "should return NULL") {
+		foreground = 1;
+		struct storage_backend * store = NULL;
+
+		REQUIRE(init_storage_backend("rados://") == NULL);
+
+		// Check log output
+		int found;
+		std::string err_log_lines = get_current_stderr();
+
+#ifdef HAVE_LIBRADOS
+		found = err_log_lines.find("init_storage_rados: failed to read rados config file");
+#else
+		found = err_log_lines.find("init_storage_rados: Support for rados has not been compiled into this program");
+#endif
+		REQUIRE(found > -1);
+	}
+
+	SECTION("storage/initialise/ro_http_proxy", "should return 1") {
+		struct storage_backend * store = NULL;
+
+		store = init_storage_backend("ro_http_proxy://");
+		REQUIRE(store != NULL);
+		store->close_storage(store);
 	}
 
 	SECTION("storage/stat/non existent", "should return 0 size") {
@@ -812,7 +954,6 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		sinfo = store->tile_stat(store, "default", "", 0, 0, 0);
 		REQUIRE(sinfo.size < 0);
 		store->close_storage(store);
-
 	}
 
 	SECTION("storage/read/non existent", "should return 0 size") {
@@ -831,7 +972,6 @@ TEST_CASE("storage-backend", "Tile storage backend")
 		store->close_storage(store);
 		free(buf);
 		free(err_msg);
-
 	}
 
 	SECTION("storage/write/full metatile", "should complete") {
@@ -1123,6 +1263,174 @@ TEST_CASE("projections", "Test projections")
 		REQUIRE(bbox.maxx() ==  700000.0);
 		REQUIRE(round(bbox.maxy()) == 5469.0);
 		free(prj);
+
+		prj = get_projection("");
+		bbox = tile2prjbounds(prj, 0, 0, 0);
+		REQUIRE(bbox.minx() == -20037508.3428);
+		REQUIRE(bbox.miny() == -20037508.3428);
+		REQUIRE(bbox.maxx() ==  20037508.3428);
+		REQUIRE(bbox.maxy() ==  20037508.3428);
+		bbox = tile2prjbounds(prj, 0, 0, 10);
+		//313086.06785625 = 2*20037508.3428 / (2^10 / 8)
+		REQUIRE(bbox.minx() == -20037508.3428);
+		REQUIRE(round(bbox.miny()) == 19724422.0);
+		REQUIRE(round(bbox.maxx()) ==  -19724422.0);
+		REQUIRE(bbox.maxy() ==  20037508.3428);
+		bbox = tile2prjbounds(prj, ((1 << 10) - METATILE), ((1 << 10) - METATILE), 10);
+		REQUIRE(round(bbox.minx()) == 19724422.0);
+		REQUIRE(bbox.miny() == -20037508.3428);
+		REQUIRE(bbox.maxx() ==  20037508.3428);
+		REQUIRE(round(bbox.maxy()) == -19724422.0);
+		free(prj);
+	}
+}
+
+TEST_CASE("g_logger", "Test g_logger.c")
+{
+	SECTION("g_logger_level_name", "should return the expected string") {
+		std::string ret;
+
+		ret = g_logger_level_name(G_LOG_LEVEL_ERROR);
+		REQUIRE(ret == "ERROR");
+
+		ret = g_logger_level_name(G_LOG_LEVEL_CRITICAL);
+		REQUIRE(ret == "CRITICAL");
+
+		ret = g_logger_level_name(G_LOG_LEVEL_WARNING);
+		REQUIRE(ret == "WARNING");
+
+		ret = g_logger_level_name(G_LOG_LEVEL_MESSAGE);
+		REQUIRE(ret == "MESSAGE");
+
+		ret = g_logger_level_name(G_LOG_LEVEL_INFO);
+		REQUIRE(ret == "INFO");
+
+		ret = g_logger_level_name(G_LOG_LEVEL_DEBUG);
+		REQUIRE(ret == "DEBUG");
+
+		ret = g_logger_level_name(0);
+		REQUIRE(ret == "UNKNOWN");
+	}
+
+	SECTION("g_logger background", "should log the expected string") {
+		foreground = 0;
+		int found;
+		std::string err_log_lines;
+
+		g_logger(G_LOG_LEVEL_ERROR, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_ERROR, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_CRITICAL, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_WARNING, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_MESSAGE, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_INFO, "BACKGROUND TEST");
+		g_logger(G_LOG_LEVEL_DEBUG, "BACKGROUND TEST");
+
+		err_log_lines = get_current_stderr();
+
+		found = err_log_lines.find("ERROR: BACKGROUND TEST");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("CRITICAL: BACKGROUND TEST");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("WARNING: BACKGROUND TEST");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("MESSAGE: BACKGROUND TEST");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("INFO: BACKGROUND TEST");
+		REQUIRE(found > -1);
+		// BACKGROUND DEBUG messages do not log
+		found = err_log_lines.find("DEBUG: BACKGROUND TEST");
+		REQUIRE(found == -1);
+	}
+
+	SECTION("g_logger foreground", "should log the expected string") {
+		foreground = 1;
+		int found;
+		std::string err_log_lines, out_log_lines;
+
+#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION == 79
+		// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
+		std::cout << "Resetting G_MESSAGES_DEBUG env var in runtime no longer has an effect.\n";
+		g_log_writer_default_set_debug_domains(NULL);
+#else
+		setenv("G_MESSAGES_DEBUG", "", 1);
+#endif
+
+		int * temp_stdout_pipes;
+		temp_stdout_pipes = capture_stdout();
+
+		g_logger(G_LOG_LEVEL_ERROR, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_CRITICAL, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_WARNING, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_MESSAGE, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_INFO, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_DEBUG, "FOREGROUND TEST");
+
+		err_log_lines = get_current_stderr();
+		out_log_lines = get_captured_stdout(temp_stdout_pipes);
+
+		found = err_log_lines.find("ERROR **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("CRITICAL **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("WARNING **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("** Message: ");
+		REQUIRE(found > -1);
+		// FOREGROUND INFO messages log to stdout
+		found = out_log_lines.find("** INFO: ");
+		REQUIRE(found > -1);
+		// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+		found = out_log_lines.find(": DEBUG: ");
+		REQUIRE(found == -1);
+	}
+
+	SECTION("g_logger foreground debug", "should log the expected string") {
+		foreground = 1;
+		int found;
+		std::string err_log_lines, out_log_lines;
+
+#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION == 79
+		// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
+		std::cout << "Resetting G_MESSAGES_DEBUG env var in runtime no longer has an effect.\n";
+		const gchar *domains[] = { "all", NULL };
+		g_log_writer_default_set_debug_domains(domains);
+#else
+		setenv("G_MESSAGES_DEBUG", "all", 1);
+#endif
+
+		int * temp_stdout_pipes;
+		temp_stdout_pipes = capture_stdout();
+
+		g_logger(G_LOG_LEVEL_ERROR, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_CRITICAL, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_WARNING, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_MESSAGE, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_INFO, "FOREGROUND TEST");
+		g_logger(G_LOG_LEVEL_DEBUG, "FOREGROUND TEST");
+
+		err_log_lines = get_current_stderr();
+		out_log_lines = get_captured_stdout(temp_stdout_pipes);
+
+#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION == 79
+		g_log_writer_default_set_debug_domains(NULL);
+#else
+		setenv("G_MESSAGES_DEBUG", "", 1);
+#endif
+
+		found = err_log_lines.find("ERROR **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("CRITICAL **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("WARNING **: ");
+		REQUIRE(found > -1);
+		found = err_log_lines.find("** Message: ");
+		REQUIRE(found > -1);
+		// FOREGROUND INFO messages log to stdout
+		found = out_log_lines.find("** INFO: ");
+		REQUIRE(found > -1);
+		// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+		found = out_log_lines.find(": DEBUG: ");
+		REQUIRE(found > -1);
 	}
 }
 

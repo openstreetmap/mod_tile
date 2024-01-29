@@ -140,7 +140,7 @@ function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME R
   add_test(
     NAME check_tile_${TEST_NAME}
     COMMAND ${BASH} -c "
-      ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} ${FILE_NAME} | ${GREP_EXECUTABLE} OK
+      ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} ${FILE_NAME} | ${GREP_EXECUTABLE} -q OK
     "
     WORKING_DIRECTORY tests
   )
