@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2023-12-19" "mod_tile v0.7.0"
+.TH RENDERD.CONF 5 "2024-01-22" "mod_tile v0.7.0"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -41,6 +41,7 @@ This option and \fBsocketname\fR are mutually exclusive.
 .TP
 .B num_threads
 Specify the number of threads to be used for \fBrenderd\fR.
+A value of \fB'-1'\fR will configure \fBnum_threads\fR to the number of cores on the system.
 The default value is \fB'4'\fR (macro definition \fB'NUM_THREADS'\fR).
 
 .TP

@@ -42,11 +42,13 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 [renderd1]
 iphostname=@RENDERD1_HOST@
 ipport=@RENDERD1_PORT@
+num_threads=1
 pid_file=@RENDERD1_PID@
 stats_file=@TEST_RUN_DIR@/renderd1_@STORAGE_BACKEND@.stats
 tile_dir=@TILE_DIR@
 
 [renderd0]
+num_threads=-1
 pid_file=@RENDERD0_PID@
 socketname=@RENDERD0_SOCKET@
 stats_file=@TEST_RUN_DIR@/renderd0_@STORAGE_BACKEND@.stats

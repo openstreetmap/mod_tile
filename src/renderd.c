@@ -66,7 +66,7 @@ static int exit_pipe_fd;
 
 static renderd_config config;
 
-int noSlaveRenders;
+int num_slave_threads;
 
 int foreground = 0;
 
@@ -826,7 +826,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	noSlaveRenders = 0;
+	num_slave_threads = 0;
 
 	int iconf = -1;
 	char buffer[PATH_MAX];
@@ -873,6 +873,10 @@ int main(int argc, char **argv)
 			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
 					buffer, (char *) RENDERD_PIDFILE);
 
+			if (config_slaves[render_sec].num_threads == -1) {
+				config_slaves[render_sec].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+			}
+
 			if (render_sec == active_slave) {
 				config.socketname = config_slaves[render_sec].socketname;
 				config.iphostname = config_slaves[render_sec].iphostname;
@@ -890,7 +894,7 @@ int main(int argc, char **argv)
 				config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
 								 "mapnik:font_dir_recurse", MAPNIK_FONTS_DIR_RECURSE);
 			} else {
-				noSlaveRenders += config_slaves[render_sec].num_threads;
+				num_slave_threads += config_slaves[render_sec].num_threads;
 			}
 		}
 	}
@@ -1051,7 +1055,7 @@ int main(int argc, char **argv)
 	g_logger(G_LOG_LEVEL_INFO, "config renderd: num_threads=%d", config.num_threads);
 
 	if (active_slave == 0) {
-		g_logger(G_LOG_LEVEL_INFO, "config renderd: num_slaves=%d", noSlaveRenders);
+		g_logger(G_LOG_LEVEL_INFO, "config renderd: num_slave_threads=%d", num_slave_threads);
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "config renderd: tile_dir=%s", config.tile_dir);
@@ -1165,7 +1169,7 @@ int main(int argc, char **argv)
 		//Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads
-			= (pthread_t *) malloc(sizeof(pthread_t) * noSlaveRenders);
+			= (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
