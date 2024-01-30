@@ -873,7 +873,7 @@ int main(int argc, char **argv)
 			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
 					buffer, (char *) RENDERD_PIDFILE);
 
-			if (config_slaves[render_sec].num_threads == 0) {
+			if (config_slaves[render_sec].num_threads == -1) {
 				config_slaves[render_sec].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
 			}
 
