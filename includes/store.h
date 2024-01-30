@@ -22,9 +22,9 @@
 extern "C" {
 #endif
 
+#include "render_config.h"
 #include <stdlib.h>
 #include <sys/types.h>
-#include "render_config.h"
 
 struct stat_info {
 	off_t     size;    /* total size, in bytes */

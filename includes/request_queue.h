@@ -19,6 +19,8 @@
 #define REQUEST_QUEUE_H
 
 #include "gen_tile.h"
+#include "render_config.h"
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
