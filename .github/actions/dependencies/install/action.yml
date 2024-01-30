@@ -13,7 +13,6 @@ inputs:
     default: >-
       cmake
       git
-      libboost-filesystem-dev
       libboost-program-options-dev
       libboost-regex-dev
       libfreetype6-dev
@@ -174,7 +173,6 @@ inputs:
     default: >-
       cmake
       git
-      libboost-filesystem-dev
       libboost-program-options-dev
       libboost-regex-dev
       libfreetype6-dev
