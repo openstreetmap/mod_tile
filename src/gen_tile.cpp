@@ -214,7 +214,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads)
 		parameters params = l.datasource()->params();
 
 		if (params.find("max_size") == params.end()) {
-			sprintf(tmp, "%i", num_threads + 2);
+			snprintf(tmp, 20, "%i", num_threads + 2);
 			params["max_size"] = std::string(tmp);
 		}
 

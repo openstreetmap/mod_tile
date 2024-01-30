@@ -219,7 +219,7 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
 	g_logger(G_LOG_LEVEL_DEBUG, "Creating and writing a metatile to %s", meta_path);
 
 	tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
-	snprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, pthread_self());
+	snprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, (unsigned long) pthread_self());
 
 	if (mkdirp(tmp)) {
 		free(tmp);

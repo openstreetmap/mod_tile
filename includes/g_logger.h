@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef GLOGGER_H
-#define GLOGGER_H
+#ifndef G_LOGGER_H
+#define G_LOGGER_H
 
 #include <glib.h>
 

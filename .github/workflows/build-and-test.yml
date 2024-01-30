@@ -116,7 +116,6 @@ jobs:
 
   macOS:
     env:
-      CFLAGS: -Wno-implicit-function-declaration
       LDFLAGS: -undefined dynamic_lookup
       LIBRARY_PATH: /usr/local/lib
       TEST_PARALLEL_LEVEL: 1

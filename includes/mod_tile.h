@@ -18,7 +18,10 @@
 #ifndef MODTILE_H
 #define MODTILE_H
 
+#include "protocol.h"
 #include "store.h"
+#include <apr_tables.h>
+#include <netinet/in.h>
 
 /*Size of the delaypool hashtable*/
 #define DELAY_HASHTABLE_SIZE 100057
