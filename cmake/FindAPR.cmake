@@ -40,10 +40,16 @@ if((NOT APR_FOUND) AND (APR_INCLUDE_DIRS) AND (APR_LIBRARIES))
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(APR
-  FOUND_VAR APR_FOUND
-  REQUIRED_VARS APR_FOUND APR_INCLUDE_DIRS APR_LIBRARIES
-  VERSION_VAR APR_VERSION
-)
+
+if(APR_FOUND)
+  find_package_handle_standard_args(APR
+    REQUIRED_VARS APR_FOUND APR_INCLUDE_DIRS APR_LIBRARIES
+    VERSION_VAR APR_VERSION
+  )
+else()
+  find_package_handle_standard_args(APR
+    REQUIRED_VARS APR_FOUND
+  )
+endif()
 
 mark_as_advanced(APR_INCLUDE_DIR APR_LIBRARY)

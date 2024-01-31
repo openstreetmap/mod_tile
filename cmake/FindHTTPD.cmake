@@ -38,10 +38,16 @@ if((NOT HTTPD_VERSION) AND (HTTPD_FOUND))
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(HTTPD
-  FOUND_VAR HTTPD_FOUND
-  REQUIRED_VARS HTTPD_FOUND HTTPD_INCLUDE_DIRS
-  VERSION_VAR HTTPD_VERSION
-)
+
+if(HTTPD_FOUND)
+  find_package_handle_standard_args(HTTPD
+    REQUIRED_VARS HTTPD_FOUND HTTPD_INCLUDE_DIRS
+    VERSION_VAR HTTPD_VERSION
+  )
+else()
+  find_package_handle_standard_args(HTTPD
+    REQUIRED_VARS HTTPD_FOUND
+  )
+endif()
 
 mark_as_advanced(HTTPD_INCLUDE_DIR)
