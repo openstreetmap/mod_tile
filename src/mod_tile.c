@@ -78,10 +78,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 #define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
 #endif
 
-#ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(tile);
-#define APACHE24 1
-#endif
 
 #if (defined(__FreeBSD__) || defined(__MACH__)) && !defined(s6_addr32)
 #define s6_addr32 __u6_addr.__u6_addr32
@@ -385,24 +382,13 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 	tile_config_rec *tile_configs = (tile_config_rec *) scfg->configs->elts;
 	tile_config_rec *tile_config = &tile_configs[tile_layer];
-#ifdef APACHE24
 	apr_thread_t * current_thread = r->connection->current_thread;
 	apr_pool_t *lifecycle_pool = apr_thread_pool_get(current_thread);
-#else
-	apr_pool_t *lifecycle_pool = r->server->process->pool;
-#endif
 	char * memkey = apr_psprintf(r->pool, "mod_tile_storage_backends");
 	apr_os_thread_t os_thread = apr_os_thread_current();
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Retrieving storage back end for tile layer %i in pool %pp and thread %li",
 		      tile_layer, lifecycle_pool, (unsigned long) os_thread);
-
-	/* In Apache 2.2, we are using the process memory pool, but with mpm_event and mpm_worker, each process has multiple threads.
-	 * As apache's memory pool operations are not thread-safe, we need to wrap everything into a mutex to protect against
-	 * segfaults. Apache 2.4 provides access to the per thread pool, in which case access to a specific pool is always single threaded.*/
-#ifndef APACHE24
-	apr_global_mutex_lock(storage_mutex);
-#endif
 
 	if (apr_pool_userdata_get((void **)&stores, memkey, lifecycle_pool) != APR_SUCCESS) {
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "get_storage_backend: Failed horribly!");
@@ -420,10 +406,6 @@ static struct storage_backend * get_storage_backend(request_rec *r, int tile_lay
 	} else {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: Found backends (%pp) for this lifecycle %pp in thread %li", stores, lifecycle_pool, (unsigned long) os_thread);
 	}
-
-#ifndef APACHE24
-	apr_global_mutex_unlock(storage_mutex);
-#endif
 
 	if (stores->stores[tile_layer] == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "get_storage_backend: No storage backend in current lifecycle %pp in thread %li for current tile layer %i",
@@ -813,22 +795,13 @@ static int delay_allowed(request_rec *r, enum tileState state)
 	ap_conf_vector_t *sconf = r->server->module_config;
 	tile_server_conf *scfg = ap_get_module_config(sconf, &tile_module);
 	delayp = (delaypool *)apr_shm_baseaddr_get(delaypool_shm);
-
-#ifdef APACHE24
 	ip_addr = r->useragent_ip;
-#else
-	ip_addr = r->connection->remote_ip;
-#endif
 
 	if (scfg->enableTileThrottlingXForward) {
 		char * ip_addrs = apr_pstrdup(r->pool, apr_table_get(r->headers_in, "X-Forwarded-For"));
 
 		if (ip_addrs) {
-#ifdef APACHE24
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forwarded-For header \"%s\", forwarded by %s", ip_addrs, r->connection->client_ip);
-#else
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forwarded-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
-#endif
 			//X-Forwarded-For can be a chain of proxies deliminated by , The first entry in the list is the client, the last entry is the remote address seen by the proxy
 			//closest to the tileserver.
 			strtok_state = NULL;
@@ -843,11 +816,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 				}
 			}
 
-#ifdef APACHE24
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->client_ip);
-#else
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays for IP %s, forwarded by %s", ip_addr, r->connection->remote_ip);
-#endif
 		}
 	}
 
@@ -1860,11 +1829,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	}
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-#ifdef APACHE24
 	rs = ap_unixd_set_global_mutex_perms(stats_mutex);
-#else
-	rs = unixd_set_global_mutex_perms(stats_mutex);
-#endif
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
@@ -1894,11 +1859,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	}
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-#ifdef APACHE24
 	rs = ap_unixd_set_global_mutex_perms(delay_mutex);
-#else
-	rs = unixd_set_global_mutex_perms(delay_mutex);
-#endif
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
@@ -1928,11 +1889,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	}
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-#ifdef APACHE24
 	rs = ap_unixd_set_global_mutex_perms(storage_mutex);
-#else
-	rs = unixd_set_global_mutex_perms(storage_mutex);
-#endif
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
