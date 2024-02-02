@@ -18,9 +18,9 @@ RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sh
         boost169-devel \
         bzip2 \
         cairo-devel \
-        freetype-devel \
         devtoolset-9-gcc \
         devtoolset-9-gcc-c++ \
+        freetype-devel \
         gdal-devel \
         harfbuzz-devel \
         libicu-devel \
@@ -81,14 +81,14 @@ RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sh
     ulimit -n 40000; \
     echo "install_weak_deps=0" >> /etc/yum.conf && \
     sed --in-place 's/keepcache=0/keepcache=1/g' /etc/yum.conf && \
-    yum --assumeyes install epel-release && \
+    yum --assumeyes install epel-release centos-release-scl && \
     yum --assumeyes upgrade && \
     yum --assumeyes install \
         boost169-devel \
         cairo-devel \
         cmake3 \
-        gcc \
-        gcc-c++ \
+        devtoolset-9-gcc \
+        devtoolset-9-gcc-c++ \
         gdal \
         glib2-devel \
         harfbuzz-devel \
@@ -111,7 +111,8 @@ COPY --from=mapnik-builder /tmp/mapnik /
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN source /opt/rh/devtoolset-9/enable && \
+    export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     export CFLAGS="-I/usr/include/boost169" && \
     export CXXFLAGS="-I/usr/include/boost169" && \
     cmake3 -B . -S /tmp/mod_tile_src \

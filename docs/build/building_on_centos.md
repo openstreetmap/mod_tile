@@ -18,11 +18,13 @@ sudo yum --assumeyes update
 
 # Install build dependencies
 # (libmemcached-devel & librados2-devel are optional)
-sudo yum --assumeyes install epel-release
+sudo yum --assumeyes install epel-release centos-release-scl
 sudo yum --assumeyes --setopt=install_weak_deps=False install \
   boost169-devel \
   cairo-devel \
   cmake3 \
+  devtoolset-9-gcc \
+  devtoolset-9-gcc-c++ \
   gcc \
   gcc-c++ \
   gdal \
@@ -42,6 +44,7 @@ sudo yum --assumeyes --setopt=install_weak_deps=False install \
   proj
 
 # Download, Build, Test & Install `mod_tile`
+source /opt/rh/devtoolset-9/enable
 export CFLAGS="-I/usr/include/boost169"
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
 export CXXFLAGS="-I/usr/include/boost169"
