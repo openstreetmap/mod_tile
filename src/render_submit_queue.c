@@ -169,7 +169,7 @@ static struct protocol * fetch(void)
 	pthread_cond_signal(&qCondNotFull);
 	pthread_mutex_unlock(&qLock);
 
-	struct protocol * cmd = malloc(sizeof(struct protocol));;
+	struct protocol * cmd = malloc(sizeof(struct protocol));
 
 	cmd->ver = 2;
 	cmd->cmd = cmdRenderBulk;

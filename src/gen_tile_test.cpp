@@ -25,6 +25,7 @@
 #include "metatile.h"
 #include "protocol_helper.h"
 #include "render_config.h"
+#include "renderd.h"
 #include "request_queue.h"
 #include "store.h"
 #include "string.h"
@@ -51,7 +52,7 @@
 #include <sys/wait.h>
 #endif
 
-#if MAPNIK_VERSION >= 400000
+#if MAPNIK_MAJOR_VERSION >= 4
 #include <mapnik/geometry/box2d.hpp>
 #else
 #include <mapnik/box2d.hpp>
@@ -74,24 +75,48 @@ typedef struct _captured_stdio {
 	int pipes[2];
 } captured_stdio;
 
+captured_stdio captured_stderr;
 captured_stdio captured_stdout;
 
-std::string get_current_stderr()
+void capture_stderr()
 {
-	FILE *input = fopen("stderr.out", "r+");
-	std::string log_lines;
-	unsigned sz = 1024;
-	char buffer[sz];
+	// Flush stderr first if you've previously printed something
+	fflush(stderr);
 
-	while (fgets(buffer, 512, input)) {
-		log_lines += buffer;
+	// Save stderr so it can be restored later
+	int temp_stderr;
+	temp_stderr = dup(fileno(stderr));
+
+	// Redirect stderr to a new pipe
+	int pipes[2];
+	pipe(pipes);
+	dup2(pipes[1], fileno(stderr));
+
+	captured_stderr.temp_fd = temp_stderr;
+	captured_stderr.pipes[0] = pipes[0];
+	captured_stderr.pipes[1] = pipes[1];
+}
+
+std::string get_captured_stderr(bool print = false)
+{
+	// Terminate captured output with a zero
+	write(captured_stderr.pipes[1], "", 1);
+
+	// Restore stderr
+	fflush(stderr);
+	dup2(captured_stderr.temp_fd, fileno(stderr));
+
+	// Save & return the captured output
+	std::string log_lines;
+	const int buffer_size = 1024;
+	char buffer[buffer_size];
+	read(captured_stderr.pipes[0], buffer, buffer_size);
+	log_lines += buffer;
+
+	if (print) {
+		std::cout << "err_log_lines: " << log_lines << "\n";
 	}
 
-	// truncate the file now so future reads
-	// only get the new stuff
-	FILE *input2 = fopen("stderr.out", "w");
-	fclose(input2);
-	fclose(input);
 	return log_lines;
 }
 
@@ -114,7 +139,7 @@ void capture_stdout()
 	captured_stdout.pipes[1] = pipes[1];
 }
 
-std::string get_captured_stdout()
+std::string get_captured_stdout(bool print = false)
 {
 	// Terminate captured output with a zero
 	write(captured_stdout.pipes[1], "", 1);
@@ -129,24 +154,34 @@ std::string get_captured_stdout()
 	char buffer[buffer_size];
 	read(captured_stdout.pipes[0], buffer, buffer_size);
 	log_lines += buffer;
+
+	if (print) {
+		std::cout << "out_log_lines: " << log_lines << "\n";
+	}
+
 	return log_lines;
 }
 
-void start_debug()
+void start_capture(bool debug = false)
 {
-	foreground = 1;
+	foreground = debug ? 1 : 0;
+
+	if (debug) {
 #if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION == 79
-	// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
-	std::cout << "Resetting G_MESSAGES_DEBUG env var in runtime no longer has an effect.\n";
-	const gchar *domains[] = {"all", NULL};
-	g_log_writer_default_set_debug_domains(domains);
+		// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
+		std::cout << "Resetting G_MESSAGES_DEBUG env var in runtime no longer has an effect.\n";
+		const gchar *domains[] = {"all", NULL};
+		g_log_writer_default_set_debug_domains(domains);
 #else
-	setenv("G_MESSAGES_DEBUG", "all", 1);
+		setenv("G_MESSAGES_DEBUG", "all", 1);
 #endif
+	}
+
+	capture_stderr();
 	capture_stdout();
 }
 
-std::string end_debug()
+std::tuple<std::string, std::string> end_capture(bool print = false)
 {
 #if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION == 79
 	g_log_writer_default_set_debug_domains(NULL);
@@ -155,7 +190,7 @@ std::string end_debug()
 #endif
 	foreground = 0;
 
-	return get_captured_stdout();
+	return std::tuple<std::string, std::string>(get_captured_stderr(print), get_captured_stdout(print));
 }
 
 struct item *init_render_request(enum protoCmd type)
@@ -803,14 +838,71 @@ TEST_CASE("renderd/queueing", "request queueing")
 
 TEST_CASE("renderd", "tile generation")
 {
+	int found, ret;
+	std::string err_log_lines, out_log_lines;
+
 	SECTION("render_init", "should throw nice error if paths are invalid") {
-		// The first stderr lines don't always save to file in background mode
+		start_capture();
 		render_init("doesnotexist", "doesnotexist", 1);
-		render_init("doesnotexist", "doesnotexist", 1);
-		std::string err_log_lines = get_current_stderr();
-		int found = err_log_lines.find("Unable to open font directory: doesnotexist");
-		// std::cout << "render_init: " << err_log_lines << "\n";
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		found = err_log_lines.find("Unable to open font directory: doesnotexist");
 		REQUIRE(found > -1);
+	}
+
+	SECTION("rx_request/bad", "should return cmdNotDone") {
+		int pipefd[2];
+		pipe(pipefd);
+		struct protocol *req = (struct protocol *)malloc(sizeof(struct protocol));
+
+		req->x = 1024;
+		req->y = 1024;
+		req->z = 10;
+
+		REQUIRE((std::string) req->mimetype != (std::string) "image/png");
+		REQUIRE((std::string) req->xmlname != (std::string) "default");
+
+		// Unknown command
+		req->cmd = (enum protoCmd) 4096;
+
+		// Invalid version
+		req->ver = 4;
+
+		start_capture();
+		ret = rx_request(req, pipefd[1]);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		REQUIRE(ret == cmdNotDone);
+		found = err_log_lines.find("Bad protocol version 4");
+		REQUIRE(found > -1);
+
+		// Valid version
+		req->ver = 1;
+
+		start_capture();
+		ret = rx_request(req, pipefd[1]);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		REQUIRE((std::string) req->mimetype == (std::string) "image/png");
+		REQUIRE((std::string) req->options == (std::string) "");
+		REQUIRE((std::string) req->xmlname == (std::string) "default");
+
+		REQUIRE(ret == cmdNotDone);
+		found = err_log_lines.find("Ignoring unknown command unknown fd(" + std::to_string(pipefd[1]));
+		REQUIRE(found > -1);
+
+		// Valid command
+		req->cmd = cmdNotDone;
+
+		start_capture();
+		ret = rx_request(req, pipefd[1]);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		REQUIRE(ret == cmdNotDone);
+		found = err_log_lines.find("Ignoring unknown command NotDone fd(" + std::to_string(pipefd[1]));
+		REQUIRE(found > -1);
+
+		free(req);
 	}
 
 	SECTION("renderd startup --help", "should start and show help message") {
@@ -855,9 +947,12 @@ TEST_CASE("renderd", "tile generation")
 
 TEST_CASE("storage-backend", "Tile storage backend router")
 {
-	std::string tile_dir = create_tile_dir();
+	int found;
+	std::string err_log_lines, out_log_lines, tile_dir = create_tile_dir();
 
 	SECTION("storage/initialise", "should return NULL") {
+		start_capture();
+
 		// empty string
 		std::string empty;
 		REQUIRE(init_storage_backend(empty.c_str()) == NULL);
@@ -879,8 +974,7 @@ TEST_CASE("storage-backend", "Tile storage backend router")
 		REQUIRE(init_storage_backend(non_existent_backend) == NULL);
 
 		// Check log output
-		int found;
-		std::string err_log_lines = get_current_stderr();
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		// empty string
 		found = err_log_lines.find("init_storage_backend: Options string was empty");
@@ -1189,32 +1283,25 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 
 TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 {
+	int found;
+	std::string err_log_lines, out_log_lines;
+	struct storage_backend *store = NULL;
+
 #ifdef HAVE_LIBMEMCACHED
 	SECTION("memcached storage/initialise", "should not return NULL") {
-		int found;
-		std::string out_log_lines;
-		struct storage_backend *store = NULL;
-
-		start_debug();
-
+		start_capture(1);
 		REQUIRE(init_storage_backend("memcached://") != NULL);
-
-		out_log_lines = end_debug();
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		found = out_log_lines.find("init_storage_memcached: Creating memcached ctx with options");
 		REQUIRE(found > -1);
 	}
 #else
 	SECTION("memcached storage/initialise", "should return NULL") {
-		int found;
-		std::string err_log_lines;
-		struct storage_backend *store = NULL;
-
-		// The first stderr lines don't always save to file in background mode
+		start_capture();
 		REQUIRE(init_storage_backend("memcached://") == NULL);
-		REQUIRE(init_storage_backend("memcached://") == NULL);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		err_log_lines = get_current_stderr();
 		found = err_log_lines.find("init_storage_memcached: Support for memcached has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
@@ -1384,14 +1471,12 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 {
 	SECTION("storage/initialise", "should return NULL") {
 		int found;
-		std::string err_log_lines;
+		std::string err_log_lines, out_log_lines;
 		struct storage_backend *store = NULL;
 
-		// The first stderr lines don't always save to file in background mode
+		start_capture();
 		REQUIRE(init_storage_backend("rados://") == NULL);
-		REQUIRE(init_storage_backend("rados://") == NULL);
-
-		err_log_lines = get_current_stderr();
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 #ifdef HAVE_LIBRADOS
 		found = err_log_lines.find("init_storage_rados: failed to read rados config file");
@@ -1417,7 +1502,7 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 TEST_CASE("projections", "Test projections")
 {
 	SECTION("projections/bounds/spherical", "should return 1") {
-		const char * projection_srs;
+		const char *projection_srs;
 		int x_multiplier, y_multiplier;
 		double expected_minx, expected_miny, expected_maxx, expected_maxy;
 		double expected_rounded_minx, expected_rounded_miny, expected_rounded_maxx, expected_rounded_maxy;
@@ -1444,8 +1529,7 @@ TEST_CASE("projections", "Test projections")
 			std::make_tuple("",
 					1, 1,
 					-20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
-					19724422.0, 19724422.0, -19724422.0, -19724422.0)
-		}));
+					19724422.0, 19724422.0, -19724422.0, -19724422.0)}));
 
 		struct projectionconfig *prj = get_projection(projection_srs);
 
@@ -1473,120 +1557,120 @@ TEST_CASE("projections", "Test projections")
 
 TEST_CASE("g_logger", "Test g_logger.c")
 {
-	SECTION("g_logger_level_name", "should return the expected string") {
+	int found_err, found_out, log_level;
+	std::string err_log_lines, out_log_lines, expected_output;
+
+	std::tie(log_level, expected_output) =
+	GENERATE(table<int, std::string>({
+		std::make_tuple(G_LOG_LEVEL_ERROR, "ERROR"),
+		std::make_tuple(G_LOG_LEVEL_CRITICAL, "CRITICAL"),
+		std::make_tuple(G_LOG_LEVEL_WARNING, "WARNING"),
+		std::make_tuple(G_LOG_LEVEL_MESSAGE, "MESSAGE"),
+		std::make_tuple(G_LOG_LEVEL_INFO, "INFO"),
+		std::make_tuple(G_LOG_LEVEL_DEBUG, "DEBUG"),
+		std::make_tuple(0, "UNKNOWN")}));
+
+	SECTION("g_logger_level_name: " + expected_output, "should return the expected string") {
 		std::string result;
-
-		int log_level;
-		std::string expected_output;
-		std::tie(log_level, expected_output) =
-		GENERATE(table<int, std::string>({
-			std::make_tuple(G_LOG_LEVEL_ERROR, "ERROR"),
-			std::make_tuple(G_LOG_LEVEL_CRITICAL, "CRITICAL"),
-			std::make_tuple(G_LOG_LEVEL_WARNING, "WARNING"),
-			std::make_tuple(G_LOG_LEVEL_MESSAGE, "MESSAGE"),
-			std::make_tuple(G_LOG_LEVEL_INFO, "INFO"),
-			std::make_tuple(G_LOG_LEVEL_DEBUG, "DEBUG"),
-			std::make_tuple(0, "UNKNOWN")
-		}));
-
 		result = g_logger_level_name(log_level);
 		REQUIRE(result == expected_output);
 	}
 
-	SECTION("g_logger background", "should log the expected string") {
-		int found;
-		std::string err_log_lines;
+	SECTION("g_logger background: " + expected_output, "should log the expected string") {
+		start_capture();
+		g_logger(log_level, "BACKGROUND TEST");
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		// The first stderr lines don't always save to file in background mode
-		g_logger(G_LOG_LEVEL_ERROR, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_ERROR, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_CRITICAL, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_WARNING, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_MESSAGE, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_INFO, "BACKGROUND TEST");
-		g_logger(G_LOG_LEVEL_DEBUG, "BACKGROUND TEST");
+		expected_output += ": BACKGROUND TEST";
 
-		err_log_lines = get_current_stderr();
+		found_err = err_log_lines.find(expected_output);
+		found_out = out_log_lines.find(expected_output);
 
-		found = err_log_lines.find("ERROR: BACKGROUND TEST");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("CRITICAL: BACKGROUND TEST");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("WARNING: BACKGROUND TEST");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("MESSAGE: BACKGROUND TEST");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("INFO: BACKGROUND TEST");
-		REQUIRE(found > -1);
-		// BACKGROUND DEBUG messages do not log
-		found = err_log_lines.find("DEBUG: BACKGROUND TEST");
-		REQUIRE(found == -1);
+		switch (log_level)  {
+			case 0:
+				// BACKGROUND UNKNOWN messages do not log
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out == -1);
+				break;
+
+			case G_LOG_LEVEL_DEBUG:
+				// BACKGROUND DEBUG messages do not log
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out == -1);
+				break;
+
+			default:
+				REQUIRE(found_err > -1);
+				REQUIRE(found_out == -1);
+		}
 	}
 
-	SECTION("g_logger foreground", "should log the expected string") {
+	SECTION("g_logger foreground: " + expected_output, "should log the expected string") {
+		std::string message = expected_output + " FOREGROUND TEST";
+		start_capture();
 		foreground = 1;
-		int found;
-		std::string err_log_lines, out_log_lines;
-
-		capture_stdout();
-
-		g_logger(G_LOG_LEVEL_ERROR, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_CRITICAL, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_WARNING, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_MESSAGE, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_INFO, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_DEBUG, "FOREGROUND TEST");
-
-		err_log_lines = get_current_stderr();
-		out_log_lines = get_captured_stdout();
-
-		found = err_log_lines.find("ERROR **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("CRITICAL **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("WARNING **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("** Message: ");
-		REQUIRE(found > -1);
-		// FOREGROUND INFO messages log to stdout
-		found = out_log_lines.find("** INFO: ");
-		REQUIRE(found > -1);
-		// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-		found = out_log_lines.find(": DEBUG: ");
-		REQUIRE(found == -1);
+		g_logger(log_level, message.c_str());
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 		foreground = 0;
+
+		found_err = err_log_lines.find(message);
+		found_out = out_log_lines.find(message);
+
+		switch (log_level)  {
+			case 0:
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out == -1);
+				break;
+
+			case G_LOG_LEVEL_INFO:
+				// FOREGROUND INFO messages log to stdout
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out > -1);
+				break;
+
+			case G_LOG_LEVEL_DEBUG:
+				// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out == -1);
+				break;
+
+			default:
+				REQUIRE(found_err > -1);
+				REQUIRE(found_out == -1);
+		}
 	}
 
-	SECTION("g_logger foreground debug", "should log the expected string") {
-		int found;
-		std::string err_log_lines, out_log_lines;
+	SECTION("g_logger foreground debug: " + expected_output, "should log the expected string") {
+		std::string message = expected_output + " FOREGROUND DEBUG TEST";
+		start_capture(1);
+		g_logger(log_level, message.c_str());
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		start_debug();
+		found_err = err_log_lines.find(message);
+		found_out = out_log_lines.find(message);
 
-		g_logger(G_LOG_LEVEL_ERROR, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_CRITICAL, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_WARNING, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_MESSAGE, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_INFO, "FOREGROUND TEST");
-		g_logger(G_LOG_LEVEL_DEBUG, "FOREGROUND TEST");
+		switch (log_level)  {
+			case 0:
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out == -1);
+				break;
 
-		err_log_lines = get_current_stderr();
-		out_log_lines = end_debug();
+			case G_LOG_LEVEL_INFO:
+				// FOREGROUND INFO messages log to stdout
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out > -1);
+				break;
 
-		found = err_log_lines.find("ERROR **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("CRITICAL **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("WARNING **: ");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("** Message: ");
-		REQUIRE(found > -1);
-		// FOREGROUND INFO messages log to stdout
-		found = out_log_lines.find("** INFO: ");
-		REQUIRE(found > -1);
-		// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-		found = out_log_lines.find(": DEBUG: ");
-		REQUIRE(found > -1);
+			case G_LOG_LEVEL_DEBUG:
+				// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+				REQUIRE(found_err == -1);
+				REQUIRE(found_out > -1);
+				break;
+
+			default:
+				REQUIRE(found_err > -1);
+				REQUIRE(found_out == -1);
+		}
 	}
 }
 
@@ -1616,44 +1700,47 @@ TEST_CASE("protocol_helper", "Test protocol_helper.c")
 	cmd->z = 10;
 
 	SECTION("send_cmd/ver invalid version", "should return -1") {
+		// Version must be 1, 2 or 3
 		cmd->ver = 0;
-		// The first stderr lines don't always save to file in background mode
+
+		start_capture();
 		ret = send_cmd(cmd, fd);
-		ret = send_cmd(cmd, fd);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
 		REQUIRE(ret == -1);
-		err_log_lines = get_current_stderr();
 		found = err_log_lines.find("Failed to send render cmd with unknown protocol version 0");
 		REQUIRE(found > -1);
 
+		// Version must be 1, 2 or 3
 		cmd->ver = 4;
-		// The first stderr lines don't always save to file in background mode
+
+		start_capture();
 		ret = send_cmd(cmd, fd);
-		ret = send_cmd(cmd, fd);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
 		REQUIRE(ret == -1);
-		err_log_lines = get_current_stderr();
 		found = err_log_lines.find("Failed to send render cmd with unknown protocol version 4");
 		REQUIRE(found > -1);
 	}
 
 	SECTION("send_cmd/fd invalid", "should return -1") {
 		cmd->ver = 1;
-		// The first stderr lines don't always save to file in background mode
+
+		start_capture();
 		ret = send_cmd(cmd, fd);
-		ret = send_cmd(cmd, fd);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
 		REQUIRE(ret == -1);
-		err_log_lines = get_current_stderr();
 		found = err_log_lines.find("Failed to send render cmd on fd");
 		REQUIRE(found > -1);
 	}
 
-	SECTION("recv_cmd/fd invalid", "should return -1") {
+	SECTION("recv_cmd/fd invalid debug", "should return -1") {
 		cmd->ver = 1;
 
-		start_debug();
-
+		start_capture(1);
 		ret = recv_cmd(cmd, fd, block);
-
-		out_log_lines = end_debug();
+		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		REQUIRE(ret == -1);
 		found = out_log_lines.find("Failed to read cmd on fd");
@@ -1663,27 +1750,13 @@ TEST_CASE("protocol_helper", "Test protocol_helper.c")
 	free(cmd);
 }
 
-int main(int argc, char *const argv[])
+int main(int argc, char *argv[])
 {
-	// std::ios_base::sync_with_stdio(false);
-	//  start by supressing stderr
-	//  this avoids noisy test output that is intentionally
-	//  testing for things that produce stderr and also
-	//  allows us to catch and read it in these tests to validate
-	//  the stderr contains the right messages
-	//  http://stackoverflow.com/questions/13533655/how-to-listen-to-stderr-in-c-c-for-sending-to-callback
-	FILE *stream = freopen("stderr.out", "w", stderr);
-
-	if (!stream) {
-		perror("Redirection of stderr failed");
-		return 1;
-	}
-
-	// setvbuf(stream, 0, _IOLBF, 0); // No Buffering
-	openlog("renderd", LOG_PID | LOG_PERROR, LOG_DAEMON);
+	capture_stderr();
+	openlog("gen_tile_test", LOG_PID | LOG_PERROR, LOG_DAEMON);
 	pthread_mutex_init(&item_counter_lock, NULL);
 	int result = Catch::Session().run(argc, argv);
 	pthread_mutex_destroy(&item_counter_lock);
-	fclose(stream);
+	get_captured_stderr();
 	return result;
 }
