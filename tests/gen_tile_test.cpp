@@ -66,6 +66,7 @@ extern struct projectionconfig *get_projection(const char *srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig *prj, int x, int y, int z);
 
 extern int foreground;
+extern struct request_queue *render_request_queue;
 
 // mutex to guard access to the shared render request counter
 static pthread_mutex_t item_counter_lock;
@@ -375,6 +376,34 @@ TEST_CASE("render_list", "render list")
 
 		// flawfinder: ignore
 		int ret = system(command.c_str());
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list min zoom exceeds max zoom", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -z 10 -Z 9");
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list all min zoom not equal to max zoom with X/Y options", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -z 9 -Z 10 -a -X 1 -Y 1");
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list all max x/y options exceed maximum (2^zoom-1)", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -z 1 -Z 1 -a -X 2 -Y 2");
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list all min x/y options exceed maximum (2^zoom-1)", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -z 1 -Z 1 -a -x 2 -y 2");
 		ret = WEXITSTATUS(ret);
 		REQUIRE(ret == 1);
 	}
@@ -901,16 +930,17 @@ TEST_CASE("renderd", "tile generation")
 		int pipefd[2];
 		pipe(pipefd);
 		struct protocol *req = (struct protocol *)malloc(sizeof(struct protocol));
+		std::string expected_mimetype = "image/png", expected_options = "", expected_xmlname = "default";
 
 		req->x = 1024;
 		req->y = 1024;
 		req->z = 10;
-
-		REQUIRE((std::string) req->mimetype != (std::string) "image/png");
-		REQUIRE((std::string) req->xmlname != (std::string) "default");
+		strcpy(req->mimetype, "mimetype");
+		strcpy(req->options, "options");
+		strcpy(req->xmlname, "xmlname");
 
 		// Unknown command
-		req->cmd = (enum protoCmd) 4096;
+		req->cmd = (enum protoCmd)4096;
 
 		// Invalid version
 		req->ver = 4;
@@ -920,19 +950,23 @@ TEST_CASE("renderd", "tile generation")
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Bad protocol version 4");
+		found = err_log_lines.find("Bad protocol version " + std::to_string(req->ver));
 		REQUIRE(found > -1);
 
 		// Valid version
 		req->ver = 1;
 
+		REQUIRE((std::string)req->mimetype != expected_mimetype);
+		REQUIRE((std::string)req->options != expected_options);
+		REQUIRE((std::string)req->xmlname != expected_xmlname);
+
 		start_capture();
 		ret = rx_request(req, pipefd[1]);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		REQUIRE((std::string) req->mimetype == (std::string) "image/png");
-		REQUIRE((std::string) req->options == (std::string) "");
-		REQUIRE((std::string) req->xmlname == (std::string) "default");
+		REQUIRE((std::string)req->mimetype == expected_mimetype);
+		REQUIRE((std::string)req->options == expected_options);
+		REQUIRE((std::string)req->xmlname == expected_xmlname);
 
 		REQUIRE(ret == cmdNotDone);
 		found = err_log_lines.find("Ignoring unknown command unknown fd(" + std::to_string(pipefd[1]));
@@ -950,6 +984,24 @@ TEST_CASE("renderd", "tile generation")
 		REQUIRE(found > -1);
 
 		free(req);
+	}
+
+	SECTION("send_response", "should complete") {
+		auto rsp = GENERATE(cmdRender, cmdRenderPrio, cmdRenderLow, cmdRenderBulk);
+
+		render_request_queue = request_queue_init();
+		struct item *item = init_render_request(rsp);
+		request_queue_add_request(render_request_queue, item);
+
+		start_capture(1);
+		send_response(item, rsp, -1);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		found = out_log_lines.find("Sending message Render");
+		REQUIRE(found > -1);
+
+		request_queue_close(render_request_queue);
+		SUCCEED();
 	}
 
 	SECTION("renderd startup --help", "should start and show help message") {
@@ -1112,6 +1164,7 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->metatile_delete(store, xmlconfig.c_str(), 1024, 1024, 10);
 
 		store->close_storage(store);
+		SUCCEED();
 	}
 
 	SECTION("storage/stat/full metatile", "should complete") {
@@ -1151,6 +1204,7 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->metatile_delete(store, xmlconfig.c_str(), 1024 + METATILE, 1024, 10);
 
 		store->close_storage(store);
+		SUCCEED();
 	}
 
 	SECTION("storage/read/full metatile", "should complete") {
@@ -1197,6 +1251,7 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->close_storage(store);
 		free(buf);
 		free(buf_tmp);
+		SUCCEED();
 	}
 
 	SECTION("storage/read/partial metatile", "should return correct data") {
@@ -1422,6 +1477,7 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		tiles.save(store);
 
 		store->close_storage(store);
+		SUCCEED();
 	}
 
 	SECTION("storage/expire metatile", "should return 0") {
@@ -1633,7 +1689,7 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_err = err_log_lines.find(expected_output);
 		found_out = out_log_lines.find(expected_output);
 
-		switch (log_level)  {
+		switch (log_level) {
 			case 0:
 				// BACKGROUND UNKNOWN messages do not log
 				REQUIRE(found_err == -1);
@@ -1663,7 +1719,7 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_err = err_log_lines.find(message);
 		found_out = out_log_lines.find(message);
 
-		switch (log_level)  {
+		switch (log_level) {
 			case 0:
 				REQUIRE(found_err == -1);
 				REQUIRE(found_out == -1);
@@ -1696,7 +1752,7 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_err = err_log_lines.find(message);
 		found_out = out_log_lines.find(message);
 
-		switch (log_level)  {
+		switch (log_level) {
 			case 0:
 				REQUIRE(found_err == -1);
 				REQUIRE(found_out == -1);
