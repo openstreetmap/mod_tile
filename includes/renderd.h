@@ -69,6 +69,7 @@ extern struct request_queue * render_request_queue;
 void statsRenderFinish(int z, long time);
 void request_exit(void);
 void send_response(struct item *item, enum protoCmd rsp, int render_time);
+enum protoCmd rx_request(struct protocol *req, int fd);
 
 #ifdef __cplusplus
 }

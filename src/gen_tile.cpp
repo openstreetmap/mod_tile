@@ -57,7 +57,7 @@
 #define image_32 image_rgba8
 #include <mapnik/image.hpp>
 #include <mapnik/image_view_any.hpp>
-#if MAPNIK_VERSION >= 400000
+#if MAPNIK_MAJOR_VERSION >= 4
 #include <mapnik/geometry/box2d.hpp>
 #else
 #include <mapnik/box2d.hpp>
@@ -361,7 +361,7 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
-	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
+	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", MAPNIK_MAJOR_VERSION, MAPNIK_MINOR_VERSION, MAPNIK_PATCH_VERSION);
 	mapnik::datasource_cache::instance().register_datasources(plugins_dir);
 	load_fonts(font_dir, font_dir_recurse);
 }
