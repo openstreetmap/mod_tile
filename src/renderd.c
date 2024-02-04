@@ -43,13 +43,11 @@
 #include "request_queue.h"
 #include "g_logger.h"
 
-// extern "C" {
 #ifdef HAVE_INIPARSER_INIPARSER_H
 #include <iniparser/iniparser.h>
 #else
 #include <iniparser.h>
 #endif
-// }
 
 #define PFD_LISTEN        0
 #define PFD_EXIT_PIPE     1
