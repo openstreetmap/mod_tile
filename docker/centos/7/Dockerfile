@@ -119,7 +119,8 @@ RUN source /opt/rh/devtoolset-9/enable && \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DENABLE_TESTS:BOOL=ON && \
     cmake3 --build .
-RUN export DESTDIR=/tmp/mod_tile && \
+RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+    export DESTDIR=/tmp/mod_tile && \
     ctest3 --output-on-failure && \
     (cmake3 --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip) && \
     mv /tmp/mod_tile/var/run /tmp/mod_tile/run

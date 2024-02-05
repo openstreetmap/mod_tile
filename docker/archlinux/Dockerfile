@@ -1,34 +1,27 @@
-# Arguments
-ARG debian_version=12
-ARG libmapnik_version=3.1
-
 # Builder
-FROM debian:${debian_version} as builder
-
-## Arguments
-ARG debian_version
+FROM archlinux:latest as builder
 
 ## Install builder dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
-    apt-get --no-install-recommends --yes install \
-        apache2 \
-        apache2-dev \
+RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
+    --mount=id=archlinux:latest-/var/lib/pacman/sync,sharing=locked,target=/var/lib/pacman/sync,type=cache \
+    pacman --sync --refresh --sysupgrade --noconfirm \
+        apache \
+        apr \
+        boost \
+        cairo \
         cmake \
         curl \
-        g++ \
+        extra-cmake-modules \
         gcc \
-        libcairo2-dev \
-        libcurl4-openssl-dev \
-        libglib2.0-dev \
-        libiniparser-dev \
-        libmapnik-dev \
-        libmemcached-dev \
-        librados-dev \
-        netbase
+        git \
+        glib2 \
+        iniparser \
+        lcov \
+        libmemcached \
+        make \
+        mapnik \
+        memcached \
+        pkgconf
 
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
@@ -44,29 +37,34 @@ RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
     (cmake --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip) && \
     mv /tmp/mod_tile/var/run /tmp/mod_tile/run
 
-# Runner
-FROM debian:${debian_version} as runner
 
-## Arguments
-ARG debian_version
-ARG libmapnik_version
+# Runner
+FROM archlinux:latest as runner
 
 ## Install runner dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
-    apt-get --no-install-recommends --yes install \
-        apache2 \
-        libcairo2 \
-        libcurl4 \
-        libglib2.0 \
-        libiniparser1 \
-        libmapnik${libmapnik_version} \
-        libmemcached11 \
-        libmemcachedutil2 \
-        librados2
+RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
+    --mount=id=archlinux:latest-/var/lib/pacman/sync,sharing=locked,target=/var/lib/pacman/sync,type=cache \
+    pacman --sync --refresh --sysupgrade --noconfirm \
+        apache \
+        cairo \
+        curl \
+        glib2 \
+        iniparser \
+        libmemcached \
+        mapnik \
+        memcached \
+        # GDAL optional dependencies
+        arrow \
+        cfitsio \
+        hdf5 \
+        libheif \
+        libjxl \
+        mariadb-libs \
+        netcdf \
+        openexr \
+        openjpeg2 \
+        podofo \
+        poppler
 
 ## Copy files from builder(s)
 ### mod_tile
@@ -76,7 +74,7 @@ COPY --from=builder \
     /usr/share/renderd/example-map
 COPY --from=builder \
     /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf \
-    /etc/apache2/sites-available/renderd-example-map.conf
+    /etc/httpd/conf/extra/httpd-tile-renderd-example-map.conf
 
 ## Add configuration
 RUN printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
@@ -86,9 +84,9 @@ RUN printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-
 RUN printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 
 ## Enable module & site
-RUN a2enmod tile && \
-    a2ensite renderd-example-map
+RUN printf '\nInclude conf/extra/httpd-tile.conf\n' >> /etc/httpd/conf/httpd.conf && \
+    printf '\nInclude conf/extra/httpd-tile-renderd-example-map.conf\n' >> /etc/httpd/conf/httpd.conf
 
 ## Start services
-CMD apachectl -e debug -k start; \
+CMD httpd -e debug -k start; \
     G_MESSAGES_DEBUG=${G_MESSAGES_DEBUG:-info} renderd --foreground
