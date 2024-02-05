@@ -324,7 +324,7 @@ void *stats_writeout_thread(void * arg)
 
 	snprintf(tmpName, sizeof(tmpName), "%s.tmp", config.stats_filename);
 
-	g_logger(G_LOG_LEVEL_DEBUG, "Starting stats thread");
+	g_logger(G_LOG_LEVEL_DEBUG, "Starting stats thread: %lu", (unsigned long) pthread_self());
 
 	while (1) {
 		request_queue_copy_stats(render_request_queue, &lStats);
@@ -590,6 +590,8 @@ void *slave_thread(void * arg)
 	resp = (struct protocol *)malloc(sizeof(struct protocol));
 	bzero(req_slave, sizeof(struct protocol));
 	bzero(resp, sizeof(struct protocol));
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Starting slave thread: %lu", (unsigned long) pthread_self());
 
 	while (1) {
 		if (pfd == FD_INVALID) {
