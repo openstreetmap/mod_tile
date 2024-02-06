@@ -32,7 +32,8 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
-RUN export DESTDIR=/tmp/mod_tile && \
+RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+    export DESTDIR=/tmp/mod_tile && \
     ctest --output-on-failure && \
     (cmake --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip) && \
     mv /tmp/mod_tile/var/run /tmp/mod_tile/run

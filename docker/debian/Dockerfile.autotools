@@ -32,12 +32,11 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_src
-RUN ./autogen.sh && \
-    ./configure && \
-    make
 RUN export DESTDIR=/tmp/mod_tile && \
-    ./gen_tile_test && \
+    ./autogen.sh && \
+    ./configure && \
     make DESTDIR=${DESTDIR} install install-mod_tile
+RUN ./gen_tile_test
 
 # Runner
 FROM debian:${debian_version} as runner

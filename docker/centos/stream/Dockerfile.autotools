@@ -40,14 +40,13 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
         postgresql-devel \
         proj-devel \
         python3 \
-        python3-scons \
         sqlite-devel \
         tar \
         zlib-devel
 
 ## Download, Build & Install `Mapnik`
-WORKDIR /usr/local/src/mapnik
-RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},target=/usr/local/src/mapnik,type=cache \
+WORKDIR /tmp/mapnik_src
+RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},target=/tmp/mapnik_src,type=cache \
     export DESTDIR="/tmp/mapnik"; \
     export GDAL_DATA="$(gdal-config --datadir)"; \
     export JOBS="$(nproc)"; \
@@ -65,14 +64,13 @@ RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},ta
         fi \
     fi; \
     if [ "${centos_stream_version}" = "8" ]; then \
-        export SCONS_CMD="scons-3"; \
-        export CUSTOM_CFLAGS="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H"; \
-        export CUSTOM_CXXFLAGS="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H"; \
+        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"; \
     fi; \
-    ${SCONS_CMD:-scons} configure \
+    bash configure \
         CPP_TESTS=False \
         CUSTOM_CFLAGS="${CUSTOM_CFLAGS:-}" \
         CUSTOM_CXXFLAGS="${CUSTOM_CXXFLAGS:-}" \
+        CUSTOM_DEFINES="${CUSTOM_DEFINES:-}" \
         CUSTOM_LDFLAGS="${CUSTOM_LDFLAGS:-}" \
         DEMO=False \
         DESTDIR="${DESTDIR}" \
@@ -133,12 +131,11 @@ COPY --from=mapnik-builder /tmp/mapnik /
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_src
-RUN ./autogen.sh && \
-    ./configure && \
-    make
 RUN export DESTDIR=/tmp/mod_tile && \
-    ./gen_tile_test && \
+    ./autogen.sh && \
+    ./configure && \
     make DESTDIR=${DESTDIR} install install-mod_tile
+RUN ./gen_tile_test
 
 # Runner
 FROM quay.io/centos/centos:stream${centos_stream_version} as runner
@@ -184,15 +181,23 @@ COPY --from=builder \
     /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf \
     /etc/httpd/conf.d/renderd-example-map.conf
 
-RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/httpd/conf.modules.d/11-tile.conf
-
+## Fix mapnik directories
 RUN sed \
         --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input)#g" \
         --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
-        /usr/local/etc/renderd.conf > /etc/renderd.conf && \
-    printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+        /usr/local/etc/renderd.conf > /etc/renderd.conf
 
+## Add configuration
+RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/httpd/conf.modules.d/11-tile.conf
+RUN printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-jpg]\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-png256]\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+
+## Create missing directories
 RUN mkdir --parents /run/renderd /var/cache/renderd/tiles
 
-CMD /usr/sbin/httpd -e debug -k start; \
+## Start services
+CMD httpd -e debug -k start; \
     G_MESSAGES_DEBUG=${G_MESSAGES_DEBUG:-info} renderd --foreground

@@ -195,12 +195,16 @@ if(ENABLE_TESTS)
 
 set(gen_tile_test_SRCS
   ${renderd_SRCS}
-  gen_tile_test.cpp
+  ${PROJECT_SOURCE_DIR}/tests/gen_tile_test.cpp
 )
 set(gen_tile_test_LIBS
   ${renderd_LIBS}
 )
 add_executable(gen_tile_test ${gen_tile_test_SRCS})
-target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
 target_compile_options(gen_tile_test PRIVATE -DMAIN_ALREADY_DEFINED)
+target_include_directories(gen_tile_test PRIVATE ${PROJECT_SOURCE_DIR}/tests)
+target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
+set_target_properties(gen_tile_test PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests
+)
 endif()

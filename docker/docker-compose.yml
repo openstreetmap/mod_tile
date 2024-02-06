@@ -25,6 +25,11 @@ x-mod_tile:
       - 8081:8081
 
 services:
+  archlinux:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      dockerfile: docker/archlinux/Dockerfile
   centos-7:
     <<: *service_defaults
     build:
@@ -39,6 +44,14 @@ services:
       args:
         centos_stream_version: "8"
         extra_repository: powertools
+  centos-stream-8-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "8"
+        extra_repository: powertools
+      dockerfile: docker/centos/stream/Dockerfile.autotools
   centos-stream-9:
     <<: *service_defaults
     build:
@@ -46,6 +59,22 @@ services:
       args:
         centos_stream_version: "9"
         extra_repository: crb
+  centos-stream-9-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "9"
+        extra_repository: crb
+      dockerfile: docker/centos/stream/Dockerfile.autotools
+  centos-stream-9-mapnik-latest:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "9"
+        extra_repository: crb
+      dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
   debian-10:
     <<: *service_defaults
     build:

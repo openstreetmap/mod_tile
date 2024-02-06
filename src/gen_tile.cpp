@@ -373,6 +373,8 @@ void *render_thread(void * arg)
 	int i, iMaxConfigs;
 	int render_time;
 
+	g_logger(G_LOG_LEVEL_DEBUG, "Starting render thread: %lu", (unsigned long) pthread_self());
+
 	for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
 		if (parentxmlconfig[iMaxConfigs].xmlname[0] == 0 || parentxmlconfig[iMaxConfigs].xmlfile[0] == 0) {
 			break;

@@ -17,7 +17,7 @@ runs:
           --output-file coverage.info \
           --remove coverage.info \
           "${GITHUB_WORKSPACE}/includes/*" \
-          "${GITHUB_WORKSPACE}/src/gen_tile_test.cpp" \
+          "${GITHUB_WORKSPACE}/tests/*" \
           "/usr/*"
       working-directory: build
       shell: bash --noprofile --norc -euxo pipefail {0}
