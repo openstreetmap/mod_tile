@@ -75,6 +75,31 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	fflush(NULL);
 }
 
+int min_max_opt(char *opt_arg, char *opt_type_name, int minimum, int maximum)
+{
+	int opt = atoi(opt_arg);
+	float opt_float;
+
+	if (minimum != -1 && opt < minimum) {
+		fprintf(stderr, "Invalid %s, must be >= %i (%s was provided)\n", opt_type_name, minimum, opt_arg);
+		exit(1);
+	}
+
+	if (maximum != -1 && opt > maximum) {
+		fprintf(stderr, "Invalid %s, must be <= %i (%s was provided)\n", opt_type_name, maximum, opt_arg);
+		exit(1);
+	}
+
+	if (sscanf(opt_arg, "%f", &opt_float) != 0) {
+		if ((float) opt != opt_float) {
+			fprintf(stderr, "Invalid %s, must be an integer (%s was provided)\n", opt_type_name, opt_arg);
+			exit(1);
+		}
+	}
+
+	return opt;
+}
+
 int main(int argc, char **argv)
 {
 	char *spath = strdup(RENDERD_SOCKET);
@@ -141,53 +166,35 @@ int main(int argc, char **argv)
 				break;
 
 			case 'l':   /* -l, --max-load */
-				maxLoad = atoi(optarg);
+				maxLoad = min_max_opt(optarg, "maximum load", 0, -1);
 				break;
 
 			case 'n':   /* -n, --num-threads */
-				numThreads = atoi(optarg);
-
-				if (numThreads <= 0) {
-					fprintf(stderr, "Invalid number of threads, must be at least 1\n");
-					return 1;
-				}
-
+				numThreads = min_max_opt(optarg, "number of threads", 1, -1);
 				break;
 
 			case 'x':   /* -x, --min-x */
-				minX = atoi(optarg);
+				minX = min_max_opt(optarg, "minimum X tile coordinate", 0, -1);
 				break;
 
 			case 'X':   /* -X, --max-x */
-				maxX = atoi(optarg);
+				maxX = min_max_opt(optarg, "maximum X tile coordinate", 0, -1);
 				break;
 
 			case 'y':   /* -y, --min-y */
-				minY = atoi(optarg);
+				minY = min_max_opt(optarg, "minimum Y tile coordinate", 0, -1);
 				break;
 
 			case 'Y':   /* -Y, --max-y */
-				maxY = atoi(optarg);
+				maxY = min_max_opt(optarg, "maximum Y tile coordinate", 0, -1);
 				break;
 
 			case 'z':   /* -z, --min-zoom */
-				minZoom = atoi(optarg);
-
-				if (minZoom < 0 || minZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+				minZoom = min_max_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
 				break;
 
 			case 'Z':   /* -Z, --max-zoom */
-				maxZoom = atoi(optarg);
-
-				if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+				maxZoom = min_max_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
 				break;
 
 			case 'f':   /* -f, --force */
@@ -211,6 +218,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
+				fprintf(stderr, "  (please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
 				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
