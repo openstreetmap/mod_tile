@@ -52,14 +52,6 @@ services:
         centos_stream_version: "8"
         extra_repository: powertools
       dockerfile: docker/centos/stream/Dockerfile.autotools
-  centos-stream-8-mapnik-latest:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults_centos_stream
-      args:
-        centos_stream_version: "8"
-        extra_repository: powertools
-      dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
   centos-stream-9:
     <<: *service_defaults
     build:
