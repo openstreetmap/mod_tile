@@ -331,6 +331,20 @@ TEST_CASE("render_list", "render list")
 		ret = WEXITSTATUS(ret);
 		REQUIRE(ret == 1);
 	}
+
+	SECTION("render_list min X is negative", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -x -10");
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
+
+	SECTION("render_list min X is float", "should return 1") {
+		// flawfinder: ignore
+		int ret = system("./render_list -x 3.12345");
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 1);
+	}
 }
 
 TEST_CASE("render_old", "render old")
