@@ -332,8 +332,18 @@ TEST_CASE("render_list", "render list")
 		REQUIRE(ret == 1);
 	}
 
+	SECTION("render_list option is positive with --help", "should return 0") {
+		std::string option = GENERATE("--max-load", "--max-x", "--max-y", "--max-zoom", "--min-x", "--min-y", "--min-zoom", "--num-threads");
+		std::string command = "./render_list " + option + " 1 --help";
+
+		// flawfinder: ignore
+		int ret = system(command.c_str());
+		ret = WEXITSTATUS(ret);
+		REQUIRE(ret == 0);
+	}
+
 	SECTION("render_list option is negative", "should return 1") {
-		std::string option = GENERATE("--max-load", "--max-x", "--max-y", "--max-zoom", "--min-zoom", "--min-x", "--min-y", "--num-threads");
+		std::string option = GENERATE("--max-load", "--max-x", "--max-y", "--max-zoom", "--min-x", "--min-y", "--min-zoom", "--num-threads");
 		std::string command = "./render_list " + option + " -1";
 
 		// flawfinder: ignore
@@ -342,9 +352,12 @@ TEST_CASE("render_list", "render list")
 		REQUIRE(ret == 1);
 	}
 
-	SECTION("render_list min X is float", "should return 1") {
+	SECTION("render_list option is float", "should return 1") {
+		std::string option = GENERATE("--max-load", "--max-x", "--max-y", "--max-zoom", "--min-x", "--min-y", "--min-zoom", "--num-threads");
+		std::string command = "./render_list " + option + " 0.12345";
+
 		// flawfinder: ignore
-		int ret = system("./render_list -x 0.12345");
+		int ret = system(command.c_str());
 		ret = WEXITSTATUS(ret);
 		REQUIRE(ret == 1);
 	}
@@ -356,9 +369,12 @@ TEST_CASE("render_list", "render list")
 		REQUIRE(ret == 1);
 	}
 
-	SECTION("render_list min zoom exceeds maximum of MAX_ZOOM", "should return 1") {
+	SECTION("render_list zoom exceeds maximum of MAX_ZOOM", "should return 1") {
+		std::string option = GENERATE("--max-zoom", "--min-zoom");
+		std::string command = "./render_list " + option + " 1000";
+
 		// flawfinder: ignore
-		int ret = system("./render_list -z 1000");
+		int ret = system(command.c_str());
 		ret = WEXITSTATUS(ret);
 		REQUIRE(ret == 1);
 	}
