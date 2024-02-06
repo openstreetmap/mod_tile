@@ -211,6 +211,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
+				fprintf(stderr, "  (please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
 				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
