@@ -85,7 +85,7 @@ int min_max_opt(char *optarg, char *opt_type_name)
 		exit(1);
 	}
 
-	if(sscanf(optarg, "%f", &xy_float) != 0) {
+	if (sscanf(optarg, "%f", &xy_float) != 0) {
 		if ((float) xy != xy_float) {
 			fprintf(stderr, "Invalid %s '%s', must be an integer\n", opt_type_name, optarg);
 			exit(1);
