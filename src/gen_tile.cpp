@@ -78,8 +78,6 @@ using namespace mapnik;
 #define RENDER_SIZE (512)
 #endif
 
-extern int foreground;
-
 struct projectionconfig {
 	double bound_x0;
 	double bound_y0;

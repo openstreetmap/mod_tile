@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <syslog.h>
 
-extern int foreground;
+int foreground = 0;
 
 const char *g_logger_level_name(int log_level)
 {

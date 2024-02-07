@@ -66,8 +66,6 @@ static renderd_config config;
 
 int num_slave_threads;
 
-int foreground = 0;
-
 struct request_queue * render_request_queue;
 
 static const char *cmdStr(enum protoCmd c)

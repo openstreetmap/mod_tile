@@ -35,7 +35,7 @@
 
 #include <pthread.h>
 
-
+#include "g_logger.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "config.h"
@@ -63,8 +63,6 @@ static int num_render = 0, num_all = 0;
 static int max_load = MAX_LOAD_OLD;
 static time_t planetTime;
 static struct timeval start, end;
-
-int foreground = 1;
 
 
 
@@ -199,6 +197,8 @@ int main(int argc, char **argv)
 	int numThreads = 1;
 	int dd, mm, yy;
 	struct tm tm;
+
+	foreground = 1;
 
 	while (1) {
 		int option_index = 0;

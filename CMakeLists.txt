@@ -40,7 +40,7 @@ find_package(Threads REQUIRED)
 
 find_package(APR REQUIRED)
 find_package(CAIRO REQUIRED)
-find_package(GLIB REQUIRED)
+find_package(GLIB 2.50 REQUIRED)
 find_package(HTTPD REQUIRED)
 find_package(INIPARSER REQUIRED)
 find_package(LIBMAPNIK 3 REQUIRED)
