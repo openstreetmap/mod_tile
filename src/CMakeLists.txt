@@ -151,9 +151,11 @@ set(render_speedtest_SRCS
   protocol_helper.c
   render_speedtest.cpp
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_speedtest_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
 )
 add_executable(render_speedtest ${render_speedtest_SRCS})
 target_link_libraries(render_speedtest ${render_speedtest_LIBS})

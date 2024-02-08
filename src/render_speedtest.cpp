@@ -15,29 +15,20 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/un.h>
-#include <poll.h>
-#include <errno.h>
-#include <math.h>
-#include <limits.h>
-#include <string.h>
-#include <strings.h>
 #include <getopt.h>
+#include <glib.h>
+#include <limits.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
 
-#include "g_logger.h"
-#include "gen_tile.h"
-#include "protocol.h"
 #include "config.h"
+#include "g_logger.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
-
+#include "renderd_config.h"
 
 #define DEG_TO_RAD (M_PI/180)
 #define RAD_TO_DEG (180/M_PI)
@@ -71,7 +62,6 @@ static double boundy0 = 49.7;
 static double boundx1 = 3.2;
 static double boundy1 = 58.8;
 #endif
-
 
 static double minmax(double a, double b, double c)
 {
@@ -129,32 +119,45 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 	sec = d_s + d_us / 1000000.0;
 
-	printf("Rendered %d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
-	fflush(NULL);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
 }
 
 int main(int argc, char **argv)
 {
-	const char *spath = RENDERD_SOCKET;
-	int fd;
-	struct sockaddr_un addr;
-	int ret = 0;
+	const char *config_file_name_default = RENDERD_CONFIG;
+	const char *mapname_default = XMLCONFIG_DEFAULT;
+	const char *socketname_default = RENDERD_SOCKET;
+	int max_zoom_default = 18;
+	int min_zoom_default = 0;
+	int num_threads_default = 1;
+
+	const char *config_file_name = config_file_name_default;
+	const char *mapname = mapname_default;
+	const char *socketname = socketname_default;
+	int max_zoom = max_zoom_default;
+	int min_zoom = min_zoom_default;
+	int num_threads = num_threads_default;
+
+	int config_file_name_passed = 0;
+	int mapname_passed = 0;
+	int socketname_passed = 0;
+	int max_zoom_passed = 0;
+	int min_zoom_passed = 0;
+	int num_threads_passed = 0;
+
 	int z;
-	int c;
+	int c, i, map_section_num = -1;
 	char name[PATH_MAX];
 	struct timeval start, end;
 	struct timeval start_all, end_all;
 	int num, num_all = 0;
-	const char * mapname = XMLCONFIG_DEFAULT;
-	int maxZoom = MAX_ZOOM;
-	int minZoom = 0;
-	int numThreads = 1;
 
 	foreground = 1;
 
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
+			{"config",      required_argument, 0, 'c'},
 			{"map",         required_argument, 0, 'm'},
 			{"max-zoom",    required_argument, 0, 'Z'},
 			{"min-zoom",    required_argument, 0, 'z'},
@@ -166,83 +169,132 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "m:Z:z:n:s:hV", long_options, &option_index);
+		c = getopt_long(argc, argv, "c:m:Z:z:n:s:hV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
 		}
 
 		switch (c) {
-			case 's':   /* -s, --socket */
-				spath = strdup(optarg);
+			case 'c':   /* -c, --config */
+				config_file_name = strndup(optarg, PATH_MAX);
+				config_file_name_passed = 1;
+
+				if (access(config_file_name, F_OK) != 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file with -c/--config", config_file_name);
+					return 1;
+				}
+
 				break;
 
 			case 'm':   /* -m, --map */
-				mapname = strdup(optarg);
-				break;
-
-			case 'n':   /* -n, --num-threads */
-				numThreads = atoi(optarg);
-
-				if (numThreads <= 0) {
-					fprintf(stderr, "Invalid number of threads, must be at least 1\n");
-					return 1;
-				}
-
-				break;
-
-			case 'z':   /* -z, --min-zoom */
-				minZoom = atoi(optarg);
-
-				if (minZoom < 0 || minZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+				mapname = strndup(optarg, XMLCONFIG_MAX);
+				mapname_passed = 1;
 				break;
 
 			case 'Z':   /* -Z, --max-zoom */
-				maxZoom = atoi(optarg);
+				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+				max_zoom_passed = 1;
+				break;
 
-				if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
+			case 'z':   /* -z, --min-zoom */
+				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+				min_zoom_passed = 1;
+				break;
 
+			case 'n':   /* -n, --num-threads */
+				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+				num_threads_passed = 1;
+				break;
+
+			case 's':   /* -s, --socket */
+				socketname = strndup(optarg, PATH_MAX);
+				socketname_passed = 1;
 				break;
 
 			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: render_speedtest [OPTION] ...\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '%s')\n", XMLCONFIG_DEFAULT);
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               only render tiles less than or equal to this zoom level (default is %d)\n", MAX_ZOOM);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               only render tiles greater or equal to this zoom level (default is 0)\n");
+				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				exit(0);
+				return 0;
 
-			case 'V':
+			case 'V':   /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
-				exit(0);
+				return 0;
 
 			default:
-				fprintf(stderr, "unhandled char '%c'\n", c);
-				exit(1);
+				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+				return 1;
 		}
 	}
 
-	static GoogleProjection gprj(maxZoom + 1);
+	if (max_zoom < min_zoom) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is larger than max zoom (%i).", min_zoom, max_zoom);
+		return 1;
+	}
 
-	fprintf(stderr, "Rendering client\n");
+	if (config_file_name_passed) {
+		process_config_file(config_file_name, 0, G_LOG_LEVEL_DEBUG);
 
-	spawn_workers(numThreads, spath, 1000);
+		for (i = 0; i < XMLCONFIGS_MAX; ++i) {
+			if (maps[i].xmlname && strcmp(maps[i].xmlname, mapname) == 0) {
+				map_section_num = i;
+			}
+		}
+
+		if (map_section_num < 0) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Map section '%s' does not exist in config file '%s'.", mapname, config_file_name);
+			return 1;
+		}
+
+		if (!max_zoom_passed) {
+			max_zoom = maps[map_section_num].max_zoom;
+			max_zoom_passed = 1;
+		}
+
+		if (!min_zoom_passed) {
+			min_zoom = maps[map_section_num].min_zoom;
+			min_zoom_passed = 1;
+		}
+
+		if (!num_threads_passed) {
+			num_threads = maps[map_section_num].num_threads;
+			num_threads_passed = 1;
+		}
+
+		if (!socketname_passed) {
+			socketname = strndup(config.socketname, PATH_MAX);
+			socketname_passed = 1;
+		}
+	}
+
+	g_logger(G_LOG_LEVEL_INFO, "Started render_speedtest with the following options:");
+
+	if (config_file_name_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--config      = '%s' (user-specified)", config_file_name);
+	}
+
+	g_logger(G_LOG_LEVEL_INFO, "\t--map         = '%s' (%s)", mapname, mapname_passed ? "user-specified" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--max-zoom    = '%i' (%s)", max_zoom, max_zoom_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--min-zoom    = '%i' (%s)", min_zoom, min_zoom_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--num-threads = '%i' (%s)", num_threads, num_threads_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--socket      = '%s' (%s)", socketname, socketname_passed ? "user-specified/from config" : "default");
+
+	static GoogleProjection gprj(max_zoom + 1);
+
+	spawn_workers(num_threads, socketname, 1000);
 
 	// Render something to counter act the startup costs
 	// of obtaining the Postgis table extents
 
-	printf("Initial startup costs\n");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Initial startup costs");
 	gettimeofday(&start, NULL);
 	enqueue(mapname, 0, 0, 0);
 	gettimeofday(&end, NULL);
@@ -250,7 +302,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&start_all, NULL);
 
-	for (z = minZoom; z <= maxZoom; z++) {
+	for (z = min_zoom; z <= max_zoom; z++) {
 		double px0 = boundx0;
 		double py0 = boundy1;
 		double px1 = boundx1;
@@ -267,12 +319,8 @@ int main(int argc, char **argv)
 		ymax = (int)(py1 / 256.0);
 
 		num = (xmax - xmin + 1) * (ymax - ymin + 1);
-//        if (!num) {
-//            printf("No tiles at zoom(%d)\n", z);
-//            continue;
-//        }
 
-		printf("\nZoom(%d) Now rendering %d tiles\n", z, num);
+		g_logger(G_LOG_LEVEL_MESSAGE, "Zoom(%d) Now rendering %d tiles", z, num);
 		num_all += num;
 		gettimeofday(&start, NULL);
 
@@ -283,7 +331,6 @@ int main(int argc, char **argv)
 		}
 
 		wait_for_empty_queue();
-		//printf("\n");
 		gettimeofday(&end, NULL);
 		display_rate(start, end, num);
 	}
@@ -291,9 +338,12 @@ int main(int argc, char **argv)
 	finish_workers();
 
 	gettimeofday(&end_all, NULL);
-	printf("\nTotal for all tiles rendered\n");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total for all tiles rendered");
 	display_rate(start_all, end_all, num_all);
 
-	return ret;
+	free_map_sections(maps);
+	free_renderd_sections(config_slaves);
+
+	return 0;
 }
 #endif

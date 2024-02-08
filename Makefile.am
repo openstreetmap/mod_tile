@@ -57,8 +57,9 @@ render_speedtest_SOURCES = \
 	src/g_logger.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
+	src/renderd_config.c \
 	src/sys_utils.c
-render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
+render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 
 render_list_SOURCES = \
 	src/render_list.c \

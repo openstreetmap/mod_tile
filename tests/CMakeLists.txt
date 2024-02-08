@@ -486,6 +486,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
       TIMEOUT 90
     )
+    add_test(NAME render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        $<TARGET_FILE:render_speedtest> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
+      TIMEOUT 60
+    )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         CONFIG_NAME=\"bad_tile_config_${SOCKET_TYPE}\"
