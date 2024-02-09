@@ -83,9 +83,10 @@ render_old_SOURCES = \
 	src/g_logger.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
+	src/renderd_config.c \
 	src/store_file_utils.c \
 	src/sys_utils.c
-render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
+render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 

@@ -130,10 +130,12 @@ set(render_old_SRCS
   protocol_helper.c
   render_old.c
   render_submit_queue.c
+  renderd_config.c
   store_file_utils.c
 )
 set(render_old_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
 )
 add_executable(render_old ${render_old_SRCS})
 target_link_libraries(render_old ${render_old_LIBS})

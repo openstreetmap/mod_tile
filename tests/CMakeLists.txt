@@ -458,6 +458,19 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
     )
+    add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
+        $<TARGET_FILE:render_old> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         $<TARGET_FILE:render_speedtest> \
