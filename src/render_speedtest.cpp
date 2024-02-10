@@ -31,6 +31,7 @@
 #include <strings.h>
 #include <getopt.h>
 
+#include "g_logger.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "config.h"
@@ -70,8 +71,6 @@ static double boundy0 = 49.7;
 static double boundx1 = 3.2;
 static double boundy1 = 58.8;
 #endif
-
-int foreground = 1;
 
 
 static double minmax(double a, double b, double c)
@@ -150,6 +149,8 @@ int main(int argc, char **argv)
 	int maxZoom = MAX_ZOOM;
 	int minZoom = 0;
 	int numThreads = 1;
+
+	foreground = 1;
 
 	while (1) {
 		int option_index = 0;

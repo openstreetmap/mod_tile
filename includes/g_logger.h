@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+extern int foreground;
+
 void g_logger(int log_level, const char *format, ...);
 
 const char *g_logger_level_name(int log_level);

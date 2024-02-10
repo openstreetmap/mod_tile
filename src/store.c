@@ -24,8 +24,6 @@
 #include "store_null.h"
 #include "g_logger.h"
 
-extern int foreground;
-
 /**
  * In Apache 2.2, we call the init_storage_backend once per process. For mpm_worker and mpm_event multiple threads therefore use the same
  * storage context, and all storage backends need to be thread-safe in order not to cause issues with these mpm's

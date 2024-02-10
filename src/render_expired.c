@@ -33,6 +33,7 @@
 
 #include <pthread.h>
 
+#include "g_logger.h"
 #include "protocol.h"
 #include "config.h"
 #include "render_config.h"
@@ -73,8 +74,6 @@ static int minZoom = 0;
 static int maxZoom = 18;
 static int verbose = 0;
 static int maxLoad = MAX_LOAD_OLD;
-
-int foreground = 1;
 
 void display_rate(struct timeval start, struct timeval end, int num)
 {
@@ -122,6 +121,7 @@ int main(int argc, char **argv)
 		mt >>= 1;
 	}
 
+	foreground = 1;
 
 	while (1) {
 		int option_index = 0;

@@ -65,9 +65,6 @@
 extern struct projectionconfig *get_projection(const char *srs);
 extern mapnik::box2d<double> tile2prjbounds(struct projectionconfig *prj, int x, int y, int z);
 
-extern int foreground;
-extern struct request_queue *render_request_queue;
-
 // mutex to guard access to the shared render request counter
 static pthread_mutex_t item_counter_lock;
 

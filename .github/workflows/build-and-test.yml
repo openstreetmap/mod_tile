@@ -191,12 +191,10 @@ jobs:
   FreeBSD:
     continue-on-error: true
     env:
-      BUILD_PARALLEL_LEVEL: 2
       CFLAGS: --coverage
       CTEST_HOST: localhost
       CXXFLAGS: --coverage
       LIBRARY_PATH: /usr/local/lib
-      TEST_PARALLEL_LEVEL: 2
       TMPDIR: /tmp
     name: >-
       ${{ matrix.box_generic }}
@@ -223,6 +221,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set `BUILD_PARALLEL_LEVEL` & `TEST_PARALLEL_LEVEL`
+        run: |
+          echo "BUILD_PARALLEL_LEVEL=$(nproc)" >> "$GITHUB_ENV"
+          echo "TEST_PARALLEL_LEVEL=$(nproc)" >> "$GITHUB_ENV"
 
       - name: Provision VM
         uses: hummeltech/freebsd-vagrant-action@v1.4
