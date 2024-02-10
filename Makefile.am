@@ -64,9 +64,10 @@ render_list_SOURCES = \
 	src/render_list.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
+	src/renderd_config.c \
 	src/sys_utils.c \
 	$(STORE_SOURCES)
-render_list_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
+render_list_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
 render_expired_SOURCES = \
 	src/render_expired.c \

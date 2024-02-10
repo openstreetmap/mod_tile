@@ -394,6 +394,19 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
     )
+    add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        $<TARGET_FILE:render_list> \
+          --all \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0 0 0' | $<TARGET_FILE:render_list> \
@@ -412,6 +425,18 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
+    )
+    add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        echo '0 0 0' | $<TARGET_FILE:render_list> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "

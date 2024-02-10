@@ -109,9 +109,11 @@ set(render_list_SRCS
   protocol_helper.c
   render_list.c
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_list_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_list ${render_list_SRCS})
