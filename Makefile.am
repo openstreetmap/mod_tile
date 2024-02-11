@@ -24,7 +24,13 @@ bin_PROGRAMS = \
 	render_list \
 	render_old \
 	render_speedtest
-noinst_PROGRAMS = gen_tile_test
+noinst_PROGRAMS = \
+	gen_tile_test \
+	renderd_test \
+	render_expired_test \
+	render_list_test \
+	render_old_test \
+	render_speedtest_test
 
 man_MANS = \
 	docs/man/renderd.1 \
@@ -91,19 +97,48 @@ render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
+noinst_LIBRARIES = catch_main.o catch_test_common.o
+catch_main_o_SOURCES = tests/catch/catch_main.cpp
+catch_test_common_o_SOURCES = tests/catch/catch_test_common.cpp
+
 gen_tile_test_SOURCES = \
 	tests/gen_tile_test.cpp \
 	$(renderd_SOURCES)
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED
 gen_tile_test_CXXFLAGS = $(renderd_CXXFLAGS)
-gen_tile_test_LDADD = $(renderd_LDADD)
+gen_tile_test_LDADD = $(renderd_LDADD) catch_test_common.o
+
+renderd_test_SOURCES = \
+	tests/renderd_test.cpp
+renderd_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+
+render_expired_test_SOURCES = \
+	tests/render_expired_test.cpp
+render_expired_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+
+render_list_test_SOURCES = \
+	tests/render_list_test.cpp
+render_list_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+
+render_old_test_SOURCES = \
+	tests/render_old_test.cpp
+render_old_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+
+render_speedtest_test_SOURCES = \
+	tests/render_speedtest_test.cpp
+render_speedtest_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
 COMMA=,
 
-test: gen_tile_test
+test: gen_tile_test renderd_test render_expired_test render_list_test render_old_test render_speedtest_test
 	./gen_tile_test
+	./renderd_test
+	./render_expired_test
+	./render_list_test
+	./render_old_test
+	./render_speedtest_test
 
 all-local:
 	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) \

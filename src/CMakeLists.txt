@@ -203,6 +203,7 @@ if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 
 set(gen_tile_test_SRCS
+  $<TARGET_OBJECTS:catch_test_common_o>
   ${renderd_SRCS}
   ${PROJECT_SOURCE_DIR}/tests/gen_tile_test.cpp
 )

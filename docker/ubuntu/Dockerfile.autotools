@@ -36,7 +36,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     ./autogen.sh && \
     ./configure && \
     make DESTDIR=${DESTDIR} install install-mod_tile
-RUN ./gen_tile_test
+RUN make test
 
 # Runner
 FROM ubuntu:${ubuntu_version} as runner
