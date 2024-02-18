@@ -26,45 +26,49 @@ extern "C" {
 int daemon(int nochdir, int noclose);
 #endif
 
-#include <limits.h> /* for PATH_MAX */
 #include "gen_tile.h"
 #include "protocol.h"
+#include <limits.h>
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
 
 typedef struct {
-	const char *iphostname;
-	const char *mapnik_font_dir;
-	const char *mapnik_plugins_dir;
-	const char *pid_filename;
-	const char *socketname;
-	const char *stats_filename;
-	const char *tile_dir;
+	char *iphostname;
+	char *mapnik_font_dir;
+	char *mapnik_plugins_dir;
+	char *pid_filename;
+	char *socketname;
+	char *stats_filename;
+	char *tile_dir;
 	int ipport;
 	int mapnik_font_dir_recurse;
 	int num_threads;
 } renderd_config;
 
 typedef struct {
-	char xmlname[XMLCONFIG_MAX];
-	char xmlfile[PATH_MAX];
-	char xmluri[PATH_MAX];
-	char host[PATH_MAX];
-	char htcpip[PATH_MAX];
-	char tile_dir[PATH_MAX];
-	char output_format[INILINE_MAX];
-	char parameterization[PATH_MAX];
-	int tile_px_size;
+	char *attribution;
+	char *cors;
+	char *description;
+	char *host;
+	char *htcpip;
+	char *output_format;
+	char *parameterization;
+	char *server_alias;
+	char *tile_dir;
+	char *xmlfile;
+	char *xmlname;
+	char *xmluri;
 	double scale_factor;
-	int min_zoom;
+	int aspect_x;
+	int aspect_y;
 	int max_zoom;
+	int min_zoom;
 	int num_threads;
+	int tile_px_size;
 } xmlconfigitem;
 
-
-
-extern struct request_queue * render_request_queue;
+extern struct request_queue *render_request_queue;
 
 void statsRenderFinish(int z, long time);
 void request_exit(void);

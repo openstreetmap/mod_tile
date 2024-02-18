@@ -15,39 +15,34 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/stat.h>
-#include <sys/un.h>
-#include <poll.h>
 #include <errno.h>
+#include <getopt.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <getopt.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include "config.h"
-#include "render_config.h"
-#include "renderd.h"
+#include "g_logger.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "protocol_helper.h"
+#include "render_config.h"
+#include "renderd.h"
+#include "renderd_config.h"
 #include "request_queue.h"
-#include "g_logger.h"
-
-#ifdef HAVE_INIPARSER_INIPARSER_H
-#include <iniparser/iniparser.h>
-#else
-#include <iniparser.h>
-#endif
 
 #define PFD_LISTEN        0
 #define PFD_EXIT_PIPE     1
@@ -61,10 +56,6 @@ static pthread_t stats_thread;
 #endif
 
 static int exit_pipe_fd;
-
-static renderd_config config;
-
-int num_slave_threads;
 
 struct request_queue * render_request_queue;
 
@@ -96,7 +87,7 @@ static const char *cmdStr(enum protoCmd c)
 			return "NotDone";
 
 		default:
-			return "unknown";
+			return "Unknown";
 	}
 }
 
@@ -148,7 +139,7 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 		 cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y, req->mimetype, req->options);
 
 	if ((req->cmd != cmdRender) && (req->cmd != cmdRenderPrio) && (req->cmd != cmdRenderLow) && (req->cmd != cmdDirty) && (req->cmd != cmdRenderBulk)) {
-		g_logger(G_LOG_LEVEL_WARNING, "Ignoring unknown command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
+		g_logger(G_LOG_LEVEL_WARNING, "Ignoring invalid command %s fd(%d) xml(%s), z(%d), x(%d), y(%d)",
 			 cmdStr(req->cmd), fd, req->xmlname, req->z, req->x, req->y);
 		return cmdNotDone;
 	}
@@ -766,11 +757,7 @@ int main(int argc, char **argv)
 				break;
 
 			case 's':
-				if (sscanf(optarg, "%i", &active_slave) != 1) {
-					fprintf(stderr, "--slave needs to be numeric (%s)\n", optarg);
-					active_slave = 0;
-				}
-
+				active_slave = min_max_int_opt(optarg, "slave", 0, -1);
 				break;
 
 			case 'h':
@@ -809,294 +796,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	xmlconfigitem maps[XMLCONFIGS_MAX];
-	bzero(maps, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
-
-	renderd_config config_slaves[MAX_SLAVES];
-	bzero(config_slaves, sizeof(renderd_config) * MAX_SLAVES);
-	bzero(&config, sizeof(renderd_config));
-
-	g_logger(G_LOG_LEVEL_INFO, "Parsing config file: %s", config_file_name);
-	dictionary *ini = iniparser_load(config_file_name);
-
-	if (!ini) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file: %s", config_file_name);
-		exit(1);
-	}
-
-	num_slave_threads = 0;
-
-	int iconf = -1;
-	char buffer[PATH_MAX];
-
-	g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section(s)");
-
-	for (int section = 0; section < iniparser_getnsec(ini); section++) {
-		const char *name = iniparser_getsecname(ini, section);
-
-		if (strncmp(name, "renderd", 7) == 0) {
-			/* this is a renderd config section */
-			int render_sec = 0;
-
-			if (sscanf(name, "renderd%i", &render_sec) != 1) {
-				render_sec = 0;
-			}
-
-			g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section %i: %s", render_sec, name);
-
-			if (render_sec >= MAX_SLAVES) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Can't handle more than %i renderd config sections",
-					 MAX_SLAVES);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:socketname", name);
-			config_slaves[render_sec].socketname = iniparser_getstring(ini,
-							       buffer, (char *) RENDERD_SOCKET);
-			snprintf(buffer, sizeof(buffer), "%s:iphostname", name);
-			config_slaves[render_sec].iphostname = iniparser_getstring(ini,
-							       buffer, "");
-			snprintf(buffer, sizeof(buffer), "%s:ipport", name);
-			config_slaves[render_sec].ipport = iniparser_getint(ini, buffer, 0);
-			snprintf(buffer, sizeof(buffer), "%s:num_threads", name);
-			config_slaves[render_sec].num_threads = iniparser_getint(ini,
-								buffer, NUM_THREADS);
-			snprintf(buffer, sizeof(buffer), "%s:tile_dir", name);
-			config_slaves[render_sec].tile_dir = iniparser_getstring(ini,
-							     buffer, (char *) RENDERD_TILE_DIR);
-			snprintf(buffer, sizeof(buffer), "%s:stats_file", name);
-			config_slaves[render_sec].stats_filename = iniparser_getstring(ini,
-					buffer, NULL);
-			snprintf(buffer, sizeof(buffer), "%s:pid_file", name);
-			config_slaves[render_sec].pid_filename = iniparser_getstring(ini,
-					buffer, (char *) RENDERD_PIDFILE);
-
-			if (config_slaves[render_sec].num_threads == -1) {
-				config_slaves[render_sec].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
-			}
-
-			if (render_sec == active_slave) {
-				config.socketname = config_slaves[render_sec].socketname;
-				config.iphostname = config_slaves[render_sec].iphostname;
-				config.ipport = config_slaves[render_sec].ipport;
-				config.num_threads = config_slaves[render_sec].num_threads;
-				config.tile_dir = config_slaves[render_sec].tile_dir;
-				config.stats_filename
-					= config_slaves[render_sec].stats_filename;
-				config.pid_filename
-					= config_slaves[render_sec].pid_filename;
-				config.mapnik_plugins_dir = iniparser_getstring(ini,
-							    "mapnik:plugins_dir", (char *) MAPNIK_PLUGINS_DIR);
-				config.mapnik_font_dir = iniparser_getstring(ini,
-							 "mapnik:font_dir", (char *) MAPNIK_FONTS_DIR);
-				config.mapnik_font_dir_recurse = iniparser_getboolean(ini,
-								 "mapnik:font_dir_recurse", MAPNIK_FONTS_DIR_RECURSE);
-			} else {
-				num_slave_threads += config_slaves[render_sec].num_threads;
-			}
-		}
-	}
-
-	g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section(s)");
-
-	for (int section = 0; section < iniparser_getnsec(ini); section++) {
-		const char *name = iniparser_getsecname(ini, section);
-
-		if (strncmp(name, "renderd", 7) && strcmp(name, "mapnik")) {
-			/* this is a map config section */
-			if (config.num_threads == 0 || config.tile_dir == NULL) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "No valid (active) renderd config section available");
-				exit(7);
-			}
-
-			iconf++;
-
-			g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section %i: %s", iconf, name);
-
-			if (iconf >= XMLCONFIGS_MAX) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Config: more than %d configurations found", XMLCONFIGS_MAX);
-				exit(7);
-			}
-
-			if (strlen(name) >= (XMLCONFIG_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "XML name too long: %s", name);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].xmlname, name);
-
-			snprintf(buffer, sizeof(buffer), "%s:uri", name);
-			const char *ini_uri = iniparser_getstring(ini, buffer, (char *)"");
-
-			if (strlen(ini_uri) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "URI too long: %s", ini_uri);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].xmluri, ini_uri);
-
-			snprintf(buffer, sizeof(buffer), "%s:xml", name);
-			const char *ini_xmlpath = iniparser_getstring(ini, buffer, (char *)"");
-
-			if (strlen(ini_xmlpath) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "XML path too long: %s", ini_xmlpath);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].xmlfile, ini_xmlpath);
-
-			snprintf(buffer, sizeof(buffer), "%s:host", name);
-			const char *ini_hostname = iniparser_getstring(ini, buffer, (char *) "");
-
-			if (strlen(ini_hostname) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Host name too long: %s", ini_hostname);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].host, ini_hostname);
-
-			snprintf(buffer, sizeof(buffer), "%s:htcphost", name);
-			const char *ini_htcpip = iniparser_getstring(ini, buffer, (char *) "");
-
-			if (strlen(ini_htcpip) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "HTCP host name too long: %s", ini_htcpip);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].htcpip, ini_htcpip);
-
-			snprintf(buffer, sizeof(buffer), "%s:tilesize", name);
-			const char *ini_tilesize = iniparser_getstring(ini, buffer, (char *) "256");
-			maps[iconf].tile_px_size = atoi(ini_tilesize);
-
-			if (maps[iconf].tile_px_size < 1) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Tile size is invalid: %s", ini_tilesize);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:scale", name);
-			const char *ini_scale = iniparser_getstring(ini, buffer, (char *) "1.0");
-			maps[iconf].scale_factor = atof(ini_scale);
-
-			if (maps[iconf].scale_factor < 0.1 || maps[iconf].scale_factor > 8.0) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Scale factor is invalid: %s", ini_scale);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:tiledir", name);
-			const char *ini_tiledir = iniparser_getstring(ini, buffer, (char *) config.tile_dir);
-
-			if (strlen(ini_tiledir) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Tiledir too long: %s", ini_tiledir);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].tile_dir, ini_tiledir);
-
-			snprintf(buffer, sizeof(buffer), "%s:maxzoom", name);
-			const char *ini_maxzoom = iniparser_getstring(ini, buffer, "18");
-			maps[iconf].max_zoom = atoi(ini_maxzoom);
-
-			if (maps[iconf].max_zoom > MAX_ZOOM) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified max zoom (%i) is too large. Renderd currently only supports up to zoom level %i", maps[iconf].max_zoom, MAX_ZOOM);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:minzoom", name);
-			const char *ini_minzoom = iniparser_getstring(ini, buffer, "0");
-			maps[iconf].min_zoom = atoi(ini_minzoom);
-
-			if (maps[iconf].min_zoom < 0) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is too small. Minimum zoom level has to be greater or equal to 0", maps[iconf].min_zoom);
-				exit(7);
-			}
-
-			if (maps[iconf].min_zoom > maps[iconf].max_zoom) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is larger than max zoom (%i).", maps[iconf].min_zoom, maps[iconf].max_zoom);
-				exit(7);
-			}
-
-			snprintf(buffer, sizeof(buffer), "%s:parameterize_style", name);
-			const char *ini_parameterize = iniparser_getstring(ini, buffer, "");
-
-			if (strlen(ini_parameterize) >= (PATH_MAX - 1)) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Parameterize_style too long: %s", ini_parameterize);
-				exit(7);
-			}
-
-			strcpy(maps[iconf].parameterization, ini_parameterize);
-
-			snprintf(buffer, sizeof(buffer), "%s:type", name);
-			const char *ini_type = iniparser_getstring(ini, buffer, "png image/png png256");
-
-			char ini_fileExtension[INILINE_MAX] = "png";
-			char ini_mimeType[INILINE_MAX] = "image/png";
-			char ini_outputFormat[INILINE_MAX] = "png256";
-
-			sscanf(ini_type, "%[^ ] %[^ ] %[^;#]", ini_fileExtension, ini_mimeType, ini_outputFormat);
-
-			strcpy(maps[iconf].output_format, ini_outputFormat);
-
-			/* Pass this information into the rendering threads,
-			 * as it is needed to configure mapniks number of connections
-			 */
-			maps[iconf].num_threads = config.num_threads;
-		}
-	}
-
-	if (config.ipport > 0) {
-		g_logger(G_LOG_LEVEL_INFO, "config renderd: ip socket=%s:%i", config.iphostname, config.ipport);
-	} else {
-		g_logger(G_LOG_LEVEL_INFO, "config renderd: unix socketname=%s", config.socketname);
-	}
-
-	g_logger(G_LOG_LEVEL_INFO, "config renderd: num_threads=%d", config.num_threads);
-
-	if (active_slave == 0) {
-		g_logger(G_LOG_LEVEL_INFO, "config renderd: num_slave_threads=%d", num_slave_threads);
-	}
-
-	g_logger(G_LOG_LEVEL_INFO, "config renderd: tile_dir=%s", config.tile_dir);
-	g_logger(G_LOG_LEVEL_INFO, "config renderd: stats_file=%s", config.stats_filename);
-	g_logger(G_LOG_LEVEL_INFO, "config renderd: pid_file=%s", config.pid_filename);
-	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  plugins_dir=%s", config.mapnik_plugins_dir);
-	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  font_dir=%s", config.mapnik_font_dir);
-	g_logger(G_LOG_LEVEL_INFO, "config mapnik:  font_dir_recurse=%d", config.mapnik_font_dir_recurse);
-
-	for (i = 0; i < MAX_SLAVES; i++) {
-		if (config_slaves[i].num_threads == 0) {
-			continue;
-		}
-
-		if (i == active_slave) {
-			g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): Active", i);
-		}
-
-		if (config_slaves[i].ipport > 0) {
-			g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): ip socket=%s:%i", i,
-				 config_slaves[i].iphostname, config_slaves[i].ipport);
-		} else {
-			g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): unix socketname=%s", i,
-				 config_slaves[i].socketname);
-		}
-
-		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): num_threads=%d", i,
-			 config_slaves[i].num_threads);
-		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): tile_dir=%s", i,
-			 config_slaves[i].tile_dir);
-		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): stats_file=%s", i,
-			 config_slaves[i].stats_filename);
-		g_logger(G_LOG_LEVEL_INFO, "config renderd(%i): pid_file=%s", i,
-			 config_slaves[i].pid_filename);
-	}
-
-	for (iconf = 0; iconf < XMLCONFIGS_MAX; ++iconf) {
-		if (maps[iconf].xmlname[0] != 0) {
-			g_logger(G_LOG_LEVEL_INFO, "config map %d:   name(%s) file(%s) uri(%s) output_format(%s) htcp(%s) host(%s)",
-				 iconf, maps[iconf].xmlname, maps[iconf].xmlfile, maps[iconf].xmluri,
-				 maps[iconf].output_format, maps[iconf].htcpip, maps[iconf].host);
-		}
-	}
+	process_config_file(config_file_name, active_slave, G_LOG_LEVEL_INFO);
 
 	fd = server_socket_init(&config);
 
@@ -1145,7 +845,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (config.stats_filename != NULL) {
+	if (strnlen(config.stats_filename, PATH_MAX - 1)) {
 		if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
 			g_logger(G_LOG_LEVEL_WARNING, "Could not create stats writeout thread");
 		}

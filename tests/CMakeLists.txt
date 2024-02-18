@@ -644,12 +644,12 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     add_test(
       NAME renderd_num_threads_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        if ! ${GREP_EXECUTABLE} -q \"config renderd: num_threads=${PROCESSOR_COUNT}\" \"${RENDERD0_LOG}\"; then
-          ${GREP_EXECUTABLE} \"config renderd: num_threads=\" \"${RENDERD0_LOG}\"
+        if ! ${GREP_EXECUTABLE} -q \"renderd: num_threads = '${PROCESSOR_COUNT}'\" \"${RENDERD0_LOG}\"; then
+          ${GREP_EXECUTABLE} \"renderd: num_threads = \" \"${RENDERD0_LOG}\"
           exit 1;
         fi
-        if ! ${GREP_EXECUTABLE} -q \"config renderd: num_slave_threads=${CTEST_NUM_SLAVE_THREADS}\" \"${RENDERD0_LOG}\"; then
-          ${GREP_EXECUTABLE} \"config renderd: num_slave_threads=\" \"${RENDERD0_LOG}\"
+        if ! ${GREP_EXECUTABLE} -q \"renderd: num_slave_threads = '${CTEST_NUM_SLAVE_THREADS}'\" \"${RENDERD0_LOG}\"; then
+          ${GREP_EXECUTABLE} \"renderd: num_slave_threads = \" \"${RENDERD0_LOG}\"
           exit 1;
         fi
       "
@@ -692,7 +692,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
 
   if(STORAGE_BACKEND STREQUAL file)
     set(TILE_FILE_NAME "tile.parameterization.${STORAGE_BACKEND}")
-    set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/en,de,_/${TILE_ZXY}.png")
+    set(TILE_URL_PATH "/tiles/parameterization/en,de,_/${TILE_ZXY}.png")
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     add_good_tile_download_test(
       parameterization_${STORAGE_BACKEND}_0
@@ -765,7 +765,7 @@ foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
   # Get DIRECTIVE_ERROR from DIRECTIVE_ERRORS list
   list(GET DIRECTIVE_ERRORS ${DIRECTIVE_INDEX} DIRECTIVE_ERROR)
 
-  # Generate httpd.conf filelogs
+  # Generate httpd.conf file
   configure_file(
     httpd.conf.in
     ${HTTPD_CONF}
@@ -774,7 +774,6 @@ foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
   add_test(
     NAME bad_httpd_config_${DIRECTIVE_INDEX}
     COMMAND ${BASH} -c "
-      echo \"${DIRECTIVE}\" >> ${HTTPD_CONF}
       HTTPD_OUTPUT=$(${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -t 2>&1)
       if [ \"\${?}\" -eq \"0\" ]; then
         echo \"Unexpected success.\"
