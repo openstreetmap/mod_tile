@@ -31,7 +31,7 @@ extern renderd_config config_slaves[MAX_SLAVES];
 extern xmlconfigitem maps[XMLCONFIGS_MAX];
 
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum);
-void process_config_file(const char *config_file_name, int active_slave, int log_level);
+void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level);
 
 #ifdef __cplusplus
 }
