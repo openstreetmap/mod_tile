@@ -1044,6 +1044,46 @@ TEST_CASE("renderd", "tile generation")
 		ret = WEXITSTATUS(ret);
 		REQUIRE(ret == 1);
 	}
+
+	SECTION("--config invalid file", "should return 1") {
+		std::string option = "--config /path/is/invalid";
+		std::string command = "./renderd " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--slave is not a number", "should return 1") {
+		std::string option = "--slave abcdefg";
+		std::string command = "./renderd " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--slave is a float", "should return 1") {
+		std::string option = "--slave 1.23456789";
+		std::string command = "./renderd " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--slave subceeds minimum of 0", "should return 1") {
+		std::string option = "--slave -1";
+		std::string command = "./renderd " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
 }
 
 TEST_CASE("storage-backend", "Tile storage backend router")
