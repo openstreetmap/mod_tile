@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 - 2023 by mod_tile contributors (see AUTHORS file)
+ * Copyright (c) 2007 - 2024 by mod_tile contributors (see AUTHORS file)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -329,7 +329,7 @@ void process_config_file(const char *config_file_name, int active_slave, int log
 
 	g_logger(log_level, "\trenderd: num_threads = '%i'", config.num_threads);
 
-	if (active_slave == 0) {
+	if (active_slave == 0 && num_slave_threads > 0) {
 		g_logger(log_level, "\trenderd: num_slave_threads = '%i'", num_slave_threads);
 	}
 
