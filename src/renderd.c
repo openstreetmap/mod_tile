@@ -775,15 +775,15 @@ int main(int argc, char **argv)
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				exit(0);
+				return 0;
 
 			case 'V':
 				fprintf(stdout, "%s\n", VERSION);
-				exit(0);
+				return 0;
 
 			default:
 				fprintf(stderr, "unknown config option '%c'\n", c);
-				exit(1);
+				return 1;
 		}
 	}
 
@@ -794,7 +794,7 @@ int main(int argc, char **argv)
 
 	if (render_request_queue == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");
-		exit(1);
+		return 1;
 	}
 
 	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
@@ -806,7 +806,7 @@ int main(int argc, char **argv)
 	if (fcntl(fd, F_SETFD, O_RDWR | O_NONBLOCK) < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "setting socket non-block failed");
 		close(fd);
-		exit(5);
+		return 5;
 	}
 
 #endif
@@ -816,7 +816,7 @@ int main(int argc, char **argv)
 	if (sigaction(SIGPIPE, &sigPipeAction, NULL) < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "failed to register signal handler");
 		close(fd);
-		exit(6);
+		return 6;
 	}
 
 	sigExitAction.sa_handler = (void *) request_exit;
@@ -850,7 +850,7 @@ int main(int argc, char **argv)
 		if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn stats writeout thread");
 			close(fd);
-			exit(7);
+			return 7;
 		}
 	} else {
 		g_logger(G_LOG_LEVEL_INFO, "No stats file specified in config. Stats reporting disabled");
@@ -862,7 +862,7 @@ int main(int argc, char **argv)
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
 			close(fd);
-			exit(7);
+			return 7;
 		}
 	}
 
@@ -877,7 +877,7 @@ int main(int argc, char **argv)
 				if (pthread_create(&slave_threads[k++], NULL, slave_thread, (void *) &config_slaves[i])) {
 					g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn slave thread");
 					close(fd);
-					exit(7);
+					return 7;
 				}
 			}
 		}
