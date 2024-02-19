@@ -748,8 +748,10 @@ int main(int argc, char **argv)
 				config_file_name = strdup(optarg);
 				config_file_name_passed = 1;
 
-				if (access(config_file_name, F_OK) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file with -c/--config", config_file_name);
+				struct stat buffer;
+
+				if (stat(config_file_name, &buffer) != 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 					return 1;
 				}
 
@@ -783,11 +785,6 @@ int main(int argc, char **argv)
 				fprintf(stderr, "unknown config option '%c'\n", c);
 				exit(1);
 		}
-	}
-
-	if (access(config_file_name, F_OK) != 0) {
-		fprintf(stderr, "Config file '%s' does not exist, please specify a valid file with -c/--config\n", config_file_name);
-		exit(1);
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Renderd started (version %s)", VERSION);
