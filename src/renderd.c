@@ -313,7 +313,7 @@ void *stats_writeout_thread(void * arg)
 
 	snprintf(tmpName, sizeof(tmpName), "%s.tmp", config.stats_filename);
 
-	g_logger(G_LOG_LEVEL_DEBUG, "Starting stats thread: %lu", (unsigned long) pthread_self());
+	g_logger(G_LOG_LEVEL_DEBUG, "Starting stats writeout thread: %lu", (unsigned long) pthread_self());
 
 	while (1) {
 		request_queue_copy_stats(render_request_queue, &lStats);
@@ -438,7 +438,7 @@ int client_socket_init(renderd_config * sConfig)
 			}
 
 			if (connect(fd, rp->ai_addr, rp->ai_addrlen) != 0) {
-				g_logger(G_LOG_LEVEL_INFO, "failed to connect to rendering daemon (%s), trying next ip", ipstring);
+				g_logger(G_LOG_LEVEL_WARNING, "failed to connect to rendering daemon (%s), trying next ip", ipstring);
 				close(fd);
 				fd = -1;
 				continue;
@@ -569,7 +569,7 @@ void *slave_thread(void * arg)
 	renderd_config * sConfig = (renderd_config *) arg;
 
 	int pfd = FD_INVALID;
-	int retry;
+	int retry, seconds = 30;
 	size_t ret_size;
 
 	struct protocol * resp;
@@ -588,16 +588,12 @@ void *slave_thread(void * arg)
 
 			if (pfd == FD_INVALID) {
 				if (sConfig->ipport > 0) {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Failed to connect to render slave %s:%i, trying again in 30 seconds",
-						 sConfig->iphostname, sConfig->ipport);
+					g_logger(G_LOG_LEVEL_ERROR, "Failed to connect to Renderd slave at %s:%i, trying again in %i seconds", sConfig->iphostname, sConfig->ipport, seconds);
 				} else {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Failed to connect to render slave %s, trying again in 30 seconds",
-						 sConfig->socketname);
+					g_logger(G_LOG_LEVEL_ERROR, "Failed to connect to Renderd slave at %s, trying again in %i seconds", sConfig->socketname, seconds);
 				}
 
-				sleep(30);
+				sleep(seconds);
 				continue;
 			}
 		}
@@ -618,8 +614,12 @@ void *slave_thread(void * arg)
 
 			/*Dispatch request to slave renderd*/
 			retry = 2;
-			g_logger(G_LOG_LEVEL_INFO,
-				 "Dispatching request to slave thread on fd %i", pfd);
+
+			if (sConfig->ipport > 0) {
+				g_logger(G_LOG_LEVEL_INFO, "Dispatching request to Renderd slave at %s:%i on fd %i", sConfig->iphostname, sConfig->ipport, pfd);
+			} else {
+				g_logger(G_LOG_LEVEL_INFO, "Dispatching request to Renderd slave at %s on fd %i", sConfig->socketname, pfd);
+			}
 
 			do {
 				ret_size = send_cmd(req_slave, pfd);
@@ -630,21 +630,19 @@ void *slave_thread(void * arg)
 				}
 
 				if (errno != EPIPE) {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Failed to send cmd to render slave, shutting down thread");
+					g_logger(G_LOG_LEVEL_ERROR, "Failed to send cmd to Renderd slave, shutting down slave thread");
 					free(resp);
 					free(req_slave);
 					close(pfd);
 					return NULL;
 				}
 
-				g_logger(G_LOG_LEVEL_WARNING, "Failed to send cmd to render slave, retrying");
+				g_logger(G_LOG_LEVEL_WARNING, "Failed to send cmd to Renderd slave, retrying");
 				close(pfd);
 				pfd = client_socket_init(sConfig);
 
 				if (pfd == FD_INVALID) {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Failed to re-connect to render slave, dropping request");
+					g_logger(G_LOG_LEVEL_ERROR, "Failed to re-connect to Renderd slave, dropping request");
 					ret = cmdNotDone;
 					send_response(item, ret, -1);
 					break;
@@ -666,7 +664,7 @@ void *slave_thread(void * arg)
 					close(pfd);
 					pfd = FD_INVALID;
 					ret_size = 0;
-					g_logger(G_LOG_LEVEL_ERROR, "Pipe to render slave closed");
+					g_logger(G_LOG_LEVEL_ERROR, "Pipe to Renderd slave closed");
 					break;
 				}
 
@@ -675,37 +673,29 @@ void *slave_thread(void * arg)
 
 			if (ret_size < sizeof(struct protocol)) {
 				if (sConfig->ipport > 0) {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Invalid reply from render slave %s:%i, trying again in 30 seconds",
-						 sConfig->iphostname, sConfig->ipport);
+					g_logger(G_LOG_LEVEL_ERROR, "Invalid reply from Renderd slave at %s:%i, trying again in %i seconds", sConfig->iphostname, sConfig->ipport, seconds);
 				} else {
-					g_logger(G_LOG_LEVEL_ERROR,
-						 "Invalid reply render slave %s, trying again in 30 seconds",
-						 sConfig->socketname);
+					g_logger(G_LOG_LEVEL_ERROR, "Invalid reply from Renderd slave at %s, trying again in %i seconds", sConfig->socketname, seconds);
 				}
 
 				ret = cmdNotDone;
 				send_response(item, ret, -1);
-				sleep(30);
+				sleep(seconds);
 			} else {
 				ret = resp->cmd;
 				send_response(item, ret, -1);
 
 				if (resp->cmd != cmdDone) {
 					if (sConfig->ipport > 0) {
-						g_logger(G_LOG_LEVEL_ERROR,
-							 "Request from render slave %s:%i did not complete correctly",
-							 sConfig->iphostname, sConfig->ipport);
+						g_logger(G_LOG_LEVEL_ERROR, "Request from Renderd slave at %s:%i did not complete correctly", sConfig->iphostname, sConfig->ipport);
 					} else {
-						g_logger(G_LOG_LEVEL_ERROR,
-							 "Request from render slave %s did not complete correctly",
-							 sConfig->socketname);
+						g_logger(G_LOG_LEVEL_ERROR, "Request from Renderd slave at %s did not complete correctly", sConfig->socketname);
 					}
 
 					//Sleep for a while to make sure we don't overload the renderer
 					//This only happens if it didn't correctly block on the rendering
 					//request
-					sleep(30);
+					sleep(seconds);
 				}
 			}
 
@@ -722,11 +712,18 @@ void *slave_thread(void * arg)
 #ifndef MAIN_ALREADY_DEFINED
 int main(int argc, char **argv)
 {
+	const char *config_file_name_default = RENDERD_CONFIG;
+	int active_renderd_section_num_default = 0;
+
+	const char *config_file_name = config_file_name_default;
+	int active_renderd_section_num = active_renderd_section_num_default;
+
+	int config_file_name_passed = 0;
+	int active_renderd_section_num_passed = 0;
+
 	int fd, i, j, k;
 
 	int c;
-	int active_slave = 0;
-	char config_file_name[PATH_MAX] = RENDERD_CONFIG;
 
 	while (1) {
 		int option_index = 0;
@@ -747,56 +744,60 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'f':
+			case 'c':   /* -c, --config */
+				config_file_name = strdup(optarg);
+				config_file_name_passed = 1;
+
+				struct stat buffer;
+
+				if (stat(config_file_name, &buffer) != 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
+					return 1;
+				}
+
+				break;
+
+			case 'f':   /* -f, --foreground */
 				foreground = 1;
 				break;
 
-			case 'c':
-				strncpy(config_file_name, optarg, PATH_MAX - 1);
-				config_file_name[PATH_MAX - 1] = 0;
+			case 's':   /* -s, --slave */
+				active_renderd_section_num = min_max_int_opt(optarg, "active renderd section", 0, -1);
+				active_renderd_section_num_passed = 1;
 				break;
 
-			case 's':
-				active_slave = min_max_int_opt(optarg, "slave", 0, -1);
-				break;
-
-			case 'h':
+			case 'h':   /* -h, --help */
 				fprintf(stderr, "Usage: renderd [OPTION] ...\n");
 				fprintf(stderr, "Mapnik rendering daemon\n");
-				fprintf(stderr, "  -c, --config=CONFIG   set location of config file (default %s)\n", RENDERD_CONFIG);
-				fprintf(stderr, "  -f, --foreground      run in foreground\n");
-				fprintf(stderr, "  -s, --slave=CONFIG_NR set which render slave this is (default 0)\n");
+				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is '%s')\n", config_file_name_default);
+				fprintf(stderr, "  -f, --foreground                  run in foreground\n");
+				fprintf(stderr, "  -s, --slave=CONFIG_SECTION_NR     set which renderd section to use (default is '%i')\n", active_renderd_section_num_default);
 				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help            display this help and exit\n");
-				fprintf(stderr, "  -V, --version         display the version number and exit\n");
-				exit(0);
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+				return 0;
 
 			case 'V':
 				fprintf(stdout, "%s\n", VERSION);
-				exit(0);
+				return 0;
 
 			default:
 				fprintf(stderr, "unknown config option '%c'\n", c);
-				exit(1);
+				return 1;
 		}
 	}
 
-	if (access(config_file_name, F_OK) != 0) {
-		fprintf(stderr, "Config file '%s' does not exist, please specify a valid file with -c/--config\n", config_file_name);
-		exit(1);
-	}
-
-	g_logger(G_LOG_LEVEL_INFO, "Rendering daemon started (version %s)", VERSION);
+	g_logger(G_LOG_LEVEL_INFO, "Renderd started (version %s)", VERSION);
 
 	g_logger(G_LOG_LEVEL_INFO, "Initialising request queue");
 	render_request_queue = request_queue_init();
 
 	if (render_request_queue == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");
-		exit(1);
+		return 1;
 	}
 
-	process_config_file(config_file_name, active_slave, G_LOG_LEVEL_INFO);
+	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
 
 	fd = server_socket_init(&config);
 
@@ -805,7 +806,7 @@ int main(int argc, char **argv)
 	if (fcntl(fd, F_SETFD, O_RDWR | O_NONBLOCK) < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "setting socket non-block failed");
 		close(fd);
-		exit(5);
+		return 5;
 	}
 
 #endif
@@ -815,7 +816,7 @@ int main(int argc, char **argv)
 	if (sigaction(SIGPIPE, &sigPipeAction, NULL) < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "failed to register signal handler");
 		close(fd);
-		exit(6);
+		return 6;
 	}
 
 	sigExitAction.sa_handler = (void *) request_exit;
@@ -847,7 +848,9 @@ int main(int argc, char **argv)
 
 	if (strnlen(config.stats_filename, PATH_MAX - 1)) {
 		if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
-			g_logger(G_LOG_LEVEL_WARNING, "Could not create stats writeout thread");
+			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn stats writeout thread");
+			close(fd);
+			return 7;
 		}
 	} else {
 		g_logger(G_LOG_LEVEL_INFO, "No stats file specified in config. Stats reporting disabled");
@@ -857,13 +860,13 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < config.num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "error spawning render thread");
+			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
 			close(fd);
-			exit(7);
+			return 7;
 		}
 	}
 
-	if (active_slave == 0) {
+	if (active_renderd_section_num == 0) {
 		//Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads
@@ -871,11 +874,10 @@ int main(int argc, char **argv)
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
-				if (pthread_create(&slave_threads[k++], NULL, slave_thread,
-						   (void *) &config_slaves[i])) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "error spawning render thread");
+				if (pthread_create(&slave_threads[k++], NULL, slave_thread, (void *) &config_slaves[i])) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn slave thread");
 					close(fd);
-					exit(7);
+					return 7;
 				}
 			}
 		}

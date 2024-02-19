@@ -133,33 +133,26 @@ int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum,
 {
 	int opt;
 	float opt_float;
+	char *endptr, *endptr_float;
 
-	if (sscanf(opt_arg, "%i", &opt) != 1) {
+	opt = strtol(opt_arg, &endptr, 10);
+	opt_float = strtof(opt_arg, &endptr_float);
+
+	if (endptr == opt_arg || endptr_float == opt_arg || (float)opt != opt_float) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be an integer (%s was provided)", opt_type_name, opt_arg);
 		exit(1);
-	}
-
-	if (minimum != -1 && opt < minimum) {
+	} else if (minimum != -1 && opt < minimum) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be >= %i (%s was provided)", opt_type_name, minimum, opt_arg);
 		exit(1);
-	}
-
-	if (maximum != -1 && opt > maximum) {
+	} else if (maximum != -1 && opt > maximum) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be <= %i (%s was provided)", opt_type_name, maximum, opt_arg);
 		exit(1);
-	}
-
-	if (sscanf(opt_arg, "%f", &opt_float) == 1) {
-		if ((float)opt != opt_float) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be an integer (%s was provided)", opt_type_name, opt_arg);
-			exit(1);
-		}
 	}
 
 	return opt;
 }
 
-void process_config_file(const char *config_file_name, int active_slave, int log_level)
+void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level)
 {
 	int i, map_section_num = -1;
 	bzero(&config, sizeof(renderd_config));
@@ -208,7 +201,7 @@ void process_config_file(const char *config_file_name, int active_slave, int log
 				config_slaves[renderd_section_num].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
 			}
 
-			if (renderd_section_num == active_slave) {
+			if (renderd_section_num == active_renderd_section_num) {
 				config = config_slaves[renderd_section_num];
 			} else {
 				num_slave_threads += config_slaves[renderd_section_num].num_threads;
@@ -329,7 +322,7 @@ void process_config_file(const char *config_file_name, int active_slave, int log
 
 	g_logger(log_level, "\trenderd: num_threads = '%i'", config.num_threads);
 
-	if (active_slave == 0 && num_slave_threads > 0) {
+	if (active_renderd_section_num == 0 && num_slave_threads > 0) {
 		g_logger(log_level, "\trenderd: num_slave_threads = '%i'", num_slave_threads);
 	}
 
@@ -355,7 +348,7 @@ void process_config_file(const char *config_file_name, int active_slave, int log
 			continue;
 		}
 
-		if (i == active_slave) {
+		if (i == active_renderd_section_num) {
 			g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): Active", i);
 		}
 
