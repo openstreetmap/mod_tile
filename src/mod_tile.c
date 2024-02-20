@@ -512,7 +512,7 @@ static int add_cors(request_rec *r, const char * cors)
 				return DONE;
 			}
 		} else {
-			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s)is NOT allowed under the CORS policy(%s). Rejecting request", origin, cors);
+			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s) is NOT allowed under the CORS policy (%s). Rejecting request", origin, cors);
 			return HTTP_FORBIDDEN;
 		}
 	}
