@@ -119,6 +119,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
         libtiff \
         libwebp \
         make \
+        procps \
         proj
 
 ## Copy files from builder(s)
