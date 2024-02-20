@@ -32,8 +32,6 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileEnableStatusURL On
   ModTileEnableTileThrottling Off
   ModTileEnableTileThrottlingXForward 0
-  ModTileMaxLoadMissing 5
-  ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 2
   ModTileRenderdSocketName @RENDERD0_SOCKET@
   ModTileRequestTimeout 3
@@ -60,10 +58,32 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileEnableStatusURL Off
   ModTileEnableTileThrottling Off
   ModTileEnableTileThrottlingXForward 0
-  ModTileMaxLoadMissing 5
-  ModTileMaxLoadOld 2
   ModTileMissingRequestTimeout 3
   ModTileRenderdSocketAddr @RENDERD1_HOST@ @RENDERD1_PORT@
+  ModTileRequestTimeout 3
+  ModTileThrottlingRenders 128 0.2
+  ModTileThrottlingTiles 10000 1
+  ModTileTileDir @TILE_DIR@
+</VirtualHost>
+
+<VirtualHost @HTTPD2_HOST@:@HTTPD2_PORT@>
+  LoadTileConfigFile @RENDERD_CONF@
+  ModTileBulkMode Off
+  ModTileCacheDurationDirty 900
+  ModTileCacheDurationLowZoom 9 518400
+  ModTileCacheDurationMax 604800
+  ModTileCacheDurationMediumZoom 13 86400
+  ModTileCacheDurationMinimum 10800
+  ModTileCacheLastModifiedFactor 0.20
+  ModTileEnableDirtyURL Off
+  ModTileEnableStats Off
+  ModTileEnableStatusURL Off
+  ModTileEnableTileThrottling Off
+  ModTileEnableTileThrottlingXForward 0
+  ModTileMaxLoadMissing 0
+  ModTileMaxLoadOld 0
+  ModTileMissingRequestTimeout 3
+  ModTileRenderdSocketName @RENDERD2_SOCKET@
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
   ModTileThrottlingTiles 10000 1
@@ -75,6 +95,7 @@ ErrorLog @HTTPD_LOG_ERROR@
 Group @WWW_GROUP_NAME@
 Listen @HTTPD0_HOST@:@HTTPD0_PORT@
 Listen @HTTPD1_HOST@:@HTTPD1_PORT@
+Listen @HTTPD2_HOST@:@HTTPD2_PORT@
 LogLevel debug
 PidFile @HTTPD_PID@
 ServerName localhost

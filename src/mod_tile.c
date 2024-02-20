@@ -1067,7 +1067,7 @@ static int tile_storage_hook(request_rec *r)
 			} else if (avg > scfg->max_load_old) {
 				// Too much load to render it now, mark dirty but return old tile
 				request_tile(r, cmd, 0);
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) larger max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) greater than max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
 
 				if (!incFreshCounter((state == tileVeryOld) ? VERYOLD : OLD, r)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1083,7 +1083,7 @@ static int tile_storage_hook(request_rec *r)
 		case tileMissing:
 			if (avg > scfg->max_load_missing) {
 				request_tile(r, cmd, 0);
-				ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%f) larger max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
+				ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%f) greater than max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
 
 				if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -2531,7 +2531,7 @@ static const char *mod_tile_veryold_threshold_config(cmd_parms *cmd, void *mconf
 	tile_server_conf *scfg;
 
 	if (sscanf(veryold_threshold_string, "%" SCNd64, &veryold_threshold) != 1) {
-		return "ModTileVeryoldThreshold needs integer argument";
+		return "ModTileVeryOldThreshold needs integer argument";
 	}
 
 	scfg = ap_get_module_config(cmd->server->module_config, &tile_module);

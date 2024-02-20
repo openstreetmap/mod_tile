@@ -55,6 +55,8 @@ set(HTTPD0_HOST "${CTEST_HOST}")
 set(HTTPD0_PORT_BASE "59000")
 set(HTTPD1_HOST "${CTEST_HOST}")
 set(HTTPD1_PORT_BASE "59100")
+set(HTTPD2_HOST "${CTEST_HOST}")
+set(HTTPD2_PORT_BASE "59200")
 set(MEMCACHED_HOST "${CTEST_HOST}")
 set(MEMCACHED_PORT_BASE "60000")
 set(RENDERD1_HOST "${CTEST_HOST}")
@@ -180,6 +182,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   # Increment Ports
   math(EXPR HTTPD0_PORT "${HTTPD0_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
+  math(EXPR HTTPD2_PORT "${HTTPD2_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   if(STORAGE_BACKEND STREQUAL memcached_custom)
     math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
@@ -803,6 +806,25 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(cors_localhost_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
+
+    # Generate URL path for tiles
+    set(TILE_URL_PATH "/tiles/png256/18/16125/115188.png")
+    # Generate tile URL
+    set(HTTPD2_URL "http://${HTTPD2_HOST}:${HTTPD2_PORT}${TILE_URL_PATH}")
+    add_test(NAME max_load_missing_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD2_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"404\" ]; then
+          exit 1;
+        fi
+      "
+    )
+    set_tests_properties(max_load_missing_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      SKIP_RETURN_CODE 1
+    )
   endif()
 
   if(JQ_EXECUTABLE)
@@ -841,12 +863,16 @@ set(DIRECTIVES
   "AddTileConfig /bad/"
   "LoadTileConfigFile"
   "LoadTileConfigFile /tmp/bad/file/name"
+  "ModTileMaxLoadMissing bad"
+  "ModTileMaxLoadOld bad"
 )
 set(DIRECTIVE_ERRORS
   "AddTileConfig error, URL path not defined"
   "AddTileConfig error, name of renderd config not defined"
   "LoadTileConfigFile takes one argument, load an entire renderd config file"
   "Unable to open config file"
+  "ModTileMaxLoadMissing needs integer argument"
+  "ModTileMaxLoadOld needs integer argument"
 )
 list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
 math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")
