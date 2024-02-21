@@ -438,7 +438,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        CONFIG_NAME=\"add_tile_config_${SOCKET_TYPE}\"
+        CONFIG_NAME=\"bad_tile_config_${SOCKET_TYPE}\"
         SEARCH_LINE=\$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
         SEARCH_STRS=(
           \" at /\${CONFIG_NAME}/ \"
@@ -461,7 +461,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     add_test(NAME add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         for SEARCH_CONFIG in js png; do
-          CONFIG_NAME=\"add_tile_mime_config_\${SEARCH_CONFIG}_${SOCKET_TYPE}\"
+          CONFIG_NAME=\"bad_tile_mime_config_\${SEARCH_CONFIG}_${SOCKET_TYPE}\"
           MIME_TYPE=image/png
           if [ \"\${SEARCH_CONFIG}\" = \"js\" ]; then
             MIME_TYPE=text/javascript
@@ -492,12 +492,12 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
-    foreach(BAD_ADD_CONFIG add_tile_config add_tile_mime_config_js add_tile_mime_config_png)
-      if(BAD_ADD_CONFIG STREQUAL add_tile_config)
+    foreach(BAD_ADD_CONFIG bad_tile_config bad_tile_mime_config_js bad_tile_mime_config_png)
+      if(BAD_ADD_CONFIG STREQUAL bad_tile_config)
         set(EXTENSION jpg)
-      elseif(BAD_ADD_CONFIG STREQUAL add_tile_mime_config_js)
+      elseif(BAD_ADD_CONFIG STREQUAL bad_tile_mime_config_js)
         set(EXTENSION js)
-      elseif(BAD_ADD_CONFIG STREQUAL add_tile_mime_config_png)
+      elseif(BAD_ADD_CONFIG STREQUAL bad_tile_mime_config_png)
         set(EXTENSION png)
       endif()
       # Generate URL path for tiles
@@ -628,7 +628,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
 
   # Generate file and URL paths for tiles
   set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
-  set(TILE_URL_PATH "/download_add_tile_config/${TILE_ZXY}.png")
+  set(TILE_URL_PATH "/good_add_tile_config/${TILE_ZXY}.png")
   # Generate tile URLs
   set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
   set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
