@@ -1,10 +1,12 @@
-# Test comment 1
-; Test comment 2
+# Test Comment: Mapnik Section
+; Test Comment: Mapnik Section
 [mapnik]
 font_dir=@MAPNIK_FONTS_DIR@
 font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
 plugins_dir=@MAPNIK_PLUGINS_DIR@
 
+# Test Comment: Default Map Section
+; Test Comment: Default Map Section
 [@DEFAULT_MAP_NAME@]
 ATTRIBUTION=Attribution for @DEFAULT_MAP_NAME@
 DESCRIPTION=Description for @DEFAULT_MAP_NAME@
@@ -14,10 +16,27 @@ TILEDIR=@TILE_DIR@
 URI=/tiles/@DEFAULT_MAP_NAME@/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: CORS all (*) Map Section
+; Test Comment: CORS all (*) Map Section
+[@DEFAULT_MAP_NAME@_cors_all]
+CORS=*
+TILEDIR=@TILE_DIR@
+URI=/tiles/cors_all/
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
+
+# Test Comment: CORS localhost Map Section
+; Test Comment: CORS localhost Map Section
+[@DEFAULT_MAP_NAME@_cors_localhost]
+CORS=localhost
+TILEDIR=@TILE_DIR@
+URI=/tiles/cors_localhost/
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
+
+# Test Comment: HTCP/etc Map Section
+; Test Comment: HTCP/etc Map Section
 [@DEFAULT_MAP_NAME@_htcp]
 ASPECTX=1
 ASPECTY=1
-CORS=*
 HOST=@HTTPD0_HOST@
 HTCPHOST=@HTTPD1_HOST@
 MAXZOOM=20
@@ -29,36 +48,48 @@ TILESIZE=256
 URI=/tiles/htcp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: Parameterization Map Section
+; Test Comment: Parameterization Map Section
 [@DEFAULT_MAP_NAME@_parameterization]
 PARAMETERIZE_STYLE=language
 TILEDIR=@TILE_DIR@
 URI=/tiles/parameterization/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: JPEG Map Section
+; Test Comment: JPEG Map Section
 [jpg]
 TILEDIR=@TILE_DIR@
 TYPE=jpg image/jpeg jpeg
 URI=/tiles/jpg/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: PNG8/PNG256 Map Section
+; Test Comment: PNG8/PNG256 Map Section
 [png256]
 TILEDIR=@TILE_DIR@
 TYPE=png image/png png256
 URI=/tiles/png256/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: PNG32 Map Section
+; Test Comment: PNG32 Map Section
 [png32]
 TILEDIR=@TILE_DIR@
 TYPE=png image/png png32
 URI=/tiles/png32/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: WEBP Map Section
+; Test Comment: WEBP Map Section
 [webp]
 TILEDIR=@TILE_DIR@
 TYPE=webp image/webp webp
 URI=/tiles/webp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
+# Test Comment: Renderd Section 1
+; Test Comment: Renderd Section 1
 [renderd1]
 iphostname=@RENDERD1_HOST@
 ipport=@RENDERD1_PORT@
@@ -67,6 +98,8 @@ pid_file=@RENDERD1_PID@
 stats_file=@TEST_RUN_DIR@/renderd1_@STORAGE_BACKEND@.stats
 tile_dir=@TILE_DIR@
 
+# Test Comment: Renderd Section 0
+; Test Comment: Renderd Section 0
 [renderd]
 num_threads=-1
 pid_file=@RENDERD0_PID@
@@ -74,6 +107,8 @@ socketname=@RENDERD0_SOCKET@
 stats_file=@TEST_RUN_DIR@/renderd0_@STORAGE_BACKEND@.stats
 tile_dir=@TILE_DIR@
 
+# Test Comment: Renderd Section 2
+; Test Comment: Renderd Section 2
 [renderd2]
 pid_file=@RENDERD2_PID@
 socketname=@RENDERD2_SOCKET@

@@ -50,6 +50,7 @@ inputs:
       jq
       lcov
       memcached
+      procps
   freebsd-build-dependencies:
     default: >-
       apache24
@@ -140,6 +141,7 @@ inputs:
       jq
       lcov
       memcached
+      procps
   rhel-mapnik-build-dependencies:
     default: >-
       boost-devel

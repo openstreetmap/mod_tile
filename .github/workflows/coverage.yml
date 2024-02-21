@@ -51,6 +51,10 @@ jobs:
             libwebp-dev
             libxml2-dev
 
+      - name: Stop `memcached` service
+        run: |
+          sudo systemctl stop memcached
+
       - name: Build `mod_tile`
         uses: ./.github/actions/cmake/build
 

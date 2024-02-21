@@ -512,7 +512,7 @@ static int add_cors(request_rec *r, const char * cors)
 				return DONE;
 			}
 		} else {
-			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s)is NOT allowed under the CORS policy(%s). Rejecting request", origin, cors);
+			ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Origin header (%s) is NOT allowed under the CORS policy (%s). Rejecting request", origin, cors);
 			return HTTP_FORBIDDEN;
 		}
 	}
@@ -1067,7 +1067,7 @@ static int tile_storage_hook(request_rec *r)
 			} else if (avg > scfg->max_load_old) {
 				// Too much load to render it now, mark dirty but return old tile
 				request_tile(r, cmd, 0);
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) larger max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) greater than max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
 
 				if (!incFreshCounter((state == tileVeryOld) ? VERYOLD : OLD, r)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1083,7 +1083,7 @@ static int tile_storage_hook(request_rec *r)
 		case tileMissing:
 			if (avg > scfg->max_load_missing) {
 				request_tile(r, cmd, 0);
-				ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%f) larger max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
+				ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%f) greater than max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
 
 				if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -2180,7 +2180,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
 	// Load the config
 	if ((hini = fopen(filename, "r")) == NULL) {
-		return "Unable to open config file";
+		return "LoadTileConfigFile error, unable to open config file";
 	}
 
 	while (fgets(line, INILINE_MAX, hini) != NULL) {
@@ -2531,7 +2531,7 @@ static const char *mod_tile_veryold_threshold_config(cmd_parms *cmd, void *mconf
 	tile_server_conf *scfg;
 
 	if (sscanf(veryold_threshold_string, "%" SCNd64, &veryold_threshold) != 1) {
-		return "ModTileVeryoldThreshold needs integer argument";
+		return "ModTileVeryOldThreshold needs integer argument";
 	}
 
 	scfg = ap_get_module_config(cmd->server->module_config, &tile_module);
@@ -2554,7 +2554,7 @@ static const char *mod_tile_renderd_socket_addr_config(cmd_parms *cmd, void *mco
 	strncpy(scfg->renderd_socket_name, renderd_socket_address_string, PATH_MAX - 1);
 
 	if (sscanf(renderd_socket_port_string, "%d", &port) != 1) {
-		return "TCP port needs to be an integer argument";
+		return "ModTileRenderdSocketAddr TCP port needs to be an integer argument";
 	}
 
 	scfg->renderd_socket_port = port;
