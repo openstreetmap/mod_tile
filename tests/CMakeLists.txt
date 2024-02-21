@@ -823,7 +823,6 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(max_load_missing_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      SKIP_RETURN_CODE 1
     )
   endif()
 
