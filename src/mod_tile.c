@@ -2180,7 +2180,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
 	// Load the config
 	if ((hini = fopen(filename, "r")) == NULL) {
-		return "Unable to open config file";
+		return "LoadTileConfigFile error, unable to open config file";
 	}
 
 	while (fgets(line, INILINE_MAX, hini) != NULL) {
@@ -2554,7 +2554,7 @@ static const char *mod_tile_renderd_socket_addr_config(cmd_parms *cmd, void *mco
 	strncpy(scfg->renderd_socket_name, renderd_socket_address_string, PATH_MAX - 1);
 
 	if (sscanf(renderd_socket_port_string, "%d", &port) != 1) {
-		return "TCP port needs to be an integer argument";
+		return "ModTileRenderdSocketAddr TCP port needs to be an integer argument";
 	}
 
 	scfg->renderd_socket_port = port;
