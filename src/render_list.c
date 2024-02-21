@@ -45,15 +45,6 @@
 
 const char * tile_dir_default = RENDERD_TILE_DIR;
 
-#ifndef METATILE
-#warning("render_list not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "render_list not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-#else
-
 static int minZoom = 0;
 static int maxZoom = MAX_ZOOM;
 static int verbose = 0;
@@ -373,7 +364,7 @@ int main(int argc, char **argv)
 				if (!(num_render % 10)) {
 					gettimeofday(&end, NULL);
 					printf("\n");
-					printf("Meta tiles rendered: ");
+					printf("Metatiles rendered: ");
 					display_rate(start, end, num_render);
 					printf("Total tiles rendered: ");
 					display_rate(start, end, (num_render) * METATILE * METATILE);
@@ -407,7 +398,7 @@ int main(int argc, char **argv)
 	printf("\n*****************************************************\n");
 	printf("*****************************************************\n");
 	printf("Total for all tiles rendered\n");
-	printf("Meta tiles rendered: ");
+	printf("Metatiles rendered: ");
 	display_rate(start, end, num_render);
 	printf("Total tiles rendered: ");
 	display_rate(start, end, num_render * METATILE * METATILE);
@@ -417,4 +408,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-#endif

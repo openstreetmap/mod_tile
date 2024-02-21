@@ -42,15 +42,6 @@
 #define DEG_TO_RAD (M_PI/180)
 #define RAD_TO_DEG (180/M_PI)
 
-#ifndef METATILE
-#warning("Speed test not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "Speed test not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-#else
-
 #if 1
 static double boundx0 = -0.5;
 static double boundy0 = 51.25;
@@ -296,4 +287,3 @@ int main(int argc, char **argv)
 
 	return ret;
 }
-#endif

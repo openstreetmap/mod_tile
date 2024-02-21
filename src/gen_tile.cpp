@@ -72,11 +72,7 @@ using namespace mapnik;
 #define RAD_TO_DEG (180/M_PI)
 #endif
 
-#ifdef METATILE
 #define RENDER_SIZE (256 * (METATILE + 1))
-#else
-#define RENDER_SIZE (512)
-#endif
 
 struct projectionconfig {
 	double bound_x0;
@@ -243,7 +239,6 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map)
 	return !oob;
 }
 
-#ifdef METATILE
 mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z)
 {
 
@@ -297,7 +292,7 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 		return cmdNotDone;
 	}
 
-	// Split the meta tile into an NxN grid of tiles
+	// Split the metatile into an NxN grid of tiles
 	unsigned int xx, yy;
 
 	for (yy = 0; yy < render_size_ty; yy++) {
@@ -310,52 +305,6 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 
 	return cmdDone; // OK
 }
-#else //METATILE
-static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char* outputFormat)
-{
-	char filename[PATH_MAX];
-	char tmp[PATH_MAX];
-	double p0x = x * 256.0;
-	double p0y = (y + 1) * 256.0;
-	double p1x = (x + 1) * 256.0;
-	double p1y = y * 256.0;
-
-	tiling.fromPixelToLL(p0x, p0y, z);
-	tiling.fromPixelToLL(p1x, p1y, z);
-
-	prj.forward(p0x, p0y);
-	prj.forward(p1x, p1y);
-
-	mapnik::box2d<double> bbox(p0x, p0y, p1x, p1y);
-	bbox.width(bbox.width() * 2);
-	bbox.height(bbox.height() * 2);
-	m.zoomToBox(bbox);
-
-	mapnik::image_32 buf(RENDER_SIZE, RENDER_SIZE);
-	mapnik::agg_renderer<mapnik::image_32> ren(m, buf);
-	ren.apply();
-
-	xyz_to_path(filename, sizeof(filename), tile_dir, xmlname, x, y, z);
-
-	if (mkdirp(filename)) {
-		return cmdNotDone;
-	}
-
-	snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
-
-	mapnik::image_view<mapnik::image_data_32> vw(128, 128, 256, 256, buf.data());
-	g_logger(G_LOG_LEVEL_DEBUG, "Render %i %i %i %s", z, x, y, filename)
-	mapnik::save_to_file(vw, tmp, outputFormat);
-
-	if (rename(tmp, filename)) {
-		perror(tmp);
-		return cmdNotDone;
-	}
-
-	return cmdDone; // OK
-}
-#endif //METATILE
-
 
 void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
 {
@@ -449,7 +398,6 @@ void *render_thread(void * arg)
 
 		if (item) {
 			struct protocol *req = &item->req;
-#ifdef METATILE
 			// At very low zoom the whole world may be smaller than METATILE
 			unsigned int size = MIN(METATILE, 1 << req->z);
 
@@ -501,13 +449,6 @@ void *render_thread(void * arg)
 									request_exit();
 								}
 							}
-
-#else //METATILE
-			ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, maps[i].output_format);
-#ifdef HTCP_EXPIRE_CACHE
-			cache_expire(maps[i].htcpsock, maps[i].host, maps[i].xmluri, req->x, req->y, req->z);
-#endif
-#endif //METATILE
 						} else {
 							g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
 								 req->xmlname, req->z, req->x, req->y);
