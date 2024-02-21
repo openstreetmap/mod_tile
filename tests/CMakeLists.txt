@@ -529,6 +529,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     # Generate tile URLs
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    set(HTTPD2_URL "http://${HTTPD2_HOST}:${HTTPD2_PORT}${TILE_URL_PATH}")
     # Generate tile dirty and status URLs
     set(DIRTY_OFF_URL "${HTTPD1_URL}/dirty")
     set(DIRTY_ON_URL "${HTTPD0_URL}/dirty")
@@ -623,6 +624,28 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(stats_urls_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
+    )
+    add_test(NAME tile_expired_${MAP_NAME}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
+        if ! ${CURL_CMD} --output /dev/null ${HTTPD1_URL}; then
+          echo \"Past import: ${HTTPD1_URL}\";
+        fi
+        if ! ${CURL_CMD} --output /dev/null ${HTTPD2_URL}; then
+          echo \"Past import: ${HTTPD2_URL}\";
+        fi
+        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
+        if ! ${CURL_CMD} --output /dev/null ${HTTPD1_URL}; then
+          echo \"Future import: ${HTTPD1_URL}\";
+        fi
+        if ! ${CURL_CMD} --output /dev/null ${HTTPD2_URL}; then
+          echo \"Future import: ${HTTPD2_URL}\";
+        fi
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(tile_expired_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
   endforeach()
 
@@ -768,6 +791,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           exit 1;
         fi
       "
+      WORKING_DIRECTORY tests
     )
     set_tests_properties(cors_all_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
@@ -802,6 +826,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           exit 1;
         fi
       "
+      WORKING_DIRECTORY tests
     )
     set_tests_properties(cors_localhost_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
@@ -820,6 +845,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           exit 1;
         fi
       "
+      WORKING_DIRECTORY tests
     )
     set_tests_properties(max_load_missing_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
