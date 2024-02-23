@@ -58,8 +58,8 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileEnableDirtyURL Off
   ModTileEnableStats Off
   ModTileEnableStatusURL Off
-  ModTileEnableTileThrottling Off
-  ModTileEnableTileThrottlingXForward 0
+  ModTileEnableTileThrottling On
+  ModTileEnableTileThrottlingXForward 1
   ModTileMissingRequestTimeout 3
   ModTileRenderdSocketAddr @RENDERD1_HOST@ @RENDERD1_PORT@
   ModTileRequestTimeout 3
@@ -81,8 +81,8 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileEnableDirtyURL Off
   ModTileEnableStats Off
   ModTileEnableStatusURL Off
-  ModTileEnableTileThrottling Off
-  ModTileEnableTileThrottlingXForward 0
+  ModTileEnableTileThrottling On
+  ModTileEnableTileThrottlingXForward 2
   ModTileMaxLoadMissing 0
   ModTileMaxLoadOld 0
   ModTileMissingRequestTimeout 3

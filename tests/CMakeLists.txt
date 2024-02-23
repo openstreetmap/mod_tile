@@ -647,6 +647,20 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(tile_expired_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
+    add_test(NAME throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD1_URL}; then
+          echo \"${HTTPD1_URL}\";
+        fi
+        if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD2_URL}; then
+          echo \"${HTTPD2_URL}\";
+        fi
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
   endforeach()
 
   # Generate file and URL paths for tiles
