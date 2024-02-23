@@ -800,7 +800,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 	delaypool * delayp;
 	int delay = 0;
 	int i, j;
-	char ** strtok_state;
+	char * strtok_state;
 	char * tmp;
 	const char * ip_addr = NULL;
 	apr_time_t now;
@@ -825,20 +825,20 @@ static int delay_allowed(request_rec *r, enum tileState state)
 
 		if (ip_addrs) {
 #ifdef APACHE24
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->client_ip);
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forwarded-For header \"%s\", forwarded by %s", ip_addrs, r->connection->client_ip);
 #else
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forward-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking throttling delays: Found X-Forwarded-For header \"%s\", forwarded by %s", ip_addrs, r->connection->remote_ip);
 #endif
 			//X-Forwarded-For can be a chain of proxies deliminated by , The first entry in the list is the client, the last entry is the remote address seen by the proxy
 			//closest to the tileserver.
 			strtok_state = NULL;
-			tmp = apr_strtok(ip_addrs, ", ", strtok_state);
+			tmp = apr_strtok(ip_addrs, ", ", &strtok_state);
 			ip_addr = tmp;
 
 			//Use the last entry in the chain of X-Forwarded-For instead of the client, i.e. the entry added by the proxy closest to the tileserver
 			//If this is a reverse proxy under our control, its X-Forwarded-For can be trusted.
 			if (scfg->enableTileThrottlingXForward == 2) {
-				while ((tmp = apr_strtok(NULL, ", ", strtok_state)) != NULL) {
+				while ((tmp = apr_strtok(NULL, ", ", &strtok_state)) != NULL) {
 					ip_addr = tmp;
 				}
 			}

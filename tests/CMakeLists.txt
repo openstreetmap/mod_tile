@@ -649,12 +649,14 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     add_test(NAME throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD1_URL}; then
-          echo \"${HTTPD1_URL}\";
-        fi
-        if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD2_URL}; then
-          echo \"${HTTPD2_URL}\";
-        fi
+        for i in {0..10}; do
+          if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD1_URL}; then
+            echo \"${HTTPD1_URL}\";
+          fi
+          if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD2_URL}; then
+            echo \"${HTTPD2_URL}\";
+          fi
+        done
       "
       WORKING_DIRECTORY tests
     )
