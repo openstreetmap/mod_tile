@@ -83,7 +83,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 }
 
 
-parameterize_function_ptr init_parameterization_function(char * function_name)
+parameterize_function_ptr init_parameterization_function(const char * function_name)
 {
 	if (strcmp(function_name, "") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Parameterize_style not specified (or empty string specified)");

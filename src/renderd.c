@@ -745,7 +745,7 @@ int main(int argc, char **argv)
 
 		switch (c) {
 			case 'c':   /* -c, --config */
-				config_file_name = strdup(optarg);
+				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
 				struct stat buffer;
@@ -777,7 +777,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return 0;
 
-			case 'V':
+			case 'V':   /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
 				return 0;
 
@@ -798,6 +798,7 @@ int main(int argc, char **argv)
 	}
 
 	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
+	free((void *)config_file_name);
 
 	fd = server_socket_init(&config);
 
@@ -867,10 +868,9 @@ int main(int argc, char **argv)
 	}
 
 	if (active_renderd_section_num == 0) {
-		//Only the master renderd opens connections to its slaves
+		// Only the master renderd opens connections to its slaves
 		k = 0;
-		slave_threads
-			= (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
+		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
@@ -879,6 +879,13 @@ int main(int argc, char **argv)
 					close(fd);
 					return 7;
 				}
+			}
+		}
+	} else {
+		for (i = 0; i < MAX_SLAVES; i++) {
+			if (active_renderd_section_num != i && config_slaves[i].num_threads != 0) {
+				g_logger(G_LOG_LEVEL_DEBUG, "Freeing unused renderd config section %i: %s", i, config_slaves[i].name);
+				free_renderd_section(config_slaves[i]);
 			}
 		}
 	}
