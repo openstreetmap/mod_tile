@@ -149,9 +149,10 @@ test: gen_tile_test renderd_config_test renderd_test render_expired_test render_
 all-local:
 	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) \
 		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
-		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
+		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS) \
 			@srcdir@/src/mod_tile.c  \
 			@srcdir@/src/g_logger.c \
+			@srcdir@/src/renderd_config.c \
 			@srcdir@/src/store.c \
 			@srcdir@/src/store_file.c \
 			@srcdir@/src/store_file_utils.c \
@@ -167,9 +168,10 @@ install-mod_tile:
 	$(APXS) -S LIBEXECDIR=$(DESTDIR)`$(APXS) \
 		-q LIBEXECDIR` -c -i $(DEF_LDLIBS) $(AM_CFLAGS) \
 		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
-		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
+		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS) \
 			@srcdir@/src/mod_tile.c \
 			@srcdir@/src/g_logger.c \
+			@srcdir@/src/renderd_config.c \
 			@srcdir@/src/store.c \
 			@srcdir@/src/store_file.c \
 			@srcdir@/src/store_file_utils.c \

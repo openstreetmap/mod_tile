@@ -1020,6 +1020,14 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         if [ \"\${TILE_DEFAULT_TILEJSON_VERSION}\" != \"2.0.0\" ]; then
           exit 1;
         fi
+        TILE_DEFAULT_TILEJSON_TILES_0=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[0])
+        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_0}\" != \"http://localhost/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\" ]; then
+          exit 1;
+        fi
+        TILE_DEFAULT_TILEJSON_TILES_1=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[1])
+        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_1}\" != \"http://alias/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\" ]; then
+          exit 1;
+        fi
       "
       WORKING_DIRECTORY tests
     )
@@ -1062,33 +1070,33 @@ set(DIRECTIVES
 set(DIRECTIVE_ERRORS
   "AddTileConfig error, URL path not defined"
   "AddTileConfig error, name of renderd config not defined"
-  "The configured zoom level lies outside of the range supported by this server"
+  "AddTileConfig error, the configured zoom level lies outside of the range supported by this server"
   "LoadTileConfigFile takes one argument, load an entire renderd config file"
   "LoadTileConfigFile error, unable to open config file"
-  "ModTileCacheDurationDirty needs integer argument"
-  "ModTileCacheDurationLowZoom needs integer argument"
-  "ModTileCacheDurationLowZoom needs integer argument"
-  "ModTileCacheDurationMax needs integer argument"
-  "ModTileCacheDurationMediumZoom needs integer argument"
-  "ModTileCacheDurationMediumZoom needs integer argument"
-  "ModTileCacheDurationMinimum needs integer argument"
-  "ModTileCacheExtendedDuration needs integer argument"
-  "ModTileCacheLastModifiedFactor needs float argument"
+  "ModTileCacheDurationDirty argument must be an integer"
+  "ModTileCacheDurationLowZoom second argument must be an integer"
+  "ModTileCacheDurationLowZoom first argument must be an integer"
+  "ModTileCacheDurationMax argument must be an integer"
+  "ModTileCacheDurationMediumZoom second argument must be an integer"
+  "ModTileCacheDurationMediumZoom first argument must be an integer"
+  "ModTileCacheDurationMinimum argument must be an integer"
+  "ModTileCacheExtendedDuration argument must be an integer"
+  "ModTileCacheLastModifiedFactor argument must be a float"
   "ModTileEnableTileThrottlingXForward needs integer argument between 0 and 2 (0 => off\;
     1 => use client\; 2 => use last entry in chain"
   "ModTileEnableTileThrottlingXForward needs integer argument between 0 and 2 (0 => off\;
     1 => use client\; 2 => use last entry in chain"
-  "ModTileEnableTileThrottlingXForward needs integer argument between 0 and 2"
-  "ModTileMaxLoadMissing needs integer argument"
-  "ModTileMaxLoadOld needs integer argument"
-  "ModTileMissingRequestTimeout needs integer argument"
-  "ModTileRenderdSocketAddr TCP port needs to be an integer argument"
-  "ModTileRequestTimeout needs integer argument"
-  "ModTileThrottlingRenders needs two numerical arguments, the first one must be integer"
-  "ModTileThrottlingRenders needs two numerical arguments, the first one must be integer"
-  "ModTileThrottlingTiles needs two numerical arguments, the first one must be integer"
-  "ModTileThrottlingTiles needs two numerical arguments, the first one must be integer"
-  "ModTileVeryOldThreshold needs integer argument"
+  "ModTileEnableTileThrottlingXForward argument must be an integer"
+  "ModTileMaxLoadMissing argument must be an integer"
+  "ModTileMaxLoadOld argument must be an integer"
+  "ModTileMissingRequestTimeout argument must be an integer"
+  "ModTileRenderdSocketAddr second argument must be an integer"
+  "ModTileRequestTimeout argument must be an integer"
+  "ModTileThrottlingRenders second argument must be a float"
+  "ModTileThrottlingRenders first argument must be an integer"
+  "ModTileThrottlingTiles second argument must be a float"
+  "ModTileThrottlingTiles first argument must be an integer"
+  "ModTileVeryOldThreshold argument must be an integer"
 )
 list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
 math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")

@@ -111,7 +111,7 @@ TEST_CASE("renderd_config min/max double lat generator", "min/max double generat
 	}
 
 	SECTION(option + " option is negative with --help", "should return 0") {
-			std::vector<std::string> argv = {option, std::to_string(min), "--help"};
+		std::vector<std::string> argv = {option, std::to_string(min), "--help"};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);

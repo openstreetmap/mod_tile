@@ -12,6 +12,7 @@ ATTRIBUTION=Attribution for @DEFAULT_MAP_NAME@
 DESCRIPTION=Description for @DEFAULT_MAP_NAME@
 MAXZOOM=5
 MINZOOM=0
+SERVER_ALIAS=http://alias/
 TILEDIR=@TILE_DIR@
 URI=/tiles/@DEFAULT_MAP_NAME@/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
@@ -42,7 +43,6 @@ HTCPHOST=@HTTPD1_HOST@
 MAXZOOM=20
 MINZOOM=0
 SCALE=1.0
-SERVER_ALIAS=http://localhost/
 TILEDIR=@TILE_DIR@
 TILESIZE=256
 URI=/tiles/htcp/
@@ -53,8 +53,8 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 [@DEFAULT_MAP_NAME@_parameterization]
 PARAMETERIZE_STYLE=language
 TILEDIR=@TILE_DIR@
-TYPE=png image/png# Test two parts (rather than three)
-URI=/tiles/parameterization# Test no trailing slash
+TYPE=png image/png # Test two parts (rather than three)
+URI=/tiles/parameterization # Test no trailing slash
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 # Test Comment: JPEG Map Section
@@ -85,7 +85,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 ; Test Comment: WEBP Map Section
 [webp]
 TILEDIR=@TILE_DIR@
-TYPE=webp image/webp webp
+TYPE=webp  image/webp   webp # Test extra spaces
 URI=/tiles/webp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 

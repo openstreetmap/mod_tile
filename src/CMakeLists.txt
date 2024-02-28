@@ -77,10 +77,12 @@ set(mod_tile_SRCS
   ${COMMON_SRCS}
   ${STORE_SRCS}
   mod_tile.c
+  renderd_config.c
 )
 set(mod_tile_LIBS
   ${APR_LIBRARIES}
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_library(mod_tile SHARED ${mod_tile_SRCS})
