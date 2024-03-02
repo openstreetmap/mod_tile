@@ -798,7 +798,10 @@ int main(int argc, char **argv)
 	}
 
 	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
-	free((void *)config_file_name);
+
+	if (config_file_name_passed) {
+		free((void *)config_file_name);
+	}
 
 	fd = server_socket_init(&config);
 
