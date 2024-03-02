@@ -1681,18 +1681,8 @@ static int tile_translate(request_rec *r)
 			rdata->layerNumber = i;
 			rdata->store = get_storage_backend(r, i);
 
-			if (rdata->store == NULL) {
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "tile_translate: failed to get valid storage backend");
-
-				if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
-					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to increase response stats counter");
-				}
-
-				return HTTP_INTERNAL_SERVER_ERROR;
-			}
-
-			if (rdata->store->storage_ctx == NULL) {
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "tile_translate: failed to get valid storage backend context");
+			if (rdata->store == NULL || rdata->store->storage_ctx == NULL) {
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "tile_translate: failed to get valid storage backend/storage backend context");
 
 				if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to increase response stats counter");
