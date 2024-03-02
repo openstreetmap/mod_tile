@@ -252,7 +252,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       ${PS_EXECUTABLE} -p \${PID} || exit 1\;
       echo \${PID} > ${RENDERD1_PID}"
     "$<TARGET_FILE:renderd> --config ${RENDERD_CONF} --slave 2"
-    "${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -k start > ${HTTPD_LOG} 2>&1"
+    "${HTTPD_EXECUTABLE} -e debug -E ${HTTPD_LOG} -f ${HTTPD_CONF} -k start"
   )
 
   # Conditionally append memcached start commands to SERVICES_START_CMDS based on STORAGE_BACKEND value
@@ -647,13 +647,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(tile_expired_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
+    set(TILE_URL_PATH "/tiles/${MAP_NAME}/3/0/3.${EXTENSION}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    set(HTTPD2_URL "http://${HTTPD2_HOST}:${HTTPD2_PORT}${TILE_URL_PATH}")
     add_test(NAME throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
+        TEST_CURL_CMD=\"${CURL_CMD} --header 'X-Forwarded-For: ${CTEST_HOST}, 127.0.0.1' --output /dev/null\"
         for i in {0..10}; do
-          if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD1_URL}; then
+          if ! \${TEST_CURL_CMD} ${HTTPD1_URL}; then
             echo \"${HTTPD1_URL}\";
           fi
-          if ! ${CURL_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, ${CTEST_HOST}\" --output /dev/null ${HTTPD2_URL}; then
+          if ! \${TEST_CURL_CMD} ${HTTPD2_URL}; then
             echo \"${HTTPD2_URL}\";
           fi
         done
@@ -977,6 +981,7 @@ foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
       HTTPD_OUTPUT=$(${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -t 2>&1)
       if [ \"\${?}\" -eq \"0\" ]; then
         echo \"Unexpected success.\"
+        echo \"\${HTTPD_OUTPUT}\"
         exit 1;
       fi
       if echo \"\${HTTPD_OUTPUT}\" | ${GREP_EXECUTABLE} -q \"${DIRECTIVE_ERROR}\"; then

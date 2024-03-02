@@ -88,8 +88,8 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileMissingRequestTimeout 3
   ModTileRenderdSocketName @RENDERD2_SOCKET@
   ModTileRequestTimeout 3
-  ModTileThrottlingRenders 128 0.2
-  ModTileThrottlingTiles 10000 1
+  ModTileThrottlingRenders 1 0.2
+  ModTileThrottlingTiles 1 1
   ModTileTileDir @TILE_DIR@
   ModTileVeryOldThreshold -10000000
 </VirtualHost>

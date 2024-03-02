@@ -53,7 +53,8 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 [@DEFAULT_MAP_NAME@_parameterization]
 PARAMETERIZE_STYLE=language
 TILEDIR=@TILE_DIR@
-URI=/tiles/parameterization/
+TYPE=png image/png# Test two parts (rather than three)
+URI=/tiles/parameterization# Test no trailing slash
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 # Test Comment: JPEG Map Section

@@ -25,13 +25,20 @@
 extern "C" {
 #endif
 
-extern int num_slave_threads;
-extern renderd_config config;
-extern renderd_config config_slaves[MAX_SLAVES];
-extern xmlconfigitem maps[XMLCONFIGS_MAX];
+int num_slave_threads;
+renderd_config config;
+renderd_config config_slaves[MAX_SLAVES];
+xmlconfigitem maps[XMLCONFIGS_MAX];
 
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum);
+void free_map_section(xmlconfigitem map_section);
+void free_map_sections(xmlconfigitem *map_sections);
+void free_renderd_section(renderd_config renderd_section);
+void free_renderd_sections(renderd_config *renderd_sections);
 void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level);
+void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads);
+void process_mapnik_section(const char *config_file_name, renderd_config *config_dest);
+void process_renderd_sections(const char *config_file_name, renderd_config *configs_dest);
 
 #ifdef __cplusplus
 }
