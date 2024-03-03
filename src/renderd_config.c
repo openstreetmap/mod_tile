@@ -42,7 +42,7 @@ static void copy_string(const char *src, const char **dest, size_t maxlen)
 
 static char *name_with_section(const char *section, const char *name)
 {
-	size_t len;
+	int len;
 	char *key;
 
 	len = asprintf(&key, "%s:%s", section, name);
@@ -191,8 +191,11 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
 		const char *section = iniparser_getsecname(ini, section_num);
 
-		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) {
-			/* this is a map config section */
+		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { // this is a map config section
+			char *ini_type_copy, *ini_type_part;
+			const char *ini_type;
+			int ini_type_part_maxlen = 64, ini_type_part_num = 0;
+
 			map_section_num++;
 			g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section %i: %s", map_section_num, section);
 
@@ -247,38 +250,51 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 				exit(7);
 			}
 
-			char *file_extension = malloc(INILINE_MAX);
-			char *mime_type = malloc(INILINE_MAX);
-			char *output_format = malloc(INILINE_MAX);
-			const char *ini_type;
-			int num_ini_type_parts;
-
 			process_config_string(ini, section, "type", &ini_type, "png image/png png256", INILINE_MAX);
-			num_ini_type_parts = sscanf(ini_type, "%[^ ] %[^ ] %[^ ]", file_extension, mime_type, output_format);
+			ini_type_copy = strndup(ini_type, INILINE_MAX);
 
-			if (num_ini_type_parts < 2) {
+			while ((ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_copy))) {
+				switch (ini_type_part_num) {
+					case 0:
+						copy_string(ini_type_part, &maps_dest[map_section_num].file_extension, ini_type_part_maxlen);
+						break;
+
+					case 1:
+						copy_string(ini_type_part, &maps_dest[map_section_num].mime_type, ini_type_part_maxlen);
+						break;
+
+					case 2:
+						copy_string(ini_type_part, &maps_dest[map_section_num].output_format, ini_type_part_maxlen);
+						break;
+
+					default:
+						g_logger(G_LOG_LEVEL_CRITICAL, "Specified type (%s) has too many parts, there must be no more than 3, e.g., 'png image/png png256'.", ini_type);
+						exit(7);
+				}
+
+				ini_type_part_num++;
+			}
+
+			if (ini_type_part_num < 2) {
 				g_logger(G_LOG_LEVEL_CRITICAL, "Specified type (%s) has too few parts, there must be at least 2, e.g., 'png image/png'.", ini_type);
 				exit(7);
 			}
 
-			copy_string(file_extension, &maps_dest[map_section_num].file_extension, INILINE_MAX);
-			copy_string(mime_type, &maps_dest[map_section_num].mime_type, INILINE_MAX);
-
-			if (num_ini_type_parts == 3) {
-				copy_string(output_format, &maps_dest[map_section_num].output_format, INILINE_MAX);
-			} else {
-				copy_string("png256", &maps_dest[map_section_num].output_format, INILINE_MAX);
+			if (ini_type_part_num < 3) {
+				copy_string("png256", &maps_dest[map_section_num].output_format, ini_type_part_maxlen);
 			}
 
-			free((void *)ini_type);
-			free(file_extension);
-			free(mime_type);
-			free(output_format);
+			g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s:%s:file_extension: '%s'", section, "type", maps_dest[map_section_num].file_extension);
+			g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s:%s:mime_type: '%s'", section, "type", maps_dest[map_section_num].mime_type);
+			g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s:%s:output_format: '%s'", section, "type", maps_dest[map_section_num].output_format);
 
 			/* Pass this information into the rendering threads,
 			 * as it is needed to configure mapniks number of connections
 			 */
 			maps_dest[map_section_num].num_threads = num_threads;
+
+			free(ini_type_part);
+			free((void *)ini_type);
 		}
 	}
 
@@ -306,8 +322,7 @@ void process_mapnik_section(const char *config_file_name, renderd_config *config
 	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
 		const char *section = iniparser_getsecname(ini, section_num);
 
-		if (strcmp(section, "mapnik") == 0) {
-			/* this is a mapnik config section */
+		if (strcmp(section, "mapnik") == 0) { // this is a mapnik config section
 			mapnik_section_num = section_num;
 			process_config_bool(ini, section, "font_dir_recurse", &config_dest->mapnik_font_dir_recurse, MAPNIK_FONTS_DIR_RECURSE);
 			process_config_string(ini, section, "font_dir", &config_dest->mapnik_font_dir, MAPNIK_FONTS_DIR, PATH_MAX);
@@ -341,11 +356,19 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 
 	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
 		const char *section = iniparser_getsecname(ini, section_num);
+		int renderd_strlen = 7;
 
-		if (strncmp(section, "renderd", 7) == 0) {
-			/* this is a renderd config section */
-			if (sscanf(section, "renderd%i", &renderd_section_num) != 1) {
+		if (strncmp(section, "renderd", renderd_strlen) == 0) { // this is a renderd config section
+			if (strcmp(section, "renderd") == 0 || strcmp(section, "renderd0") == 0) {
 				renderd_section_num = 0;
+			} else {
+				char *endptr;
+				renderd_section_num = strtol(&section[renderd_strlen], &endptr, 10);
+
+				if (endptr == &section[renderd_strlen]) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Invalid renderd section name: %s", section);
+					exit(7);
+				}
 			}
 
 			g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section %i: %s", renderd_section_num, section);
@@ -355,7 +378,7 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 				exit(7);
 			}
 
-			copy_string(section, &configs_dest[renderd_section_num].name, 10);
+			copy_string(section, &configs_dest[renderd_section_num].name, renderd_strlen + 2);
 
 			process_config_int(ini, section, "ipport", &configs_dest[renderd_section_num].ipport, 0);
 			process_config_int(ini, section, "num_threads", &configs_dest[renderd_section_num].num_threads, NUM_THREADS);
