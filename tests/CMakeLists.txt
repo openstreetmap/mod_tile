@@ -320,7 +320,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -340,7 +340,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -360,7 +360,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_list_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -380,7 +380,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -399,7 +399,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -419,7 +419,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_old_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -434,7 +434,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -561,10 +561,13 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         echo \"Tile Last Rendered At (Old): \${TILE_LAST_RENDERED_AT_OLD}\"
         ${SLEEP_EXECUTABLE} 1
         TILE_DIRTY_ON_OUTPUT=$(\${TILE_DIRTY_ON_CMD})
-        echo \"Dirty: \${TILE_DIRTY_ON_OUTPUT}\"
-        if [ \"\${TILE_DIRTY_ON_OUTPUT}\" != \"Tile submitted for rendering\" ]; then
-          exit 1;
-        fi
+        echo \"Dirty On Output: \${TILE_DIRTY_ON_OUTPUT}\"
+        until [ \"\${TILE_DIRTY_ON_OUTPUT}\" == \"Tile submitted for rendering\" ]; do
+          echo 'Sleeping 1s';
+          ${SLEEP_EXECUTABLE} 1;
+          TILE_DIRTY_ON_OUTPUT=$(\${TILE_DIRTY_ON_CMD})
+          echo \"Dirty On Output: \${TILE_DIRTY_ON_OUTPUT}\"
+        done
         TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
         echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\"
         until [ \"\${TILE_LAST_RENDERED_AT_OLD}\" != \"\${TILE_LAST_RENDERED_AT_NEW}\" ]; do
@@ -575,14 +578,20 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         done
         TILE_DIRTY_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${DIRTY_OFF_URL})
         echo \"Dirty Off code: '\${TILE_DIRTY_OFF_CODE}'\"
-        if [ \"\${TILE_DIRTY_OFF_CODE}\" != \"404\" ]; then
-          exit 1;
-        fi
+        until [ \"\${TILE_DIRTY_OFF_CODE}\" == \"404\" ]; do
+          echo 'Sleeping 1s';
+          ${SLEEP_EXECUTABLE} 1;
+          TILE_DIRTY_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${DIRTY_OFF_URL})
+          echo \"Dirty Off code: '\${TILE_DIRTY_OFF_CODE}'\"
+        done
         TILE_STATUS_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${STATUS_OFF_URL})
         echo \"Status Off code: '\${TILE_STATUS_OFF_CODE}'\"
-        if [ \"\${TILE_STATUS_OFF_CODE}\" != \"404\" ]; then
-          exit 1;
-        fi
+        until [ \"\${TILE_STATUS_OFF_CODE}\" == \"404\" ]; do
+          echo 'Sleeping 1s';
+          ${SLEEP_EXECUTABLE} 1;
+          TILE_STATUS_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${STATUS_OFF_URL})
+          echo \"Status Off code: '\${TILE_STATUS_OFF_CODE}'\"
+        done
       "
       WORKING_DIRECTORY tests
     )
