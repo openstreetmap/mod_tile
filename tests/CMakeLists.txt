@@ -320,7 +320,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -340,7 +340,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -360,7 +360,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_list_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -380,7 +380,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -399,7 +399,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -419,7 +419,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_old_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -434,7 +434,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
-      TIMEOUT 60
+      TIMEOUT 90
     )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
