@@ -127,8 +127,19 @@ TEST_CASE("render_speedtest specific", "specific testing")
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
+	SECTION("--config without maps", "should return 1") {
+		std::string option = "--config " + (std::string)RENDERD_CONF;
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
 	SECTION("--config with invalid --map", "should return 1") {
-		std::string option = "--config " + (std::string)RENDERD_CONF + " --map invalid";
+		std::string renderd_conf_examples = (std::string)RENDERD_CONF + ".examples";
+		std::string option = "--config " + renderd_conf_examples + " --map invalid";
 		std::string command = test_binary + " " + option;
 
 		// flawfinder: ignore

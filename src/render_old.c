@@ -55,7 +55,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
@@ -198,7 +198,7 @@ int main(int argc, char **argv)
 	int min_zoom_passed = 0;
 	int num_threads_passed = 0;
 
-	int c, i, map_section_num = -1;
+	int map_section_num = -1;
 	int dd, mm, yy;
 	int verbose = 0;
 	struct tm tm;
@@ -224,14 +224,14 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "c:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "c:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
 		}
 
 		switch (c) {
-			case 'c':   /* -c, --config */
+			case 'c': /* -c, --config */
 				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
@@ -242,37 +242,37 @@ int main(int argc, char **argv)
 
 				break;
 
-			case 'm':   /* -m, --map */
+			case 'm': /* -m, --map */
 				mapname = strndup(optarg, XMLCONFIG_MAX);
 				mapname_passed = 1;
 				break;
 
-			case 'l':   /* -l, --max-load */
+			case 'l': /* -l, --max-load */
 				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
 				max_load_passed = 1;
 				break;
 
-			case 'Z':   /* -Z, --max-zoom */
+			case 'Z': /* -Z, --max-zoom */
 				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
 				max_zoom_passed = 1;
 				break;
 
-			case 'z':   /* -z, --min-zoom */
+			case 'z': /* -z, --min-zoom */
 				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
 				min_zoom_passed = 1;
 				break;
 
-			case 'n':   /* -n, --num-threads */
+			case 'n': /* -n, --num-threads */
 				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
 				num_threads_passed = 1;
 				break;
 
-			case 's':   /* -s, --socket */
+			case 's': /* -s, --socket */
 				socketname = strndup(optarg, PATH_MAX);
 				socketname_passed = 1;
 				break;
 
-			case 't':   /* -t, --tile-dir */
+			case 't': /* -t, --tile-dir */
 				tile_dir = strndup(optarg, PATH_MAX);
 				tile_dir_passed = 1;
 				break;
@@ -290,7 +290,7 @@ int main(int argc, char **argv)
 					memset(&tm, 0, sizeof(tm));
 					tm.tm_mday = dd;
 					tm.tm_mon = mm - 1;
-					tm.tm_year =  yy;
+					tm.tm_year = yy;
 					planet_timestamp = mktime(&tm);
 				} else if (sscanf(optarg, "%d", &dd) == 1) {
 					planet_timestamp = dd;
@@ -301,11 +301,11 @@ int main(int argc, char **argv)
 
 				break;
 
-			case 'v':   /* -v, --verbose */
+			case 'v': /* -v, --verbose */
 				verbose = 1;
 				break;
 
-			case 'h':   /* -h, --help */
+			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_old [OPTION] ...\n");
 				fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is '%s')\n", config_file_name_default);
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return 0;
 
-			case 'V':   /* -V, --version */
+			case 'V': /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
 				return 0;
 
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 
 	process_config_file(config_file_name, 0, G_LOG_LEVEL_DEBUG);
 
-	for (i = 0; i < XMLCONFIGS_MAX; ++i) {
+	for (int i = 0; i < XMLCONFIGS_MAX; ++i) {
 		if (mapname_passed && maps[i].xmlname && strcmp(maps[i].xmlname, mapname) == 0) {
 			map_section_num = i;
 		}
@@ -379,7 +379,7 @@ int main(int argc, char **argv)
 
 	spawn_workers(num_threads, socketname, max_load);
 
-	for (i = 0; i < XMLCONFIGS_MAX; ++i) {
+	for (int i = 0; i < XMLCONFIGS_MAX; ++i) {
 		if (mapname_passed && maps[i].xmlname && strcmp(maps[i].xmlname, mapname) != 0) {
 			continue;
 		}

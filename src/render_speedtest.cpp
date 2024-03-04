@@ -30,8 +30,8 @@
 #include "render_submit_queue.h"
 #include "renderd_config.h"
 
-#define DEG_TO_RAD (M_PI/180)
-#define RAD_TO_DEG (180/M_PI)
+#define DEG_TO_RAD (M_PI / 180)
+#define RAD_TO_DEG (180 / M_PI)
 
 #ifndef METATILE
 #warning("Speed test not implemented for non-metatile mode. Feel free to submit fix")
@@ -114,7 +114,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
@@ -146,11 +146,9 @@ int main(int argc, char **argv)
 	int num_threads_passed = 0;
 
 	int z;
-	int c, i, map_section_num = -1;
-	char name[PATH_MAX];
 	struct timeval start, end;
 	struct timeval start_all, end_all;
-	int num, num_all = 0;
+	int num_all = 0;
 
 	foreground = 1;
 
@@ -169,14 +167,14 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "c:m:Z:z:n:s:hV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "c:m:Z:z:n:s:hV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
 		}
 
 		switch (c) {
-			case 'c':   /* -c, --config */
+			case 'c': /* -c, --config */
 				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
@@ -187,32 +185,32 @@ int main(int argc, char **argv)
 
 				break;
 
-			case 'm':   /* -m, --map */
+			case 'm': /* -m, --map */
 				mapname = strndup(optarg, XMLCONFIG_MAX);
 				mapname_passed = 1;
 				break;
 
-			case 'Z':   /* -Z, --max-zoom */
+			case 'Z': /* -Z, --max-zoom */
 				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
 				max_zoom_passed = 1;
 				break;
 
-			case 'z':   /* -z, --min-zoom */
+			case 'z': /* -z, --min-zoom */
 				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
 				min_zoom_passed = 1;
 				break;
 
-			case 'n':   /* -n, --num-threads */
+			case 'n': /* -n, --num-threads */
 				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
 				num_threads_passed = 1;
 				break;
 
-			case 's':   /* -s, --socket */
+			case 's': /* -s, --socket */
 				socketname = strndup(optarg, PATH_MAX);
 				socketname_passed = 1;
 				break;
 
-			case 'h':   /* -h, --help */
+			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_speedtest [OPTION] ...\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
 				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
@@ -225,7 +223,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return 0;
 
-			case 'V':   /* -V, --version */
+			case 'V': /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
 				return 0;
 
@@ -241,9 +239,10 @@ int main(int argc, char **argv)
 	}
 
 	if (config_file_name_passed) {
+		int map_section_num = -1;
 		process_config_file(config_file_name, 0, G_LOG_LEVEL_DEBUG);
 
-		for (i = 0; i < XMLCONFIGS_MAX; ++i) {
+		for (int i = 0; i < XMLCONFIGS_MAX; ++i) {
 			if (maps[i].xmlname && strcmp(maps[i].xmlname, mapname) == 0) {
 				map_section_num = i;
 			}
@@ -307,6 +306,7 @@ int main(int argc, char **argv)
 		double py0 = boundy1;
 		double px1 = boundx1;
 		double py1 = boundy0;
+
 		gprj.fromLLtoPixel(px0, py0, z);
 		gprj.fromLLtoPixel(px1, py1, z);
 
@@ -318,7 +318,7 @@ int main(int argc, char **argv)
 		ymin = (int)(py0 / 256.0);
 		ymax = (int)(py1 / 256.0);
 
-		num = (xmax - xmin + 1) * (ymax - ymin + 1);
+		int num = (xmax - xmin + 1) * (ymax - ymin + 1);
 
 		g_logger(G_LOG_LEVEL_MESSAGE, "Zoom(%d) Now rendering %d tiles", z, num);
 		num_all += num;

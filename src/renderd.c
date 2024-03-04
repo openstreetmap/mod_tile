@@ -96,13 +96,11 @@ static const char *cmdStr(enum protoCmd c)
 
 void send_response(struct item *item, enum protoCmd rsp, int render_time)
 {
-	struct protocol *req = &item->req;
-	struct item *prev;
-
 	request_queue_remove_request(render_request_queue, item, render_time);
 
 	while (item) {
-		req = &item->req;
+		struct item *prev;
+		struct protocol *req = &item->req;
 
 		if ((item->fd != FD_INVALID) && ((req->cmd == cmdRender) || (req->cmd == cmdRenderPrio) || (req->cmd == cmdRenderLow) || (req->cmd == cmdRenderBulk))) {
 			req->cmd = rsp;
@@ -337,7 +335,6 @@ void *stats_writeout_thread(void * arg)
 
 			continue;
 		} else {
-			noFailedAttempts = 0;
 			fprintf(statfile, "ReqQueueLength: %i\n", reqQueueLength);
 			fprintf(statfile, "ReqPrioQueueLength: %i\n", reqPrioQueueLength);
 			fprintf(statfile, "ReqLowQueueLength: %i\n", reqLowQueueLength);
@@ -369,7 +366,7 @@ void *stats_writeout_thread(void * arg)
 				g_logger(G_LOG_LEVEL_WARNING, "Failed to overwrite stats file: %i", errno);
 				noFailedAttempts++;
 
-				if (noFailedAttempts > 3) {
+				if (noFailedAttempts > 6) {
 					g_logger(G_LOG_LEVEL_ERROR, "Failed repeatedly to overwrite stats, giving up");
 					break;
 				}
@@ -744,7 +741,7 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'c':   /* -c, --config */
+			case 'c': /* -c, --config */
 				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
@@ -757,16 +754,16 @@ int main(int argc, char **argv)
 
 				break;
 
-			case 'f':   /* -f, --foreground */
+			case 'f': /* -f, --foreground */
 				foreground = 1;
 				break;
 
-			case 's':   /* -s, --slave */
+			case 's': /* -s, --slave */
 				active_renderd_section_num = min_max_int_opt(optarg, "active renderd section", 0, -1);
 				active_renderd_section_num_passed = 1;
 				break;
 
-			case 'h':   /* -h, --help */
+			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: renderd [OPTION] ...\n");
 				fprintf(stderr, "Mapnik rendering daemon\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is '%s')\n", config_file_name_default);
@@ -777,7 +774,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				return 0;
 
-			case 'V':   /* -V, --version */
+			case 'V': /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
 				return 0;
 

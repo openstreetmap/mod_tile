@@ -46,7 +46,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
@@ -77,8 +77,8 @@ int main(int argc, char **argv)
 	int max_x = max_x_default;
 	int max_y = max_y_default;
 	int max_zoom = max_zoom_default;
-	int min_x = max_x_default;
-	int min_y = max_y_default;
+	int min_x = min_x_default;
+	int min_y = min_y_default;
 	int min_zoom = min_zoom_default;
 	int num_threads = num_threads_default;
 
@@ -96,14 +96,12 @@ int main(int argc, char **argv)
 	int num_threads_passed = 0;
 
 	int x, y, z;
-	char name[PATH_MAX];
 	struct timeval start, end;
 	int num_render = 0, num_all = 0;
-	int c, i, map_section_num = -1;
 	int all = 0;
 	int force = 0;
 	int verbose = 0;
-	struct storage_backend * store;
+	struct storage_backend *store;
 	struct stat_info s;
 
 	foreground = 1;
@@ -132,18 +130,18 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "ac:fm:l:X:Y:Z:x:y:z:n:s:t:vhV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "ac:fm:l:X:Y:Z:x:y:z:n:s:t:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
 		}
 
 		switch (c) {
-			case 'a':   /* -a, --all */
+			case 'a': /* -a, --all */
 				all = 1;
 				break;
 
-			case 'c':   /* -c, --config */
+			case 'c': /* -c, --config */
 				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
@@ -154,66 +152,70 @@ int main(int argc, char **argv)
 
 				break;
 
-			case 'f':   /* -f, --force */
+			case 'f': /* -f, --force */
 				force = 1;
 				break;
 
-			case 'm':   /* -m, --map */
+			case 'm': /* -m, --map */
 				mapname = strndup(optarg, XMLCONFIG_MAX);
 				mapname_passed = 1;
 				break;
 
-			case 'l':   /* -l, --max-load */
+			case 'l': /* -l, --max-load */
 				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
 				max_load_passed = 1;
 				break;
 
-			case 'X':   /* -X, --max-x */
+			case 'X': /* -X, --max-x */
 				max_x = min_max_int_opt(optarg, "maximum X tile coordinate", 0, -1);
+				max_x_passed = 1;
 				break;
 
-			case 'Y':   /* -Y, --max-y */
+			case 'Y': /* -Y, --max-y */
 				max_y = min_max_int_opt(optarg, "maximum Y tile coordinate", 0, -1);
+				max_y_passed = 1;
 				break;
 
-			case 'Z':   /* -Z, --max-zoom */
+			case 'Z': /* -Z, --max-zoom */
 				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
 				max_zoom_passed = 1;
 				break;
 
-			case 'x':   /* -x, --min-x */
+			case 'x': /* -x, --min-x */
 				min_x = min_max_int_opt(optarg, "minimum X tile coordinate", 0, -1);
+				min_x_passed = 1;
 				break;
 
-			case 'y':   /* -y, --min-y */
+			case 'y': /* -y, --min-y */
 				min_y = min_max_int_opt(optarg, "minimum Y tile coordinate", 0, -1);
+				min_y_passed = 1;
 				break;
 
-			case 'z':   /* -z, --min-zoom */
+			case 'z': /* -z, --min-zoom */
 				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
 				min_zoom_passed = 1;
 				break;
 
-			case 'n':   /* -n, --num-threads */
+			case 'n': /* -n, --num-threads */
 				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
 				num_threads_passed = 1;
 				break;
 
-			case 's':   /* -s, --socket */
+			case 's': /* -s, --socket */
 				socketname = strndup(optarg, PATH_MAX);
 				socketname_passed = 1;
 				break;
 
-			case 't':   /* -t, --tile-dir */
+			case 't': /* -t, --tile-dir */
 				tile_dir = strndup(optarg, PATH_MAX);
 				tile_dir_passed = 1;
 				break;
 
-			case 'v':   /* -v, --verbose */
+			case 'v': /* -v, --verbose */
 				verbose = 1;
 				break;
 
-			case 'h':   /* -h, --help */
+			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
 				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
@@ -246,7 +248,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
 				return 0;
 
-			case 'V':   /* -V, --version */
+			case 'V': /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
 				return 0;
 
@@ -262,9 +264,10 @@ int main(int argc, char **argv)
 	}
 
 	if (config_file_name_passed) {
+		int map_section_num = -1;
 		process_config_file(config_file_name, 0, G_LOG_LEVEL_DEBUG);
 
-		for (i = 0; i < XMLCONFIGS_MAX; ++i) {
+		for (int i = 0; i < XMLCONFIGS_MAX; ++i) {
 			if (maps[i].xmlname && strcmp(maps[i].xmlname, mapname) == 0) {
 				map_section_num = i;
 			}
@@ -343,7 +346,6 @@ int main(int argc, char **argv)
 			g_logger(G_LOG_LEVEL_CRITICAL, "Invalid range, x and y values must be >= 0");
 			return 1;
 		}
-
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Started render_list with the following options:");
@@ -385,7 +387,6 @@ int main(int argc, char **argv)
 					}
 
 					num_all++;
-
 				}
 			}
 		}
@@ -441,6 +442,7 @@ int main(int argc, char **argv)
 				}
 			} else {
 				if (verbose) {
+					char name[PATH_MAX];
 					g_logger(G_LOG_LEVEL_MESSAGE, "Tile %s is clean, ignoring", store->tile_storage_id(store, mapname, "", x, y, z, name));
 				}
 			}
