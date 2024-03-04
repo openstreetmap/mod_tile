@@ -4,6 +4,7 @@
 !docs/man
 !etc/apache2/renderd-example-map.conf
 !etc/apache2/tile.load.in
+!etc/renderd/renderd.conf.examples
 !etc/renderd/renderd.conf.in
 !includes
 !src
