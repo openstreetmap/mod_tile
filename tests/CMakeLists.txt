@@ -172,7 +172,31 @@ endfunction()
 
 add_test(NAME gen_tile_test
   COMMAND gen_tile_test
-  WORKING_DIRECTORY src
+)
+
+add_test(
+  NAME render_expired_test
+  COMMAND render_expired_test
+)
+
+add_test(
+  NAME render_list_test
+  COMMAND render_list_test
+)
+
+add_test(
+  NAME render_old_test
+  COMMAND render_old_test
+)
+
+add_test(
+  NAME render_speedtest_test
+  COMMAND render_speedtest_test
+)
+
+add_test(
+  NAME renderd_test
+  COMMAND renderd_test
 )
 
 foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
@@ -322,6 +346,18 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
     )
+    add_test(NAME render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        echo '3/0/3' | $<TARGET_FILE:render_expired> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
     add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0/0/0' | $<TARGET_FILE:render_expired> \
@@ -382,6 +418,19 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
     )
+    add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        $<TARGET_FILE:render_list> \
+          --all \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0 0 0' | $<TARGET_FILE:render_list> \
@@ -400,6 +449,18 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
+    )
+    add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        echo '0 0 0' | $<TARGET_FILE:render_list> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -421,6 +482,32 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
       TIMEOUT 90
     )
+    add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
+        $<TARGET_FILE:render_old> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
+    add_test(NAME render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        $<TARGET_FILE:render_old> \
+          --config ${RENDERD_CONF} \
+          --timestamp 01/01/2024
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      TIMEOUT 60
+    )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         $<TARGET_FILE:render_speedtest> \
@@ -435,6 +522,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
       TIMEOUT 90
+    )
+    add_test(NAME render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        $<TARGET_FILE:render_speedtest> \
+          --config ${RENDERD_CONF}
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
+      TIMEOUT 60
     )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -1003,3 +1101,108 @@ foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
     WORKING_DIRECTORY tests
   )
 endforeach()
+
+
+#-----------------------------------------------------------------------------
+#
+#  Test targets
+#
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+#  catch_main_o
+#
+#-----------------------------------------------------------------------------
+
+add_library(catch_main_o OBJECT
+  catch/catch_main.cpp
+  ${PROJECT_SOURCE_DIR}/tests/catch/catch_test_common.cpp
+)
+target_include_directories(catch_main_o PRIVATE ${GLIB_INCLUDE_DIRS})
+
+#-----------------------------------------------------------------------------
+#
+#  catch_test_common_o
+#
+#-----------------------------------------------------------------------------
+
+add_library(catch_test_common_o OBJECT ${PROJECT_SOURCE_DIR}/tests/catch/catch_test_common.cpp)
+target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
+
+#-----------------------------------------------------------------------------
+#
+#  gen_tile_test
+#
+#-----------------------------------------------------------------------------
+
+# Added by ${PROJECT_SOURCE_DIR}/src/CMakeLists.txt
+# (in order to reduce redundant source and library definitions)
+
+#-----------------------------------------------------------------------------
+#
+#  Additional options for targets added hereafter
+#
+#-----------------------------------------------------------------------------
+
+add_compile_definitions(
+  PROJECT_BINARY_DIR="${PROJECT_BINARY_DIR}/src"
+  RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf"
+)
+include_directories(${PROJECT_SOURCE_DIR}/includes)
+link_libraries(${GLIB_LIBRARIES})
+
+#-----------------------------------------------------------------------------
+#
+#  render_expired_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(render_expired_test
+  $<TARGET_OBJECTS:catch_main_o>
+  render_expired_test.cpp
+)
+
+#-----------------------------------------------------------------------------
+#
+#  render_list_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(render_list_test
+  $<TARGET_OBJECTS:catch_main_o>
+  render_list_test.cpp
+)
+
+#-----------------------------------------------------------------------------
+#
+#  render_old_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(render_old_test
+  $<TARGET_OBJECTS:catch_main_o>
+  render_old_test.cpp
+)
+
+#-----------------------------------------------------------------------------
+#
+#  render_speedtest_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(render_speedtest_test
+  $<TARGET_OBJECTS:catch_main_o>
+  render_speedtest_test.cpp
+)
+
+#-----------------------------------------------------------------------------
+#
+#  renderd_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(renderd_test
+  $<TARGET_OBJECTS:catch_main_o>
+  renderd_test.cpp
+)

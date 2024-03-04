@@ -15,32 +15,22 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <getopt.h>
+#include <glib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/un.h>
-#include <getopt.h>
-#include <time.h>
-#include <utime.h>
-#include <string.h>
-#include <strings.h>
-#include <limits.h>
-#include <utime.h>
+#include <unistd.h>
 
-#include <pthread.h>
-
-#include "g_logger.h"
-#include "protocol.h"
 #include "config.h"
+#include "g_logger.h"
 #include "render_config.h"
-#include "store.h"
 #include "render_submit_queue.h"
-
-const char * tile_dir_default = RENDERD_TILE_DIR;
+#include "renderd_config.h"
+#include "store.h"
 
 // macros handling our tile marking arrays (these are essentially bit arrays
 // that have one bit for each tile on the repsective zoom level; since we only
@@ -48,11 +38,10 @@ const char * tile_dir_default = RENDERD_TILE_DIR;
 // we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
 // levels) - this saves us the hassle of working with a tree structure.
 
-#define TILE_REQUESTED(z,x,y) \
-   (tile_requested[z][((x)*twopow[z]+(y))/(8*sizeof(int))]>>(((x)*twopow[z]+(y))%(8*sizeof(int))))&0x01
-#define SET_TILE_REQUESTED(z,x,y) \
-   tile_requested[z][((x)*twopow[z]+(y))/(8*sizeof(int))] |= (0x01 << (((x)*twopow[z]+(y))%(8*sizeof(int))));
-
+#define TILE_REQUESTED(z, x, y) \
+	(tile_requested[z][((x)*twopow[z] + (y)) / (8 * sizeof(int))] >> (((x)*twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
+#define SET_TILE_REQUESTED(z, x, y) \
+	tile_requested[z][((x)*twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01 << (((x)*twopow[z] + (y)) % (8 * sizeof(int))));
 
 #ifndef METATILE
 #warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
@@ -70,45 +59,56 @@ unsigned int **tile_requested;
 // for base 2
 unsigned long long twopow[MAX_ZOOM];
 
-static int minZoom = 0;
-static int maxZoom = 18;
-static int verbose = 0;
-static int maxLoad = MAX_LOAD_OLD;
-
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
 
-	printf("Rendered %d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
-	fflush(NULL);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
 }
-
-
 
 int main(int argc, char **argv)
 {
-	char *spath = strdup(RENDERD_SOCKET);
+	const char *config_file_name_default = RENDERD_CONFIG;
 	const char *mapname_default = XMLCONFIG_DEFAULT;
+	const char *socketname_default = RENDERD_SOCKET;
+	const char *tile_dir_default = RENDERD_TILE_DIR;
+	int max_load_default = MAX_LOAD_OLD;
+	int max_zoom_default = 18;
+	int min_zoom_default = 0;
+	int num_threads_default = 1;
+
+	const char *config_file_name = config_file_name_default;
 	const char *mapname = mapname_default;
+	const char *socketname = socketname_default;
 	const char *tile_dir = tile_dir_default;
+	int max_load = max_load_default;
+	int max_zoom = max_zoom_default;
+	int min_zoom = min_zoom_default;
+	int num_threads = num_threads_default;
+
+	int config_file_name_passed = 0;
+	int mapname_passed = 0;
+	int socketname_passed = 0;
+	int tile_dir_passed = 0;
+	int max_load_passed = 0;
+	int max_zoom_passed = 0;
+	int min_zoom_passed = 0;
+	int num_threads_passed = 0;
+
 	int x, y, z;
 	struct timeval start, end;
 	int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0, num_touch = 0;
-	int c;
-	int numThreads = 1;
-	int deleteFrom = -1;
-	int touchFrom = -1;
+	int deleteFrom = -1, touchFrom = -1;
 	int doRender = 0;
 	int progress = 1;
-	int i;
-	struct storage_backend * store;
-	char name[PATH_MAX];
+	int verbose = 0;
+	struct storage_backend *store;
 
 	// excess_zoomlevels is how many zoom levels at the large end
 	// we can ignore because their tiles will share one meta tile.
@@ -126,16 +126,17 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
+			{"config",      required_argument, 0, 'c'},
 			{"delete-from", required_argument, 0, 'd'},
 			{"map",         required_argument, 0, 'm'},
 			{"max-load",    required_argument, 0, 'l'},
 			{"max-zoom",    required_argument, 0, 'Z'},
 			{"min-zoom",    required_argument, 0, 'z'},
+			{"no-progress", no_argument,       0, 'N'},
 			{"num-threads", required_argument, 0, 'n'},
 			{"socket",      required_argument, 0, 's'},
 			{"tile-dir",    required_argument, 0, 't'},
 			{"touch-from",  required_argument, 0, 'T'},
-			{"no-progress", no_argument,       0, 'N'},
 			{"verbose",     no_argument,       0, 'v'},
 
 			{"help",        no_argument,       0, 'h'},
@@ -143,97 +144,89 @@ int main(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "d:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "c:d:m:l:Z:z:Nn:s:t:T:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
 		}
 
 		switch (c) {
-			case 's':   /* -s, --socket */
-				spath = strdup(optarg);
-				break;
+			case 'c': /* -c, --config */
+				config_file_name = strndup(optarg, PATH_MAX);
+				config_file_name_passed = 1;
 
-			case 't':   /* -t, --tile-dir */
-				tile_dir = strdup(optarg);
-				break;
+				struct stat buffer;
 
-			case 'm':   /* -m, --map */
-				mapname = strdup(optarg);
-				break;
-
-			case 'n':   /* -n, --num-threads */
-				numThreads = atoi(optarg);
-
-				if (numThreads <= 0) {
-					fprintf(stderr, "Invalid number of threads, must be at least 1\n");
+				if (stat(config_file_name, &buffer) != 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 					return 1;
 				}
 
 				break;
 
-			case 'd':   /* -d, --delete-from */
-				deleteFrom = atoi(optarg);
-
-				if (deleteFrom < 0 || deleteFrom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid 'delete-from' zoom, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+			case 'd': /* -d, --delete-from */
+				deleteFrom = min_max_int_opt(optarg, "delete-from", 0, MAX_ZOOM);
 				break;
 
-			case 'T':   /* -T, --touch-from */
-				touchFrom = atoi(optarg);
-
-				if (touchFrom < 0 || touchFrom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid 'touch-from' zoom, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+			case 'm': /* -m, --map */
+				mapname = strndup(optarg, XMLCONFIG_MAX);
+				mapname_passed = 1;
 				break;
 
-			case 'z':   /* -z, --min-zoom */
-				minZoom = atoi(optarg);
-
-				if (minZoom < 0 || minZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid minimum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+			case 'l': /* -l, --max-load */
+				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
+				max_load_passed = 1;
 				break;
 
-			case 'Z':   /* -Z, --max-zoom */
-				maxZoom = atoi(optarg);
-
-				if (maxZoom < 0 || maxZoom > MAX_ZOOM) {
-					fprintf(stderr, "Invalid maximum zoom selected, must be between 0 and %d\n", MAX_ZOOM);
-					return 1;
-				}
-
+			case 'Z': /* -Z, --max-zoom */
+				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+				max_zoom_passed = 1;
 				break;
 
-			case 'l':   /* -l, --max-load */
-				maxLoad = atoi(optarg);
+			case 'z': /* -z, --min-zoom */
+				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+				min_zoom_passed = 1;
 				break;
 
-			case 'N':   /* --no-progress */
+			case 'N': /* -N, --no-progress */
 				progress = 0;
 				break;
 
-			case 'v':   /* -v, --verbose */
+			case 'n': /* -n, --num-threads */
+				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+				num_threads_passed = 1;
+				break;
+
+			case 's': /* -s, --socket */
+				socketname = strndup(optarg, PATH_MAX);
+				socketname_passed = 1;
+				break;
+
+			case 't': /* -t, --tile-dir */
+				tile_dir = strndup(optarg, PATH_MAX);
+				tile_dir_passed = 1;
+				break;
+
+			case 'T': /* -T, --touch-from */
+				touchFrom = min_max_int_opt(optarg, "touch-from", 0, MAX_ZOOM);
+				break;
+
+			case 'v': /* -v, --verbose */
 				verbose = 1;
 				break;
 
-			case 'h':   /* -h, --help */
+			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_expired [OPTION] ...\n");
+				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
 				fprintf(stderr, "  -d, --delete-from=ZOOM            when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (defaults to '" XMLCONFIG_DEFAULT "')\n");
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default 1)\n");
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd\n");
-				fprintf(stderr, "  -t, --tile-dir                    tile cache directory (defaults to '" RENDERD_TILE_DIR "')\n");
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
+				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
 				fprintf(stderr, "  -T, --touch-from=ZOOM             when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is %d)\n", 18);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater or equal to this zoom level (default is 0)\n");
+				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help                        display this help and exit\n");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
@@ -246,70 +239,116 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  1/0/0\n");
 				fprintf(stderr, "  1/1/0\n");
 				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-				exit(0);
+				return 0;
 
-			case 'V':
+			case 'V': /* -V, --version */
 				fprintf(stdout, "%s\n", VERSION);
-				exit(0);
+				return 0;
 
 			default:
-				fprintf(stderr, "unhandled char '%c'\n", c);
-				exit(1);
+				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+				return 1;
 		}
 	}
 
-	if (maxZoom < minZoom) {
-		fprintf(stderr, "Invalid zoom range, max zoom must be greater or equal to minimum zoom\n");
+	if (max_zoom < min_zoom) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Specified min zoom (%i) is larger than max zoom (%i).", min_zoom, max_zoom);
 		return 1;
 	}
 
-	if (minZoom < excess_zoomlevels) {
-		minZoom = excess_zoomlevels;
-	}
+	if (config_file_name_passed) {
+		int map_section_num = -1;
+		process_config_file(config_file_name, 0, G_LOG_LEVEL_DEBUG);
 
-	// initialise arrays for tile markings
+		for (int i = 0; i < XMLCONFIGS_MAX; ++i) {
+			if (maps[i].xmlname && strcmp(maps[i].xmlname, mapname) == 0) {
+				map_section_num = i;
+			}
+		}
 
-	tile_requested = (unsigned int **) malloc((maxZoom - excess_zoomlevels + 1) * sizeof(unsigned int *));
-
-	for (i = 0; i <= maxZoom - excess_zoomlevels; i++) {
-		// initialize twopow array
-		twopow[i] = (i == 0) ? 1 : twopow[i - 1] * 2;
-		unsigned long long fourpow = twopow[i] * twopow[i];
-		tile_requested[i] = (unsigned int *) calloc((fourpow / METATILE) + 1, 1);
-
-		if (NULL == tile_requested[i]) {
-			fprintf(stderr, "not enough memory available.\n");
+		if (map_section_num < 0) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Map section '%s' does not exist in config file '%s'.", mapname, config_file_name);
 			return 1;
 		}
-	}
 
+		if (!max_zoom_passed) {
+			max_zoom = maps[map_section_num].max_zoom;
+			max_zoom_passed = 1;
+		}
 
-	fprintf(stderr, "Rendering client\n");
+		if (!min_zoom_passed) {
+			min_zoom = maps[map_section_num].min_zoom;
+			min_zoom_passed = 1;
+		}
 
-	gettimeofday(&start, NULL);
+		if (!num_threads_passed) {
+			num_threads = maps[map_section_num].num_threads;
+			num_threads_passed = 1;
+		}
 
-	if ((touchFrom != -1 && minZoom < touchFrom)
-			|| (deleteFrom != -1 && minZoom < deleteFrom)
-			|| (touchFrom == -1 && deleteFrom == -1)) {
-		// No need to spawn render threads, when we're not actually going to rerender tiles
-		spawn_workers(numThreads, spath, maxLoad);
-		doRender = 1;
+		if (!socketname_passed) {
+			socketname = strndup(config.socketname, PATH_MAX);
+			socketname_passed = 1;
+		}
+
+		if (!tile_dir_passed) {
+			tile_dir = strndup(maps[map_section_num].tile_dir, PATH_MAX);
+			tile_dir_passed = 1;
+		}
 	}
 
 	store = init_storage_backend(tile_dir);
 
 	if (store == NULL) {
-		fprintf(stderr, "failed to initialise storage backend %s\n", tile_dir);
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise storage backend %s", tile_dir);
 		return 1;
 	}
+
+	if (min_zoom < excess_zoomlevels) {
+		min_zoom = excess_zoomlevels;
+	}
+
+	// initialise arrays for tile markings
+
+	tile_requested = (unsigned int **)malloc((max_zoom - excess_zoomlevels + 1) * sizeof(unsigned int *));
+
+	for (int i = 0; i <= max_zoom - excess_zoomlevels; i++) {
+		// initialize twopow array
+		twopow[i] = (i == 0) ? 1 : twopow[i - 1] * 2;
+		unsigned long long fourpow = twopow[i] * twopow[i];
+		tile_requested[i] = (unsigned int *)calloc((fourpow / METATILE) + 1, 1);
+
+		if (NULL == tile_requested[i]) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "not enough memory available");
+			return 1;
+		}
+	}
+
+	if ((touchFrom != -1 && min_zoom < touchFrom) || (deleteFrom != -1 && min_zoom < deleteFrom) || (touchFrom == -1 && deleteFrom == -1)) {
+		// No need to spawn render threads, when we're not actually going to rerender tiles
+		spawn_workers(num_threads, socketname, max_load);
+		doRender = 1;
+	}
+
+	g_logger(G_LOG_LEVEL_INFO, "Started render_expired with the following options:");
+
+	if (config_file_name_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--config      = '%s' (user-specified)", config_file_name);
+	}
+
+	g_logger(G_LOG_LEVEL_INFO, "\t--map         = '%s' (%s)", mapname, mapname_passed ? "user-specified" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--max-load    = '%i' (%s)", max_load, max_load_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--max-zoom    = '%i' (%s)", max_zoom, max_zoom_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--min-zoom    = '%i' (%s)", min_zoom, min_zoom_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--num-threads = '%i' (%s)", num_threads, num_threads_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--socket      = '%s' (%s)", socketname, socketname_passed ? "user-specified/from config" : "default");
+	g_logger(G_LOG_LEVEL_INFO, "\t--tile-dir    = '%s' (%s)", tile_dir, tile_dir_passed ? "user-specified/from config" : "default");
+
+	gettimeofday(&start, NULL);
 
 	while (!feof(stdin)) {
 		struct stat_info s;
 		int n = fscanf(stdin, "%d/%d/%d", &z, &x, &y);
-
-		if (verbose) {
-			printf("read: x=%d y=%d z=%d\n", x, y, z);
-		}
 
 		if (n != 3) {
 			// Discard input line
@@ -320,32 +359,41 @@ int main(int argc, char **argv)
 				continue;
 			}
 
-			fprintf(stderr, "bad line %d: %s", num_all, tmp);
+			if (verbose) {
+				g_logger(G_LOG_LEVEL_WARNING, "bad line %d: %s", num_all, tmp);
+			}
+
 			continue;
 		}
 
-		while (z > maxZoom) {
+		if (verbose) {
+			g_logger(G_LOG_LEVEL_MESSAGE, "read: x=%d y=%d z=%d", x, y, z);
+		}
+
+		while (z > max_zoom) {
 			x >>= 1;
 			y >>= 1;
 			z--;
 		}
 
-		while (z < maxZoom) {
+		while (z < max_zoom) {
 			x <<= 1;
 			y <<= 1;
 			z++;
 		}
 
-		//printf("loop: x=%d y=%d z=%d up to z=%d\n", x, y, z, minZoom);
+		g_logger(G_LOG_LEVEL_DEBUG, "loop: x=%d y=%d z=%d up to z=%d", x, y, z, min_zoom);
 		num_read++;
 
 		if (progress && (num_read % 100) == 0) {
-			printf("Read and expanded %i tiles from list.\n", num_read);
+			g_logger(G_LOG_LEVEL_INFO, "Read and expanded %i tiles from list.", num_read);
 		}
 
-		for (; z >= minZoom; z--, x >>= 1, y >>= 1) {
+		for (; z >= min_zoom; z--, x >>= 1, y >>= 1) {
+			char name[PATH_MAX];
+
 			if (verbose) {
-				printf("process: x=%d y=%d z=%d\n", x, y, z);
+				g_logger(G_LOG_LEVEL_MESSAGE, "process: x=%d y=%d z=%d", x, y, z);
 			}
 
 			// don't do anything if this tile was already requested.
@@ -354,7 +402,7 @@ int main(int argc, char **argv)
 			// cause extra work.
 			if (TILE_REQUESTED(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels)) {
 				if (verbose) {
-					printf("already requested\n");
+					g_logger(G_LOG_LEVEL_MESSAGE, "already requested");
 				}
 
 				break;
@@ -367,7 +415,7 @@ int main(int argc, char **argv)
 
 			// commented out - seems to cause problems in MT environment,
 			// trying to write to already-closed file
-			//check_load();
+			// check_load();
 
 			num_all++;
 			s = store->tile_stat(store, mapname, "", x, y, z);
@@ -375,42 +423,21 @@ int main(int argc, char **argv)
 			if (s.size > 0) { // Tile exists
 				// tile exists on disk; render it
 				if (deleteFrom != -1 && z >= deleteFrom) {
-					if (verbose) {
-						printf("deleting: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
-					}
-
+					g_logger(G_LOG_LEVEL_MESSAGE, "delete: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
 					store->metatile_delete(store, mapname, x, y, z);
 					num_unlink++;
 				} else if (touchFrom != -1 && z >= touchFrom) {
-					if (verbose) {
-						printf("touch: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
-					}
-
+					g_logger(G_LOG_LEVEL_MESSAGE, "touch: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
 					store->metatile_expire(store, mapname, x, y, z);
 					num_touch++;
 				} else if (doRender) {
-					printf("render: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					g_logger(G_LOG_LEVEL_MESSAGE, "render: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
 					enqueue(mapname, x, y, z);
 					num_render++;
 				}
-
-				/*
-				if (!(num_render % 10))
-				{
-				    gettimeofday(&end, NULL);
-				    printf("\n");
-				    printf("Meta tiles rendered: ");
-				    display_rate(start, end, num_render);
-				    printf("Total tiles rendered: ");
-				    display_rate(start, end, num_render * METATILE * METATILE);
-				    printf("Total tiles in input: %d\n", num_read);
-				    printf("Total tiles expanded from input: %d\n", num_all);
-				    printf("Total tiles ignored (not on disk): %d\n", num_ignore);
-				}
-				*/
 			} else {
 				if (verbose) {
-					printf("not on disk: %s\n", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					g_logger(G_LOG_LEVEL_MESSAGE, "not on disk: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
 				}
 
 				num_ignore++;
@@ -422,36 +449,43 @@ int main(int argc, char **argv)
 		finish_workers();
 	}
 
-	free(spath);
+	if (config_file_name_passed) {
+		free((void *)config_file_name);
+	}
 
-	if (mapname != mapname_default) {
+	if (mapname_passed) {
 		free((void *)mapname);
 	}
 
-	if (tile_dir != tile_dir_default) {
+	if (socketname_passed) {
+		free((void *)socketname);
+	}
+
+	if (tile_dir_passed) {
 		free((void *)tile_dir);
 	}
 
 	store->close_storage(store);
 	free(store);
 
-	for (i = 0; i <= maxZoom - excess_zoomlevels; i++) {
+	for (int i = 0; i <= max_zoom - excess_zoomlevels; i++) {
 		free(tile_requested[i]);
 	}
 
 	free(tile_requested);
 
 	gettimeofday(&end, NULL);
-	printf("\nTotal for all tiles rendered\n");
-	printf("Meta tiles rendered: ");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Read and expanded %i tiles from list.", num_read);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total for all tiles rendered");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Meta tiles rendered:");
 	display_rate(start, end, num_render);
-	printf("Total tiles rendered: ");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles rendered:");
 	display_rate(start, end, num_render * METATILE * METATILE);
-	printf("Total tiles in input: %d\n", num_read);
-	printf("Total tiles expanded from input: %d\n", num_all);
-	printf("Total meta tiles deleted: %d\n", num_unlink);
-	printf("Total meta tiles touched: %d\n", num_touch);
-	printf("Total tiles ignored (not on disk): %d\n", num_ignore);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles in input: %d", num_read);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles expanded from input: %d", num_all);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total meta tiles deleted: %d", num_unlink);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total meta tiles touched: %d", num_touch);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles ignored (not on disk): %d", num_ignore);
 
 	return 0;
 }

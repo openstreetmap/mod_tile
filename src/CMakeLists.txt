@@ -87,9 +87,11 @@ set(render_expired_SRCS
   protocol_helper.c
   render_expired.c
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_expired_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_expired ${render_expired_SRCS})
@@ -107,9 +109,11 @@ set(render_list_SRCS
   protocol_helper.c
   render_list.c
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_list_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_list ${render_list_SRCS})
@@ -126,10 +130,12 @@ set(render_old_SRCS
   protocol_helper.c
   render_old.c
   render_submit_queue.c
+  renderd_config.c
   store_file_utils.c
 )
 set(render_old_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
 )
 add_executable(render_old ${render_old_SRCS})
 target_link_libraries(render_old ${render_old_LIBS})
@@ -145,9 +151,11 @@ set(render_speedtest_SRCS
   protocol_helper.c
   render_speedtest.cpp
   render_submit_queue.c
+  renderd_config.c
 )
 set(render_speedtest_LIBS
   ${COMMON_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
 )
 add_executable(render_speedtest ${render_speedtest_SRCS})
 target_link_libraries(render_speedtest ${render_speedtest_LIBS})
@@ -195,6 +203,7 @@ if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 
 set(gen_tile_test_SRCS
+  $<TARGET_OBJECTS:catch_test_common_o>
   ${renderd_SRCS}
   ${PROJECT_SOURCE_DIR}/tests/gen_tile_test.cpp
 )
