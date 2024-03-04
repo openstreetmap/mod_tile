@@ -191,7 +191,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 	SECTION("--config with valid --map, --verbose and bad input lines", "should return 0") {
 		std::string renderd_conf_examples = (std::string)RENDERD_CONF + ".examples";
-		std::string option = "--config " + renderd_conf_examples + " --map example-map --verbose";
+		std::string option = "--config " + renderd_conf_examples + " --map example-map --tile-dir " + P_tmpdir + " --verbose";
 		std::string command = test_binary + " " + option;
 
 		// flawfinder: ignore
@@ -204,7 +204,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 	SECTION("--config with valid --map, --verbose and invalid zoom input lines", "should return 0") {
 		std::string renderd_conf_examples = (std::string)RENDERD_CONF + ".examples";
-		std::string option = "--config " + renderd_conf_examples + " --map example-map --verbose";
+		std::string option = "--config " + renderd_conf_examples + " --map example-map --tile-dir " + P_tmpdir + " --verbose";
 		std::string command = test_binary + " " + option;
 
 		// flawfinder: ignore
