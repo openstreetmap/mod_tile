@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -154,8 +155,10 @@ int main(int argc, char **argv)
 				config_file_name = strndup(optarg, PATH_MAX);
 				config_file_name_passed = 1;
 
-				if (access(config_file_name, F_OK) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file with -c/--config", config_file_name);
+				struct stat buffer;
+
+				if (stat(config_file_name, &buffer) != 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 					return 1;
 				}
 
