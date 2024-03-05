@@ -252,6 +252,7 @@ services:
       PGUSER: renderer
     volumes:
       - data:/data
+      - tile_data:/var/cache/renderd/tiles
       - ./ubuntu/entrypoint.sh:/entrypoint.sh:ro
   postgres:
     env_file: .env
@@ -260,6 +261,8 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: renderer
     image: postgis/postgis
+    ports:
+      - 65432:5432
     volumes:
       - pgdata:/var/lib/postgresql/data
     shm_size: 1gb
@@ -267,3 +270,4 @@ services:
 volumes:
   data:
   pgdata:
+  tile_data:
