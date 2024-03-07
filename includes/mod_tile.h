@@ -46,7 +46,6 @@
 #define VERYOLD_RENDER 5
 #define VERYOLD 6
 
-
 /* Number of microseconds to camp out on the mutex */
 #define CAMPOUT 10
 /* Maximum number of times we camp out before giving up */
@@ -93,14 +92,14 @@ typedef struct stats_data {
 } stats_data;
 
 typedef struct {
-	const char * store;
+	const char *store;
 	char xmlname[XMLCONFIG_MAX];
 	char baseuri[PATH_MAX];
 	char fileExtension[PATH_MAX];
 	char mimeType[PATH_MAX];
-	const char * description;
-	const char * attribution;
-	const char * cors;
+	const char *description;
+	const char *attribution;
+	const char *cors;
 	char **hostnames;
 	int noHostnames;
 	int minzoom;
@@ -129,7 +128,7 @@ typedef struct {
 	int renderd_socket_port;
 	char tile_dir[PATH_MAX];
 	char cache_extended_hostname[PATH_MAX];
-	int  cache_extended_duration;
+	int cache_extended_duration;
 	int mincachetime[MAX_ZOOM_SERVER + 1];
 	int enableGlobalStats;
 	int enableTileThrottling;
@@ -144,12 +143,15 @@ typedef struct {
 } tile_server_conf;
 
 typedef struct tile_request_data {
-	struct protocol * cmd;
-	struct storage_backend * store;
+	struct protocol *cmd;
+	struct storage_backend *store;
 	int layerNumber;
 } tile_request_data;
 
-enum tileState { tileMissing, tileOld, tileVeryOld, tileCurrent };
-
+enum tileState { tileMissing,
+		 tileOld,
+		 tileVeryOld,
+		 tileCurrent
+	       };
 
 #endif
