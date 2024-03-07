@@ -30,6 +30,32 @@ services:
     build:
       <<: *build_defaults
       dockerfile: docker/archlinux/Dockerfile
+  archlinux-full:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      args:
+        runner_additional_packages: >-
+          curl
+          gdal
+          git
+          npm
+          osm2pgsql
+          postgresql
+          python-psycopg2
+          python-pyaml
+          unzip
+      dockerfile: docker/archlinux/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: /entrypoint.sh
+    volumes:
+      - tiles:/var/cache/renderd/tiles
+      - ./archlinux/data:/opt/data
+      - ./archlinux/fonts:/opt/fonts
+      - ./archlinux/styles:/opt/styles
+      - ./full-entrypoint.sh:/entrypoint.sh:ro
   centos-7:
     <<: *service_defaults
     build:
@@ -241,25 +267,35 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libmapnik_version: "3.1"
+        runner_additional_packages: >-
+          curl
+          gdal-bin
+          git
+          npm
+          osm2pgsql
+          postgresql-client
+          python3-psycopg2
+          python3-yaml
+          unzip
         ubuntu_version: "devel"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     entrypoint: /entrypoint.sh
-    environment:
-      DOWNLOAD_PBF: http://download.geofabrik.de/africa/eritrea-latest.osm.pbf
-      PGDATABASE: gis
-      PGHOST: postgres
-      PGUSER: renderer
     volumes:
-      - data:/data
-      - tile_data:/var/cache/renderd/tiles
-      - ./ubuntu/entrypoint.sh:/entrypoint.sh:ro
+      - tiles:/var/cache/renderd/tiles
+      - ./full-entrypoint.sh:/entrypoint.sh:ro
+      - ./ubuntu/data:/opt/data
+      - ./ubuntu/fonts:/opt/fonts
+      - ./ubuntu/styles:/opt/styles
   postgres:
     env_file: .env
     environment:
-      POSTGRES_DB: gis
+      POSTGRES_DB: ${PGDATABASE}
       POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_USER: renderer
+      POSTGRES_USER: ${PGUSER}
+    healthcheck:
+      test: ["CMD", "psql", "--quiet", "--list"]
     image: postgis/postgis
     ports:
       - 65432:5432
@@ -268,6 +304,5 @@ services:
     shm_size: 1gb
 
 volumes:
-  data:
   pgdata:
-  tile_data:
+  tiles:
