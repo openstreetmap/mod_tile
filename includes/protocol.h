@@ -47,7 +47,15 @@ extern "C" {
 #endif
 #define XMLCONFIG_MAX 41
 
-enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
+enum protoCmd { cmdIgnore,
+		cmdRender,
+		cmdDirty,
+		cmdDone,
+		cmdNotDone,
+		cmdRenderPrio,
+		cmdRenderBulk,
+		cmdRenderLow
+	      };
 
 struct protocol {
 	int ver;
