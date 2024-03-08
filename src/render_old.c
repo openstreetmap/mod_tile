@@ -60,7 +60,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 	sec = d_s + d_us / 1000000.0;
 
-	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
 }
 
 static time_t get_planet_time(const char *tile_dir)
@@ -105,7 +105,7 @@ static void check_load(void)
 	}
 }
 
-static void descend(const char *tile_dir, const char *search)
+static void descend(const char *tile_dir, const char *search, int verbose)
 {
 	DIR *tiles = opendir(search);
 	struct dirent *entry;
@@ -114,7 +114,10 @@ static void descend(const char *tile_dir, const char *search)
 	int x, y, z;
 
 	if (!tiles) {
-		g_logger(G_LOG_LEVEL_DEBUG, "%s: %s", strerror(errno), search);
+		if (verbose) {
+			g_logger(G_LOG_LEVEL_MESSAGE, "%s: %s", strerror(errno), search);
+		}
+
 		return;
 	}
 
@@ -135,7 +138,7 @@ static void descend(const char *tile_dir, const char *search)
 		}
 
 		if (S_ISDIR(b.st_mode)) {
-			descend(tile_dir, path);
+			descend(tile_dir, path, verbose);
 			continue;
 		}
 
@@ -165,7 +168,7 @@ void render_layer(const char *tile_dir, const char *mapname, int min_zoom, int m
 
 		char search[PATH_MAX];
 		snprintf(search, PATH_MAX, "%s/%s/%d", tile_dir, mapname, z);
-		descend(tile_dir, search);
+		descend(tile_dir, search, verbose);
 	}
 }
 
@@ -176,7 +179,7 @@ int main(int argc, char **argv)
 	const char *socketname_default = RENDERD_SOCKET;
 	const char *tile_dir_default = RENDERD_TILE_DIR;
 	int max_load_default = MAX_LOAD_OLD;
-	int max_zoom_default = 18;
+	int max_zoom_default = MAX_ZOOM;
 	int min_zoom_default = 0;
 	int num_threads_default = 1;
 
@@ -365,11 +368,21 @@ int main(int argc, char **argv)
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "\t--max-load    = '%i' (%s)", max_load, max_load_passed ? "user-specified/from config" : "default");
-	g_logger(G_LOG_LEVEL_INFO, "\t--max-zoom    = '%i' (%s)", max_zoom, max_zoom_passed ? "user-specified/from config" : "default");
-	g_logger(G_LOG_LEVEL_INFO, "\t--min-zoom    = '%i' (%s)", min_zoom, min_zoom_passed ? "user-specified/from config" : "default");
+
+	if (max_zoom_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--max-zoom    = '%i' (user-specified)", max_zoom);
+	}
+
+	if (min_zoom_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--min-zoom    = '%i' (user-specified)", min_zoom);
+	}
+
 	g_logger(G_LOG_LEVEL_INFO, "\t--num-threads = '%i' (%s)", num_threads, num_threads_passed ? "user-specified/from config" : "default");
 	g_logger(G_LOG_LEVEL_INFO, "\t--socket      = '%s' (%s)", socketname, socketname_passed ? "user-specified/from config" : "default");
-	g_logger(G_LOG_LEVEL_INFO, "\t--tile-dir    = '%s' (%s)", tile_dir, tile_dir_passed ? "user-specified/from config" : "default");
+
+	if (tile_dir_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--tile-dir    = '%s' (user-specified)", tile_dir);
+	}
 
 	if (planet_timestamp == 0) {
 		planet_timestamp = get_planet_time(tile_dir);
@@ -411,7 +424,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&end, NULL);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total for all tiles rendered");
-	g_logger(G_LOG_LEVEL_MESSAGE, "Meta tiles rendered:");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Metatiles rendered:");
 	display_rate(start, end, num_render);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles rendered:");
 	display_rate(start, end, num_render * METATILE * METATILE);

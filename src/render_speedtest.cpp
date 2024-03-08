@@ -120,7 +120,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 	sec = d_s + d_us / 1000000.0;
 
-	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
 }
 
 int main(int argc, char **argv)
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 	const char *config_file_name_default = RENDERD_CONFIG;
 	const char *mapname_default = XMLCONFIG_DEFAULT;
 	const char *socketname_default = RENDERD_SOCKET;
-	int max_zoom_default = 18;
+	int max_zoom_default = MAX_ZOOM;
 	int min_zoom_default = 0;
 	int num_threads_default = 1;
 

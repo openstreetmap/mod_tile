@@ -52,7 +52,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 	sec = d_s + d_us / 1000000.0;
 
-	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
 }
 
 int main(int argc, char **argv)
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	int max_load_default = MAX_LOAD_OLD;
 	int max_x_default = -1;
 	int max_y_default = -1;
-	int max_zoom_default = 18;
+	int max_zoom_default = MAX_ZOOM;
 	int min_x_default = -1;
 	int min_y_default = -1;
 	int min_zoom_default = 0;
@@ -225,21 +225,21 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -f, --force                       render tiles even if they seem current\n");
 				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
 				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
-				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%i')\n", num_threads_default);
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
 				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
 				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
 				fprintf(stderr, "\n");
+				fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
-				fprintf(stderr, "  (please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
+				fprintf(stderr, "(please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
 				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
 				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
-				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help                        display this help and exit\n");
-				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
 				fprintf(stderr, "  X Y Z\n");
@@ -436,7 +436,7 @@ int main(int argc, char **argv)
 				// Attempts to adjust the stats for the QMAX tiles which are likely in the queue
 				if (!(num_render % 10)) {
 					gettimeofday(&end, NULL);
-					g_logger(G_LOG_LEVEL_MESSAGE, "Meta tiles rendered:");
+					g_logger(G_LOG_LEVEL_MESSAGE, "Metatiles rendered:");
 					display_rate(start, end, num_render);
 					g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles rendered:");
 					display_rate(start, end, num_render * METATILE * METATILE);
@@ -475,7 +475,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&end, NULL);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total for all tiles rendered");
-	g_logger(G_LOG_LEVEL_MESSAGE, "Meta tiles rendered:");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Metatiles rendered:");
 	display_rate(start, end, num_render);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles rendered:");
 	display_rate(start, end, num_render * METATILE * METATILE);

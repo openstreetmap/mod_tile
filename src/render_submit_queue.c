@@ -57,7 +57,7 @@ struct speed_stat {
 	time_t time_min;
 	time_t time_max;
 	time_t time_total;
-	int    noRendered;
+	int noRendered;
 };
 
 struct speed_stats {
@@ -84,7 +84,7 @@ static void check_load(void)
 	}
 }
 
-static int process(struct protocol * cmd, int fd)
+static int process(struct protocol *cmd, int fd)
 {
 	struct timeval tim;
 	time_t t1;
@@ -143,7 +143,7 @@ static int process(struct protocol * cmd, int fd)
 	return ret;
 }
 
-static struct protocol * fetch(void)
+static struct protocol *fetch(void)
 {
 	pthread_mutex_lock(&qLock);
 
@@ -174,7 +174,7 @@ static struct protocol * fetch(void)
 	pthread_cond_signal(&qCondNotFull);
 	pthread_mutex_unlock(&qLock);
 
-	struct protocol * cmd = malloc(sizeof(struct protocol));
+	struct protocol *cmd = malloc(sizeof(struct protocol));
 
 	cmd->ver = 2;
 	cmd->cmd = cmdRenderBulk;
@@ -248,7 +248,7 @@ int make_connection(const char *spath)
 		addr.sun_family = AF_UNIX;
 		strncpy(addr.sun_path, spath, sizeof(addr.sun_path) - 1);
 
-		if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+		if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 			close(fd);
 			return -1;
 		}
@@ -340,7 +340,6 @@ int make_connection(const char *spath)
 				g_logger(G_LOG_LEVEL_DEBUG, "Connected to %s:%s", resolved_addr, resolved_port);
 				break;
 			}
-
 		}
 
 		freeaddrinfo(result);
@@ -349,7 +348,6 @@ int make_connection(const char *spath)
 			g_logger(G_LOG_LEVEL_CRITICAL, "cannot connect to any address for %s", hostname);
 			exit(2);
 		}
-
 	}
 
 	return fd;
@@ -366,7 +364,7 @@ void *thread_main(void *arg)
 	}
 
 	while (1) {
-		struct protocol * cmd;
+		struct protocol *cmd;
 		check_load();
 
 		if (!(cmd = fetch())) {
@@ -436,7 +434,7 @@ void print_statistics(void)
 		}
 
 		printf("Zoom %02i: min: %4.1f    avg: %4.1f     max: %4.1f     over a total of %8.1fs in %i requests\n",
-		       i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total / (float) performance_stats.stat[i].noRendered) / 1000.0,
+		       i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total / (float)performance_stats.stat[i].noRendered) / 1000.0,
 		       performance_stats.stat[i].time_max / 1000.0, performance_stats.stat[i].time_total / 1000.0, performance_stats.stat[i].noRendered);
 	}
 
