@@ -39,9 +39,9 @@
 // levels) - this saves us the hassle of working with a tree structure.
 
 #define TILE_REQUESTED(z, x, y) \
-	(tile_requested[z][((x)*twopow[z] + (y)) / (8 * sizeof(int))] >> (((x)*twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
+	(tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] >> (((x) * twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
 #define SET_TILE_REQUESTED(z, x, y) \
-	tile_requested[z][((x)*twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01 << (((x)*twopow[z] + (y)) % (8 * sizeof(int))));
+	tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01 << (((x) * twopow[z] + (y)) % (8 * sizeof(int))));
 
 #ifndef METATILE
 #warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
@@ -69,7 +69,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 
 	sec = d_s + d_us / 1000000.0;
 
-	g_logger(G_LOG_LEVEL_MESSAGE, "\tRendered %d tiles in %.2f seconds (%.2f tiles/s)", num, sec, num / sec);
+	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
 }
 
 int main(int argc, char **argv)
@@ -78,33 +78,38 @@ int main(int argc, char **argv)
 	const char *mapname_default = XMLCONFIG_DEFAULT;
 	const char *socketname_default = RENDERD_SOCKET;
 	const char *tile_dir_default = RENDERD_TILE_DIR;
+	int delete_from_default = -1;
 	int max_load_default = MAX_LOAD_OLD;
-	int max_zoom_default = 18;
+	int max_zoom_default = MAX_ZOOM;
 	int min_zoom_default = 0;
 	int num_threads_default = 1;
+	int touch_from_default = -1;
 
 	const char *config_file_name = config_file_name_default;
 	const char *mapname = mapname_default;
 	const char *socketname = socketname_default;
 	const char *tile_dir = tile_dir_default;
+	int delete_from = delete_from_default;
 	int max_load = max_load_default;
 	int max_zoom = max_zoom_default;
 	int min_zoom = min_zoom_default;
 	int num_threads = num_threads_default;
+	int touch_from = touch_from_default;
 
 	int config_file_name_passed = 0;
 	int mapname_passed = 0;
 	int socketname_passed = 0;
 	int tile_dir_passed = 0;
+	int delete_from_passed = 0;
 	int max_load_passed = 0;
 	int max_zoom_passed = 0;
 	int min_zoom_passed = 0;
 	int num_threads_passed = 0;
+	int touch_from_passed = 0;
 
 	int x, y, z;
 	struct timeval start, end;
 	int num_render = 0, num_all = 0, num_read = 0, num_ignore = 0, num_unlink = 0, num_touch = 0;
-	int deleteFrom = -1, touchFrom = -1;
 	int doRender = 0;
 	int progress = 1;
 	int verbose = 0;
@@ -165,7 +170,8 @@ int main(int argc, char **argv)
 				break;
 
 			case 'd': /* -d, --delete-from */
-				deleteFrom = min_max_int_opt(optarg, "delete-from", 0, MAX_ZOOM);
+				delete_from = min_max_int_opt(optarg, "delete-from", 0, MAX_ZOOM);
+				delete_from_passed = 1;
 				break;
 
 			case 'm': /* -m, --map */
@@ -208,7 +214,8 @@ int main(int argc, char **argv)
 				break;
 
 			case 'T': /* -T, --touch-from */
-				touchFrom = min_max_int_opt(optarg, "touch-from", 0, MAX_ZOOM);
+				touch_from = min_max_int_opt(optarg, "touch-from", 0, MAX_ZOOM);
+				touch_from_passed = 1;
 				break;
 
 			case 'v': /* -v, --verbose */
@@ -219,8 +226,9 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Usage: render_expired [OPTION] ...\n");
 				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
 				fprintf(stderr, "  -d, --delete-from=ZOOM            when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
 				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+				fprintf(stderr, "  -N, --no-progress                 disable display of progress messages (default is off)\n");
 				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
 				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
 				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
@@ -304,10 +312,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (min_zoom < excess_zoomlevels) {
-		min_zoom = excess_zoomlevels;
-	}
-
 	// initialise arrays for tile markings
 
 	tile_requested = (unsigned int **)malloc((max_zoom - excess_zoomlevels + 1) * sizeof(unsigned int *));
@@ -324,16 +328,14 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if ((touchFrom != -1 && min_zoom < touchFrom) || (deleteFrom != -1 && min_zoom < deleteFrom) || (touchFrom == -1 && deleteFrom == -1)) {
-		// No need to spawn render threads, when we're not actually going to rerender tiles
-		spawn_workers(num_threads, socketname, max_load);
-		doRender = 1;
-	}
-
 	g_logger(G_LOG_LEVEL_INFO, "Started render_expired with the following options:");
 
 	if (config_file_name_passed) {
 		g_logger(G_LOG_LEVEL_INFO, "\t--config      = '%s' (user-specified)", config_file_name);
+	}
+
+	if (delete_from_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--delete-from = '%i' (user-specified)", delete_from);
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "\t--map         = '%s' (%s)", mapname, mapname_passed ? "user-specified" : "default");
@@ -343,6 +345,24 @@ int main(int argc, char **argv)
 	g_logger(G_LOG_LEVEL_INFO, "\t--num-threads = '%i' (%s)", num_threads, num_threads_passed ? "user-specified/from config" : "default");
 	g_logger(G_LOG_LEVEL_INFO, "\t--socket      = '%s' (%s)", socketname, socketname_passed ? "user-specified/from config" : "default");
 	g_logger(G_LOG_LEVEL_INFO, "\t--tile-dir    = '%s' (%s)", tile_dir, tile_dir_passed ? "user-specified/from config" : "default");
+
+	if (touch_from_passed) {
+		g_logger(G_LOG_LEVEL_INFO, "\t--touch-from  = '%i' (user-specified)", touch_from);
+	}
+
+	if (min_zoom < excess_zoomlevels) {
+		if (verbose) {
+			g_logger(G_LOG_LEVEL_MESSAGE, "Raising --min-zoom from '%i' to '%i'", min_zoom, excess_zoomlevels);
+		}
+
+		min_zoom = excess_zoomlevels;
+	}
+
+	if ((touch_from_passed && min_zoom < touch_from) || (delete_from_passed && min_zoom < delete_from) || (!touch_from_passed && !delete_from_passed)) {
+		// No need to spawn render threads, when we're not actually going to rerender tiles
+		spawn_workers(num_threads, socketname, max_load);
+		doRender = 1;
+	}
 
 	gettimeofday(&start, NULL);
 
@@ -382,7 +402,10 @@ int main(int argc, char **argv)
 			z++;
 		}
 
-		g_logger(G_LOG_LEVEL_DEBUG, "loop: x=%d y=%d z=%d up to z=%d", x, y, z, min_zoom);
+		if (verbose) {
+			g_logger(G_LOG_LEVEL_MESSAGE, "loop: x=%d y=%d z=%d up to z=%d", x, y, z, min_zoom);
+		}
+
 		num_read++;
 
 		if (progress && (num_read % 100) == 0) {
@@ -421,17 +444,26 @@ int main(int argc, char **argv)
 			s = store->tile_stat(store, mapname, "", x, y, z);
 
 			if (s.size > 0) { // Tile exists
-				// tile exists on disk; render it
-				if (deleteFrom != -1 && z >= deleteFrom) {
-					g_logger(G_LOG_LEVEL_MESSAGE, "delete: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+				// tile exists on disk; delete/touch/render it
+				if (delete_from_passed && z >= delete_from) {
+					if (progress) {
+						g_logger(G_LOG_LEVEL_MESSAGE, "delete: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					}
+
 					store->metatile_delete(store, mapname, x, y, z);
 					num_unlink++;
-				} else if (touchFrom != -1 && z >= touchFrom) {
-					g_logger(G_LOG_LEVEL_MESSAGE, "touch: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+				} else if (touch_from_passed && z >= touch_from) {
+					if (progress) {
+						g_logger(G_LOG_LEVEL_MESSAGE, "touch: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					}
+
 					store->metatile_expire(store, mapname, x, y, z);
 					num_touch++;
 				} else if (doRender) {
-					g_logger(G_LOG_LEVEL_MESSAGE, "render: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					if (progress) {
+						g_logger(G_LOG_LEVEL_MESSAGE, "render: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					}
+
 					enqueue(mapname, x, y, z);
 					num_render++;
 				}
@@ -477,14 +509,14 @@ int main(int argc, char **argv)
 	gettimeofday(&end, NULL);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Read and expanded %i tiles from list.", num_read);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total for all tiles rendered");
-	g_logger(G_LOG_LEVEL_MESSAGE, "Meta tiles rendered:");
+	g_logger(G_LOG_LEVEL_MESSAGE, "Metatiles rendered:");
 	display_rate(start, end, num_render);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles rendered:");
 	display_rate(start, end, num_render * METATILE * METATILE);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles in input: %d", num_read);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles expanded from input: %d", num_all);
-	g_logger(G_LOG_LEVEL_MESSAGE, "Total meta tiles deleted: %d", num_unlink);
-	g_logger(G_LOG_LEVEL_MESSAGE, "Total meta tiles touched: %d", num_touch);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total metatiles deleted: %d", num_unlink);
+	g_logger(G_LOG_LEVEL_MESSAGE, "Total metatiles touched: %d", num_touch);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Total tiles ignored (not on disk): %d", num_ignore);
 
 	return 0;
