@@ -15,13 +15,14 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "store_null.h"
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <glib.h>
 #include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "g_logger.h"
+#include "store.h"
+#include "store_null.h"
 
 static int tile_read(struct storage_backend * store,
 		     const char *xmlconfig,

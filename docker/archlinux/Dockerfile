@@ -1,3 +1,6 @@
+# Arguments
+ARG runner_additional_packages
+
 # Builder
 FROM archlinux:latest as builder
 
@@ -41,10 +44,13 @@ RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
 # Runner
 FROM archlinux:latest as runner
 
+## Arguments
+ARG runner_additional_packages
+
 ## Install runner dependencies
 RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
     --mount=id=archlinux:latest-/var/lib/pacman/sync,sharing=locked,target=/var/lib/pacman/sync,type=cache \
-    pacman --sync --refresh --sysupgrade --noconfirm \
+    pacman --sync --refresh --sysupgrade --noconfirm ${runner_additional_packages} \
         apache \
         cairo \
         curl \
@@ -77,11 +83,11 @@ COPY --from=builder \
     /etc/httpd/conf/extra/httpd-tile-renderd-example-map.conf
 
 ## Add configuration
-RUN printf '\n[example-map]\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
-RUN printf '\n[example-map-jpg]\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
-RUN printf '\n[example-map-png256]\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
-RUN printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
-RUN printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map]\nMAXZOOM=20\nMINZOOM=0\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-jpg]\nMAXZOOM=20\nMINZOOM=0\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-png256]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-png32]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+RUN printf '\n[example-map-webp]\nMAXZOOM=20\nMINZOOM=0\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 
 ## Enable module & site
 RUN printf '\nInclude conf/extra/httpd-tile.conf\n' >> /etc/httpd/conf/httpd.conf && \
