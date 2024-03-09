@@ -172,6 +172,8 @@ add_subdirectory(src)
 #
 #-----------------------------------------------------------------------------
 
+include(CPack)
+
 # Determine install destination for 'etc/apache2/tile.load.in'
 if(EXISTS "/etc/os-release")
   execute_process(COMMAND sh -c ". /etc/os-release && echo $ID"

@@ -1,5 +1,7 @@
 ---
 inputs:
+  genhtml-extra-options:
+    default: ""
   lcov-extra-options:
     default: ""
 
@@ -19,10 +21,39 @@ runs:
           "${GITHUB_WORKSPACE}/includes/*" \
           "${GITHUB_WORKSPACE}/tests/*" \
           "/usr/*"
-      working-directory: build
       shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
 
     - name: Report `mod_tile` coverage results to `codecov.io`
       uses: codecov/codecov-action@v3.1.5
       with:
         files: build/coverage.info
+
+    - name: Write `mod_tile` coverage summary to `$GITHUB_STEP_SUMMARY`
+      run: |
+        lcov ${{ inputs.lcov-extra-options }} \
+          --summary \
+          coverage.info | sed 's/^  /* /g' >> ${GITHUB_STEP_SUMMARY}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+
+    - name: Generate `mod_tile` coverage artifacts
+      run: |
+        genhtml ${{ inputs.genhtml-extra-options }} \
+          --output-directory coverage \
+          coverage.info
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+
+    - name: Set `COVERAGE_ARTIFACT_NAME`
+      run: |
+        echo "COVERAGE_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Upload `mod_tile` coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Coverage Artifacts - ${{ env.COVERAGE_ARTIFACT_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
+        path: |
+          build/coverage
+          build/coverage.info

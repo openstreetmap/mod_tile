@@ -66,11 +66,11 @@ jobs:
         timeout-minutes: 1
 
       - name: Show logs
-        if: failure()
         run: docker compose logs
         working-directory: docker
+        if: failure()
 
       - name: Stop
-        if: success() || failure()
         run: docker compose down --volumes
         working-directory: docker
+        if: success() || failure()
