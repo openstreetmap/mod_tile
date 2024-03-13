@@ -51,10 +51,10 @@ services:
         condition: service_healthy
     entrypoint: /entrypoint.sh
     volumes:
+      - data:/opt/data
+      - fonts:/opt/fonts
+      - styles:/opt/styles
       - tiles:/var/cache/renderd/tiles
-      - ./archlinux/data:/opt/data
-      - ./archlinux/fonts:/opt/fonts
-      - ./archlinux/styles:/opt/styles
       - ./full-entrypoint.sh:/entrypoint.sh:ro
   centos-7:
     <<: *service_defaults
@@ -283,11 +283,11 @@ services:
         condition: service_healthy
     entrypoint: /entrypoint.sh
     volumes:
+      - data:/opt/data
+      - fonts:/opt/fonts
+      - styles:/opt/styles
       - tiles:/var/cache/renderd/tiles
       - ./full-entrypoint.sh:/entrypoint.sh:ro
-      - ./ubuntu/data:/opt/data
-      - ./ubuntu/fonts:/opt/fonts
-      - ./ubuntu/styles:/opt/styles
   postgres:
     env_file: .env
     environment:
@@ -304,5 +304,8 @@ services:
     shm_size: 1gb
 
 volumes:
+  data:
+  fonts:
   pgdata:
+  styles:
   tiles:

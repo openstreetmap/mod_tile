@@ -37,8 +37,6 @@ then
 
     npm install --global carto
     carto /opt/openstreetmap-carto/project.mml > /opt/styles/mapnik.xml
-
-    chmod --recursive 777 /opt/*
 fi
 
 sed -i \
