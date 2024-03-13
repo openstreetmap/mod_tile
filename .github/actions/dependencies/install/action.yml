@@ -213,6 +213,7 @@ runs:
           ${{ inputs.rhel-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+          rpm-build
       if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
     - name: Install Dependencies (Debian)
@@ -234,6 +235,7 @@ runs:
           ${{ inputs.fedora-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+          rpm-build
       if: startsWith(matrix.image, 'fedora:')
 
     - name: Install Dependencies (FreeBSD)
@@ -265,6 +267,7 @@ runs:
           ${{ inputs.opensuse-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'automake' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc12 gcc12-c++' }}
+          rpm-build
       if: startsWith(matrix.image, 'opensuse/')
 
     - name: Install Dependencies (Ubuntu)

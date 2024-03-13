@@ -9,7 +9,7 @@ runs:
         path: |
           mapnik-build
           mapnik-src
-        key: ${{ matrix.image || matrix.os || github.job }}-${{ matrix.compiler }}-mapnik-latest
+        key: ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }}-mapnik-latest
 
     - name: Checkout `Mapnik`
       uses: actions/checkout@v4
