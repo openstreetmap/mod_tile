@@ -370,7 +370,6 @@ int main(int argc, char **argv)
 	spawn_workers(num_threads, socketname, max_load);
 
 	if (all) {
-		int x, y, z;
 		g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles from zoom %d to zoom %d", min_zoom, max_zoom);
 
 		for (z = min_zoom; z <= max_zoom; z++) {
@@ -400,7 +399,7 @@ int main(int argc, char **argv)
 			if (n != 3) {
 				// Discard input line
 				char tmp[1024];
-				char *r = fgets(tmp, sizeof(tmp), stdin);
+				const char *r = fgets(tmp, sizeof(tmp), stdin);
 
 				if (!r) {
 					continue;

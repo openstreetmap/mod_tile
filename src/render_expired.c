@@ -373,7 +373,7 @@ int main(int argc, char **argv)
 		if (n != 3) {
 			// Discard input line
 			char tmp[1024];
-			char *r = fgets(tmp, sizeof(tmp), stdin);
+			const char *r = fgets(tmp, sizeof(tmp), stdin);
 
 			if (!r) {
 				continue;

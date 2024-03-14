@@ -13,7 +13,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 #
 #-----------------------------------------------------------------------------
 
-project(mod_tile VERSION 0.7.0)
+project(mod_tile
+  DESCRIPTION "Renders map tiles with Mapnik and serves them using Apache HTTP Server"
+  HOMEPAGE_URL "https://github.com/openstreetmap/mod_tile"
+  VERSION 0.7.0
+)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -172,8 +176,6 @@ add_subdirectory(src)
 #
 #-----------------------------------------------------------------------------
 
-include(CPack)
-
 # Determine install destination for 'etc/apache2/tile.load.in'
 if(EXISTS "/etc/os-release")
   execute_process(COMMAND sh -c ". /etc/os-release && echo $ID"
@@ -257,6 +259,19 @@ if(ENABLE_MAN)
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man5
   )
 endif()
+
+#-----------------------------------------------------------------------------
+#
+#  Package
+#
+#-----------------------------------------------------------------------------
+
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_PACKAGE_CONTACT "OpenStreetMap")
+set(CPACK_PACKAGE_VENDOR "OpenStreetMap")
+set(CPACK_RPM_PACKAGE_LICENSE "GPLv2")
+
+include(CPack)
 
 #-----------------------------------------------------------------------------
 #
