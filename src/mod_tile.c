@@ -81,8 +81,6 @@ APLOG_USE_MODULE(tile);
 
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
-char *shmfilename;
-char *shmfilename_delaypool;
 apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delay_mutex;
 
@@ -1673,37 +1671,25 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 		return OK;
 	} /* Kilroy was here */
 
-	/* Create the shared memory segment */
-
-	/*
-	 * Create a unique filename using our pid. This information is
-	 * stashed in the global variable so the children inherit it.
-	 * TODO get the location from the environment $TMPDIR or somesuch.
-	 */
-	shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
-	shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
-
-	/* Now create that segment
+	/* Create the shared memory segment
 	 * would prefer to use scfg->configs->nelts here but that does
 	 * not seem to be set at this stage, so rely on previously set layerCount */
 
 	rs = apr_shm_create(&stats_shm, sizeof(stats_data) + layerCount * 2 * sizeof(apr_uint64_t),
-			    (const char *)shmfilename, pconf);
+			    NULL, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
-			     "Failed to create shared memory segment on file %s",
-			     shmfilename);
+			     "Failed to create 'stats' shared memory segment");
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
 	rs = apr_shm_create(&delaypool_shm, sizeof(delaypool),
-			    (const char *)shmfilename_delaypool, pconf);
+			    NULL, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
-			     "Failed to create shared memory segment on file %s",
-			     shmfilename_delaypool);
+			     "Failed to create 'delaypool' shared memory segment");
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -1852,7 +1838,7 @@ static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
 			     "Failed to reopen mutex on file %s",
-			     shmfilename);
+			     mutexfilename);
 		/* There's really nothing else we can do here, since
 		 * This routine doesn't return a status. */
 		exit(1); /* Ugly, but what else? */
