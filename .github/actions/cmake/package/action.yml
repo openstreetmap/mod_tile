@@ -16,7 +16,7 @@ runs:
         elif [ -f /etc/os-release ]; then
           source /etc/os-release
           if [ "$ID" = "freebsd" ]; then
-            echo "CPACK_OPTIONS=-D CPACK_FREEBSD_PACKAGE_LICENSE=GPLv2 -D CPACK_SET_DESTDIR=1 -G FREEBSD" >> ${GITHUB_ENV}
+            echo "CPACK_OPTIONS=-D CPACK_SET_DESTDIR=1 -G FREEBSD" >> ${GITHUB_ENV}
           fi
         elif [[ ${OSTYPE} == 'darwin'* ]]; then
           echo "CPACK_OPTIONS=-D CPACK_SET_DESTDIR=1 -G DragNDrop" >> ${GITHUB_ENV}
@@ -28,7 +28,6 @@ runs:
     - name: Package `mod_tile`
       run: |
         ${{ !matrix.image && 'sudo' || '' }} cpack ${CPACK_OPTIONS} \
-          -D CPACK_PACKAGE_CONTACT="GitHub Actions" \
           -D CPACK_PACKAGE_FILE_NAME="${CPACK_PACKAGE_FILE_NAME}" || true
       shell: bash --noprofile --norc -euxo pipefail {0}
       working-directory: build
