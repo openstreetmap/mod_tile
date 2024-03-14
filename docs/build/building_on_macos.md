@@ -4,7 +4,7 @@ This document provides users with step-by-step instructions on how to compile an
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
-## macOS 11/12/13
+## macOS 11/12/13/14
 
 ```shell
 #!/usr/bin/env bash
@@ -28,11 +28,11 @@ brew install \
   pkg-config
 
 # Download, Build, Test & Install `mod_tile`
-export CFLAGS="-Wno-implicit-function-declaration"
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+export CPATH=$(brew --prefix)/include
 export ICU_ROOT=$(brew --prefix icu4c)
 export LDFLAGS="-undefined dynamic_lookup"
-export LIBRARY_PATH="/usr/local/lib"
+export LIBRARY_PATH=$(brew --prefix)/lib
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build
 cd /tmp/mod_tile_src
