@@ -83,8 +83,7 @@ jobs:
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
-        if: |
-          matrix.build_system == 'CMake'
+        if: matrix.build_system == 'CMake'
 
       - name: Install `mod_tile`
         uses: ./.github/actions/install
@@ -135,8 +134,7 @@ jobs:
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
-        if: |
-          matrix.build_system == 'CMake'
+        if: matrix.build_system == 'CMake'
 
       - name: Install `mod_tile`
         uses: ./.github/actions/install
@@ -146,7 +144,6 @@ jobs:
       CFLAGS: --coverage
       CXXFLAGS: --coverage
       LDFLAGS: -undefined dynamic_lookup
-      LIBRARY_PATH: /usr/local/lib
       TEST_PARALLEL_LEVEL: 1
     name: >-
       ${{ matrix.os }}
@@ -158,6 +155,7 @@ jobs:
       matrix:
         os:
           - macos-12
+          - macos-13
         build_system:
           - CMake
         compiler:
@@ -165,10 +163,10 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
-          - os: macos-13
+          - os: macos-14
             build_system: Autotools
             compiler: LLVM
-          - os: macos-13
+          - os: macos-14
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -180,9 +178,11 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
 
-      - name: Set ICU_ROOT
+      - name: Set CPATH, ICU_ROOT & LIBRARY_PATH
         run: |
+          echo "CPATH=$(brew --prefix)/include" >> ${GITHUB_ENV}
           echo "ICU_ROOT=$(brew --prefix icu4c)" >> ${GITHUB_ENV}
+          echo "LIBRARY_PATH=$(brew --prefix)/lib" >> ${GITHUB_ENV}
 
       - name: Build `mod_tile`
         uses: ./.github/actions/build
@@ -199,8 +199,7 @@ jobs:
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
-        if: |
-          matrix.build_system == 'CMake'
+        if: matrix.build_system == 'CMake'
 
       - name: Install `mod_tile`
         uses: ./.github/actions/install
