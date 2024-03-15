@@ -208,7 +208,8 @@ jobs:
     continue-on-error: true
     env:
       CFLAGS: --coverage
-      CTEST_HOST: localhost
+      CTEST_CLIENT_HOST: ::1
+      CTEST_SERVER_HOST: localhost
       CXXFLAGS: --coverage
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
