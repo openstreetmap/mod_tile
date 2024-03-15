@@ -754,26 +754,6 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(tile_expired_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
-    set(TILE_URL_PATH "/tiles/${MAP_NAME}/3/0/3.${EXTENSION}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-    set(HTTPD2_URL "http://${HTTPD2_HOST}:${HTTPD2_PORT}${TILE_URL_PATH}")
-    add_test(NAME throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        TEST_CURL_CMD=\"${CURL_CMD} --header 'X-Forwarded-For: ${CTEST_HOST}, 127.0.0.1' --output /dev/null\"
-        for i in {0..10}; do
-          if ! \${TEST_CURL_CMD} ${HTTPD1_URL}; then
-            echo \"${HTTPD1_URL}\";
-          fi
-          if ! \${TEST_CURL_CMD} ${HTTPD2_URL}; then
-            echo \"${HTTPD2_URL}\";
-          fi
-        done
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(throttling_xforward_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-    )
   endforeach()
 
   # Generate file and URL paths for tiles
@@ -976,6 +956,27 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(max_load_missing_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
+    add_test(NAME throttling_xforward_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
+        for i in {0..19}; do
+          RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, 127.0.0.1\" \
+            http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\$i/0/0.webp)
+          echo \"Response code: '\${RESPONSE_CODE}'\"
+          if [ \"\${RESPONSE_CODE}\" = \"503\" ]; then
+            echo 'Request being rejected';
+            exit 0;
+          fi
+        done
+        echo 'Request was never rejected';
+        exit 1;
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(throttling_xforward_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      RUN_SERIAL TRUE
     )
   endif()
 
