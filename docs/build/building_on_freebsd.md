@@ -34,6 +34,8 @@ sudo pkg install --yes \
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu)
+export CTEST_CLIENT_HOST="::1"
+export CTEST_SERVER_HOST="localhost"
 export LIBRARY_PATH="/usr/local/lib"
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build

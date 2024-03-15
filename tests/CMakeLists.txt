@@ -36,12 +36,21 @@ find_program(SLEEP_EXECUTABLE NAMES sleep REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
 # Sets the host to be used for CTest test services
-if(DEFINED ENV{CTEST_HOST})
-  # To the value of environment variable "CTEST_HOST"
-  set(CTEST_HOST "$ENV{CTEST_HOST}")
+if(DEFINED ENV{CTEST_SERVER_HOST})
+  # To the value of environment variable "CTEST_SERVER_HOST"
+  set(CTEST_SERVER_HOST "$ENV{CTEST_SERVER_HOST}")
 else()
   # Or to 0.0.0.0 by default
-  set(CTEST_HOST "0.0.0.0")
+  set(CTEST_SERVER_HOST "0.0.0.0")
+endif()
+
+# Sets the host to be used for CTest client
+if(DEFINED ENV{CTEST_CLIENT_HOST})
+  # To the value of environment variable "CTEST_CLIENT_HOST"
+  set(CTEST_CLIENT_HOST "$ENV{CTEST_CLIENT_HOST}")
+else()
+  # Or to 0.0.0.0 by default
+  set(CTEST_CLIENT_HOST "127.0.0.")
 endif()
 
 #-----------------------------------------------------------------------------
@@ -51,15 +60,15 @@ endif()
 #-----------------------------------------------------------------------------
 
 set(DEFAULT_MAP_NAME "default")
-set(HTTPD0_HOST "${CTEST_HOST}")
+set(HTTPD0_HOST "${CTEST_SERVER_HOST}")
 set(HTTPD0_PORT_BASE "59000")
-set(HTTPD1_HOST "${CTEST_HOST}")
+set(HTTPD1_HOST "${CTEST_SERVER_HOST}")
 set(HTTPD1_PORT_BASE "59100")
-set(HTTPD2_HOST "${CTEST_HOST}")
+set(HTTPD2_HOST "${CTEST_SERVER_HOST}")
 set(HTTPD2_PORT_BASE "59200")
-set(MEMCACHED_HOST "${CTEST_HOST}")
+set(MEMCACHED_HOST "${CTEST_SERVER_HOST}")
 set(MEMCACHED_PORT_BASE "60000")
-set(RENDERD1_HOST "${CTEST_HOST}")
+set(RENDERD1_HOST "${CTEST_SERVER_HOST}")
 set(RENDERD1_PORT_BASE "59500")
 
 set(CURL_CMD "${CURL_EXECUTABLE} --fail --silent")
@@ -960,8 +969,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     add_test(NAME throttling_xforward_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
-        for i in {0..19}; do
-          RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_HOST}, 127.0.0.1\" \
+        for i in {0..20}; do
+          RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_SERVER_HOST}, ${CTEST_CLIENT_HOST}\" \
             http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\$i/0/0.webp)
           echo \"Response code: '\${RESPONSE_CODE}'\"
           if [ \"\${RESPONSE_CODE}\" = \"503\" ]; then
