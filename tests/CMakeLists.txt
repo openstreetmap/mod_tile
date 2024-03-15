@@ -49,8 +49,8 @@ if(DEFINED ENV{CTEST_CLIENT_HOST})
   # To the value of environment variable "CTEST_CLIENT_HOST"
   set(CTEST_CLIENT_HOST "$ENV{CTEST_CLIENT_HOST}")
 else()
-  # Or to 0.0.0.0 by default
-  set(CTEST_CLIENT_HOST "127.0.0.")
+  # Or to 127.0.0.1 by default
+  set(CTEST_CLIENT_HOST "127.0.0.1")
 endif()
 
 #-----------------------------------------------------------------------------
