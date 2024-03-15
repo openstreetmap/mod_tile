@@ -90,7 +90,6 @@ char *shmfilename;
 char *shmfilename_delaypool;
 apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delay_mutex;
-apr_global_mutex_t *storage_mutex;
 
 char *mutexfilename;
 int layerCount = 0;
@@ -1860,36 +1859,6 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
 	rs = ap_unixd_set_global_mutex_perms(delay_mutex);
-
-	if (rs != APR_SUCCESS) {
-		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
-			     "Parent could not set permissions on mod_tile "
-			     "mutex: check User and Group directives");
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-#endif /* MOD_TILE_SET_MUTEX_PERMS */
-
-	/*
-	     * Create another unique filename to lock upon. Note that
-	     * depending on OS and locking mechanism of choice, the file
-	     * may or may not be actually created.
-	     */
-	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_storage.%ld",
-				     (long int) getpid());
-
-	rs = apr_global_mutex_create(&storage_mutex, (const char *) mutexfilename,
-				     APR_LOCK_DEFAULT, pconf);
-
-	if (rs != APR_SUCCESS) {
-		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
-			     "Failed to create mutex on file %s",
-			     mutexfilename);
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-#ifdef MOD_TILE_SET_MUTEX_PERMS
-	rs = ap_unixd_set_global_mutex_perms(storage_mutex);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
