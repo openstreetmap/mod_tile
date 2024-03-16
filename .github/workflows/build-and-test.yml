@@ -143,6 +143,7 @@ jobs:
     env:
       CFLAGS: --coverage
       CXXFLAGS: --coverage
+      INSTALL_PREFIX: /usr/local
       LDFLAGS: -undefined dynamic_lookup
       TEST_PARALLEL_LEVEL: 1
     name: >-
