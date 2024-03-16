@@ -42,7 +42,7 @@ cmake -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
   -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
   -DCMAKE_INSTALL_PREFIX=/usr/local \
-  -DCMAKE_INSTALL_RUNSTATEDIR=/run \
+  -DCMAKE_INSTALL_RUNSTATEDIR=/var/run \
   -DCMAKE_INSTALL_SYSCONFDIR=/etc \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .

@@ -144,6 +144,7 @@ jobs:
       CFLAGS: --coverage
       CXXFLAGS: --coverage
       INSTALL_PREFIX: /usr/local
+      INSTALL_RUNSTATEDIR: /var/run
       LDFLAGS: -undefined dynamic_lookup
       TEST_PARALLEL_LEVEL: 1
     name: >-
@@ -212,6 +213,7 @@ jobs:
       CTEST_CLIENT_HOST: ::1
       CTEST_SERVER_HOST: localhost
       CXXFLAGS: --coverage
+      INSTALL_PREFIX: /usr/local
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-
