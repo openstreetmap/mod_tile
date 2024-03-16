@@ -1,185 +1,311 @@
 ---
 version: "3.8"
 
-services:
-  centos-7:
-    build:
-      context: ..
-      dockerfile: docker/centos/7/Dockerfile
+x-mod_tile:
+  build_defaults: &build_defaults
+    context: ..
+  build_defaults_centos_stream: &build_defaults_centos_stream
+    <<: *build_defaults
+    dockerfile: docker/centos/stream/Dockerfile
+  build_defaults_debian: &build_defaults_debian
+    <<: *build_defaults
+    dockerfile: docker/debian/Dockerfile
+  build_defaults_fedora: &build_defaults_fedora
+    <<: *build_defaults
+    dockerfile: docker/fedora/Dockerfile
+  build_defaults_opensuse: &build_defaults_opensuse
+    <<: *build_defaults
+    dockerfile: docker/opensuse/Dockerfile
+  build_defaults_ubuntu: &build_defaults_ubuntu
+    <<: *build_defaults
+    dockerfile: docker/ubuntu/Dockerfile
+  service_defaults: &service_defaults
     env_file: .env
     ports:
       - 8081:8081
+
+services:
+  archlinux:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      dockerfile: docker/archlinux/Dockerfile
+  archlinux-full:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      args:
+        runner_additional_packages: >-
+          curl
+          gdal
+          git
+          npm
+          osm2pgsql
+          postgresql
+          python-psycopg2
+          python-pyaml
+          unzip
+      dockerfile: docker/archlinux/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: /entrypoint.sh
+    volumes:
+      - data:/opt/data
+      - fonts:/opt/fonts
+      - styles:/opt/styles
+      - tiles:/var/cache/renderd/tiles
+      - ./full-entrypoint.sh:/entrypoint.sh:ro
+  centos-7:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      dockerfile: docker/centos/7/Dockerfile
     ulimits:
       nofile: 40000
   centos-stream-8:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_centos_stream
       args:
         centos_stream_version: "8"
         extra_repository: powertools
-      context: ..
-      dockerfile: docker/centos/stream/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  centos-stream-9:
+  centos-stream-8-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "8"
+        extra_repository: powertools
+      dockerfile: docker/centos/stream/Dockerfile.autotools
+  centos-stream-9:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
       args:
         centos_stream_version: "9"
         extra_repository: crb
-      context: ..
-      dockerfile: docker/centos/stream/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  debian-10:
+  centos-stream-9-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "9"
+        extra_repository: crb
+      dockerfile: docker/centos/stream/Dockerfile.autotools
+  centos-stream-9-mapnik-latest:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "9"
+        extra_repository: crb
+      dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
+  debian-10:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
       args:
         libmapnik_version: "3.0"
         debian_version: "10"
-      context: ..
-      dockerfile: docker/debian/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  debian-11:
+  debian-10-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_debian
+      args:
+        libmapnik_version: "3.0"
+        debian_version: "10"
+      dockerfile: docker/debian/Dockerfile.autotools
+  debian-11:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
       args:
         libmapnik_version: "3.1"
         debian_version: "11"
-      context: ..
-      dockerfile: docker/debian/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  debian-12:
+  debian-11-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_debian
+      args:
+        libmapnik_version: "3.1"
+        debian_version: "11"
+      dockerfile: docker/debian/Dockerfile.autotools
+  debian-12:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
       args:
         libmapnik_version: "3.1"
         debian_version: "12"
-      context: ..
-      dockerfile: docker/debian/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  debian-testing:
+  debian-12-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_debian
+      args:
+        libmapnik_version: "3.1"
+        debian_version: "12"
+      dockerfile: docker/debian/Dockerfile.autotools
+  debian-testing:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
       args:
         libmapnik_version: "3.1"
         debian_version: testing
-      context: ..
-      dockerfile: docker/debian/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  fedora-34:
+  debian-testing-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_debian
+      args:
+        libmapnik_version: "3.1"
+        debian_version: testing
+      dockerfile: docker/debian/Dockerfile.autotools
+  fedora-34:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "34"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-35:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "35"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-36:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "36"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-37:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "37"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-38:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "38"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-39:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
         fedora_version: "39"
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
   fedora-rawhide:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_fedora
       args:
-        fedora_version: rawhide
-      context: ..
-      dockerfile: docker/fedora/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
+        fedora_version: "rawhide"
   opensuse-leap-15:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_opensuse
       args:
         boost_version: "1_75_0"
-        opensuse_version: leap:15
-      context: ..
-      dockerfile: docker/opensuse/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
+        opensuse_version: "leap:15"
   opensuse-tumbleweed:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_opensuse
       args:
-        opensuse_version: tumbleweed
-      context: ..
-      dockerfile: docker/opensuse/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
+        opensuse_version: "tumbleweed"
   ubuntu-20.04:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_ubuntu
       args:
         libmapnik_version: "3.0"
         ubuntu_version: "20.04"
-      context: ..
-      dockerfile: docker/ubuntu/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  ubuntu-22.04:
+  ubuntu-20.04-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.0"
+        ubuntu_version: "20.04"
+      dockerfile: docker/ubuntu/Dockerfile.autotools
+  ubuntu-22.04:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
       args:
         libmapnik_version: "3.1"
         ubuntu_version: "22.04"
-      context: ..
-      dockerfile: docker/ubuntu/Dockerfile
-    env_file: .env
-    ports:
-      - 8081:8081
-  ubuntu-devel:
+  ubuntu-22.04-autotools:
+    <<: *service_defaults
     build:
+      <<: *build_defaults_ubuntu
       args:
         libmapnik_version: "3.1"
-        ubuntu_version: devel
-      context: ..
-      dockerfile: docker/ubuntu/Dockerfile
+        ubuntu_version: "22.04"
+      dockerfile: docker/ubuntu/Dockerfile.autotools
+  ubuntu-devel:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: "devel"
+  ubuntu-devel-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: "devel"
+      dockerfile: docker/ubuntu/Dockerfile.autotools
+  ubuntu-devel-full:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.1"
+        runner_additional_packages: >-
+          curl
+          gdal-bin
+          git
+          npm
+          osm2pgsql
+          postgresql-client
+          python3-psycopg2
+          python3-yaml
+          unzip
+        ubuntu_version: "devel"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: /entrypoint.sh
+    volumes:
+      - data:/opt/data
+      - fonts:/opt/fonts
+      - styles:/opt/styles
+      - tiles:/var/cache/renderd/tiles
+      - ./full-entrypoint.sh:/entrypoint.sh:ro
+  postgres:
     env_file: .env
+    environment:
+      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: ${PGUSER}
+    healthcheck:
+      test: ["CMD", "psql", "--quiet", "--list"]
+    image: postgis/postgis
     ports:
-      - 8081:8081
+      - 65432:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 1gb
+
+volumes:
+  data:
+  fonts:
+  pgdata:
+  styles:
+  tiles:

@@ -15,12 +15,14 @@ jobs:
     strategy:
       matrix:
         service-name:
+          - archlinux
           - centos-7
           - centos-stream-8
           - centos-stream-9
           - debian-11
           - debian-12
           - debian-testing
+          - debian-testing-autotools
           - fedora-38
           - fedora-39
           - fedora-rawhide
@@ -29,6 +31,7 @@ jobs:
           - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-devel
+          - ubuntu-devel-autotools
       fail-fast: false
     steps:
       - name: Checkout repository
@@ -40,19 +43,34 @@ jobs:
 
       - name: Test
         run: |
-          until $(curl --fail --output tile.png --silent http://localhost:8081/tiles/renderd-example/9/297/191.png); do
+          until $(curl --fail --output tile.jpg.file.0 --silent http://localhost:8081/tiles/renderd-example-jpg/9/297/191.jpg); do
             echo 'Sleeping 5s';
             sleep 5;
           done
-          echo 'dbf26531286e844a3a9735cdd193598dca78d22f77cafe5824bcaf17f88cbb08  tile.png' | sha256sum --check
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.jpg.file.0 | grep -q OK
+          until $(curl --fail --output tile.png256.file.0 --silent http://localhost:8081/tiles/renderd-example-png256/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.png256.file.0 | grep -q OK
+          until $(curl --fail --output tile.png32.file.0 --silent http://localhost:8081/tiles/renderd-example-png32/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.png32.file.0 | grep -q OK
+          until $(curl --fail --output tile.webp.file.0 --silent http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.webp.file.0 | grep -q OK
         timeout-minutes: 1
 
       - name: Show logs
-        if: failure()
         run: docker compose logs
         working-directory: docker
+        if: failure()
 
       - name: Stop
-        if: success() || failure()
         run: docker compose down --volumes
         working-directory: docker
+        if: success() || failure()

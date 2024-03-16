@@ -1,23 +1,22 @@
 # Arguments
-ARG debian_version=12
 ARG libmapnik_version=3.1
+ARG ubuntu_version=22.04
 
 # Builder
-FROM debian:${debian_version} as builder
+FROM ubuntu:${ubuntu_version} as builder
 
 ## Arguments
-ARG debian_version
+ARG ubuntu_version
 
 ## Install builder dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=id=ubuntu:${ubuntu_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
+    --mount=id=ubuntu:${ubuntu_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
     apt-get --no-install-recommends --yes install \
         apache2 \
         apache2-dev \
-        cmake \
         curl \
         g++ \
         gcc \
@@ -32,31 +31,23 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
 
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
-WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
-    cmake -B . -S /tmp/mod_tile_src \
-        -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
-        -DENABLE_TESTS:BOOL=ON && \
-    cmake --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
-    export DESTDIR=/tmp/mod_tile && \
-    ctest --output-on-failure && \
-    (cmake --install . --strip || make DESTDIR=${DESTDIR} install/strip)
+WORKDIR /tmp/mod_tile_src
+RUN export DESTDIR=/tmp/mod_tile && \
+    ./autogen.sh && \
+    ./configure && \
+    make DESTDIR=${DESTDIR} install install-mod_tile
+RUN make test
 
 # Runner
-FROM debian:${debian_version} as runner
+FROM ubuntu:${ubuntu_version} as runner
 
 ## Arguments
-ARG debian_version
 ARG libmapnik_version
+ARG ubuntu_version
 
 ## Install runner dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=id=ubuntu:${ubuntu_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
+    --mount=id=ubuntu:${ubuntu_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
@@ -64,11 +55,10 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
         apache2 \
         libcairo2 \
         libcurl4 \
-        libglib2.0 \
+        libglib2.0-0 \
         libiniparser1 \
         libmapnik${libmapnik_version} \
         libmemcached11 \
-        libmemcachedutil2 \
         librados2
 
 ## Copy files from builder(s)
@@ -81,12 +71,22 @@ COPY --from=builder \
     /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf \
     /etc/apache2/sites-available/renderd-example-map.conf
 
+## Fix mapnik directories
+RUN sed \
+        --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input)#g" \
+        --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
+        /usr/local/etc/renderd.conf > /etc/renderd.conf
+
 ## Add configuration
+RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/apache2/mods-available/tile.load
 RUN printf '\n[example-map]\nMAXZOOM=20\nMINZOOM=0\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-jpg]\nMAXZOOM=20\nMINZOOM=0\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png256]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png32]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-webp]\nMAXZOOM=20\nMINZOOM=0\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+
+## Create missing directories
+RUN mkdir --parents /run/renderd /var/cache/renderd/tiles
 
 ## Enable module & site
 RUN a2enmod tile && \

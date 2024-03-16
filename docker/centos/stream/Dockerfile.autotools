@@ -1,26 +1,32 @@
 # Arguments
+ARG centos_stream_version
+ARG extra_repository
 ARG mapnik_version=3.1.0
 
 # Mapnik Builder
-FROM centos:centos7 as mapnik-builder
+FROM quay.io/centos/centos:stream${centos_stream_version} as mapnik-builder
 
 ## Arguments
+ARG centos_stream_version
+ARG extra_repository
 ARG mapnik_version
 
 ## Install mapnik-builder dependencies
-RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sharing=locked \
-    ulimit -n 40000; \
-    echo "install_weak_deps=0" >> /etc/yum.conf && \
-    sed --in-place 's/keepcache=0/keepcache=1/g' /etc/yum.conf && \
-    yum --assumeyes install epel-release centos-release-scl && \
-    yum --assumeyes upgrade && \
-    yum --assumeyes install \
-        boost169-devel \
+RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
+    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
+    dnf --assumeyes install "dnf-command(config-manager)" && \
+    dnf config-manager --save \
+        --setopt=${extra_repository}.enabled=1 && \
+    dnf --assumeyes install epel-release && \
+    dnf --assumeyes upgrade && \
+    dnf --assumeyes install \
+        boost-devel \
         bzip2 \
         cairo-devel \
-        devtoolset-9-gcc \
-        devtoolset-9-gcc-c++ \
         freetype-devel \
+        gcc \
+        gcc-c++ \
         gdal-devel \
         harfbuzz-devel \
         libicu-devel \
@@ -40,7 +46,7 @@ RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sh
 
 ## Download, Build & Install `Mapnik`
 WORKDIR /tmp/mapnik_src
-RUN --mount=id=centos:centos7-mapnik:${mapnik_version},target=/tmp/mapnik_src,type=cache \
+RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},target=/tmp/mapnik_src,type=cache \
     export DESTDIR="/tmp/mapnik"; \
     export GDAL_DATA="$(gdal-config --datadir)"; \
     export JOBS="$(nproc)"; \
@@ -50,11 +56,16 @@ RUN --mount=id=centos:centos7-mapnik:${mapnik_version},target=/tmp/mapnik_src,ty
     if [ ! -f SConstruct ]; then \
         curl --silent --location https://github.com/mapnik/mapnik/releases/download/v${mapnik_version}/mapnik-v${mapnik_version}.tar.bz2 \
             | tar --extract --bzip2 --strip-components=1 --file=-; \
-        sed -i 's#BOOST_APPEND = match.groups()\[0\]#BOOST_APPEND = ""#g' SConstruct; \
+        if [ "${centos_stream_version}" = "9" ]; then \
+            curl --silent --location https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
+                | patch -Np1; \
+            curl --silent --location https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
+                | patch -F3 -Np1; \
+        fi \
     fi; \
-    source /opt/rh/devtoolset-9/enable; \
-    export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"; \
-    export CUSTOM_LDFLAGS="-L/usr/lib64/boost169"; \
+    if [ "${centos_stream_version}" = "8" ]; then \
+        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"; \
+    fi; \
     bash configure \
         CPP_TESTS=False \
         CUSTOM_CFLAGS="${CUSTOM_CFLAGS:-}" \
@@ -74,21 +85,27 @@ RUN --mount=id=centos:centos7-mapnik:${mapnik_version},target=/tmp/mapnik_src,ty
     make install PYTHON="${PYTHON}"
 
 # Builder
-FROM centos:centos7 as builder
+FROM quay.io/centos/centos:stream${centos_stream_version} as builder
+
+## Arguments
+ARG centos_stream_version
+ARG extra_repository
 
 ## Install builder dependencies
-RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sharing=locked \
-    ulimit -n 40000; \
-    echo "install_weak_deps=0" >> /etc/yum.conf && \
-    sed --in-place 's/keepcache=0/keepcache=1/g' /etc/yum.conf && \
-    yum --assumeyes install epel-release centos-release-scl && \
-    yum --assumeyes upgrade && \
-    yum --assumeyes install \
-        boost169-devel \
+RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
+    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
+    dnf --assumeyes install "dnf-command(config-manager)" && \
+    dnf config-manager --save \
+        --setopt=${extra_repository}.enabled=1 && \
+    dnf --assumeyes install epel-release && \
+    dnf --assumeyes upgrade && \
+    dnf --assumeyes install \
+        automake \
+        boost-devel \
         cairo-devel \
-        cmake3 \
-        devtoolset-9-gcc \
-        devtoolset-9-gcc-c++ \
+        gcc \
+        gcc-c++ \
         gdal \
         glib2-devel \
         harfbuzz-devel \
@@ -96,13 +113,16 @@ RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sh
         iniparser-devel \
         libcurl-devel \
         libicu-devel \
-        libjpeg \
+        libjpeg-devel \
         libmemcached-devel \
         librados2-devel \
-        libtiff \
-        libwebp \
+        libtiff-devel \
+        libwebp-devel \
+        libxml2-devel \
         make \
-        proj
+        proj-devel \
+        redhat-rpm-config \
+        sqlite-devel
 
 ## Copy files from builder(s)
 ### Mapnik
@@ -110,38 +130,33 @@ COPY --from=mapnik-builder /tmp/mapnik /
 
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
-WORKDIR /tmp/mod_tile_build
-RUN source /opt/rh/devtoolset-9/enable && \
-    export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
-    export CFLAGS="-I/usr/include/boost169" && \
-    export CXXFLAGS="-I/usr/include/boost169" && \
-    cmake3 -B . -S /tmp/mod_tile_src \
-        -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
-        -DENABLE_TESTS:BOOL=ON && \
-    cmake3 --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
-    export DESTDIR=/tmp/mod_tile && \
-    ctest3 --output-on-failure && \
-    (cmake3 --install . --strip || make DESTDIR=${DESTDIR} install/strip)
+WORKDIR /tmp/mod_tile_src
+RUN export DESTDIR=/tmp/mod_tile && \
+    ./autogen.sh && \
+    ./configure && \
+    make DESTDIR=${DESTDIR} install install-mod_tile
+RUN make test
 
 # Runner
-FROM centos:centos7 as runner
+FROM quay.io/centos/centos:stream${centos_stream_version} as runner
+
+## Arguments
+ARG centos_stream_version
+ARG extra_repository
 
 ## Install runner dependencies
-RUN --mount=id=centos:centos7-/var/cache/yum,target=/var/cache/yum,type=cache,sharing=locked \
-    ulimit -n 40000; \
-    echo "install_weak_deps=0" >> /etc/yum.conf && \
-    sed --in-place 's/keepcache=0/keepcache=1/g' /etc/yum.conf && \
-    yum --assumeyes install epel-release && \
-    yum --assumeyes upgrade && \
-    yum --assumeyes install \
-        boost169-filesystem \
-        boost169-program-options \
-        boost169-regex \
+RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
+    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
+    dnf --assumeyes install "dnf-command(config-manager)" && \
+    dnf config-manager --save \
+        --setopt=${extra_repository}.enabled=1 && \
+    dnf --assumeyes install epel-release && \
+    dnf --assumeyes upgrade && \
+    dnf --assumeyes install \
+        boost-filesystem \
+        boost-program-options \
+        boost-regex \
         cairo \
         gdal \
         harfbuzz \
@@ -166,12 +181,22 @@ COPY --from=builder \
     /tmp/mod_tile_src/etc/apache2/renderd-example-map.conf \
     /etc/httpd/conf.d/renderd-example-map.conf
 
+## Fix mapnik directories
+RUN sed \
+        --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input)#g" \
+        --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
+        /usr/local/etc/renderd.conf > /etc/renderd.conf
+
 ## Add configuration
+RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/httpd/conf.modules.d/11-tile.conf
 RUN printf '\n[example-map]\nMAXZOOM=20\nMINZOOM=0\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-jpg]\nMAXZOOM=20\nMINZOOM=0\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png256]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png32]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png32\nURI=/tiles/renderd-example-png32\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-webp]\nMAXZOOM=20\nMINZOOM=0\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
+
+## Create missing directories
+RUN mkdir --parents /run/renderd /var/cache/renderd/tiles
 
 ## Start services
 CMD httpd -e debug -k start; \

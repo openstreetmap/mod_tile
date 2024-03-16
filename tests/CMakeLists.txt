@@ -46,6 +46,8 @@ set(WWW_USER_NAME "nobody")
 
 set(MAP_NAMES "jpg" "png256" "png32" "webp")
 
+file(COPY tiles.sha256sum DESTINATION ${PROJECT_BINARY_DIR}/tests)
+
 set(TILE_ZXY "9/297/191")
 
 set(METRICS_OFF_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}/metrics")
@@ -202,11 +204,11 @@ foreach(MAP_NAME IN LISTS MAP_NAMES)
   add_test(
     NAME download_tile_${MAP_NAME}
     COMMAND ${BASH} -c "
-      until $(${CURL_CMD} ${HTTPD0_URL} --output tile.${MAP_NAME}.0); do
+      until $(${CURL_CMD} ${HTTPD0_URL} --output tile.${MAP_NAME}.file.0); do
         echo 'Sleeping 1s (${MAP_NAME}.0)';
         sleep 1;
       done
-      until $(${CURL_CMD} ${HTTPD1_URL} --output tile.${MAP_NAME}.1); do
+      until $(${CURL_CMD} ${HTTPD1_URL} --output tile.${MAP_NAME}.file.1); do
         echo 'Sleeping 1s (${MAP_NAME}.1)';
         sleep 1;
       done
@@ -259,37 +261,27 @@ foreach(MAP_NAME IN LISTS MAP_NAMES)
   )
   add_test(
     NAME remove_tile_${MAP_NAME}
-    COMMAND ${RM} -v tile.${MAP_NAME}.0 tile.${MAP_NAME}.1
+    COMMAND ${RM} -v tile.${MAP_NAME}.file.0 tile.${MAP_NAME}.file.1
     WORKING_DIRECTORY tests
   )
   set_tests_properties(remove_tile_${MAP_NAME} PROPERTIES
     DEPENDS_ON download_tile_${MAP_NAME}
     FIXTURES_CLEANUP tiles_downloaded
-    REQUIRED_FILES "tile.${MAP_NAME}.0;tile.${MAP_NAME}.1"
+    REQUIRED_FILES "tile.${MAP_NAME}.file.0;tile.${MAP_NAME}.file.1"
   )
 endforeach()
 
 add_test(
   NAME check_tiles
   COMMAND ${BASH} -c "
-    (echo '${TILE_JPG_SHA256SUM}  tile.jpg.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-    (echo '${TILE_JPG_SHA256SUM}  tile.jpg.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-    (echo '${TILE_PNG256_SHA256SUM}  tile.png256.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-    (echo '${TILE_PNG256_SHA256SUM}  tile.png256.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-    (echo '${TILE_PNG32_SHA256SUM}  tile.png32.0' | ${SHA256SUM_EXECUTABLE} -c) && \
-    (echo '${TILE_PNG32_SHA256SUM}  tile.png32.1' | ${SHA256SUM_EXECUTABLE} -c) && \
-    ( \
-      (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.0' | ${SHA256SUM_EXECUTABLE} -c) \
-    ) && \
-    ( \
-      (echo '${TILE_WEBP_SHA256SUM_01}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_02}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_03}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) || \
-      (echo '${TILE_WEBP_SHA256SUM_04}  tile.webp.1' | ${SHA256SUM_EXECUTABLE} -c) \
-    )
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.jpg.file.0 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.jpg.file.1 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.png256.file.0 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.png256.file.1 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.png32.file.0 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.png32.file.1 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.webp.file.0 | ${GREP_EXECUTABLE} -q OK
+    ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} tile.webp.file.1 | ${GREP_EXECUTABLE} -q OK
   "
   WORKING_DIRECTORY tests
 )
