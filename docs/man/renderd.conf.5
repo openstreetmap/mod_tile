@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2023-12-19" "mod_tile v0.7.0"
+.TH RENDERD.CONF 5 "2024-03-16" "mod_tile v0.7.1"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -47,13 +47,13 @@ The default value is \fB'4'\fR (macro definition \fB'NUM_THREADS'\fR).
 .B pid_file
 Specify the file path into which the PID will be written by \fBrenderd\fR.
 It is only written to when \fBrenderd\fR is not running in \fBforeground\fR mode (e.g. without \fB'--foreground'\fR / \fB'-f')\fR.
-The default value is \fB'/var/run/renderd/renderd.pid'\fR (macro definition \fB'RENDERD_PIDFILE'\fR).
+The default value is \fB'/run/renderd/renderd.pid'\fR (macro definition \fB'RENDERD_PIDFILE'\fR).
 
 .TP
 .B socketname
 Specify the file path to be used as a unix domain socket for communication with \fBrenderd\fR.
 This option and \fBiphostname\fR / \fBipport\fR are mutually exclusive.
-The default value is \fB'/var/run/renderd/renderd.sock'\fR (macro definition \fB'RENDERD_SOCKET'\fR).
+The default value is \fB'/run/renderd/renderd.sock'\fR (macro definition \fB'RENDERD_SOCKET'\fR).
 
 .TP
 .B stats_file
