@@ -11,7 +11,7 @@ For your convenience, we have provided a Docker-based building and testing metho
 - debian-10 _(Debian 10)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - debian-11 _(Debian 11)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - debian-12 _(Debian 12)_ [[Dockerfile](/docker/debian/Dockerfile)]
-- debian-testing _(Debian Testing)_ [[Dockerfile](/docker/debian/Dockerfile)]
+- debian-unstable _(Debian Unstable)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - fedora-34 _(Fedora 34)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - fedora-35 _(Fedora 35)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - fedora-36 _(Fedora 36)_ [[Dockerfile](/docker/fedora/Dockerfile)]

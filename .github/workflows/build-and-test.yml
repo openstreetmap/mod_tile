@@ -7,6 +7,7 @@ on:
 
 jobs:
   Linux:
+    continue-on-error: ${{ matrix.experimental || false }}
     name: >-
       ${{ matrix.image }}
       (${{ matrix.build_system }})
@@ -14,25 +15,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image:
-          - "debian:11"
-          - "debian:12"
-          - "debian:testing"
-          - "fedora:38"
-          - "fedora:39"
-          - "fedora:rawhide"
-          - "opensuse/leap:15"
-          - "quay.io/centos/centos:stream8"
-          - "quay.io/centos/centos:stream9"
-          - "ubuntu:20.04"
-          - "ubuntu:rolling"
         build_system:
           - CMake
         compiler:
           - GNU
+        image:
+          - "debian:11"
+          - "debian:12"
+          - "fedora:38"
+          - "fedora:39"
+          - "opensuse/leap:15"
+          - "quay.io/centos/centos:stream8"
+          - "quay.io/centos/centos:stream9"
+          - "ubuntu:20.04"
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
+          - image: "debian:unstable"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
+          - image: "fedora:rawhide"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
+          - image: "ubuntu:devel"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
           - image: "ubuntu:22.04"
             build_system: Autotools
             compiler: GNU
@@ -77,9 +87,7 @@ jobs:
         if: |
           matrix.build_system == 'CMake' &&
           matrix.compiler != 'LLVM' &&
-          matrix.image != 'debian:testing' &&
-          matrix.image != 'opensuse/leap:15' &&
-          matrix.image != 'ubuntu:rolling'
+          !matrix.experimental
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
@@ -207,7 +215,6 @@ jobs:
         uses: ./.github/actions/install
 
   FreeBSD:
-    continue-on-error: true
     env:
       CFLAGS: --coverage
       CTEST_CLIENT_HOST: ::1

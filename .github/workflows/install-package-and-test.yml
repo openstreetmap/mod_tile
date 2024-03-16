@@ -18,7 +18,9 @@ jobs:
         image:
           - "debian:11"
           - "debian:12"
+          - "debian:unstable"
           - "ubuntu:22.04"
+          - "ubuntu:devel"
       fail-fast: false
     container:
       image: ${{ matrix.image }}

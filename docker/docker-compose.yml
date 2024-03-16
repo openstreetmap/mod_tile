@@ -146,20 +146,20 @@ services:
         libmapnik_version: "3.1"
         debian_version: "12"
       dockerfile: docker/debian/Dockerfile.autotools
-  debian-testing:
+  debian-unstable:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
         libmapnik_version: "3.1"
-        debian_version: testing
-  debian-testing-autotools:
+        debian_version: unstable
+  debian-unstable-autotools:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
         libmapnik_version: "3.1"
-        debian_version: testing
+        debian_version: unstable
       dockerfile: docker/debian/Dockerfile.autotools
   fedora-34:
     <<: *service_defaults
