@@ -129,11 +129,11 @@ Add map configurations for example-map to ``/etc/renderd.conf``:
     XML=/usr/share/renderd/example-map/mapnik.xml
     ' | sudo tee -a /etc/renderd.conf
 
-Ensure the ``/var/run/renderd`` directory exists:
+Ensure the ``/run/renderd`` directory exists:
 
 ::
 
-    $ sudo mkdir -p /var/run/renderd
+    $ sudo mkdir -p /run/renderd
 
 Start the rendering daemon:
 

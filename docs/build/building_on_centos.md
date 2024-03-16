@@ -55,10 +55,14 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake3 -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
+  -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DCMAKE_INSTALL_RUNSTATEDIR=/run \
+  -DCMAKE_INSTALL_SYSCONFDIR=/etc \
   -DENABLE_TESTS:BOOL=ON
 cmake3 --build .
 ctest3
-sudo cmake --install . --prefix /usr --strip
+sudo cmake --install . --strip
 
 # Create /usr/share/renderd directory
 sudo mkdir --parents /usr/share/renderd

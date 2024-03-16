@@ -65,7 +65,7 @@ jobs:
           URI=/tiles/renderd-example-webp
           XML=/usr/share/renderd/example-map/mapnik.xml
           ' | tee -a /etc/renderd.conf
-          mkdir -p /var/run/renderd
+          mkdir -p /run/renderd
           renderd
           a2enmod tile
           a2ensite renderd-example-map

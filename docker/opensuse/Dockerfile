@@ -113,13 +113,16 @@ WORKDIR /tmp/mod_tile_build
 RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
+        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
+        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
     export DESTDIR=/tmp/mod_tile && \
     ctest --output-on-failure && \
-    (cmake --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip) && \
-    mv /tmp/mod_tile/var/run /tmp/mod_tile/run
+    (cmake --install . --strip || make DESTDIR=${DESTDIR} install/strip)
 
 # Runner
 FROM opensuse/${opensuse_version} as runner
