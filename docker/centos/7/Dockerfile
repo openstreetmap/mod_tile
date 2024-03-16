@@ -117,13 +117,16 @@ RUN source /opt/rh/devtoolset-9/enable && \
     export CXXFLAGS="-I/usr/include/boost169" && \
     cmake3 -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
+        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
+        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake3 --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
     export DESTDIR=/tmp/mod_tile && \
     ctest3 --output-on-failure && \
-    (cmake3 --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip) && \
-    mv /tmp/mod_tile/var/run /tmp/mod_tile/run
+    (cmake3 --install . --strip || make DESTDIR=${DESTDIR} install/strip)
 
 # Runner
 FROM centos:centos7 as runner
