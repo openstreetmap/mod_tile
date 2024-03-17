@@ -87,6 +87,7 @@ jobs:
         if: |
           matrix.build_system == 'CMake' &&
           matrix.compiler != 'LLVM' &&
+          !startsWith(matrix.image, 'opensuse/') &&
           !matrix.experimental
 
       - name: Package `mod_tile`
