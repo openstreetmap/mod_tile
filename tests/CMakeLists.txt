@@ -338,11 +338,10 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
 
     add_test(NAME render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        echo '0/0/0' | $<TARGET_FILE:render_expired> \
+        printf '0/0/0\n%.0s' {0..100} | $<TARGET_FILE:render_expired> \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
           --min-zoom 0 \
-          --no-progress \
           --num-threads 1 \
           --socket ${SOCKET} \
           --tile-dir ${TILE_DIR} \
@@ -357,8 +356,9 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     add_test(NAME render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        echo '3/0/3' | $<TARGET_FILE:render_expired> \
-          --config ${RENDERD_CONF}
+        echo '100/100/100' | $<TARGET_FILE:render_expired> \
+          --config ${RENDERD_CONF} \
+          --no-progress
       "
       WORKING_DIRECTORY tests
     )
@@ -374,7 +374,6 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
           --min-zoom 0 \
-          --no-progress \
           --num-threads 1 \
           --socket ${SOCKET} \
           --tile-dir ${TILE_DIR} \
@@ -393,7 +392,6 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
           --min-zoom 0 \
-          --no-progress \
           --num-threads 1 \
           --socket ${SOCKET} \
           --tile-dir ${TILE_DIR} \

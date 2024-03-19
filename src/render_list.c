@@ -307,13 +307,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	store = init_storage_backend(tile_dir);
-
-	if (store == NULL) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise storage backend %s", tile_dir);
-		return 1;
-	}
-
 	if (all) {
 		if ((min_x != -1 || min_y != -1 || max_x != -1 || max_y != -1) && min_zoom != max_zoom) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options");
@@ -349,6 +342,13 @@ int main(int argc, char **argv)
 			g_logger(G_LOG_LEVEL_CRITICAL, "Invalid range, x and y values must be >= 0");
 			return 1;
 		}
+	}
+
+	store = init_storage_backend(tile_dir);
+
+	if (store == NULL) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise storage backend %s", tile_dir);
+		return 1;
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Started render_list with the following options:");

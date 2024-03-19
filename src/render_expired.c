@@ -305,13 +305,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	store = init_storage_backend(tile_dir);
-
-	if (store == NULL) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise storage backend %s", tile_dir);
-		return 1;
-	}
-
 	// initialise arrays for tile markings
 
 	tile_requested = (unsigned int **)malloc((max_zoom - excess_zoomlevels + 1) * sizeof(unsigned int *));
@@ -326,6 +319,13 @@ int main(int argc, char **argv)
 			g_logger(G_LOG_LEVEL_CRITICAL, "not enough memory available");
 			return 1;
 		}
+	}
+
+	store = init_storage_backend(tile_dir);
+
+	if (store == NULL) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise storage backend %s", tile_dir);
+		return 1;
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Started render_expired with the following options:");
