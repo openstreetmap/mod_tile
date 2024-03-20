@@ -180,7 +180,7 @@ TEST_CASE("render_speedtest specific", "specific testing")
 	}
 }
 
-TEST_CASE("render_speedtest generator", "generator testing")
+TEST_CASE("render_speedtest min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--max-zoom", "--min-zoom", "--num-threads");
 

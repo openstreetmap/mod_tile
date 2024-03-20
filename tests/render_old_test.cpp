@@ -179,7 +179,7 @@ TEST_CASE("render_old specific", "specific testing")
 	}
 }
 
-TEST_CASE("render_old generator", "generator testing")
+TEST_CASE("render_old min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--max-load", "--max-zoom", "--min-zoom", "--num-threads");
 

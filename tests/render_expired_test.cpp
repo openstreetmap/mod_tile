@@ -193,7 +193,7 @@ TEST_CASE("render_expired specific", "specific testing")
 	}
 }
 
-TEST_CASE("render_expired generator", "generator testing")
+TEST_CASE("render_expired min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--delete-from", "--max-load", "--max-zoom", "--min-zoom", "--num-threads", "--touch-from");
 
