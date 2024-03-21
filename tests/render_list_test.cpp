@@ -386,7 +386,7 @@ TEST_CASE("render_list min/max lat generator", "min/max lat generator testing")
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
-	SECTION("option is not an integer", "should return 1") {
+	SECTION("option is not a float", "should return 1") {
 		std::string command = test_binary + " " + option + " invalid";
 
 		// flawfinder: ignore
@@ -445,7 +445,7 @@ TEST_CASE("render_list min/max lon generator", "min/max lon generator testing")
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
-	SECTION("option is not an integer", "should return 1") {
+	SECTION("option is not a float", "should return 1") {
 		std::string command = test_binary + " " + option + " invalid";
 
 		// flawfinder: ignore
