@@ -209,4 +209,13 @@ TEST_CASE("render_old min/max int generator", "min/max int generator testing")
 		int status = pclose(pipe);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
+
+	SECTION("option is not an integer", "should return 1") {
+		std::string command = test_binary + " " + option + " invalid";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
 }
