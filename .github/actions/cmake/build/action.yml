@@ -1,0 +1,21 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Prepare `build` directory
+      run: |
+        cmake -B build -S . \
+          -LA \
+          -DCMAKE_BUILD_TYPE:STRING=${BUILD_TYPE:-Release} \
+          -DCMAKE_INSTALL_LOCALSTATEDIR=${INSTALL_LOCALSTATEDIR:-/var} \
+          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr} \
+          -DCMAKE_INSTALL_RUNSTATEDIR=${INSTALL_RUNSTATEDIR:-/run} \
+          -DCMAKE_INSTALL_SYSCONFDIR=${INSTALL_SYSCONFDIR:-/etc} \
+          -DENABLE_TESTS:BOOL=ON
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Build `mod_tile`
+      run: |
+        export CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL:-$(nproc)}
+        cmake --build build
+      shell: bash --noprofile --norc -euxo pipefail {0}

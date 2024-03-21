@@ -1,0 +1,30 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+/* Define to 1 if you have the functions. */
+#cmakedefine HAVE_DAEMON @HAVE_DAEMON@
+#cmakedefine HAVE_GETLOADAVG @HAVE_GETLOADAVG@
+
+/* Define to 1 if you have the header files. */
+#cmakedefine HAVE_PATHS_H @HAVE_PATHS_H@
+#cmakedefine HAVE_PTHREAD @HAVE_PTHREAD@
+#cmakedefine HAVE_SYS_CDEFS_H @HAVE_SYS_CDEFS_H@
+#cmakedefine HAVE_SYS_LOADAVG_H @HAVE_SYS_LOADAVG_H@
+
+/* Define to 1 if you have the libraries. */
+#cmakedefine HAVE_CAIRO @HAVE_CAIRO@
+#cmakedefine HAVE_LIBCURL @HAVE_LIBCURL@
+#cmakedefine HAVE_LIBMEMCACHED @HAVE_LIBMEMCACHED@
+#cmakedefine HAVE_LIBRADOS @HAVE_LIBRADOS@
+
+/* Define configuration options. */
+#cmakedefine MAPNIK_FONTS_DIR "@MAPNIK_FONTS_DIR@"
+#cmakedefine MAPNIK_FONTS_DIR_RECURSE "@MAPNIK_FONTS_DIR_RECURSE@"
+#cmakedefine MAPNIK_PLUGINS_DIR "@MAPNIK_PLUGINS_DIR@"
+#cmakedefine RENDERD_CONFIG "@RENDERD_CONFIG@"
+#cmakedefine RENDERD_PIDFILE "@RENDERD_PIDFILE@"
+#cmakedefine RENDERD_SOCKET "@RENDERD_SOCKET@"
+#cmakedefine RENDERD_TILE_DIR "@RENDERD_TILE_DIR@"
+
+/* Version number of project */
+#cmakedefine VERSION "@VERSION@"
+#endif

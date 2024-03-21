@@ -1,0 +1,10 @@
+[renderd]
+pid_file=@RENDERD_PIDFILE@
+socketname=@RENDERD_SOCKET@
+stats_file=@RENDERD_RUN_DIR@/renderd.stats
+tile_dir=@RENDERD_TILE_DIR@
+
+[mapnik]
+font_dir=@MAPNIK_FONTS_DIR@
+font_dir_recurse=@MAPNIK_FONTS_DIR_RECURSE@
+plugins_dir=@MAPNIK_PLUGINS_DIR@

@@ -1,0 +1,7 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Install `mod_tile`
+      run: ${{ !matrix.image && 'sudo' || '' }} cmake --install build
+      shell: bash --noprofile --norc -euxo pipefail {0}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <title>renderd example map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <script src="leaflet/leaflet.min.js"></script>
+  </head>
+
+  <body style="margin: 0">
+    <div id="map" style="position: absolute; width: 100%; height: 100%"></div>
+
+    <script>
+      var attribution =
+        'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors.';
+      var options = {
+        maxZoom: 20,
+        attribution: attribution,
+      };
+
+      var png = L.tileLayer(
+        "http://localhost:8081/tiles/renderd-example/{z}/{x}/{y}.png",
+        options,
+      );
+
+      var jpg = L.tileLayer(
+        "http://localhost:8081/tiles/renderd-example-jpg/{z}/{x}/{y}.jpg",
+        options,
+      );
+      var png32 = L.tileLayer(
+        "http://localhost:8081/tiles/renderd-example-png32/{z}/{x}/{y}.png",
+        options,
+      );
+      var webp = L.tileLayer(
+        "http://localhost:8081/tiles/renderd-example-webp/{z}/{x}/{y}.webp",
+        options,
+      );
+
+      var map = L.map("map", {
+        center: [0, 0],
+        zoom: 4,
+        layers: [png],
+      });
+
+      var baseMaps = {
+        JPG: jpg,
+        PNG: png,
+        PNG32: png32,
+        WEBP: webp,
+      };
+
+      var layerControl = L.control.layers(baseMaps).addTo(map);
+    </script>
+  </body>
+</html>

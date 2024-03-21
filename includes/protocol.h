@@ -1,5 +1,24 @@
+/*
+ * Copyright (c) 2007 - 2023 by mod_tile contributors (see AUTHORS file)
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; If not, see http://www.gnu.org/licenses/.
+ */
+
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
+
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,37 +36,53 @@ extern "C" {
  */
 #define TILE_PATH_MAX (256)
 #define PROTO_VER (3)
-#define RENDER_SOCKET "/var/run/renderd/renderd.sock"
+#ifndef RENDERD_SOCKET
+#define RENDERD_SOCKET "/run/renderd/renderd.sock"
+#endif
+#ifndef RENDERD_HOST
+#define RENDERD_HOST "localhost"
+#endif
+#ifndef RENDERD_PORT
+#define RENDERD_PORT 7654
+#endif
 #define XMLCONFIG_MAX 41
 
-enum protoCmd { cmdIgnore, cmdRender, cmdDirty, cmdDone, cmdNotDone, cmdRenderPrio, cmdRenderBulk, cmdRenderLow };
+enum protoCmd { cmdIgnore,
+		cmdRender,
+		cmdDirty,
+		cmdDone,
+		cmdNotDone,
+		cmdRenderPrio,
+		cmdRenderBulk,
+		cmdRenderLow
+	      };
 
 struct protocol {
-    int ver;
-    enum protoCmd cmd;
-    int x;
-    int y;
-    int z;
-    char xmlname[XMLCONFIG_MAX];
-    char mimetype[XMLCONFIG_MAX]; 
-    char options[XMLCONFIG_MAX]; 
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+	char xmlname[XMLCONFIG_MAX];
+	char mimetype[XMLCONFIG_MAX];
+	char options[XMLCONFIG_MAX];
 };
 
 struct protocol_v1 {
-    int ver;
-    enum protoCmd cmd;
-    int x;
-    int y;
-    int z;
-}; 
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+};
 
-struct protocol_v2 { 
-    int ver; 
-    enum protoCmd cmd; 
-    int x; 
-    int y; 
-    int z; 
-    char xmlname[XMLCONFIG_MAX]; 
+struct protocol_v2 {
+	int ver;
+	enum protoCmd cmd;
+	int x;
+	int y;
+	int z;
+	char xmlname[XMLCONFIG_MAX];
 };
 
 #ifdef __cplusplus

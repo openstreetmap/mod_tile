@@ -1,0 +1,66 @@
+---
+inputs:
+  version:
+    description: Version of Mapnik to build & install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create `Mapnik` source directory
+      run: |
+        mkdir mapnik-src
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Cache "Download `Mapnik`" & "Build `Mapnik`"
+      id: cache-mapnik-src
+      uses: actions/cache@v4
+      with:
+        path: mapnik-src
+        key: ${{ matrix.image }}-${{ matrix.compiler }}-mapnik-${{ inputs.version }}
+
+    - name: Download `Mapnik`
+      run: |
+        curl --silent --location \
+          https://github.com/mapnik/mapnik/releases/download/v${{ inputs.version }}/mapnik-v${{ inputs.version }}.tar.bz2 \
+          | tar --extract --bzip2 --strip-components=1 --file=-
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src
+      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+
+    - name: Build `Mapnik`
+      run: |
+        # Export variables
+        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"
+        export GDAL_DATA=/usr/share/gdal
+        export JOBS=${JOBS:-$(nproc)}
+        export PROJ_LIB=/usr/share/proj
+        export PYTHON=${PYTHON:-python3}
+
+        # Create GDAL_DATA/PROJ_LIB directories
+        mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
+
+        # Configure & build
+        ./configure \
+          CC="${CC:-gcc}" \
+          CUSTOM_CFLAGS="${CUSTOM_CFLAGS:-}" \
+          CUSTOM_CXXFLAGS="${CUSTOM_CXXFLAGS:-}" \
+          CUSTOM_DEFINES="${CUSTOM_DEFINES:-}" \
+          CUSTOM_LDFLAGS="${CUSTOM_LDFLAGS:-}" \
+          CXX="${CXX:-g++}" \
+          FAST=True \
+          OPTIMIZATION=0 \
+          PREFIX="/usr"
+         make PYTHON=${PYTHON} || make PYTHON=${PYTHON}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src
+      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+
+    - name: Install `Mapnik`
+      run: |
+        # Export `PYTHON`
+        export PYTHON=${PYTHON:-python3}
+
+        make install PYTHON=${PYTHON}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: mapnik-src

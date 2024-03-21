@@ -1,0 +1,288 @@
+---
+name: Build & Test
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  Linux:
+    continue-on-error: ${{ matrix.experimental || false }}
+    name: >-
+      ${{ matrix.image }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_system:
+          - CMake
+        compiler:
+          - GNU
+        image:
+          - "debian:11"
+          - "debian:12"
+          - "fedora:38"
+          - "fedora:39"
+          - "opensuse/leap:15"
+          - "quay.io/centos/centos:stream8"
+          - "quay.io/centos/centos:stream9"
+          - "ubuntu:20.04"
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+        include:
+          - image: "debian:unstable"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
+          - image: "fedora:rawhide"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
+          - image: "ubuntu:devel"
+            build_system: CMake
+            compiler: GNU
+            experimental: true
+          - image: "ubuntu:22.04"
+            build_system: Autotools
+            compiler: GNU
+          - image: "ubuntu:22.04"
+            build_system: Autotools
+            compiler: LLVM
+          - image: "ubuntu:22.04"
+            build_system: CMake
+            compiler: GNU
+          - image: "ubuntu:22.04"
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+      fail-fast: false
+    container:
+      env:
+        CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
+        CFLAGS: --coverage
+        CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+        CXXFLAGS: --coverage
+      image: ${{ matrix.image }}
+    steps:
+      - name: Install `git` (openSUSE)
+        run: zypper --non-interactive install git
+        if: startsWith(matrix.image, 'opensuse/')
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Process & Report `mod_tile` coverage results
+        uses: ./.github/actions/coverage
+        if: |
+          matrix.build_system == 'CMake' &&
+          matrix.compiler != 'LLVM' &&
+          !startsWith(matrix.image, 'opensuse/') &&
+          !matrix.experimental
+
+      - name: Package `mod_tile`
+        uses: ./.github/actions/cmake/package
+        if: matrix.build_system == 'CMake'
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
+  Linux-Latest-Mapnik:
+    continue-on-error: true
+    name: >-
+      ${{ matrix.image }}
+      (Latest Mapnik)
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - "debian:12"
+          - "ubuntu:22.04"
+        build_system:
+          - CMake
+        compiler:
+          - GNU
+        mapnik_latest:
+          - true
+      fail-fast: false
+    container:
+      env:
+        CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
+        CFLAGS: --coverage
+        CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+        CXXFLAGS: --coverage
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Process & Report `mod_tile` coverage results
+        uses: ./.github/actions/coverage
+        if: matrix.build_system == 'CMake'
+
+      - name: Package `mod_tile`
+        uses: ./.github/actions/cmake/package
+        if: matrix.build_system == 'CMake'
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
+  macOS:
+    env:
+      CFLAGS: --coverage
+      CXXFLAGS: --coverage
+      INSTALL_PREFIX: /usr/local
+      INSTALL_RUNSTATEDIR: /var/run
+      LDFLAGS: -undefined dynamic_lookup
+      TEST_PARALLEL_LEVEL: 1
+    name: >-
+      ${{ matrix.os }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-12
+          - macos-13
+        build_system:
+          - CMake
+        compiler:
+          - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+        include:
+          - os: macos-14
+            build_system: Autotools
+            compiler: LLVM
+          - os: macos-14
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Set CPATH, ICU_ROOT & LIBRARY_PATH
+        run: |
+          echo "CPATH=$(brew --prefix)/include" >> ${GITHUB_ENV}
+          echo "ICU_ROOT=$(brew --prefix icu4c)" >> ${GITHUB_ENV}
+          echo "LIBRARY_PATH=$(brew --prefix)/lib" >> ${GITHUB_ENV}
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Process & Report `mod_tile` coverage results
+        uses: ./.github/actions/coverage
+        with:
+          genhtml-extra-options: --ignore-errors inconsistent --ignore-errors unmapped
+          lcov-extra-options: --ignore-errors gcov --ignore-errors inconsistent
+        if: matrix.build_system == 'CMake'
+
+      - name: Package `mod_tile`
+        uses: ./.github/actions/cmake/package
+        if: matrix.build_system == 'CMake'
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
+
+  FreeBSD:
+    env:
+      CFLAGS: --coverage
+      CTEST_CLIENT_HOST: ::1
+      CTEST_SERVER_HOST: localhost
+      CXXFLAGS: --coverage
+      INSTALL_PREFIX: /usr/local
+      LIBRARY_PATH: /usr/local/lib
+      TMPDIR: /tmp
+    name: >-
+      ${{ matrix.box_generic }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        box_generic:
+          - freebsd13
+        build_system:
+          - CMake
+        compiler:
+          - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+        include:
+          - box_generic: freebsd14
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set `BUILD_PARALLEL_LEVEL` & `TEST_PARALLEL_LEVEL`
+        run: |
+          echo "BUILD_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
+          echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
+
+      - name: Provision VM
+        uses: hummeltech/freebsd-vagrant-action@v1.4
+        with:
+          box: generic/${{ matrix.box_generic }}
+          cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
+          memory: 4096
+
+      # Mapnik is not in the `quarterly` repository (2023.10.12)
+      - name: Use "latest" repository
+        run: |
+          sudo mkdir -p /usr/local/etc/pkg/repos
+          sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf | sudo tee /usr/local/etc/pkg/repos/FreeBSD.conf
+          sudo pkg upgrade
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Process & Report `mod_tile` coverage results
+        uses: ./.github/actions/coverage
+
+      - name: Package `mod_tile`
+        uses: ./.github/actions/cmake/package
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install

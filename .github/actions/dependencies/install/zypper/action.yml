@@ -1,0 +1,12 @@
+---
+inputs:
+  packages:
+    description: List of package(s) to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install package(s)
+      run: ${{ !matrix.image && 'sudo' || '' }} zypper --non-interactive install ${{ inputs.packages }}
+      shell: bash --noprofile --norc -euxo pipefail {0}

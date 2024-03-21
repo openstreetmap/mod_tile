@@ -1,0 +1,11 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Run `make install`
+      run: ${{ !matrix.image && 'sudo -E' || '' }} make install
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Run `make install-mod_tile`
+      run: ${{ !matrix.image && 'sudo -E' || '' }} make install-mod_tile
+      shell: bash --noprofile --norc -euxo pipefail {0}

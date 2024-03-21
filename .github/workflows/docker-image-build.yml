@@ -1,0 +1,84 @@
+---
+name: Docker Image Build
+
+on:
+  pull_request:
+  push:
+    paths:
+      - "docker/**"
+      - ".github/workflows/docker-image-build.yml"
+
+jobs:
+  docker-image-build:
+    continue-on-error: ${{ matrix.experimental || false }}
+    name: Build & Test (${{ matrix.service-name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service-name:
+          - archlinux
+          - centos-7
+          - centos-stream-8
+          - centos-stream-9
+          - debian-11
+          - debian-12
+          - fedora-38
+          - fedora-39
+          - opensuse-leap-15
+          - ubuntu-20.04
+          - ubuntu-22.04
+        include:
+          - service-name: debian-unstable
+            experimental: true
+          - service-name: debian-unstable-autotools
+            experimental: true
+          - service-name: fedora-rawhide
+            experimental: true
+          - service-name: opensuse-tumbleweed
+            experimental: true
+          - service-name: ubuntu-devel
+            experimental: true
+          - service-name: ubuntu-devel-autotools
+            experimental: true
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build & Start
+        run: docker compose up --build --detach ${{ matrix.service-name }}
+        working-directory: docker
+
+      - name: Test
+        run: |
+          until $(curl --fail --output tile.jpg.file.0 --silent http://localhost:8081/tiles/renderd-example-jpg/9/297/191.jpg); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.jpg.file.0 | grep -q OK
+          until $(curl --fail --output tile.png256.file.0 --silent http://localhost:8081/tiles/renderd-example-png256/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.png256.file.0 | grep -q OK
+          until $(curl --fail --output tile.png32.file.0 --silent http://localhost:8081/tiles/renderd-example-png32/9/297/191.png); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.png32.file.0 | grep -q OK
+          until $(curl --fail --output tile.webp.file.0 --silent http://localhost:8081/tiles/renderd-example-webp/9/297/191.webp); do
+            echo 'Sleeping 5s';
+            sleep 5;
+          done
+          sha256sum --check --ignore-missing tests/tiles.sha256sum | grep tile.webp.file.0 | grep -q OK
+        timeout-minutes: 1
+
+      - name: Show logs
+        run: docker compose logs
+        working-directory: docker
+        if: failure()
+
+      - name: Stop
+        run: docker compose down --volumes
+        working-directory: docker
+        if: success() || failure()

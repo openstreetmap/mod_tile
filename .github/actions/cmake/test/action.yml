@@ -1,0 +1,27 @@
+---
+inputs:
+  options:
+    default: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure
+
+runs:
+  using: composite
+  steps:
+    - name: Test `mod_tile`
+      run: |
+        export CTEST_PARALLEL_LEVEL=${TEST_PARALLEL_LEVEL:-$(nproc)}
+        ctest ${{ inputs.options }}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+
+    - name: Set `TEST_ARTIFACT_NAME`
+      run: |
+        echo "TEST_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      if: failure()
+
+    - name: Upload `mod_tile` test artifacts on failure
+      uses: actions/upload-artifact@v4
+      with:
+        name: Test Artifacts - ${{ env.TEST_ARTIFACT_NAME }}
+        path: build/tests
+      if: failure()

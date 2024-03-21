@@ -1,0 +1,42 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Set `CPACK_PACKAGE_FILE_NAME`
+      run: |
+        echo "CPACK_PACKAGE_FILE_NAME=mod_tile-${GITHUB_SHA}-$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Set `CPACK_OPTIONS`
+      run: |
+        if command -v dpkg; then
+          echo "CPACK_OPTIONS= -G DEB" >> ${GITHUB_ENV}
+        elif command -v rpm; then
+          echo "CPACK_OPTIONS=-G RPM" >> ${GITHUB_ENV}
+        elif [ -f /etc/os-release ]; then
+          source /etc/os-release
+          if [ "$ID" = "freebsd" ]; then
+            echo "CPACK_OPTIONS=-D CPACK_SET_DESTDIR=1 -G FREEBSD" >> ${GITHUB_ENV}
+          fi
+        elif [[ ${OSTYPE} == 'darwin'* ]]; then
+          echo "CPACK_OPTIONS=-D CPACK_SET_DESTDIR=1 -G DragNDrop" >> ${GITHUB_ENV}
+        else
+          echo "CPACK_OPTIONS=-D CPACK_SET_DESTDIR=1 -G TGZ" >> ${GITHUB_ENV}
+        fi
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Package `mod_tile`
+      run: |
+        ${{ !matrix.image && 'sudo' || '' }} cpack ${CPACK_OPTIONS} \
+          -D CPACK_PACKAGE_FILE_NAME="${CPACK_PACKAGE_FILE_NAME}" || true
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+
+    - name: Upload `mod_tile` package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        if-no-files-found: ignore
+        name: Package Artifacts - ${{ env.CPACK_PACKAGE_FILE_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
+        path: |
+          build/${{ env.CPACK_PACKAGE_FILE_NAME }}.*
+        retention-days: 14

@@ -1,0 +1,89 @@
+---
+name: Lint
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  astyle:
+    env:
+      ASTYLE_CMD: >-
+        astyle
+        --break-blocks
+        --indent-switches
+        --indent=force-tab=8
+        --lineend=linux
+        --options=none
+        --pad-header
+        --pad-oper
+        --style=1tbs
+        --suffix=none
+        --unpad-paren
+        includes/*.h includes/*.hpp src/*.c src/*.cpp
+    name: Lint with `Artistic Style`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Provision environment
+        uses: ./.github/actions/dependencies/install/apt-get
+        with:
+          packages: astyle
+      - name: Check if any modifications were made by `astyle`
+        run: |
+          ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
+          if [ -n "$(echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged")" ]; then
+            echo "The following files are in need of formatting:"
+            echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "`"$2"`"}'
+            echo ""
+            echo "Run the following command before submitting a pull request:"
+            echo '`'"${ASTYLE_CMD}"'`'
+            exit 1
+          fi
+      - name: Write `$ASTYLE_OUTPUT` to `$GITHUB_STEP_SUMMARY`
+        run: |
+          ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
+          echo "### The following files are in need of formatting:" >> ${GITHUB_STEP_SUMMARY}
+          echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "- `"$2"`"}' >> ${GITHUB_STEP_SUMMARY}
+          echo "### Run the following command before submitting a pull request:" >> ${GITHUB_STEP_SUMMARY}
+          echo -e '```shell\n'"${ASTYLE_CMD}"'\n```' >> ${GITHUB_STEP_SUMMARY}
+        if: failure()
+      - name: Generate `ArtisticStyleFormattingFixes.patch` file
+        run: |
+          ${ASTYLE_CMD}
+          git diff --patch > ArtisticStyleFormattingFixes.patch
+        if: failure()
+      - name: Upload `ArtisticStyleFormattingFixes.patch` file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArtisticStyleFormattingFixes.patch
+          path: ArtisticStyleFormattingFixes.patch
+        if: failure()
+
+  cmakelint:
+    name: Lint with `CMakeLint`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Provision environment
+        run: pip install --user cmakelint
+      - name: Run linter
+        run: |
+          cmakelint --linelength=125 \
+            CMakeLists.txt \
+            */CMakeLists.txt \
+            */*.cmake
+
+  prettier:
+    name: Lint with `Prettier`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Provision environment
+        run: npm install prettier
+      - name: Run linter
+        run: |
+          npx prettier --check .

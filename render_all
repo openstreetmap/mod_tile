@@ -1,6 +1,0 @@
-#!/bin/bash
-
-for z in `seq 0 18`
-do
-    (cd $z; ../../render_old -z $z -Z $z &> render.txt) &
-done

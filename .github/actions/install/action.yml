@@ -1,0 +1,11 @@
+---
+runs:
+  using: composite
+  steps:
+    - name: Install `mod_tile` (Autotools)
+      uses: ./.github/actions/autotools/install
+      if: matrix.build_system == 'Autotools'
+
+    - name: Install `mod_tile` (CMake)
+      uses: ./.github/actions/cmake/install
+      if: matrix.build_system == 'CMake'
