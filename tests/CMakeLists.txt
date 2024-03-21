@@ -429,7 +429,13 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       COMMAND ${BASH} -c "
         $<TARGET_FILE:render_list> \
           --all \
-          --config ${RENDERD_CONF}
+          --config ${RENDERD_CONF} \
+          --max-lat 85.0511 \
+          --max-lon 180 \
+          --max-zoom 5 \
+          --min-lat -85.0511 \
+          --min-lon -180 \
+          --min-zoom 5
       "
       WORKING_DIRECTORY tests
     )
@@ -440,7 +446,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
-        echo '0 0 0' | $<TARGET_FILE:render_list> \
+        printf '0 0 0\n%.0s' {0..10} | $<TARGET_FILE:render_list> \
           --force \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
@@ -460,7 +466,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0 0 0' | $<TARGET_FILE:render_list> \
-          --config ${RENDERD_CONF}
+          --config ${RENDERD_CONF} \
+          --verbose
       "
       WORKING_DIRECTORY tests
     )

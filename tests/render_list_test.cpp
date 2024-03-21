@@ -157,6 +157,26 @@ TEST_CASE("render_list specific", "specific testing")
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
+	SECTION("--all --min-x exceeds --max-x", "should return 1") {
+		std::string option = "--all --max-x 1 --max-zoom 1 --min-x 2 --min-zoom 1";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--all --min-y exceeds --max-y", "should return 1") {
+		std::string option = "--all --max-y 1 --max-zoom 1 --min-y 2 --min-zoom 1";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
 	SECTION("--config without maps", "should return 1") {
 		std::string option = "--config " + (std::string)RENDERD_CONF;
 		std::string command = test_binary + " " + option;
@@ -234,9 +254,49 @@ TEST_CASE("render_list specific", "specific testing")
 		int status = pclose(pipe);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
+
+	SECTION("--all --max-lat --max-lon --min-lat --min-lon with --max-x", "should return 1") {
+		std::string option = "--all --max-lat 0 --max-lon 0 --min-lat 0 --min-lon 0 --max-x 0";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--all --max-lat --max-lon --min-lat --min-lon with --max-y", "should return 1") {
+		std::string option = "--all --max-lat 0 --max-lon 0 --min-lat 0 --min-lon 0 --max-y 0";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--all --min-lat exceeds --max-lat", "should return 1") {
+		std::string option = "--all --max-lat 0 --max-lon 0 --min-lat 1 --min-lon 0";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("--all --min-lon exceeds --max-lon", "should return 1") {
+		std::string option = "--all --max-lat 0 --max-lon 0 --min-lat 0 --min-lon 1";
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
 }
 
-TEST_CASE("render_list generator", "generator testing")
+TEST_CASE("render_list min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--max-load", "--max-x", "--max-y", "--max-zoom", "--min-x", "--min-y", "--min-zoom", "--num-threads");
 
@@ -260,6 +320,133 @@ TEST_CASE("render_list generator", "generator testing")
 
 	SECTION("option is float", "should return 1") {
 		std::string command = test_binary + " " + option + " 1.23456789";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is not an integer", "should return 1") {
+		std::string command = test_binary + " " + option + " invalid";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+}
+
+TEST_CASE("render_list min/max lat generator", "min/max lat generator testing")
+{
+	std::string option = GENERATE("--max-lat", "--min-lat");
+
+	SECTION("option is too large", "should return 1") {
+		std::string command = test_binary + " " + option + " 85.05111";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is too small", "should return 1") {
+		std::string command = test_binary + " " + option + " -85.05111";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is positive with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " 85.0511 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is negative with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " -85.0511 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is float with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " 1.23456789 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is not a float", "should return 1") {
+		std::string command = test_binary + " " + option + " invalid";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+}
+
+TEST_CASE("render_list min/max lon generator", "min/max lon generator testing")
+{
+	std::string option = GENERATE("--max-lon", "--min-lon");
+
+	SECTION("option is too large", "should return 1") {
+		std::string command = test_binary + " " + option + " 180.1";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is too small", "should return 1") {
+		std::string command = test_binary + " " + option + " -180.1";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is positive with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " 180 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is negative with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " -180 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is float with --help", "should return 0") {
+		std::string command = test_binary + " " + option + " 1.23456789 --help";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("option is not a float", "should return 1") {
+		std::string command = test_binary + " " + option + " invalid";
 
 		// flawfinder: ignore
 		FILE *pipe = popen(command.c_str(), "r");

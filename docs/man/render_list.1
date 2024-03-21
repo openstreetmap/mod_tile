@@ -1,4 +1,4 @@
-.TH RENDER_LIST "1" "2024-03-16" "mod_tile v0.7.1"
+.TH RENDER_LIST "1" "2024-03-20" "mod_tile v0.7.1"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -75,13 +75,21 @@ If you are using \fB\-a\fR|\-\-all, you can restrict the tile range by adding th
 .sp 0
 (please note that tile coordinates must be positive integers and are not latitude and longitude values)
 .PP
-  \fB\-x\fR|\-\-min-x=X        minimum X tile coordinate
+  \fB\-g\fR|\-\-min-lat=LATITUDE   minimum latitude
 .BR
-  \fB\-X\fR|\-\-max-x=X        maximum X tile coordinate
+  \fB\-G\fR|\-\-max-lat=LATITUDE   maximum latitude
 .BR
-  \fB\-y\fR|\-\-min-y=Y        minimum Y tile coordinate
+  \fB\-w\fR|\-\-min-lon=LONGITUDE  minimum longitude
 .BR
-  \fB\-Y\fR|\-\-max-y=Y        maximum Y tile coordinate
+  \fB\-W\fR|\-\-max-lon=LONGITUDE  maximum longitude
+.BR
+  \fB\-x\fR|\-\-min-x=X            minimum X tile coordinate
+.BR
+  \fB\-X\fR|\-\-max-x=X            maximum X tile coordinate
+.BR
+  \fB\-y\fR|\-\-min-y=Y            minimum Y tile coordinate
+.BR
+  \fB\-Y\fR|\-\-max-y=Y            maximum Y tile coordinate
 .PP
 Without \fB\-a\fR|\-\-all, send a list of tiles to be rendered from STDIN in the format:
 .BR

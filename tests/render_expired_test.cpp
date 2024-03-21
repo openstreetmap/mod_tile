@@ -193,7 +193,7 @@ TEST_CASE("render_expired specific", "specific testing")
 	}
 }
 
-TEST_CASE("render_expired generator", "generator testing")
+TEST_CASE("render_expired min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--delete-from", "--max-load", "--max-zoom", "--min-zoom", "--num-threads", "--touch-from");
 
@@ -217,6 +217,15 @@ TEST_CASE("render_expired generator", "generator testing")
 
 	SECTION("option is float", "should return 1") {
 		std::string command = test_binary + " " + option + " 1.23456789";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 1);
+	}
+
+	SECTION("option is not an integer", "should return 1") {
+		std::string command = test_binary + " " + option + " invalid";
 
 		// flawfinder: ignore
 		FILE *pipe = popen(command.c_str(), "r");

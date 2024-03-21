@@ -30,6 +30,7 @@ renderd_config config;
 renderd_config config_slaves[MAX_SLAVES];
 xmlconfigitem maps[XMLCONFIGS_MAX];
 
+double min_max_double_opt(const char *opt_arg, const char *opt_type_name, double minimum, double maximum);
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum);
 void free_map_section(xmlconfigitem map_section);
 void free_map_sections(xmlconfigitem *map_sections);
