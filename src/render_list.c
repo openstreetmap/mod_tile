@@ -42,6 +42,30 @@ int main(int argc, char **argv)
 }
 #else
 
+int
+lon2tilex(float lon, unsigned int zoom)
+{
+	if (zoom > 20) {
+		return -1;
+	}
+
+	return (int)((lon + 180) / 360 * pow(2, zoom));
+}
+
+static float
+secf(float in)
+{
+	return 1 / cosf(in);
+}
+
+int
+lat2tiley(float lat, unsigned int zoom)
+{
+	float lata = lat * M_PI / 180;
+	float ret = (1 - logf(tanf(lata) + secf(lata)) / M_PI) / 2 * pow(2, zoom);
+	return (int) ret;
+}
+
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
@@ -104,6 +128,8 @@ int main(int argc, char **argv)
 	int verbose = 0;
 	struct storage_backend *store;
 	struct stat_info s;
+	float minLat = -1, minLon = -1, maxLat = -1, maxLon = -1;
+	int dontRender = 0;
 
 	foreground = 1;
 
@@ -125,13 +151,18 @@ int main(int argc, char **argv)
 			{"socket",      required_argument, 0, 's'},
 			{"tile-dir",    required_argument, 0, 't'},
 			{"verbose",     no_argument,       0, 'v'},
+			{"min-lat",     required_argument, 0, 'A'},
+			{"min-lon",     required_argument, 0, 'B'},
+			{"max-lat",     required_argument, 0, 'C'},
+			{"max-lon",     required_argument, 0, 'D'},
+			{"dont-render", no_argument,       0, 'd'},
 
 			{"help",        no_argument,       0, 'h'},
 			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		int c = getopt_long(argc, argv, "ac:fm:l:X:Y:Z:x:y:z:n:s:t:vhV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "ac:fm:l:X:Y:Z:x:y:z:n:s:t:vhVdA:B:C:D:", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -216,6 +247,26 @@ int main(int argc, char **argv)
 
 			case 'v': /* -v, --verbose */
 				verbose = 1;
+				break;
+
+			case 'A':
+				minLat = atof(optarg);
+				break;
+
+			case 'B':
+				minLon = atof(optarg);
+				break;
+
+			case 'C':
+				maxLat = atof(optarg);
+				break;
+
+			case 'D':
+				maxLon = atof(optarg);
+				break;
+
+			case 'd':
+				dontRender = 1;
 				break;
 
 			case 'h': /* -h, --help */
@@ -308,7 +359,8 @@ int main(int argc, char **argv)
 	}
 
 	if (all) {
-		if ((min_x != -1 || min_y != -1 || max_x != -1 || max_y != -1) && min_zoom != max_zoom) {
+		if (((min_x != -1 || min_y != -1 || max_x != -1 || max_y != -1) &&
+				(minLat != 1 || minLon != -1 || maxLat != -1 || maxLon != -1)) && min_zoom != max_zoom) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options");
 			return 1;
 		}
@@ -375,20 +427,39 @@ int main(int argc, char **argv)
 		for (z = min_zoom; z <= max_zoom; z++) {
 			int current_max_x = (max_x == -1) ? (1 << z) - 1 : max_x;
 			int current_max_y = (max_y == -1) ? (1 << z) - 1 : max_y;
+
+			if (minLon != -1 && minLat != -1 && maxLon != -1 && maxLat != -1) {
+				// printf("using koords\n");
+				// exit(0);
+				int minX_tmp = lon2tilex(minLon, z);
+				int minY_tmp = lat2tiley(minLat, z);
+				int maxX_tmp = lon2tilex(maxLon, z);
+				int maxY_tmp = lat2tiley(maxLat, z);
+				min_x =         minX_tmp > maxX_tmp ? maxX_tmp : minX_tmp;
+				current_max_x = minX_tmp > maxX_tmp ? minX_tmp : maxX_tmp;
+				min_y =         minY_tmp > maxY_tmp ? maxY_tmp : minY_tmp;
+				current_max_y = minY_tmp > maxY_tmp ? minY_tmp : maxY_tmp;
+			} else {
+				current_max_x = (max_x == -1) ? (1 << z) - 1 : max_x;
+				current_max_y = (max_y == -1) ? (1 << z) - 1 : max_y;
+			}
+
 			g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)", z, min_x, min_y, current_max_x, current_max_y);
 
-			for (x = min_x; x <= current_max_x; x += METATILE) {
-				for (y = min_y; y <= current_max_y; y += METATILE) {
-					if (!force) {
-						s = store->tile_stat(store, mapname, "", x, y, z);
-					}
+			if (dontRender == 0) {
+				for (x = min_x; x <= current_max_x; x += METATILE) {
+					for (y = min_y; y <= current_max_y; y += METATILE) {
+						if (!force) {
+							s = store->tile_stat(store, mapname, "", x, y, z);
+						}
 
-					if (force || (s.size < 0) || (s.expired)) {
-						enqueue(mapname, x, y, z);
-						num_render++;
-					}
+						if (force || (s.size < 0) || (s.expired)) {
+							enqueue(mapname, x, y, z);
+							num_render++;
+						}
 
-					num_all++;
+						num_all++;
+					}
 				}
 			}
 		}
