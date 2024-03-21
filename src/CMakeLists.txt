@@ -29,6 +29,7 @@ set(COMMON_SRCS
 )
 set(COMMON_LIBRARIES
   ${GLIB_LIBRARIES}
+  ${MATH_LIBRARY}
   Threads::Threads
 )
 

@@ -62,12 +62,20 @@ find_program(APXS_EXECUTABLE apxs REQUIRED)
 include(CheckFunctionExists)
 check_function_exists(daemon HAVE_DAEMON)
 check_function_exists(getloadavg HAVE_GETLOADAVG)
+check_function_exists(pow HAVE_POW)
 
 # Include files
 include(CheckIncludeFile)
 check_include_file(paths.h HAVE_PATHS_H)
 check_include_file(sys/cdefs.h HAVE_SYS_CDEFS_H)
 check_include_file(sys/loadavg.h HAVE_SYS_LOADAVG_H)
+
+# Libraries
+include(CheckLibraryExists)
+if(NOT HAVE_POW)
+  check_library_exists(m pow "" HAVE_LIB_M)
+  find_library(MATH_LIBRARY m REQUIRED)
+endif()
 
 #-----------------------------------------------------------------------------
 #

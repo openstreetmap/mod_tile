@@ -18,6 +18,7 @@
 #include <getopt.h>
 #include <glib.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,28 +43,15 @@ int main(int argc, char **argv)
 }
 #else
 
-int
-lon2tilex(float lon, unsigned int zoom)
+int lon2tilex(double lon, int z)
 {
-	if (zoom > 20) {
-		return -1;
-	}
-
-	return (int)((lon + 180) / 360 * pow(2, zoom));
+	return (int)(floor((lon + 180.0) / 360.0 * pow(2.0, z)));
 }
 
-static float
-secf(float in)
+int lat2tiley(double lat, int z)
 {
-	return 1 / cosf(in);
-}
-
-int
-lat2tiley(float lat, unsigned int zoom)
-{
-	float lata = lat * M_PI / 180;
-	float ret = (1 - logf(tanf(lata) + secf(lata)) / M_PI) / 2 * pow(2, zoom);
-	return (int) ret;
+	double latrad = lat * M_PI / 180.0;
+	return (int)(floor((1.0 - log(tan(latrad) + (1.0 / cos(latrad))) / M_PI) / 2.0 * pow(2.0, z)));
 }
 
 void display_rate(struct timeval start, struct timeval end, int num)
@@ -85,6 +73,10 @@ int main(int argc, char **argv)
 	const char *mapname_default = XMLCONFIG_DEFAULT;
 	const char *socketname_default = RENDERD_SOCKET;
 	const char *tile_dir_default = RENDERD_TILE_DIR;
+	double max_lat_default = -1;
+	double max_lon_default = -1;
+	double min_lat_default = -1;
+	double min_lon_default = -1;
 	int max_load_default = MAX_LOAD_OLD;
 	int max_x_default = -1;
 	int max_y_default = -1;
@@ -98,6 +90,10 @@ int main(int argc, char **argv)
 	const char *mapname = mapname_default;
 	const char *socketname = socketname_default;
 	const char *tile_dir = tile_dir_default;
+	double max_lat = max_lat_default;
+	double max_lon = max_lon_default;
+	double min_lat = min_lat_default;
+	double min_lon = min_lon_default;
 	int max_load = max_load_default;
 	int max_x = max_x_default;
 	int max_y = max_y_default;
@@ -111,6 +107,10 @@ int main(int argc, char **argv)
 	int mapname_passed = 0;
 	int socketname_passed = 0;
 	int tile_dir_passed = 0;
+	int max_lat_passed = 0;
+	int max_lon_passed = 0;
+	int min_lat_passed = 0;
+	int min_lon_passed = 0;
 	int max_load_passed = 0;
 	int max_x_passed = 0;
 	int max_y_passed = 0;
@@ -128,8 +128,6 @@ int main(int argc, char **argv)
 	int verbose = 0;
 	struct storage_backend *store;
 	struct stat_info s;
-	float minLat = -1, minLon = -1, maxLat = -1, maxLon = -1;
-	int dontRender = 0;
 
 	foreground = 1;
 
@@ -140,10 +138,14 @@ int main(int argc, char **argv)
 			{"config",      required_argument, 0, 'c'},
 			{"force",       no_argument,       0, 'f'},
 			{"map",         required_argument, 0, 'm'},
+			{"max-lat",     required_argument, 0, 'G'},
 			{"max-load",    required_argument, 0, 'l'},
+			{"max-lon",     required_argument, 0, 'W'},
 			{"max-x",       required_argument, 0, 'X'},
 			{"max-y",       required_argument, 0, 'Y'},
 			{"max-zoom",    required_argument, 0, 'Z'},
+			{"min-lat",     required_argument, 0, 'g'},
+			{"min-lon",     required_argument, 0, 'w'},
 			{"min-x",       required_argument, 0, 'x'},
 			{"min-y",       required_argument, 0, 'y'},
 			{"min-zoom",    required_argument, 0, 'z'},
@@ -151,18 +153,13 @@ int main(int argc, char **argv)
 			{"socket",      required_argument, 0, 's'},
 			{"tile-dir",    required_argument, 0, 't'},
 			{"verbose",     no_argument,       0, 'v'},
-			{"min-lat",     required_argument, 0, 'A'},
-			{"min-lon",     required_argument, 0, 'B'},
-			{"max-lat",     required_argument, 0, 'C'},
-			{"max-lon",     required_argument, 0, 'D'},
-			{"dont-render", no_argument,       0, 'd'},
 
 			{"help",        no_argument,       0, 'h'},
 			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		int c = getopt_long(argc, argv, "ac:fm:l:X:Y:Z:x:y:z:n:s:t:vhVdA:B:C:D:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "ac:fm:G:l:W:X:Y:Z:g:w:x:y:z:n:s:t:vhV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -195,9 +192,19 @@ int main(int argc, char **argv)
 				mapname_passed = 1;
 				break;
 
+			case 'G': /* -G, --max-lat */
+				max_lat = min_max_double_opt(optarg, "maximum latitute", -85.0511, 85.0511);
+				max_lat_passed = 1;
+				break;
+
 			case 'l': /* -l, --max-load */
 				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
 				max_load_passed = 1;
+				break;
+
+			case 'W': /* -W, --max-lon */
+				max_lon = min_max_double_opt(optarg, "maximum longitude", -180, 180);
+				max_lon_passed = 1;
 				break;
 
 			case 'X': /* -X, --max-x */
@@ -213,6 +220,16 @@ int main(int argc, char **argv)
 			case 'Z': /* -Z, --max-zoom */
 				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
 				max_zoom_passed = 1;
+				break;
+
+			case 'g': /* -g, --min-lat */
+				min_lat = min_max_double_opt(optarg, "minimum latitute", -85.0511, 85.0511);
+				min_lat_passed = 1;
+				break;
+
+			case 'w': /* -w, --min-lon */
+				min_lon = min_max_double_opt(optarg, "minimum longitude", -180, 180);
+				min_lon_passed = 1;
 				break;
 
 			case 'x': /* -x, --min-x */
@@ -249,26 +266,6 @@ int main(int argc, char **argv)
 				verbose = 1;
 				break;
 
-			case 'A':
-				minLat = atof(optarg);
-				break;
-
-			case 'B':
-				minLon = atof(optarg);
-				break;
-
-			case 'C':
-				maxLat = atof(optarg);
-				break;
-
-			case 'D':
-				maxLon = atof(optarg);
-				break;
-
-			case 'd':
-				dontRender = 1;
-				break;
-
 			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
 				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
@@ -287,6 +284,10 @@ int main(int argc, char **argv)
 				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
 				fprintf(stderr, "(please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
+				fprintf(stderr, "  -G, --max-lat=LATITUDE            maximum latitude\n");
+				fprintf(stderr, "  -g, --min-lat=LATITUDE            minimum latitude\n");
+				fprintf(stderr, "  -W, --max-lon=LONGITUDE           maximum longitude\n");
+				fprintf(stderr, "  -w, --min-lon=LONGITUDE           minimum longitude\n");
 				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
 				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
 				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
@@ -359,28 +360,56 @@ int main(int argc, char **argv)
 	}
 
 	if (all) {
-		if (((min_x != -1 || min_y != -1 || max_x != -1 || max_y != -1) &&
-				(minLat != 1 || minLon != -1 || maxLat != -1 || maxLon != -1)) && min_zoom != max_zoom) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options");
-			return 1;
+		if (min_lat_passed && min_lon_passed && max_lat_passed && max_lon_passed) {
+			if (min_x_passed || min_y_passed || max_x_passed || max_y_passed) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "min-lat, min-lon, max-lat & max-lon cannot be used together with min-x, max-x, min-y, or max-y");
+				return 1;
+			}
+
+			if (max_lat < min_lat) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-lat (%f) is larger than max-lat (%f).", min_lat, max_lat);
+				return 1;
+			}
+
+			if (max_lon < min_lon) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-lon (%f) is larger than max-lon (%f).", min_lon, max_lon);
+				return 1;
+			}
 		}
 
-		if (min_x == -1) {
+		if (min_x_passed || min_y_passed || max_x_passed || max_y_passed) {
+			if (min_zoom != max_zoom) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options");
+				return 1;
+			}
+
+			if (min_x_passed && max_x_passed && max_x < min_x) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-x (%i) is larger than max-x (%i).", min_x, max_x);
+				return 1;
+			}
+
+			if (min_y_passed && max_y_passed && max_y < min_y) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-y (%i) is larger than max-x (%i).", min_y, max_y);
+				return 1;
+			}
+		}
+
+		if (!min_x_passed) {
 			min_x = 0;
 		}
 
-		if (min_y == -1) {
+		if (!min_y_passed) {
 			min_y = 0;
 		}
 
 		int lz = (1 << min_zoom) - 1;
 
 		if (min_zoom == max_zoom) {
-			if (max_x == -1) {
+			if (!max_x_passed) {
 				max_x = lz;
 			}
 
-			if (max_y == -1) {
+			if (!max_y_passed) {
 				max_y = lz;
 			}
 
@@ -388,11 +417,6 @@ int main(int argc, char **argv)
 				g_logger(G_LOG_LEVEL_CRITICAL, "Invalid range, x and y values must be <= %d (2^zoom-1)", lz);
 				return 1;
 			}
-		}
-
-		if (min_x < 0 || min_y < 0 || max_x < -1 || max_y < -1) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "Invalid range, x and y values must be >= 0");
-			return 1;
 		}
 	}
 
@@ -425,41 +449,34 @@ int main(int argc, char **argv)
 		g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles from zoom %d to zoom %d", min_zoom, max_zoom);
 
 		for (z = min_zoom; z <= max_zoom; z++) {
-			int current_max_x = (max_x == -1) ? (1 << z) - 1 : max_x;
-			int current_max_y = (max_y == -1) ? (1 << z) - 1 : max_y;
+			int current_max_x = max_x_passed ? max_x : (1 << z) - 1;
+			int current_max_y = max_y_passed ? max_y : (1 << z) - 1;
 
-			if (minLon != -1 && minLat != -1 && maxLon != -1 && maxLat != -1) {
-				// printf("using koords\n");
-				// exit(0);
-				int minX_tmp = lon2tilex(minLon, z);
-				int minY_tmp = lat2tiley(minLat, z);
-				int maxX_tmp = lon2tilex(maxLon, z);
-				int maxY_tmp = lat2tiley(maxLat, z);
-				min_x =         minX_tmp > maxX_tmp ? maxX_tmp : minX_tmp;
-				current_max_x = minX_tmp > maxX_tmp ? minX_tmp : maxX_tmp;
-				min_y =         minY_tmp > maxY_tmp ? maxY_tmp : minY_tmp;
-				current_max_y = minY_tmp > maxY_tmp ? minY_tmp : maxY_tmp;
-			} else {
-				current_max_x = (max_x == -1) ? (1 << z) - 1 : max_x;
-				current_max_y = (max_y == -1) ? (1 << z) - 1 : max_y;
+			if (min_lat_passed && min_lon_passed && max_lat_passed && max_lon_passed) {
+				int max_x_tmp = lon2tilex(max_lon, z);
+				int max_y_tmp = lat2tiley(min_lat, z);
+				int min_x_tmp = lon2tilex(min_lon, z);
+				int min_y_tmp = lat2tiley(max_lat, z);
+				current_max_x = max_x_tmp ? max_x_tmp - 1 : max_x_tmp;
+				current_max_y = max_y_tmp;
+				min_x = min_x_tmp;
+				min_y = min_y_tmp;
 			}
 
-			g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles for zoom %d from (%d, %d) to (%d, %d)", z, min_x, min_y, current_max_x, current_max_y);
+			g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles for zoom %i from (%i, %i) to (%i, %i)", z, min_x, min_y, current_max_x, current_max_y);
 
-			if (dontRender == 0) {
-				for (x = min_x; x <= current_max_x; x += METATILE) {
-					for (y = min_y; y <= current_max_y; y += METATILE) {
-						if (!force) {
-							s = store->tile_stat(store, mapname, "", x, y, z);
-						}
-
-						if (force || (s.size < 0) || (s.expired)) {
-							enqueue(mapname, x, y, z);
-							num_render++;
-						}
-
-						num_all++;
+			for (x = min_x; x <= current_max_x; x += METATILE) {
+				for (y = min_y; y <= current_max_y; y += METATILE) {
+					if (!force) {
+						s = store->tile_stat(store, mapname, "", x, y, z);
 					}
+
+					if (force || (s.size < 0) || (s.expired)) {
+						enqueue(mapname, x, y, z);
+						num_render++;
+					}
+
+					num_all++;
 				}
 			}
 		}

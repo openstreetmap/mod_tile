@@ -153,6 +153,25 @@ void free_renderd_sections(renderd_config *renderd_sections)
 	}
 }
 
+double min_max_double_opt(const char *opt_arg, const char *opt_type_name, double minimum, double maximum)
+{
+	char *endptr;
+	double opt = strtod(opt_arg, &endptr);
+
+	if (endptr == opt_arg) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be a double (%s was provided)", opt_type_name, opt_arg);
+		exit(1);
+	} else if (minimum != -1 && opt < minimum) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be >= %f (%s was provided)", opt_type_name, minimum, opt_arg);
+		exit(1);
+	} else if (maximum != -1 && opt > maximum) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Invalid %s, must be <= %f (%s was provided)", opt_type_name, maximum, opt_arg);
+		exit(1);
+	}
+
+	return opt;
+}
+
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum)
 {
 	char *endptr, *endptr_float;
