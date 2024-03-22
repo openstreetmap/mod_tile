@@ -16,10 +16,11 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string>
+#include <unistd.h>
 
 #include "catch/catch.hpp"
+#include "catch/catch_test_common.hpp"
 #include "config.h"
 
 #ifdef __FreeBSD__
@@ -30,11 +31,9 @@
 #define PROJECT_BINARY_DIR "."
 #endif
 
-#ifndef RENDERD_CONF
-#define RENDERD_CONF "./etc/renderd/renderd.conf"
-#endif
-
 std::string test_binary = (std::string)PROJECT_BINARY_DIR + "/" + "renderd";
+int found;
+std::string err_log_lines;
 
 TEST_CASE("renderd common", "common testing")
 {
@@ -84,25 +83,45 @@ TEST_CASE("renderd common", "common testing")
 	}
 
 	SECTION("--config invalid file", "should return 1") {
-		std::string option = "--config /path/is/invalid";
-		std::string command = test_binary + " " + option;
+		std::string renderd_conf = "/path/is/invalid";
+		std::string option = "--config " + renderd_conf;
+		std::string command = test_binary + " --foreground " + option;
 
 		// flawfinder: ignore
 		FILE *pipe = popen(command.c_str(), "r");
 		int status = pclose(pipe);
 		REQUIRE(WEXITSTATUS(status) == 1);
+
+		err_log_lines = read_stderr();
+		found = err_log_lines.find("Config file '" + renderd_conf + "' does not exist, please specify a valid file");
+		REQUIRE(found > -1);
 	}
 }
 
 TEST_CASE("renderd specific", "specific testing")
 {
-	SECTION("--slave subceeds minimum of 0", "should return 1") {
-		std::string option = "--slave -1";
-		std::string command = test_binary + " " + option;
+	std::string option = "--slave";
+
+	SECTION("--slave is positive with --help", "should return 0") {
+		std::string command = test_binary + " --foreground " + option + " 1 --help";
 
 		// flawfinder: ignore
 		FILE *pipe = popen(command.c_str(), "r");
 		int status = pclose(pipe);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("--slave subceeds minimum of 0", "should return 1") {
+		std::string command = test_binary + " --foreground " + option + " -1";
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		sleep(1);
+		int status = pclose(pipe);
 		REQUIRE(WEXITSTATUS(status) == 1);
+
+		err_log_lines = read_stderr();
+		found = err_log_lines.find("must be >= 0 (-1 was provided)");
+		REQUIRE(found > -1);
 	}
 }
