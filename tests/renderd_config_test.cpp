@@ -18,6 +18,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <string>
+#include <sys/un.h>
 
 #include "catch/catch.hpp"
 #include "catch/catch_test_common.hpp"
@@ -545,6 +546,31 @@ TEST_CASE("renderd_config config parser", "specific testing")
 
 		err_log_lines = read_stderr();
 		found = err_log_lines.find("Specified type (a b c d) has too many parts, there must be no more than 3, e.g., 'png image/png png256'.");
+		REQUIRE(found > -1);
+	}
+
+	SECTION("renderd.conf renderd section socketname is too long", "should return 7") {
+		int renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
+		std::string renderd_socketname = "/" + std::string(renderd_socketname_maxlen, 'A');
+
+		std::string renderd_conf = std::tmpnam(nullptr);
+		std::ofstream renderd_conf_file;
+		renderd_conf_file.open(renderd_conf);
+		renderd_conf_file << "[mapnik]\n[map]\n";
+		renderd_conf_file << "[renderd]\nsocketname=" << renderd_socketname << "\n";
+		renderd_conf_file.close();
+
+		std::string option = "--config " + renderd_conf;
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		std::remove(renderd_conf.c_str());
+		REQUIRE(WEXITSTATUS(status) == 7);
+
+		err_log_lines = read_stderr();
+		found = err_log_lines.find("Specified socketname (" + renderd_socketname + ") exceeds maximum allowed length of " + std::to_string(renderd_socketname_maxlen) + ".");
 		REQUIRE(found > -1);
 	}
 }
