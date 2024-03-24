@@ -48,7 +48,7 @@ if [ "$1" = "config" ]; then
   exit 0
 fi
 
-data=$(wget -q http://localhost/mod_tile -O -)
+data=$(wget -q ${MOD_TILE_URL:-http://localhost/mod_tile} -O -)
 
 ok_resp=$(expr match "$data" '.*NoResp200: \([0-9]*\)')
 nm_resp=$(expr match "$data" '.*NoResp304: \([0-9]*\)')
