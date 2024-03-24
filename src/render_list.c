@@ -389,7 +389,7 @@ int main(int argc, char **argv)
 			}
 
 			if (min_y_passed && max_y_passed && max_y < min_y) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-y (%i) is larger than max-x (%i).", min_y, max_y);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified min-y (%i) is larger than max-y (%i).", min_y, max_y);
 				return 1;
 			}
 		}

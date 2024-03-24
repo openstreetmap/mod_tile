@@ -20,6 +20,14 @@
 #ifndef CATCH_TEST_COMMON_HPP
 #define CATCH_TEST_COMMON_HPP
 
+typedef struct _captured_stdio {
+	int temp_fd;
+	int pipes[2];
+} captured_stdio;
+
+std::string read_stderr(int buffer_size = 16384);
+std::string read_stdout(int buffer_size = 16384);
+
 void capture_stderr();
 void capture_stdout();
 

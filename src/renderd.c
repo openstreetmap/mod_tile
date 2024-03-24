@@ -786,18 +786,18 @@ int main(int argc, char **argv)
 
 	g_logger(G_LOG_LEVEL_INFO, "Renderd started (version %s)", VERSION);
 
+	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
+
+	if (config_file_name_passed) {
+		free((void *)config_file_name);
+	}
+
 	g_logger(G_LOG_LEVEL_INFO, "Initialising request queue");
 	render_request_queue = request_queue_init();
 
 	if (render_request_queue == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");
 		return 1;
-	}
-
-	process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_INFO);
-
-	if (config_file_name_passed) {
-		free((void *)config_file_name);
 	}
 
 	fd = server_socket_init(&config);

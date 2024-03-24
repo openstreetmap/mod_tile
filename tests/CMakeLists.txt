@@ -208,6 +208,11 @@ add_test(
   COMMAND renderd_test
 )
 
+add_test(
+  NAME renderd_config_test
+  COMMAND renderd_config_test
+)
+
 foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   # Get STORAGE_BACKEND from STORAGE_BACKENDS list
   list(GET STORAGE_BACKENDS ${STORAGE_BACKEND_INDEX} STORAGE_BACKEND)
@@ -1162,7 +1167,7 @@ target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
 
 add_compile_definitions(
   PROJECT_BINARY_DIR="${PROJECT_BINARY_DIR}/src"
-  RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf"
+  RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf.examples"
 )
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 link_libraries(${GLIB_LIBRARIES})
@@ -1220,4 +1225,15 @@ add_executable(render_speedtest_test
 add_executable(renderd_test
   $<TARGET_OBJECTS:catch_main_o>
   renderd_test.cpp
+)
+
+#-----------------------------------------------------------------------------
+#
+#  renderd_config_test
+#
+#-----------------------------------------------------------------------------
+
+add_executable(renderd_config_test
+  $<TARGET_OBJECTS:catch_main_o>
+  renderd_config_test.cpp
 )
