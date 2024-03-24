@@ -492,6 +492,8 @@ int server_socket_init(renderd_config *sConfig)
 	int fd;
 
 	if (sConfig->ipport > 0) {
+		const int enable = 1;
+
 		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
 			 sConfig->iphostname, sConfig->ipport);
 		fd = socket(PF_INET6, SOCK_STREAM, 0);
@@ -499,6 +501,18 @@ int server_socket_init(renderd_config *sConfig)
 		if (fd < 0) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket");
 			exit(2);
+		}
+
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR failed for: %s:%i",
+				 sConfig->iphostname, sConfig->ipport);
+			exit(3);
+		}
+
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEPORT failed for: %s:%i",
+				 sConfig->iphostname, sConfig->ipport);
+			exit(3);
 		}
 
 		bzero(&addrI, sizeof(addrI));
