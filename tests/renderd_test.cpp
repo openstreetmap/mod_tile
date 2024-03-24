@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <unistd.h>
 
 #include "catch/catch.hpp"
 #include "catch/catch_test_common.hpp"
@@ -116,7 +115,6 @@ TEST_CASE("renderd specific", "specific testing")
 
 		// flawfinder: ignore
 		FILE *pipe = popen(command.c_str(), "r");
-		sleep(1);
 		int status = pclose(pipe);
 		REQUIRE(WEXITSTATUS(status) == 1);
 
