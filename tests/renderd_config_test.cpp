@@ -573,4 +573,26 @@ TEST_CASE("renderd_config config parser", "specific testing")
 		found = err_log_lines.find("Specified socketname (" + renderd_socketname + ") exceeds maximum allowed length of " + std::to_string(renderd_socketname_maxlen) + ".");
 		REQUIRE(found > -1);
 	}
+
+	SECTION("renderd.conf duplicate renderd section names", "should return 7") {
+		std::string renderd_conf = std::tmpnam(nullptr);
+		std::ofstream renderd_conf_file;
+		renderd_conf_file.open(renderd_conf);
+		renderd_conf_file << "[mapnik]\n[map]\n";
+		renderd_conf_file << "[renderd0]\n[renderd]\n";
+		renderd_conf_file.close();
+
+		std::string option = "--config " + renderd_conf;
+		std::string command = test_binary + " " + option;
+
+		// flawfinder: ignore
+		FILE *pipe = popen(command.c_str(), "r");
+		int status = pclose(pipe);
+		std::remove(renderd_conf.c_str());
+		REQUIRE(WEXITSTATUS(status) == 7);
+
+		err_log_lines = read_stderr();
+		found = err_log_lines.find("Duplicate renderd config section names for section 0: renderd0 & renderd");
+		REQUIRE(found > -1);
+	}
 }

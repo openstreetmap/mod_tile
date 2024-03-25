@@ -400,6 +400,11 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 				exit(7);
 			}
 
+			if (configs_dest[renderd_section_num].name != NULL) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Duplicate renderd config section names for section %i: %s & %s", renderd_section_num, configs_dest[renderd_section_num].name, section);
+				exit(7);
+			}
+
 			copy_string(section, &configs_dest[renderd_section_num].name, renderd_strlen + 2);
 
 			process_config_int(ini, section, "ipport", &configs_dest[renderd_section_num].ipport, 0);
