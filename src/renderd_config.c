@@ -17,6 +17,8 @@
 
 #define _GNU_SOURCE
 
+#include <sys/un.h>
+
 #include "config.h"
 #include "g_logger.h"
 #include "render_config.h"
@@ -361,6 +363,7 @@ void process_mapnik_section(const char *config_file_name, renderd_config *config
 void process_renderd_sections(const char *config_file_name, renderd_config *configs_dest)
 {
 	int renderd_section_num = -1;
+	int renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
 
 	dictionary *ini = iniparser_load(config_file_name);
 
@@ -409,6 +412,11 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 
 			if (configs_dest[renderd_section_num].num_threads == -1) {
 				configs_dest[renderd_section_num].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+			}
+
+			if (strnlen(configs_dest[renderd_section_num].socketname, PATH_MAX) >= renderd_socketname_maxlen) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified socketname (%s) exceeds maximum allowed length of %i.", configs_dest[renderd_section_num].socketname, renderd_socketname_maxlen);
+				exit(7);
 			}
 		}
 	}
