@@ -20,8 +20,6 @@
 
 #include <cstdio>
 #include <glib.h>
-#include <iostream>
-#include <limits.h>
 #include <mapnik/version.hpp>
 #include <math.h>
 #include <pthread.h>
@@ -37,7 +35,7 @@
 #include <unistd.h>
 
 #include "catch/catch.hpp"
-#include "catch/catch_test_common.hpp"
+#include "catch_test_common.hpp"
 #include "config.h"
 #include "g_logger.h"
 #include "gen_tile.h"

@@ -23,11 +23,43 @@
 #include <unistd.h>
 
 #include "catch_test_common.hpp"
+#include "pstreams/pstream.hpp"
 
 extern int foreground;
 
+std::string err_log_lines, out_log_lines;
+
 captured_stdio captured_stderr;
 captured_stdio captured_stdout;
+
+int run_command(std::string file, std::vector<std::string> argv, std::string input)
+{
+	auto mode = redi::pstreams::pstdout | redi::pstreams::pstderr | redi::pstreams::pstdin;
+
+	argv.insert(argv.begin(), file);
+
+	redi::pstream proc(file, argv, mode);
+
+	std::string line;
+	err_log_lines = "";
+	out_log_lines = "";
+
+	if (!input.empty()) {
+		proc << input << redi::peof;
+	}
+
+	while (std::getline(proc.err(), line)) {
+		err_log_lines += line;
+	}
+
+	proc.clear();
+
+	while (std::getline(proc.out(), line)) {
+		out_log_lines += line;
+	}
+
+	return proc.close();
+}
 
 std::string read_stderr(int buffer_size)
 {
