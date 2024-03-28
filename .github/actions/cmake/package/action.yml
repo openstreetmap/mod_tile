@@ -4,7 +4,7 @@ runs:
   steps:
     - name: Set `CPACK_PACKAGE_FILE_NAME`
       run: |
-        echo "CPACK_PACKAGE_FILE_NAME=mod_tile-${GITHUB_SHA}-$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+        echo "CPACK_PACKAGE_FILE_NAME=mod_tile-${GITHUB_SHA}-$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.build_system }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Set `CPACK_OPTIONS`

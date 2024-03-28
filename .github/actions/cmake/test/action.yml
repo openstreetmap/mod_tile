@@ -15,7 +15,7 @@ runs:
 
     - name: Set `TEST_ARTIFACT_NAME`
       run: |
-        echo "TEST_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+        echo "TEST_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.build_system }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: failure()
 
