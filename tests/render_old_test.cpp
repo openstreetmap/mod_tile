@@ -15,11 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdio.h>
 #include <string>
 
 #include "catch/catch.hpp"
-#include "catch/catch_test_common.hpp"
+#include "catch_test_common.hpp"
 #include "config.h"
 #include "render_config.h"
 
@@ -36,148 +35,107 @@
 #endif
 
 std::string test_binary = (std::string)PROJECT_BINARY_DIR + "/" + "render_old";
-int found;
-std::string err_log_lines;
+extern std::string err_log_lines, out_log_lines;
 
 TEST_CASE("render_old common", "common testing")
 {
 	SECTION("invalid long option", "should return 1") {
-		std::string option = "--doesnotexist";
-		std::string command = test_binary + " " + option;
+		std::vector<std::string> argv = {"--doesnotexist"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
 	SECTION("invalid short options", "should return 1") {
-		std::string option = "-doesnotexist";
-		std::string command = test_binary + " " + option;
+		std::vector<std::string> argv = {"-doesnotexist"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
-	SECTION("--version", "should show version number") {
-		std::string option = "--version";
-		std::string command = test_binary + " " + option;
+	SECTION("--help", "should return 0") {
+		std::vector<std::string> argv = {"--help"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		std::string output;
-		char buffer[sizeof(VERSION)];
-		fgets(buffer, sizeof(buffer), pipe);
-		output += buffer;
-		REQUIRE(output == VERSION);
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("--version", "should show version number") {
+		std::vector<std::string> argv = {"--version"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+		REQUIRE(out_log_lines == VERSION);
 	}
 
 	SECTION("--config invalid file", "should return 1") {
 		std::string renderd_conf = "/path/is/invalid";
-		std::string option = "--config " + renderd_conf;
-		std::string command = test_binary + " " + option;
+		std::vector<std::string> argv = {"--config", renderd_conf};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-
-		err_log_lines = read_stderr();
-		found = err_log_lines.find("Config file '" + renderd_conf + "' does not exist, please specify a valid file");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
 	}
 }
 
 TEST_CASE("render_old specific", "specific testing")
 {
+	std::string renderd_conf = (std::string)RENDERD_CONF;
+
 	SECTION("--config with invalid --map", "should return 1") {
-		std::string renderd_conf = (std::string)RENDERD_CONF;
-		std::string option = "--config " + renderd_conf + " --map invalid";
-		std::string command = test_binary + " " + option;
+		std::string map = "invalid";
+		std::vector<std::string> argv = {"--config", renderd_conf, "--map", map};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-
-		err_log_lines = read_stderr();
-		found = err_log_lines.find("Map section 'invalid' does not exist in config file '" + renderd_conf + "'.");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
 	}
 
 	SECTION("--num-threads subceeds minimum of 1", "should return 1") {
-		std::string option = "--num-threads 0";
-		std::string command = test_binary + " " + option;
+		std::vector<std::string> argv = {"--num-threads", "0"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-
-		err_log_lines = read_stderr();
-		found = err_log_lines.find("Invalid number of threads, must be >= 1 (0 was provided)");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid number of threads, must be >= 1 (0 was provided)"));
 	}
 
 	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1") {
-		std::string option = GENERATE("--max-zoom", "--min-zoom");
-		std::string command = test_binary + " " + option + " " + std::to_string(MAX_ZOOM + 1);
+		std::vector<std::string> argv = {GENERATE("--max-zoom", "--min-zoom"), std::to_string(MAX_ZOOM + 1)};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-
-		err_log_lines = read_stderr();
-		found = err_log_lines.find("zoom, must be <= 20 (21 was provided)");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("zoom, must be <= 20 (21 was provided)"));
 	}
 
 	SECTION("--min-zoom exceeds --max-zoom", "should return 1") {
-		std::string option = "--max-zoom 1 --min-zoom 2";
-		std::string command = test_binary + " " + option;
+		std::vector<std::string> argv = {"--max-zoom", "1", "--min-zoom", "2"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-
-		err_log_lines = read_stderr();
-		found = err_log_lines.find("Specified min zoom (2) is larger than max zoom (1).");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (2) is larger than max zoom (1)."));
 	}
 
 	SECTION("--timestamp is not an integer", "should return 1") {
-		std::string option = "--timestamp invalid";
-		std::string command = test_binary + " " + option;
+		std::string timestamp = "invalid";
+		std::vector<std::string> argv = {"--timestamp", timestamp};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
 	SECTION("--timestamp is a date with --help", "should return 0") {
-		std::string option = GENERATE("--timestamp 01/01/01", "--timestamp 01/01/1901");
-		std::string command = test_binary + " " + option + " --help";
+		std::string timestamp = GENERATE("01/01/69", "01/01/101");
+		std::vector<std::string> argv = {"--timestamp", timestamp, "--help"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
 	SECTION("--timestamp is an integer with --help", "should return 0") {
-		std::string option = "--timestamp 111 --help";
-		std::string command = test_binary + " " + option;
+		std::string timestamp = "111";
+		std::vector<std::string> argv = {"--timestamp", timestamp, "--help"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 }
@@ -187,11 +145,9 @@ TEST_CASE("render_old min/max int generator", "min/max int generator testing")
 	std::string option = GENERATE("--max-load", "--max-zoom", "--min-zoom", "--num-threads");
 
 	SECTION(option + " option is positive with --help", "should return 0") {
-		std::string command = test_binary + " " + option + " 1 --help";
+		std::vector<std::string> argv = {option, "1", "--help"};
 
-		// flawfinder: ignore
-		FILE *pipe = popen(command.c_str(), "r");
-		int status = pclose(pipe);
+		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 }

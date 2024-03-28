@@ -1136,8 +1136,8 @@ endforeach()
 #-----------------------------------------------------------------------------
 
 add_library(catch_main_o OBJECT
-  catch/catch_main.cpp
-  ${PROJECT_SOURCE_DIR}/tests/catch/catch_test_common.cpp
+  ${PROJECT_SOURCE_DIR}/tests/catch_main.cpp
+  ${PROJECT_SOURCE_DIR}/tests/catch_test_common.cpp
 )
 target_include_directories(catch_main_o PRIVATE ${GLIB_INCLUDE_DIRS})
 
@@ -1147,7 +1147,9 @@ target_include_directories(catch_main_o PRIVATE ${GLIB_INCLUDE_DIRS})
 #
 #-----------------------------------------------------------------------------
 
-add_library(catch_test_common_o OBJECT ${PROJECT_SOURCE_DIR}/tests/catch/catch_test_common.cpp)
+add_library(catch_test_common_o OBJECT
+  ${PROJECT_SOURCE_DIR}/tests/catch_test_common.cpp
+)
 target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
 
 #-----------------------------------------------------------------------------

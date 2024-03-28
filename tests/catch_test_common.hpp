@@ -15,32 +15,29 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#define CATCH_CONFIG_MAIN
+#include <string>
+#include <vector>
 
-#include "catch.hpp"
-#include "catch_test_common.hpp"
+#ifndef CATCH_TEST_COMMON_HPP
+#define CATCH_TEST_COMMON_HPP
 
-int foreground = 1;
+typedef struct _captured_stdio {
+	int temp_fd;
+	int pipes[2];
+} captured_stdio;
 
-struct CaptureListener : Catch::TestEventListenerBase {
+std::string read_stderr(int buffer_size = 16384);
+std::string read_stdout(int buffer_size = 16384);
 
-	using TestEventListenerBase::TestEventListenerBase;
+void capture_stderr();
+void capture_stdout();
 
-	void testCaseStarting(Catch::TestCaseInfo const &testCaseInfo) override
-	{
-		start_capture();
-	}
+std::string get_captured_stderr(bool print = false);
+std::string get_captured_stdout(bool print = false);
 
-	void testCaseEnded(Catch::TestCaseStats const &testCaseStats) override
-	{
-		bool print = false;
+void start_capture(bool debug = false);
+std::tuple<std::string, std::string> end_capture(bool print = false);
 
-		if (testCaseStats.totals.assertions.failed > 0) {
-			print = true;
-		}
+int run_command(std::string file, std::vector<std::string> argv = {}, std::string input = "");
 
-		end_capture(print);
-	}
-};
-
-CATCH_REGISTER_LISTENER(CaptureListener)
+#endif

@@ -99,8 +99,8 @@ render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
 noinst_LIBRARIES = catch_main.o catch_test_common.o
-catch_main_o_SOURCES = tests/catch/catch_main.cpp
-catch_test_common_o_SOURCES = tests/catch/catch_test_common.cpp
+catch_main_o_SOURCES = tests/catch_main.cpp
+catch_test_common_o_SOURCES = tests/catch_test_common.cpp
 
 gen_tile_test_SOURCES = \
 	tests/gen_tile_test.cpp \

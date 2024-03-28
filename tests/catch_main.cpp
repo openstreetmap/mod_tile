@@ -15,26 +15,9 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <string>
+#define CATCH_CONFIG_MAIN
 
-#ifndef CATCH_TEST_COMMON_HPP
-#define CATCH_TEST_COMMON_HPP
+#include "catch/catch.hpp"
+#include "catch_test_common.hpp"
 
-typedef struct _captured_stdio {
-	int temp_fd;
-	int pipes[2];
-} captured_stdio;
-
-std::string read_stderr(int buffer_size = 16384);
-std::string read_stdout(int buffer_size = 16384);
-
-void capture_stderr();
-void capture_stdout();
-
-std::string get_captured_stderr(bool print = false);
-std::string get_captured_stdout(bool print = false);
-
-void start_capture(bool debug = false);
-std::tuple<std::string, std::string> end_capture(bool print = false);
-
-#endif
+int foreground = 1;
