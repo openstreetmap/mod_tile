@@ -6,6 +6,10 @@ runs:
       run: ./autogen.sh
       shell: bash --noprofile --norc -euxo pipefail {0}
 
+    - name: Create `build` directory link
+      run: ln -s . build
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
     - name: Run `./configure`
       run: ./configure
       shell: bash --noprofile --norc -euxo pipefail {0}

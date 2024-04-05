@@ -85,7 +85,6 @@ jobs:
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
         if: |
-          matrix.build_system == 'CMake' &&
           matrix.compiler != 'LLVM' &&
           !startsWith(matrix.image, 'opensuse/') &&
           !matrix.experimental
@@ -139,7 +138,6 @@ jobs:
 
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
-        if: matrix.build_system == 'CMake'
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
@@ -206,7 +204,6 @@ jobs:
         with:
           genhtml-extra-options: --ignore-errors inconsistent --ignore-errors unmapped
           lcov-extra-options: --ignore-errors gcov --ignore-errors inconsistent
-        if: matrix.build_system == 'CMake'
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
