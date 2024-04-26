@@ -8,13 +8,21 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Process `mod_tile` coverage results
+    - name: Process `mod_tile` coverage results with CTest
       run: |
         ctest -T coverage || true
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+      if: matrix.build_system == 'CMake'
+
+    - name: Process `mod_tile` coverage results
+      run: |
         lcov ${{ inputs.lcov-extra-options }} \
+          --base-directory . \
           --capture \
-          --directory . \
-          --output-file coverage.info
+          --directory ${{ matrix.build_system == 'CMake' && 'build' || '.' }} \
+          --output-file coverage.info \
+          --rc geninfo_unexecuted_blocks=1
         lcov ${{ inputs.lcov-extra-options }} \
           --output-file coverage.info \
           --remove coverage.info \
@@ -22,12 +30,11 @@ runs:
           "${GITHUB_WORKSPACE}/tests/*" \
           "/usr/*"
       shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: build
 
     - name: Report `mod_tile` coverage results to `codecov.io`
       uses: codecov/codecov-action@v3.1.5
       with:
-        files: build/coverage.info
+        files: coverage.info
 
     - name: Write `mod_tile` coverage summary to `$GITHUB_STEP_SUMMARY`
       run: |
@@ -35,7 +42,6 @@ runs:
           --summary \
           coverage.info | sed 's/^  /* /g' >> ${GITHUB_STEP_SUMMARY}
       shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: build
 
     - name: Generate `mod_tile` coverage artifacts
       run: |
@@ -43,7 +49,6 @@ runs:
           --output-directory coverage \
           coverage.info
       shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: build
 
     - name: Set `COVERAGE_ARTIFACT_NAME`
       run: |
@@ -55,5 +60,5 @@ runs:
       with:
         name: Coverage Artifacts - ${{ env.COVERAGE_ARTIFACT_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
         path: |
-          build/coverage
-          build/coverage.info
+          coverage
+          coverage.info

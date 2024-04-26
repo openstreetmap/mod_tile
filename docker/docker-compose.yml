@@ -1,6 +1,4 @@
 ---
-version: "3.8"
-
 x-mod_tile:
   build_defaults: &build_defaults
     context: ..
@@ -197,6 +195,12 @@ services:
       <<: *build_defaults_fedora
       args:
         fedora_version: "39"
+  fedora-40:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_fedora
+      args:
+        fedora_version: "40"
   fedora-rawhide:
     <<: *service_defaults
     build:
@@ -209,6 +213,7 @@ services:
       <<: *build_defaults_opensuse
       args:
         boost_version: "1_75_0"
+        gcc_version: "13"
         opensuse_version: "leap:15"
   opensuse-tumbleweed:
     <<: *service_defaults

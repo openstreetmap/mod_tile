@@ -1,5 +1,6 @@
 # Arguments
 ARG boost_version
+ARG gcc_version
 ARG opensuse_version=leap:15
 
 # Mapnik Builder
@@ -7,6 +8,7 @@ FROM opensuse/${opensuse_version} as mapnik-builder
 
 ## Arguments
 ARG boost_version
+ARG gcc_version
 ARG opensuse_version
 
 ## Install mapnik-builder dependencies
@@ -17,8 +19,8 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         cairo-devel \
         cmake \
         freetype-devel \
-        gcc \
-        gcc-c++ \
+        gcc${gcc_version} \
+        gcc${gcc_version}-c++ \
         gdal-devel \
         git \
         harfbuzz-devel \
@@ -39,7 +41,13 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         python3 \
         sqlite3-devel \
         tar \
-        zlib-devel
+        zlib-devel && \
+    if [ -n "${gcc_version}" ]; then \
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 10; \
+        update-alternatives --install /usr/bin/cc gcc /usr/bin/gcc-${gcc_version} 10; \
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 10; \
+        update-alternatives --install /usr/bin/c++ g++ /usr/bin/g++-${gcc_version} 10; \
+    fi
 
 ## Download, Build & Install `Mapnik`
 WORKDIR /tmp/mapnik_src
@@ -53,9 +61,12 @@ RUN --mount=id=opensuse:${opensuse_version}-mapnik-src:latest,target=/tmp/mapnik
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     export DESTDIR=/tmp/mapnik && \
     cmake -B . -S /tmp/mapnik_src \
+        -DBUILD_BENCHMARK:BOOL=OFF \
+        -DBUILD_DEMO_CPP:BOOL=OFF \
         -DBUILD_DEMO_VIEWER:BOOL=OFF \
         -DBUILD_TESTING:BOOL=OFF \
         -DCMAKE_BUILD_TYPE:STRING=Release \
+        -DCMAKE_CXX_STANDARD:STRING=17 \
         -DCMAKE_INSTALL_PREFIX:PATH=/usr \
         -DMAPNIK_PKGCONF_DIR:PATH=/usr/share/pkgconfig && \
     cmake --build . && \

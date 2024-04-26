@@ -18,6 +18,7 @@ For your convenience, we have provided a Docker-based building and testing metho
 - fedora-37 _(Fedora 37)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - fedora-38 _(Fedora 38)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - fedora-39 _(Fedora 39)_ [[Dockerfile](/docker/fedora/Dockerfile)]
+- fedora-40 _(Fedora 40)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - fedora-rawhide _(Fedora Rawhide)_ [[Dockerfile](/docker/fedora/Dockerfile)]
 - opensuse-leap-15 _(openSUSE Leap 15)_ [[Dockerfile](/docker/opensuse/Dockerfile)]
 - opensuse-tumbleweed _(openSUSE Tumbleweed)_ [[Dockerfile](/docker/opensuse/Dockerfile)]
