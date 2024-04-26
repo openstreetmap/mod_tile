@@ -27,7 +27,7 @@ jobs:
           - "opensuse/leap:15"
           - "quay.io/centos/centos:stream8"
           - "quay.io/centos/centos:stream9"
-          - "ubuntu:20.04"
+          - "ubuntu:22.04"
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
@@ -43,16 +43,16 @@ jobs:
             build_system: CMake
             compiler: GNU
             experimental: true
-          - image: "ubuntu:22.04"
+          - image: "ubuntu:24.04"
             build_system: Autotools
             compiler: GNU
-          - image: "ubuntu:22.04"
+          - image: "ubuntu:24.04"
             build_system: Autotools
             compiler: LLVM
-          - image: "ubuntu:22.04"
+          - image: "ubuntu:24.04"
             build_system: CMake
             compiler: GNU
-          - image: "ubuntu:22.04"
+          - image: "ubuntu:24.04"
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -108,7 +108,7 @@ jobs:
       matrix:
         image:
           - "debian:12"
-          - "ubuntu:22.04"
+          - "ubuntu:24.04"
         build_system:
           - CMake
         compiler:

@@ -1,5 +1,5 @@
 # Arguments
-ARG fedora_version=38
+ARG fedora_version=40
 
 # Builder
 FROM fedora:${fedora_version} as builder

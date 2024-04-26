@@ -1,7 +1,7 @@
 # Arguments
 ARG libmapnik_version=3.1
 ARG runner_additional_packages
-ARG ubuntu_version=22.04
+ARG ubuntu_version=24.04
 
 # Builder
 FROM ubuntu:${ubuntu_version} as builder
