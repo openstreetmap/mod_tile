@@ -243,13 +243,20 @@ services:
       args:
         libmapnik_version: "3.1"
         ubuntu_version: "22.04"
-  ubuntu-22.04-autotools:
+  ubuntu-24.04:
     <<: *service_defaults
     build:
       <<: *build_defaults_ubuntu
       args:
         libmapnik_version: "3.1"
-        ubuntu_version: "22.04"
+        ubuntu_version: "24.04"
+  ubuntu-24.04-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_ubuntu
+      args:
+        libmapnik_version: "3.1"
+        ubuntu_version: "24.04"
       dockerfile: docker/ubuntu/Dockerfile.autotools
   ubuntu-devel:
     <<: *service_defaults

@@ -24,6 +24,7 @@ For your convenience, we have provided a Docker-based building and testing metho
 - opensuse-tumbleweed _(openSUSE Tumbleweed)_ [[Dockerfile](/docker/opensuse/Dockerfile)]
 - ubuntu-20.04 _(Ubuntu 20.04)_ [[Dockerfile](/docker/ubuntu/Dockerfile)]
 - ubuntu-22.04 _(Ubuntu 22.04)_ [[Dockerfile](/docker/ubuntu/Dockerfile)]
+- ubuntu-24.04 _(Ubuntu 24.04)_ [[Dockerfile](/docker/ubuntu/Dockerfile)]
 - ubuntu-devel _(Ubuntu Devel)_ [[Dockerfile](/docker/ubuntu/Dockerfile)]
 
 ### Requirements:
