@@ -204,6 +204,7 @@ jobs:
         with:
           genhtml-extra-options: --keep-going --ignore-errors count,inconsistent,range
           lcov-extra-options: --keep-going --ignore-errors count,inconsistent,range
+        if: matrix.os != 'macos-12'
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
