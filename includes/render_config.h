@@ -58,7 +58,7 @@
 #endif
 // Maximum number of configurations that mod tile will allow
 #ifndef XMLCONFIGS_MAX
-#define XMLCONFIGS_MAX 10
+#define XMLCONFIGS_MAX 100
 #endif
 // Default PID file path
 #ifndef RENDERD_PIDFILE
