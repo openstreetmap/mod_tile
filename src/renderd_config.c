@@ -18,6 +18,7 @@
 #define _GNU_SOURCE
 
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "g_logger.h"
