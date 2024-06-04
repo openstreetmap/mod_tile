@@ -54,28 +54,6 @@ services:
       - styles:/opt/styles
       - tiles:/var/cache/renderd/tiles
       - ./full-entrypoint.sh:/entrypoint.sh:ro
-  centos-7:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults
-      dockerfile: docker/centos/7/Dockerfile
-    ulimits:
-      nofile: 40000
-  centos-stream-8:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults_centos_stream
-      args:
-        centos_stream_version: "8"
-        extra_repository: powertools
-  centos-stream-8-autotools:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults_centos_stream
-      args:
-        centos_stream_version: "8"
-        extra_repository: powertools
-      dockerfile: docker/centos/stream/Dockerfile.autotools
   centos-stream-9:
     <<: *service_defaults
     build:

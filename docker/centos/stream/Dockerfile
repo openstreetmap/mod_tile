@@ -56,15 +56,10 @@ RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},ta
     if [ ! -f SConstruct ]; then \
         curl --silent --location https://github.com/mapnik/mapnik/releases/download/v${mapnik_version}/mapnik-v${mapnik_version}.tar.bz2 \
             | tar --extract --bzip2 --strip-components=1 --file=-; \
-        if [ "${centos_stream_version}" = "9" ]; then \
-            curl --silent --location https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
-                | patch -Np1; \
-            curl --silent --location https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
-                | patch -F3 -Np1; \
-        fi \
-    fi; \
-    if [ "${centos_stream_version}" = "8" ]; then \
-        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"; \
+        curl --silent --location https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
+            | patch -Np1; \
+        curl --silent --location https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
+            | patch -F3 -Np1; \
     fi; \
     bash configure \
         CPP_TESTS=False \

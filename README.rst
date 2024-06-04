@@ -66,7 +66,6 @@ We prepared instructions for you on how to build the software on the following
 distributions:
 
 * `Arch Linux </docs/build/building_on_arch_linux.md>`__
-* `CentOS </docs/build/building_on_centos.md>`__
 * `CentOS Stream </docs/build/building_on_centos_stream.md>`__
 * `Debian </docs/build/building_on_debian.md>`__
 * `Fedora </docs/build/building_on_fedora.md>`__

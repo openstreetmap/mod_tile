@@ -17,8 +17,6 @@ jobs:
       matrix:
         service-name:
           - archlinux
-          - centos-7
-          - centos-stream-8
           - centos-stream-9
           - debian-11
           - debian-12

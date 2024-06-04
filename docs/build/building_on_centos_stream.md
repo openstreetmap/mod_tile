@@ -8,18 +8,6 @@ A Docker-based building & testing setup pipeline is also available [here](/docke
 
 _CentOS Stream does not provide a `mapnik`/`mapnik-devel` package, so it will first need to be built & installed, which is beyond the scope of this document, please visit the project's [installation document on GitHub](https://github.com/mapnik/mapnik/blob/master/INSTALL.md) or our [Continuous Integration script](/.github/actions/dependencies/build-and-install/mapnik/action.yml) for more information._
 
-## CentOS Stream 8
-
-```shell
-#!/usr/bin/env bash
-
-# Update config-manager DNF plugin
-sudo dnf --assumeyes install "dnf-command(config-manager)"
-
-# Enable PowerTools Repository
-sudo dnf config-manager --save --setopt=powertools.enabled=1
-```
-
 ## CentOS Stream 9
 
 ```shell
@@ -30,11 +18,7 @@ sudo dnf --assumeyes install "dnf-command(config-manager)"
 
 # Enable CRB Repository
 sudo dnf config-manager --save --setopt=crb.enabled=1
-```
 
-## CentOS Stream 8/9
-
-```shell
 #!/usr/bin/env bash
 
 # Update installed packages

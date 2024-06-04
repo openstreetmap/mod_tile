@@ -5,8 +5,6 @@ For your convenience, we have provided a Docker-based building and testing metho
 ### The following distributions are currently supported:
 
 - archlinux _(Arch Linux)_ [[Dockerfile](/docker/archlinux/Dockerfile)]
-- centos-7 _(CentOS 7)_ [[Dockerfile](/docker/centos/7/Dockerfile)]
-- centos-stream-8 _(CentOS Stream 8)_ [[Dockerfile](/docker/centos/stream/Dockerfile)]
 - centos-stream-9 _(CentOS Stream 9)_ [[Dockerfile](/docker/centos/stream/Dockerfile)]
 - debian-10 _(Debian 10)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - debian-11 _(Debian 11)_ [[Dockerfile](/docker/debian/Dockerfile)]
