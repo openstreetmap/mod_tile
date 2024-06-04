@@ -7,10 +7,10 @@ runs:
         cmake -B build -S . \
           -LA \
           -DCMAKE_BUILD_TYPE:STRING=${BUILD_TYPE:-Release} \
-          -DCMAKE_INSTALL_LOCALSTATEDIR=${INSTALL_LOCALSTATEDIR:-/var} \
+          -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=${INSTALL_LOCALSTATEDIR:-/var} \
           -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr} \
-          -DCMAKE_INSTALL_RUNSTATEDIR=${INSTALL_RUNSTATEDIR:-/run} \
-          -DCMAKE_INSTALL_SYSCONFDIR=${INSTALL_SYSCONFDIR:-/etc} \
+          -DCMAKE_INSTALL_RUNSTATEDIR:PATH=${INSTALL_RUNSTATEDIR:-/run} \
+          -DCMAKE_INSTALL_SYSCONFDIR:PATH=${INSTALL_SYSCONFDIR:-/etc} \
           -DENABLE_TESTS:BOOL=ON
       shell: bash --noprofile --norc -euxo pipefail {0}
 
