@@ -18,15 +18,10 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
-    - name: Enable PowerTools repository (CentOS Stream 8)
-      run: dnf config-manager --set-enabled powertools
-      shell: bash --noprofile --norc -euxo pipefail {0}
-      if: matrix.image == 'quay.io/centos/centos:stream8'
-
-    - name: Enable CRB repository (CentOS Stream 9)
+    - name: Enable CRB repository (CentOS Stream)
       run: dnf config-manager --set-enabled crb
       shell: bash --noprofile --norc -euxo pipefail {0}
-      if: matrix.image == 'quay.io/centos/centos:stream9'
+      if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
     - name: Install dependency package(s)
       run: |

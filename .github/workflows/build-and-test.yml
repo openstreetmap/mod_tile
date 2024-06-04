@@ -25,7 +25,6 @@ jobs:
           - "fedora:39"
           - "fedora:40"
           - "opensuse/leap:15"
-          - "quay.io/centos/centos:stream8"
           - "quay.io/centos/centos:stream9"
           - "ubuntu:22.04"
         on_default_branch:
