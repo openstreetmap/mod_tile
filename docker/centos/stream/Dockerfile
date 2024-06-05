@@ -98,7 +98,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     dnf --assumeyes install \
         boost-devel \
         cairo-devel \
-        cmake3 \
+        cmake \
         gcc \
         gcc-c++ \
         gdal \

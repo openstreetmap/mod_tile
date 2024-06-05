@@ -18,7 +18,6 @@
 #include <dirent.h>
 #include <exception>
 #include <glib.h>
-#include <limits.h>
 #include <map>
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/coord.hpp>
@@ -35,8 +34,6 @@
 #include <mapnik/params.hpp>
 #include <mapnik/pixel_types.hpp>
 #include <mapnik/version.hpp>
-#include <math.h>
-#include <memory>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +42,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <utility>
+
+#if MAPNIK_MAJOR_VERSION >= 4
+#include <mapnik/geometry/box2d.hpp>
+#else
+#include <mapnik/box2d.hpp>
+#endif
 
 #include "cache_expire.h"
 #include "g_logger.h"
@@ -56,12 +59,6 @@
 #include "renderd.h"
 #include "request_queue.h"
 #include "store.h"
-
-#if MAPNIK_MAJOR_VERSION >= 4
-#include <mapnik/geometry/box2d.hpp>
-#else
-#include <mapnik/box2d.hpp>
-#endif
 
 #ifndef DEG_TO_RAD
 #define DEG_TO_RAD (M_PI / 180)
