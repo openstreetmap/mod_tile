@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <strings.h>
 #include <sys/stat.h>
@@ -33,6 +34,12 @@
 #include <time.h>
 #include <tuple>
 #include <unistd.h>
+
+#if MAPNIK_MAJOR_VERSION >= 4
+#include <mapnik/geometry/box2d.hpp>
+#else
+#include <mapnik/box2d.hpp>
+#endif
 
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
@@ -46,13 +53,6 @@
 #include "renderd.h"
 #include "request_queue.h"
 #include "store.h"
-#include "string.h"
-
-#if MAPNIK_MAJOR_VERSION >= 4
-#include <mapnik/geometry/box2d.hpp>
-#else
-#include <mapnik/box2d.hpp>
-#endif
 
 #define NO_QUEUE_REQUESTS 9
 #define NO_TEST_REPEATS 100

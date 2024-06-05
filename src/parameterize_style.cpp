@@ -15,15 +15,16 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#if MAPNIK_MAJOR_VERSION < 4
-#include <boost/optional.hpp>
-#endif
 #include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/layer.hpp>
 #include <mapnik/map.hpp>
 #include <mapnik/params.hpp>
 #include <mapnik/version.hpp>
+
+#if MAPNIK_MAJOR_VERSION < 4
+#include <boost/optional.hpp>
+#endif
 
 #include "g_logger.h"
 #include "parameterize_style.hpp"
