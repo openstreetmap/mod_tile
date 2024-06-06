@@ -2067,7 +2067,7 @@ static const char *arg_to_apr_int64_t(cmd_parms *cmd, const char *buf, apr_int64
 		return apr_pstrcat(cmd->pool, config_directive_name, " argument must be an integer", NULL);
 	}
 
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %" APR_INT64_T_FMT, config_directive_name, arg);
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %" APR_INT64_T_FMT, config_directive_name, arg);
 	*dest = arg;
 	return NULL;
 }
@@ -2081,7 +2081,7 @@ static const char *arg_to_double(cmd_parms *cmd, const char *buf, double *dest, 
 		return apr_pstrcat(cmd->pool, config_directive_name, " argument must be a float", NULL);
 	}
 
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %f", config_directive_name, arg);
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %f", config_directive_name, arg);
 	*dest = arg;
 	return NULL;
 }
@@ -2095,7 +2095,7 @@ static const char *arg_to_int(cmd_parms *cmd, const char *buf, int *dest, const 
 		return apr_pstrcat(cmd->pool, config_directive_name, " argument must be an integer", NULL);
 	}
 
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %i", config_directive_name, arg);
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %i", config_directive_name, arg);
 	*dest = arg;
 	return NULL;
 }
@@ -2103,7 +2103,7 @@ static const char *arg_to_int(cmd_parms *cmd, const char *buf, int *dest, const 
 static const char *arg_to_string(cmd_parms *cmd, const char *buf, const char **dest, const char *config_directive_name)
 {
 	*dest = apr_pstrndup(cmd->pool, buf, PATH_MAX);
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", config_directive_name, dest);
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", config_directive_name, *dest);
 	return NULL;
 }
 
@@ -2226,7 +2226,7 @@ static const char *mod_tile_cache_duration_medium_config(cmd_parms *cmd, void *m
 
 static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enable_global_stats)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_global_stats ? "On" : "Off");
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_global_stats ? "On" : "Off");
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	scfg->enable_global_stats = enable_global_stats;
 	return NULL;
@@ -2234,7 +2234,7 @@ static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enab
 
 static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int enable_tile_throttling)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling ? "On" : "Off");
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling ? "On" : "Off");
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	scfg->enable_tile_throttling = enable_tile_throttling;
 	return NULL;
@@ -2242,7 +2242,7 @@ static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int
 
 static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mconfig, const char *enable_tile_throttling_xforward_string)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling_xforward_string);
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling_xforward_string);
 	const char *enable_tile_throttling_xforward_result;
 	int enable_tile_throttling_xforward;
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
@@ -2262,7 +2262,7 @@ static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mco
 
 static const char *mod_tile_enable_bulk_mode(cmd_parms *cmd, void *mconfig, int enable_bulk_mode)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_bulk_mode ? "On" : "Off");
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_bulk_mode ? "On" : "Off");
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	scfg->enable_bulk_mode = enable_bulk_mode;
 	return NULL;
@@ -2270,7 +2270,7 @@ static const char *mod_tile_enable_bulk_mode(cmd_parms *cmd, void *mconfig, int 
 
 static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int enable_status_url)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_status_url ? "On" : "Off");
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_status_url ? "On" : "Off");
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	scfg->enable_status_url = enable_status_url;
 	return NULL;
@@ -2278,7 +2278,7 @@ static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int
 
 static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int enable_dirty_url)
 {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->server, "Setting %s argument to %s", cmd->directive->directive, enable_dirty_url ? "On" : "Off");
+	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_dirty_url ? "On" : "Off");
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	scfg->enable_dirty_url = enable_dirty_url;
 	return NULL;

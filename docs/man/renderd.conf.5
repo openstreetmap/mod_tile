@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2024-03-16" "mod_tile v0.7.1"
+.TH RENDERD.CONF 5 "2024-06-06" "mod_tile v0.7.1"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -14,7 +14,7 @@ This manual page documents briefly the \fBrenderd.conf\fR configuration file.
 .PP
 The default location is \fB'/etc/renderd.conf'\fR (macro definition \fB'RENDERD_CONFIG'\fR).
 .PP
-All option names are \fBcase-insensitive\fR unless otherwise specified.
+All option names are \fBcase-insensitive\fR.
 
 
 .SH RENDERD
@@ -100,37 +100,32 @@ There must be at least one \fB[map]\fR section.
 \fB[map]\fR section names can be anything else, but they must all be unique.
 
 .TP
-.B ASPECTX
+.B aspectx
 Specify the X aspect to be used by \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
 The default value is \fB'1'\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B ASPECTY
+.B aspecty
 Specify the Y aspect to be used by \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
 The default value is \fB'1'\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B ATTRIBUTION
+.B attribution
 Specify the data attribution to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
 The default value is \fB'&copy;<a href=\\\\\\"http://www.openstreetmap.org/\\\\\\">OpenStreetMap</a> and <a href=\\\\\\"http://wiki.openstreetmap.org/wiki/Contributors\\\\\\">contributors</a>, <a href=\\\\\\"http://opendatacommons.org/licenses/odbl/\\\\\\">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B CORS
+.B cors
 Specify the CORS configuration for \fBmod_tile\fR.
 Only used by \fBmod_tile\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B DESCRIPTION
+.B description
 Specify the description to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
 .B htcphost
@@ -143,28 +138,24 @@ Specify the IP address/hostname of the Host to be used by \fBrenderd\fR for HTCP
 Only used by \fBrenderd\fR.
 
 .TP
-.B MAXZOOM
+.B maxzoom
 Specify the maximum zoom level for this section.
 The default value is \fB'20'\fR (macro definition \fB'MAX_ZOOM'\fR).
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B MINZOOM
+.B minzoom
 Specify the minimum zoom level for this section.
 The default value is \fB'0'\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B PARAMETERIZE_STYLE
+.B parameterize_style
 Specify the parameterization style/function to be used for this section.
 The value of \fB'language'\fR seems to be the only one supported.
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B SERVER_ALIAS
+.B server_alias
 Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
-This option name is \fBcase-sensitive\fR.
 
 .TP
 .B scale
@@ -173,10 +164,9 @@ Only used by \fBrenderd\fR.
 The default value is \fB'1.0'\fR.
 
 .TP
-.B TILEDIR
+.B tiledir
 Specify the directory path into which tiles will be written by \fBrenderd\fR.
 The default value is \fB'/var/cache/renderd/tiles'\fR (macro definition \fB'RENDERD_TILE_DIR'\fR).
-This option name is \fBcase-sensitive\fR.
 
 .TP
 .B tilesize
@@ -185,14 +175,12 @@ Only used by \fBrenderd\fR.
 The default value is \fB'256'\fR.
 
 .TP
-.B TYPE
+.B type
 Specify the tile configuration (in the format \fB'<extension> <mime-type> <output-format>'\fR) for this section (e.g. \fB'png image/png png256'\fR).
-This option name is \fBcase-sensitive\fR.
 
 .TP
-.B URI
+.B uri
 Specify the URI prefix with which tiles can be accessed for this section.
-This option name is \fBcase-sensitive\fR.
 
 .TP
 .B xml
