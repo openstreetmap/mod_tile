@@ -8,18 +8,6 @@ A Docker-based building & testing setup pipeline is also available [here](/docke
 
 _CentOS Stream does not provide a `mapnik`/`mapnik-devel` package, so it will first need to be built & installed, which is beyond the scope of this document, please visit the project's [installation document on GitHub](https://github.com/mapnik/mapnik/blob/master/INSTALL.md) or our [Continuous Integration script](/.github/actions/dependencies/build-and-install/mapnik/action.yml) for more information._
 
-## CentOS Stream 8
-
-```shell
-#!/usr/bin/env bash
-
-# Update config-manager DNF plugin
-sudo dnf --assumeyes install "dnf-command(config-manager)"
-
-# Enable PowerTools Repository
-sudo dnf config-manager --save --setopt=powertools.enabled=1
-```
-
 ## CentOS Stream 9
 
 ```shell
@@ -30,11 +18,7 @@ sudo dnf --assumeyes install "dnf-command(config-manager)"
 
 # Enable CRB Repository
 sudo dnf config-manager --save --setopt=crb.enabled=1
-```
 
-## CentOS Stream 8/9
-
-```shell
 #!/usr/bin/env bash
 
 # Update installed packages
@@ -46,7 +30,7 @@ sudo dnf --assumeyes install epel-release
 sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   boost-devel \
   cairo-devel \
-  cmake3 \
+  cmake \
   gcc \
   gcc-c++ \
   gdal \
@@ -63,6 +47,7 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   libtiff \
   libwebp \
   make \
+  procps \
   proj
 
 # Download, Build, Test & Install `mod_tile`
@@ -74,10 +59,10 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
-  -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-  -DCMAKE_INSTALL_PREFIX=/usr \
-  -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-  -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+  -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
+  -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+  -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
+  -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .
 ctest

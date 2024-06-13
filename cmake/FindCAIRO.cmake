@@ -40,10 +40,16 @@ if((NOT CAIRO_FOUND) AND (CAIRO_INCLUDE_DIRS) AND (CAIRO_LIBRARIES))
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(CAIRO
-  FOUND_VAR CAIRO_FOUND
-  REQUIRED_VARS CAIRO_FOUND CAIRO_INCLUDE_DIRS CAIRO_LIBRARIES
-  VERSION_VAR CAIRO_VERSION
-)
+
+if(CAIRO_FOUND)
+  find_package_handle_standard_args(CAIRO
+    REQUIRED_VARS CAIRO_FOUND CAIRO_INCLUDE_DIRS CAIRO_LIBRARIES
+    VERSION_VAR CAIRO_VERSION
+  )
+else()
+  find_package_handle_standard_args(CAIRO
+    REQUIRED_VARS CAIRO_FOUND
+  )
+endif()
 
 mark_as_advanced(CAIRO_INCLUDE_DIR CAIRO_LIBRARY)
