@@ -30,7 +30,7 @@ sudo dnf --assumeyes install epel-release
 sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   boost-devel \
   cairo-devel \
-  cmake3 \
+  cmake \
   gcc \
   gcc-c++ \
   gdal \
@@ -47,6 +47,7 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   libtiff \
   libwebp \
   make \
+  procps \
   proj
 
 # Download, Build, Test & Install `mod_tile`
