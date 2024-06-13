@@ -65,7 +65,7 @@ when using it on an operating system this is not being packaged for.
 We prepared instructions for you on how to build the software on the following
 distributions:
 
-* `CentOS </docs/build/building_on_centos.md>`__
+* `Arch Linux </docs/build/building_on_arch_linux.md>`__
 * `CentOS Stream </docs/build/building_on_centos_stream.md>`__
 * `Debian </docs/build/building_on_debian.md>`__
 * `Fedora </docs/build/building_on_fedora.md>`__

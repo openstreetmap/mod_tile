@@ -39,7 +39,7 @@
 
 #include "gen_tile.h"
 #include "render_config.h"
-#include "daemon.h"
+#include "renderd.h"
 #include "store.h"
 #include "metatile.h"
 #include "protocol.h"
@@ -78,10 +78,10 @@
 
 using namespace mapnik;
 #ifndef DEG_TO_RAD
-#define DEG_TO_RAD (M_PI/180)
+#define DEG_TO_RAD (M_PI / 180)
 #endif
 #ifndef RAD_TO_DEG
-#define RAD_TO_DEG (180/M_PI)
+#define RAD_TO_DEG (180 / M_PI)
 #endif
 
 #ifdef METATILE
@@ -97,17 +97,17 @@ struct projectionconfig {
 	double bound_y0;
 	double bound_x1;
 	double bound_y1;
-	int    aspect_x;
-	int    aspect_y;
+	int aspect_x;
+	int aspect_y;
 };
 
 struct xmlmapconfig {
 	char xmlname[XMLCONFIG_MAX];
 	char xmlfile[PATH_MAX];
 	char output_format[XMLCONFIG_MAX];
-	struct storage_backend * store;
+	struct storage_backend *store;
 	Map map;
-	struct projectionconfig * prj;
+	struct projectionconfig *prj;
 	char xmluri[PATH_MAX];
 	char host[PATH_MAX];
 	char htcphost[PATH_MAX];
@@ -118,31 +118,29 @@ struct xmlmapconfig {
 	int maxzoom;
 	int ok;
 	parameterize_function_ptr parameterize_function;
-	xmlmapconfig() :
-		map(256, 256) {}
+	xmlmapconfig() : map(256, 256) {}
 };
 
-
-struct projectionconfig * get_projection(const char * srs)
+struct projectionconfig *get_projection(const char *srs)
 {
-	struct projectionconfig * prj;
+	struct projectionconfig *prj;
 
 	if (strstr(srs, "+proj=merc +a=6378137 +b=6378137") != NULL) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Using web mercator projection settings");
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
-		prj->bound_x1 =  20037508.3428;
+		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -20037508.3428;
-		prj->bound_y1 =  20037508.3428;
+		prj->bound_y1 = 20037508.3428;
 		prj->aspect_x = 1;
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Using plate carree projection settings");
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
-		prj->bound_x1 =  20037508.3428;
+		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -10018754.1714;
-		prj->bound_y1 =  10018754.1714;
+		prj->bound_y1 = 10018754.1714;
 		prj->aspect_x = 2;
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs") == 0) {
@@ -158,9 +156,9 @@ struct projectionconfig * get_projection(const char * srs)
 		g_logger(G_LOG_LEVEL_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
 		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
 		prj->bound_x0 = -20037508.3428;
-		prj->bound_x1 =  20037508.3428;
+		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -20037508.3428;
-		prj->bound_y1 =  20037508.3428;
+		prj->bound_y1 = 20037508.3428;
 		prj->aspect_x = 1;
 		prj->aspect_y = 1;
 	}
@@ -219,13 +217,13 @@ static void load_fonts(const char *font_dir, int recurse)
 static void parameterize_map_max_connections(Map &m, int num_threads)
 {
 	unsigned int i;
-	char * tmp = (char *)malloc(20);
+	char *tmp = (char *)malloc(20);
 
 	for (i = 0; i < m.layer_count(); i++) {
 #if MAPNIK_VERSION >= 300000
-		layer& l = m.get_layer(i);
+		layer &l = m.get_layer(i);
 #else
-		layer& l = m.getLayer(i);
+		layer &l = m.getLayer(i);
 #endif
 		parameters params = l.datasource()->params();
 
@@ -244,8 +242,7 @@ static void parameterize_map_max_connections(Map &m, int num_threads)
 	free(tmp);
 }
 
-
-static int check_xyz(int x, int y, int z, struct xmlmapconfig * map)
+static int check_xyz(int x, int y, int z, struct xmlmapconfig *map)
 {
 	int oob, limit;
 
@@ -266,7 +263,7 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig * map)
 }
 
 #ifdef METATILE
-mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y, int z)
+mapnik::box2d<double> tile2prjbounds(struct projectionconfig *prj, int x, int y, int z)
 {
 
 	int render_size_tx = MIN(METATILE, prj->aspect_x * (1 << z));
@@ -280,10 +277,10 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig * prj, int x, int y
 	g_logger(G_LOG_LEVEL_DEBUG, "Rendering projected coordinates %i %i %i -> %f|%f %f|%f to a %i x %i tile", z, x, y, p0x, p0y, p1x, p1y, render_size_tx, render_size_ty);
 
 	mapnik::box2d<double> bbox(p0x, p0y, p1x, p1y);
-	return  bbox;
+	return bbox;
 }
 
-static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char *options, metaTile &tiles)
+static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char *options, metaTile &tiles)
 {
 	unsigned int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
 	unsigned int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
@@ -295,7 +292,7 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 		map->map.set_buffer_size((map->tilesize >> 1) * map->scale);
 	}
 
-	//m.zoom(size+1);
+	// m.zoom(size+1);
 
 	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
 
@@ -313,7 +310,7 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 			mapnik::agg_renderer<mapnik::image_32> ren(map->map, buf, map->scale);
 			ren.apply();
 		}
-	} catch (std::exception const& ex) {
+	} catch (std::exception const &ex) {
 		g_logger(G_LOG_LEVEL_ERROR, "failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x + render_size_tx - 1, y, y + render_size_ty - 1);
 		g_logger(G_LOG_LEVEL_ERROR, "  reason: %s", ex.what());
 		return cmdNotDone;
@@ -336,8 +333,8 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
 
 	return cmdDone; // OK
 }
-#else //METATILE
-static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char* outputFormat)
+#else // METATILE
+static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char *outputFormat)
 {
 	char filename[PATH_MAX];
 	char tmp[PATH_MAX];
@@ -380,10 +377,9 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
 	return cmdDone; // OK
 }
-#endif //METATILE
+#endif // METATILE
 
-
-void render_init(const char *plugins_dir, const char* font_dir, int font_dir_recurse)
+void render_init(const char *plugins_dir, const char *font_dir, int font_dir_recurse)
 {
 	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", ((MAPNIK_VERSION) / 100000), (((MAPNIK_VERSION) / 100) % 1000), ((MAPNIK_VERSION) % 100));
 
@@ -395,9 +391,9 @@ void render_init(const char *plugins_dir, const char* font_dir, int font_dir_rec
 	load_fonts(font_dir, font_dir_recurse);
 }
 
-void *render_thread(void * arg)
+void *render_thread(void *arg)
 {
-	xmlconfigitem * parentxmlconfig = (xmlconfigitem *)arg;
+	xmlconfigitem *parentxmlconfig = (xmlconfigitem *)arg;
 	xmlmapconfig maps[XMLCONFIGS_MAX];
 	int i, iMaxConfigs;
 	int render_time;
@@ -439,7 +435,7 @@ void *render_thread(void * arg)
 				}
 
 				maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
-			} catch (std::exception const& ex) {
+			} catch (std::exception const &ex) {
 				g_logger(G_LOG_LEVEL_ERROR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
 				maps[iMaxConfigs].ok = 0;
 			} catch (...) {
@@ -453,8 +449,7 @@ void *render_thread(void * arg)
 			strcpy(maps[iMaxConfigs].htcphost, parentxmlconfig[iMaxConfigs].htcpip);
 
 			if (strlen(maps[iMaxConfigs].htcphost) > 0) {
-				maps[iMaxConfigs].htcpsock = init_cache_expire(
-								     maps[iMaxConfigs].htcphost);
+				maps[iMaxConfigs].htcpsock = init_cache_expire(maps[iMaxConfigs].htcphost);
 
 				if (maps[iMaxConfigs].htcpsock > 0) {
 					g_logger(G_LOG_LEVEL_INFO, "Successfully opened socket for HTCP cache expiry");
@@ -465,7 +460,7 @@ void *render_thread(void * arg)
 				maps[iMaxConfigs].htcpsock = -1;
 			}
 
-#endif
+#endif // HTCP_EXPIRE_CACHE
 		} else {
 			maps[iMaxConfigs].ok = 0;
 		}
@@ -518,9 +513,9 @@ void *render_thread(void * arg)
 									tiles.save(maps[i].store);
 #ifdef HTCP_EXPIRE_CACHE
 									tiles.expire_tiles(maps[i].htcpsock, maps[i].host, maps[i].xmluri);
-#endif
+#endif // HTCP_EXPIRE_CACHE
 
-								} catch (std::exception const& ex) {
+								} catch (std::exception const &ex) {
 									g_logger(G_LOG_LEVEL_ERROR, "Received exception when writing metatile to disk: %s", ex.what());
 									ret = cmdNotDone;
 								} catch (...) {
@@ -531,12 +526,12 @@ void *render_thread(void * arg)
 								}
 							}
 
-#else //METATILE
+#else // METATILE
 			ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, maps[i].output_format);
 #ifdef HTCP_EXPIRE_CACHE
 			cache_expire(maps[i].htcpsock, maps[i].host, maps[i].xmluri, req->x, req->y, req->z);
-#endif
-#endif //METATILE
+#endif // HTCP_EXPIRE_CACHE
+#endif // METATILE
 						} else {
 							g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
 								 req->xmlname, req->z, req->x, req->y);
@@ -550,7 +545,7 @@ void *render_thread(void * arg)
 					send_response(item, ret, render_time);
 
 					if ((ret != cmdDone) && (ret != cmdIgnore)) {
-						sleep(10);        //Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
+						sleep(10); // Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
 					}
 
 					break;

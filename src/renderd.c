@@ -36,7 +36,7 @@
 
 #include "config.h"
 #include "render_config.h"
-#include "daemon.h"
+#include "renderd.h"
 #include "gen_tile.h"
 #include "protocol.h"
 #include "protocol_helper.h"

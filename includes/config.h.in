@@ -1,3 +1,5 @@
+#ifndef CONFIG_H
+#define CONFIG_H
 /* Define to 1 if you have the functions. */
 #cmakedefine HAVE_DAEMON @HAVE_DAEMON@
 #cmakedefine HAVE_GETLOADAVG @HAVE_GETLOADAVG@
@@ -25,3 +27,4 @@
 
 /* Version number of project */
 #cmakedefine VERSION "@VERSION@"
+#endif

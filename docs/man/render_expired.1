@@ -6,7 +6,7 @@ render_expired \- expires a list of map tiles so that they get re-rendered.
 
 .SH SYNOPSIS
 .B render_expired
-.RI [ options ] <  "expire.list"
+.RI [ options ]\ <\  "expire.list"
 .BR
 
 .SH DESCRIPTION
@@ -27,13 +27,13 @@ Render_expired has three potential strategies of how to expire map tiles:
 These three strategies can be combined and applied at different zoom levels. E.g. Zoom level 17-18 get deleted, z11 - z16 get marked dirty and z6 - z10 get rendered directly.
 .PP
 Render_expired takes a list of tiles from stdin which should be expired. The format of the list is one tile per line specified as z/x/y.
-.BR
+.sp 0
 1/0/1
-.BR
+.sp 0
 1/1/1
-.BR
+.sp 0
 1/0/0
-.BR
+.sp 0
 1/1/0
 .PP
 render_expired will automatically expand the list to cover the effected tiles at other zoom levels.
@@ -52,24 +52,23 @@ Specify the location of the renderd socket or hostname and port to connect to.
 .TP
 \fB\-n\fR|\-\-num-threads=N
 Specify the number of parallel requests to renderd. Should renderd have less threads active, requests will be queued. The default is 1.
-default if \fB\-\-append\fR is not specified.
 .TP
 \fB\-t\fR|\-\-tile-dir=DIR
 Specify the base directory where the rendered tiles are. The default is '/var/cache/renderd/tiles'
 .TP
 \fB\-z\fR|\-\-min-zoom=ZOOM
-Filter input to only render tiles greater or equal to this zoom level (default is 0)
+Filter input to only render tiles greater than or equal to this zoom level (default is '0').
 .TP
 \fB\-Z\fR|\-\-max-zoom=ZOOM
-Filter input to only render tiles less than or equal to this zoom level (default is 18)
+Filter input to only render tiles less than or equal to this zoom level (default is '18').
 .TP
 \fB\-d\fR|\-\-delete-from=ZOOM
 When expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)
 .TP
 \fB\-T\fR|\-\-touch-from=ZOOM
-when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
+When expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
 .TP
-\-\-no-progress
+\fB\-N\fR|\-\-no-progress
 Disable display of progress messages (default is off)
 .TP
 \fB\-h\fR|\-\-help

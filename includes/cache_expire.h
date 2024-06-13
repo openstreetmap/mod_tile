@@ -26,8 +26,8 @@ extern "C" {
 #define HTCP_EXPIRE_CACHE_PORT "4827"
 
 
-void cache_expire(int sock, char * host, char * uri, int x, int y, int z);
-int init_cache_expire(char * htcphost);
+void cache_expire(int sock, char *host, char *uri, int x, int y, int z);
+int init_cache_expire(char *htcphost);
 
 #ifdef __cplusplus
 }

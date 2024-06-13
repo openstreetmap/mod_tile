@@ -15,31 +15,22 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <getopt.h>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/un.h>
-#include <poll.h>
-#include <errno.h>
-#include <math.h>
-#include <limits.h>
-#include <string.h>
-#include <strings.h>
-#include <getopt.h>
+#include <unistd.h>
 
-#include "gen_tile.h"
-#include "protocol.h"
 #include "config.h"
+#include "protocol.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
 
-
-#define DEG_TO_RAD (M_PI/180)
-#define RAD_TO_DEG (180/M_PI)
+#define DEG_TO_RAD (M_PI / 180)
+#define RAD_TO_DEG (180 / M_PI)
 
 #ifndef METATILE
 #warning("Speed test not implemented for non-metatile mode. Feel free to submit fix")
@@ -73,11 +64,8 @@ static double boundy1 = 58.8;
 
 int foreground = 1;
 
-
 static double minmax(double a, double b, double c)
 {
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)>(y)?(x):(y))
 	a = MAX(a, b);
 	a = MIN(a, c);
 	return a;
@@ -127,7 +115,7 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
@@ -136,59 +124,10 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	fflush(NULL);
 }
 
-int rx_process(const struct protocol *req)
-{
-	fprintf(stderr, "version(%d), cmd(%d), z(%d), x(%d), y(%d)\n",
-		req->ver, req->cmd, req->z, req->x, req->y);
-	return 0;
-}
-
-int process_loop(int fd, int x, int y, int z, const char * map)
-{
-	struct protocol cmd, rsp;
-	//struct pollfd fds[1];
-	int ret = 0;
-
-	bzero(&cmd, sizeof(cmd));
-
-	cmd.ver = 2;
-	cmd.cmd = cmdRender;
-	cmd.z = z;
-	cmd.x = x;
-	cmd.y = y;
-	strcpy(cmd.xmlname, map);
-	//strcpy(cmd.path, "/tmp/foo.png");
-
-	//printf("Sending request\n");
-	ret = send(fd, &cmd, sizeof(cmd), 0);
-
-	if (ret != sizeof(cmd)) {
-		perror("send error");
-	}
-
-	//printf("Waiting for response\n");
-	bzero(&rsp, sizeof(rsp));
-	ret = recv(fd, &rsp, sizeof(rsp), 0);
-
-	if (ret != sizeof(rsp)) {
-		perror("recv error");
-		return 0;
-	}
-
-	//printf("Got response\n");
-
-	if (!ret) {
-		perror("Socket send error");
-	}
-
-	return ret;
-}
-
 int main(int argc, char **argv)
 {
 	const char *spath = RENDERD_SOCKET;
 	int fd;
-	struct sockaddr_un addr;
 	int ret = 0;
 	int z;
 	int c;

@@ -18,6 +18,14 @@
 #ifndef SYS_UTILS_H
 #define SYS_UTILS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 double get_load_avg(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

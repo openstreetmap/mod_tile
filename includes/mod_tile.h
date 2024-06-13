@@ -18,7 +18,10 @@
 #ifndef MODTILE_H
 #define MODTILE_H
 
+#include "protocol.h"
 #include "store.h"
+#include <apr_tables.h>
+#include <netinet/in.h>
 
 /*Size of the delaypool hashtable*/
 #define DELAY_HASHTABLE_SIZE 100057
@@ -42,7 +45,6 @@
 #define OLD_RENDER 4
 #define VERYOLD_RENDER 5
 #define VERYOLD 6
-
 
 /* Number of microseconds to camp out on the mutex */
 #define CAMPOUT 10
@@ -141,12 +143,15 @@ typedef struct {
 } tile_server_conf;
 
 typedef struct tile_request_data {
-	struct protocol * cmd;
-	struct storage_backend * store;
+	struct protocol *cmd;
+	struct storage_backend *store;
 	int layerNumber;
 } tile_request_data;
 
-enum tileState { tileMissing, tileOld, tileVeryOld, tileCurrent };
-
+enum tileState { tileMissing,
+		 tileOld,
+		 tileVeryOld,
+		 tileCurrent
+	       };
 
 #endif
