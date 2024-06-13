@@ -2,19 +2,15 @@
 runs:
   using: composite
   steps:
-    - name: Create `cmake` symbolic link
-      run: |
-        if ! command -v cmake &> /dev/null && command -v cmake3 &> /dev/null; then
-          ln --symbolic cmake3 /usr/bin/cmake
-        fi
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
     - name: Prepare `build` directory
       run: |
         cmake -B build -S . \
           -LA \
           -DCMAKE_BUILD_TYPE:STRING=${BUILD_TYPE:-Release} \
-          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr/local} \
+          -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=${INSTALL_LOCALSTATEDIR:-/var} \
+          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr} \
+          -DCMAKE_INSTALL_RUNSTATEDIR:PATH=${INSTALL_RUNSTATEDIR:-/run} \
+          -DCMAKE_INSTALL_SYSCONFDIR:PATH=${INSTALL_SYSCONFDIR:-/etc} \
           -DENABLE_TESTS:BOOL=ON
       shell: bash --noprofile --norc -euxo pipefail {0}
 

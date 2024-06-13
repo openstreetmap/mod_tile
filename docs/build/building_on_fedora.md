@@ -6,7 +6,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 
 A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
 
-## Fedora 34/35/36/37/38/39
+## Fedora 34/35/36/37/38/39/40
 
 ```shell
 #!/usr/bin/env bash
@@ -39,10 +39,10 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
-  -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-  -DCMAKE_INSTALL_PREFIX=/usr \
-  -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-  -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+  -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
+  -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+  -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
+  -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .
 ctest

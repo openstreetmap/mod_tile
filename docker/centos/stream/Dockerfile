@@ -56,15 +56,10 @@ RUN --mount=id=centos:stream${centos_stream_version}-mapnik:${mapnik_version},ta
     if [ ! -f SConstruct ]; then \
         curl --silent --location https://github.com/mapnik/mapnik/releases/download/v${mapnik_version}/mapnik-v${mapnik_version}.tar.bz2 \
             | tar --extract --bzip2 --strip-components=1 --file=-; \
-        if [ "${centos_stream_version}" = "9" ]; then \
-            curl --silent --location https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
-                | patch -Np1; \
-            curl --silent --location https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
-                | patch -F3 -Np1; \
-        fi \
-    fi; \
-    if [ "${centos_stream_version}" = "8" ]; then \
-        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"; \
+        curl --silent --location https://github.com/mapnik/mapnik/commit/8944e81367d2b3b91a41e24116e1813c01491e5d.patch \
+            | patch -Np1; \
+        curl --silent --location https://github.com/mapnik/mapnik/commit/83779b7b6bdd229740b1b5e12a4a8fe27114cb7d.patch \
+            | patch -F3 -Np1; \
     fi; \
     bash configure \
         CPP_TESTS=False \
@@ -103,7 +98,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     dnf --assumeyes install \
         boost-devel \
         cairo-devel \
-        cmake3 \
+        cmake \
         gcc \
         gcc-c++ \
         gdal \
@@ -132,10 +127,10 @@ WORKDIR /tmp/mod_tile_build
 RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+        -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+        -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
+        -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \

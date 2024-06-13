@@ -34,6 +34,8 @@ sudo pkg install --yes \
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu)
+export CTEST_CLIENT_HOST="::1"
+export CTEST_SERVER_HOST="localhost"
 export LIBRARY_PATH="/usr/local/lib"
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build
@@ -42,10 +44,10 @@ git clone --depth 1 https://github.com/openstreetmap/mod_tile.git .
 cd /tmp/mod_tile_build
 cmake -B . -S /tmp/mod_tile_src \
   -DCMAKE_BUILD_TYPE:STRING=Release \
-  -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-  -DCMAKE_INSTALL_PREFIX=/usr \
-  -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-  -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+  -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
+  -DCMAKE_INSTALL_PREFIX:PATH=/usr/local \
+  -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
+  -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
   -DENABLE_TESTS:BOOL=ON
 cmake --build .
 ctest

@@ -40,10 +40,16 @@ if((NOT GLIB_FOUND) AND (GLIB_INCLUDE_DIRS) AND (GLIB_LIBRARIES))
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(GLIB
-  FOUND_VAR GLIB_FOUND
-  REQUIRED_VARS GLIB_FOUND GLIB_INCLUDE_DIRS GLIB_LIBRARIES
-  VERSION_VAR GLIB_VERSION
-)
+
+if(GLIB_FOUND)
+  find_package_handle_standard_args(GLIB
+    REQUIRED_VARS GLIB_FOUND GLIB_INCLUDE_DIRS GLIB_LIBRARIES
+    VERSION_VAR GLIB_VERSION
+  )
+else()
+  find_package_handle_standard_args(GLIB
+    REQUIRED_VARS GLIB_FOUND
+  )
+endif()
 
 mark_as_advanced(GLIB_INCLUDE_DIR GLIB_LIBRARY)

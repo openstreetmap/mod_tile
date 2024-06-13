@@ -19,10 +19,10 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
-        boost1.78-devel \
+        boost-devel \
         bzip2 \
         cairo-devel \
-        cmake3 \
+        cmake \
         freetype-devel \
         gcc \
         gcc-c++ \
@@ -82,9 +82,9 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
-        boost1.78-devel \
+        boost-devel \
         cairo-devel \
-        cmake3 \
+        cmake \
         freetype-devel \
         gcc \
         gcc-c++ \
@@ -104,6 +104,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
         libxml2-devel \
         make \
         pkg-config \
+        procps \
         proj-devel
 
 ## Copy files from builder(s)
@@ -116,11 +117,10 @@ WORKDIR /tmp/mod_tile_build
 RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES:PATH=/usr/include/boost1.78 \
-        -DCMAKE_INSTALL_LOCALSTATEDIR=/var \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_RUNSTATEDIR=/run \
-        -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+        -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+        -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
+        -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
@@ -145,9 +145,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
-        boost1.78-filesystem \
-        boost1.78-program-options \
-        boost1.78-regex \
+        boost-regex \
         cairo \
         gdal \
         harfbuzz \
