@@ -179,7 +179,9 @@ set(renderd_SRCS
   renderd.c
   request_queue.c
 )
+# JEMALLOC libraries should come *before* the GLIB libraries.
 set(renderd_LIBS
+  ${JEMALLOC_LIBRARIES}
   ${ICU_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
   ${RENDER_LIBRARIES}

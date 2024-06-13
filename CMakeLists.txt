@@ -45,6 +45,13 @@ include(GNUInstallDirs)
 find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
 
+# Switch to jemalloc (http://jemalloc.net) as the malloc/free
+# implementation in renderd.
+# Should address https://github.com/openstreetmap/mod_tile/issues/181
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JEMALLOC jemalloc)
+pkg_search_module(JEMALLOC REQUIRED jemalloc)
+
 find_package(APR REQUIRED)
 find_package(GLIB 2.50 REQUIRED)
 find_package(HTTPD 2.4 REQUIRED)
