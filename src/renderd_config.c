@@ -214,7 +214,7 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 		const char *section = iniparser_getsecname(ini, section_num);
 
 		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { // this is a map config section
-			char *ini_type_copy, *ini_type_part;
+			char *ini_type_copy, *ini_type_part, *ini_type_context;
 			const char *ini_type;
 			int ini_type_part_maxlen = 64, ini_type_part_num = 0;
 
@@ -275,7 +275,9 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 			process_config_string(ini, section, "type", &ini_type, "png image/png png256", INILINE_MAX);
 			ini_type_copy = strndup(ini_type, INILINE_MAX);
 
-			while ((ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_copy))) {
+			for (ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_context);
+					ini_type_part;
+					ini_type_part = strtok_r(NULL, " ", &ini_type_context)) {
 				switch (ini_type_part_num) {
 					case 0:
 						copy_string(ini_type_part, &maps_dest[map_section_num].file_extension, ini_type_part_maxlen);
@@ -315,6 +317,7 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 			 */
 			maps_dest[map_section_num].num_threads = num_threads;
 
+			free(ini_type_copy);
 			free(ini_type_part);
 			free((void *)ini_type);
 		}
