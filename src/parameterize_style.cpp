@@ -68,11 +68,7 @@ static void parameterize_map_language(mapnik::Map &m, char *parameter)
 		mapnik::parameters params = l.datasource()->params();
 
 		if (params.find("table") != params.end()) {
-#if MAPNIK_MAJOR_VERSION >= 4
-			std::optional<std::string> table = params.get<std::string>("table");
-#else
-			boost::optional<std::string> table = params.get<std::string>("table");
-#endif
+			auto table = params.get<std::string>("table");
 
 			if (table && table->find(",name") != std::string::npos) {
 				std::string str = *table;
