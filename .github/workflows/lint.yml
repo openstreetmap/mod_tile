@@ -42,24 +42,24 @@ jobs:
             exit 1
           fi
       - name: Write `$ASTYLE_OUTPUT` to `$GITHUB_STEP_SUMMARY`
-        if: failure()
         run: |
           ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
           echo "### The following files are in need of formatting:" >> ${GITHUB_STEP_SUMMARY}
           echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "- `"$2"`"}' >> ${GITHUB_STEP_SUMMARY}
           echo "### Run the following command before submitting a pull request:" >> ${GITHUB_STEP_SUMMARY}
           echo -e '```shell\n'"${ASTYLE_CMD}"'\n```' >> ${GITHUB_STEP_SUMMARY}
-      - name: Generate `ArtisticStyleFormattingFixes.patch` file
         if: failure()
+      - name: Generate `ArtisticStyleFormattingFixes.patch` file
         run: |
           ${ASTYLE_CMD}
           git diff --patch > ArtisticStyleFormattingFixes.patch
-      - name: Upload `ArtisticStyleFormattingFixes.patch` file
         if: failure()
-        uses: actions/upload-artifact@v3
+      - name: Upload `ArtisticStyleFormattingFixes.patch` file
+        uses: actions/upload-artifact@v4
         with:
           name: ArtisticStyleFormattingFixes.patch
           path: ArtisticStyleFormattingFixes.patch
+        if: failure()
 
   cmakelint:
     name: Lint with `CMakeLint`

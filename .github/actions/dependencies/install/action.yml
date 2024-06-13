@@ -13,7 +13,6 @@ inputs:
     default: >-
       cmake
       git
-      libboost-filesystem-dev
       libboost-program-options-dev
       libboost-regex-dev
       libfreetype6-dev
@@ -32,6 +31,8 @@ inputs:
     default: >-
       apache2
       jq
+      lcov
+      memcached
   fedora-build-dependencies:
     default: >-
       cairo-devel
@@ -47,6 +48,9 @@ inputs:
     default: >-
       httpd
       jq
+      lcov
+      memcached
+      procps
   freebsd-build-dependencies:
     default: >-
       apache24
@@ -61,6 +65,8 @@ inputs:
   freebsd-test-dependencies:
     default: >-
       jq
+      lcov
+      memcached
   macos-build-dependencies:
     default: >-
       apr
@@ -76,6 +82,8 @@ inputs:
     default: >-
       coreutils
       jq
+      lcov
+      memcached
   opensuse-build-dependencies:
     default: >-
       apache2-devel
@@ -92,6 +100,8 @@ inputs:
       apache2-event
       apache2-prefork
       jq
+      lcov
+      memcached
   opensuse-mapnik-build-dependencies:
     default: >-
       bzip2
@@ -129,6 +139,9 @@ inputs:
     default: >-
       httpd
       jq
+      lcov
+      memcached
+      procps
   rhel-mapnik-build-dependencies:
     default: >-
       boost-devel
@@ -162,7 +175,6 @@ inputs:
     default: >-
       cmake
       git
-      libboost-filesystem-dev
       libboost-program-options-dev
       libboost-regex-dev
       libfreetype6-dev
@@ -181,17 +193,17 @@ inputs:
     default: >-
       apache2
       jq
+      lcov
+      memcached
   mapnik-build-version-centos-stream:
     default: 3.1.0
-  mapnik-build-version-amazonlinux2-centos7:
-    default: 3.0.17
   mapnik-build-version-opensuse:
     default: 3.1.0
 
 runs:
   using: composite
   steps:
-    - name: Install Dependencies (Amazon Linux/CentOS/CentOS Stream)
+    - name: Install Dependencies (CentOS Stream)
       uses: ./.github/actions/dependencies/install/yum
       with:
         dependencies: epel-release
@@ -199,13 +211,10 @@ runs:
           ${{ inputs.rhel-build-dependencies }}
           ${{ inputs.rhel-mapnik-build-dependencies }}
           ${{ inputs.rhel-test-dependencies }}
-          ${{ matrix.build_system == 'CMake' && 'cmake3' || 'autoconf automake redhat-rpm-config' }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
-          ${{ matrix.image == 'centos:7' && matrix.compiler == 'LLVM' && 'gcc-c++' || '' }}
-      if: |
-        startsWith(matrix.image, 'amazonlinux:') ||
-        startsWith(matrix.image, 'centos:') ||
-        startsWith(matrix.image, 'quay.io/centos/centos:stream')
+          rpm-build
+      if: startsWith(matrix.image, 'quay.io/centos/centos:stream')
 
     - name: Install Dependencies (Debian)
       uses: ./.github/actions/dependencies/install/apt-get
@@ -226,6 +235,7 @@ runs:
           ${{ inputs.fedora-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
+          rpm-build
       if: startsWith(matrix.image, 'fedora:')
 
     - name: Install Dependencies (FreeBSD)
@@ -257,6 +267,7 @@ runs:
           ${{ inputs.opensuse-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'automake' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc12 gcc12-c++' }}
+          rpm-build
       if: startsWith(matrix.image, 'opensuse/')
 
     - name: Install Dependencies (Ubuntu)
@@ -285,12 +296,6 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'opensuse/')
 
-    - name: Build & Install `mapnik` (Amazon Linux 2/CentOS 7)
-      uses: ./.github/actions/dependencies/build-and-install/mapnik
-      with:
-        version: ${{ inputs.mapnik-build-version-amazonlinux2-centos7 }}
-      if: matrix.image == 'amazonlinux:2' || matrix.image == 'centos:7'
-
     - name: Build & Install `mapnik` (CentOS Stream)
       uses: ./.github/actions/dependencies/build-and-install/mapnik
       with:
@@ -307,7 +312,7 @@ runs:
       uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
       if: |
         matrix.mapnik_latest &&
-        (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:'))
+        (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:') || runner.os == 'Linux')
 
     - name: Build & Install latest `mapnik` (openSUSE)
       uses: ./.github/actions/dependencies/build-and-install/mapnik/latest

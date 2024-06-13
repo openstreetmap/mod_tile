@@ -10,28 +10,34 @@ on:
 
 jobs:
   docker-image-build:
+    continue-on-error: ${{ matrix.experimental || false }}
     name: Build & Test (${{ matrix.service-name }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         service-name:
           - archlinux
-          - centos-7
-          - centos-stream-8
           - centos-stream-9
           - debian-11
           - debian-12
-          - debian-testing
-          - debian-testing-autotools
-          - fedora-38
           - fedora-39
-          - fedora-rawhide
+          - fedora-40
           - opensuse-leap-15
-          - opensuse-tumbleweed
-          - ubuntu-20.04
           - ubuntu-22.04
-          - ubuntu-devel
-          - ubuntu-devel-autotools
+          - ubuntu-24.04
+        include:
+          - service-name: debian-unstable
+            experimental: true
+          - service-name: debian-unstable-autotools
+            experimental: true
+          - service-name: fedora-rawhide
+            experimental: true
+          - service-name: opensuse-tumbleweed
+            experimental: true
+          - service-name: ubuntu-devel
+            experimental: true
+          - service-name: ubuntu-devel-autotools
+            experimental: true
       fail-fast: false
     steps:
       - name: Checkout repository

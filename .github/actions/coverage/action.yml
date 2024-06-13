@@ -1,0 +1,65 @@
+---
+inputs:
+  genhtml-extra-options:
+    default: ""
+  lcov-extra-options:
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Process `mod_tile` coverage results with CTest
+      run: |
+        ctest -T coverage || true
+      shell: bash --noprofile --norc -euxo pipefail {0}
+      working-directory: build
+      if: matrix.build_system == 'CMake'
+
+    - name: Process `mod_tile` coverage results
+      run: |
+        lcov ${{ inputs.lcov-extra-options }} \
+          --base-directory . \
+          --capture \
+          --directory ${{ matrix.build_system == 'CMake' && 'build' || '.' }} \
+          --output-file coverage.info \
+          --rc geninfo_unexecuted_blocks=1
+        lcov ${{ inputs.lcov-extra-options }} \
+          --ignore-errors unused \
+          --output-file coverage.info \
+          --remove coverage.info \
+          "${GITHUB_WORKSPACE}/includes/*" \
+          "${GITHUB_WORKSPACE}/tests/*" \
+          "/usr/*"
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Report `mod_tile` coverage results to `codecov.io`
+      uses: codecov/codecov-action@v3.1.5
+      with:
+        files: coverage.info
+
+    - name: Write `mod_tile` coverage summary to `$GITHUB_STEP_SUMMARY`
+      run: |
+        lcov ${{ inputs.lcov-extra-options }} \
+          --summary \
+          coverage.info | sed 's/^  /* /g' >> ${GITHUB_STEP_SUMMARY}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Generate `mod_tile` coverage artifacts
+      run: |
+        genhtml ${{ inputs.genhtml-extra-options }} \
+          --output-directory coverage \
+          coverage.info
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Set `COVERAGE_ARTIFACT_NAME`
+      run: |
+        echo "COVERAGE_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.build_system }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
+    - name: Upload `mod_tile` coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Coverage Artifacts - ${{ env.COVERAGE_ARTIFACT_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
+        path: |
+          coverage
+          coverage.info
