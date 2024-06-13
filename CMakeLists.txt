@@ -48,7 +48,7 @@ find_package(LIBMEMCACHED)
 find_package(LIBRADOS)
 
 if(LIBMAPNIK_VERSION STRGREATER_EQUAL "4")
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 # Programs

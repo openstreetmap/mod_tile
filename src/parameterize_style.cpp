@@ -22,7 +22,9 @@
 #include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
 
+#if MAPNIK_MAJOR_VERSION < 4
 #include <boost/optional.hpp>
+#endif
 
 #include "parameterize_style.hpp"
 #include "g_logger.h"
@@ -72,7 +74,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 		mapnik::parameters params = l.datasource()->params();
 
 		if (params.find("table") != params.end()) {
-			boost::optional<std::string> table = params.get<std::string>("table");
+			auto table = params.get<std::string>("table");
 
 			if (table && table->find(",name") != std::string::npos) {
 				std::string str = *table;
