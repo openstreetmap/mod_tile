@@ -24,6 +24,7 @@ runs:
           --output-file coverage.info \
           --rc geninfo_unexecuted_blocks=1
         lcov ${{ inputs.lcov-extra-options }} \
+          --ignore-errors unused \
           --output-file coverage.info \
           --remove coverage.info \
           "${GITHUB_WORKSPACE}/includes/*" \

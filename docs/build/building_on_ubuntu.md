@@ -6,7 +6,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 
 A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
 
-# Ubuntu 20.04/22.04.24.04
+# Ubuntu 20.04/22.04/24.04
 
 ```shell
 #!/usr/bin/env bash
