@@ -4,45 +4,48 @@ function runtest() {
     # Measure the startup memory usage (RssAnon) of process 'renderd' for 30 seconds,
     # then issue a render_list command and keep on monitoring for 4.5 more minutes.
     if [ -z "$1" ]; then
-	echo "Supply argument to tag series"
-	exit 1
+        echo "Supply argument to tag series"
+        exit 1
     fi
 
+    BUILD=build/$1
+    mkdir -p $BUILD
+
     echo "Configuring..."
-    cmake -B build -DMALLOC_LIB=$1 .
+    cmake -B $BUILD -DMALLOC_LIB=$1 .
 
     echo "Building..."
-    cmake --build build
-    
+    cmake --build $BUILD
+
     # Store the results in this file
     JSON=rssanon-$1.json5
 
     echo "Libraries:"
-    ldd ./build/src/renderd | grep 'glib\|alloc'
-    
+    ldd ./$BUILD/src/renderd | grep 'glib\|alloc'
+
     echo "Starting renderd..."
-    ./build/src/renderd -f -c /etc/renderd.conf &
-    
+    ./$BUILD/src/renderd -f -c /etc/renderd.conf &
+
     SECONDS=0
-    printf '[\n' >$JSON
+    printf 'const %s = [\n' $1 >$JSON
     while [ $SECONDS -lt 30 ]
     do
-	RSS=$(grep RssAnon /proc/$(pidof renderd)/status | awk '{print $2}')
-	printf '{ "t": %d, "tag": "%s", "rss": %d },\n' $SECONDS $1 $RSS >>$JSON
-	printf 'Time:%d Mem:%d\n' $SECONDS $RSS
-	sleep 1
+        RSS=$(grep RssAnon /proc/$(pidof renderd)/status | awk '{print $2}')
+        printf '{ "t": %d, "tag": "%s", "rss": %d },\n' $SECONDS $1 $RSS >>$JSON
+        printf 'Time:%d Mem:%d\n' $SECONDS $RSS
+        sleep 1
     done
     
     echo "Issuing render request..."
-    ./build/src/render_list -c /etc/renderd.conf -n 8 --all --force --map=retina -z 6 -Z 6 &
+    ./$BUILD/src/render_list -c /etc/renderd.conf -n 8 --all --force --map=retina -z 6 -Z 6 &
     while [ $SECONDS -lt 300 ]
     do
-	RSS=$(grep RssAnon /proc/$(pidof renderd)/status | awk '{print $2}')
-	printf '{ "t": %d, "tag": "%s", "rss": %d },\n' $SECONDS $1 $RSS >>$JSON
-	printf 'Time:%d Mem:%d\n' $SECONDS $RSS
-	sleep 1
+        RSS=$(grep RssAnon /proc/$(pidof renderd)/status | awk '{print $2}')
+        printf '{ "t": %d, "tag": "%s", "rss": %d },\n' $SECONDS $1 $RSS >>$JSON
+        printf 'Time:%d Mem:%d\n' $SECONDS $RSS
+        sleep 1
     done
-    printf ']\n' >>$JSON
+    printf '{"t": %d, "tag": "%s", "rss": %d }];\n' $SECONDS $1 $RSS >>$JSON
     
     echo "Measurement completed. Results are here: $JSON"
     kill $(pidof renderd)

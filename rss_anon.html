@@ -1,0 +1,65 @@
+<html>
+
+<head>
+    <title>
+        Memory comparison of renderd with various malloc libraries
+    </title>
+</head>
+
+<body>
+    <div>
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="file:rssanon-glib.json5"></script>
+    <script src="file:rssanon-jemalloc.json5"></script>
+    <script src="file:rssanon-tcmalloc.json5"></script>
+
+    <script>
+        /* yes, this will yield O(n^2), but I can't be bothered right now */
+        const rss = (time, data) => {
+            let rss = 0;
+            data.forEach(e => {
+                if (e.t < time) {
+                    rss = e.rss;
+                }
+            });
+            return rss;
+        }
+        const ctx = document.getElementById('myChart');
+        const data = glib.map(x => ({
+            t: x.t,
+            glib_rss: x.rss,
+            je_rss: rss(x.t, jemalloc),
+            tc_rss: rss(x.t, tcmalloc)
+        }));
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(x => x.t),
+                datasets: [{
+                    label: 'glib',
+                    data: data.map(x => x.glib_rss)
+                }, {
+                    label: 'jemalloc',
+                    data: data.map(x => x.je_rss)
+                }, {
+                    label: 'tcmalloc',
+                    data: data.map(x => x.tc_rss)
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>
