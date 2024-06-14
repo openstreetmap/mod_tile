@@ -33,6 +33,9 @@ set(USE_CURL ON CACHE BOOL "Add curl support if available (for `store_ro_http_pr
 set(USE_MEMCACHED ON CACHE BOOL "Add memcached support if available (for `store_memcached.c` backend)")
 set(USE_RADOS ON CACHE BOOL "Add rados support if available (for `store_rados.c` backend)")
 
+set(MALLOC_LIB "glib" CACHE STRING "Memory Management Library for `renderd`")
+set_property(CACHE MALLOC_LIB PROPERTY STRINGS glib jemalloc tcmalloc)
+
 #-----------------------------------------------------------------------------
 #
 #  Find external dependencies
@@ -45,12 +48,18 @@ include(GNUInstallDirs)
 find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
 
-# Switch to jemalloc (http://jemalloc.net) as the malloc/free
-# implementation in renderd.
-# Should address https://github.com/openstreetmap/mod_tile/issues/181
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(JEMALLOC jemalloc)
-pkg_search_module(JEMALLOC REQUIRED jemalloc)
+if (${MALLOC_LIB} STREQUAL "jemalloc")
+  # Switch to jemalloc (http://jemalloc.net) as the malloc/free
+  # implementation in renderd.
+  # Should address https://github.com/openstreetmap/mod_tile/issues/181
+  find_package(PkgConfig REQUIRED)
+  pkg_search_module(JEMALLOC REQUIRED jemalloc)
+elseif (${MALLOC_LIB} STREQUAL "tcmalloc")
+  # Switch to tcmalloc (https://github.com/google/tcmalloc)
+  # as the malloc/free implementation in renderd.
+  find_package(PkgConfig REQUIRED)
+  pkg_search_module(TCMALLOC REQUIRED libtcmalloc)
+endif()
 
 find_package(APR REQUIRED)
 find_package(GLIB 2.50 REQUIRED)
