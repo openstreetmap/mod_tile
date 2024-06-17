@@ -47,14 +47,20 @@ function runtest() {
     done
     printf '{"t": %d, "tag": "%s", "rss": %d }];\n' $SECONDS $1 $RSS >>$JSON
     
-    echo "Measurement completed. Results are here: $JSON"
-    kill $(pidof renderd)
+    echo "Measurement completed. Results are here: $JSON. PID of renderd is: `pidof renderd`"
+    ./$BUILD/src/render_list -c /etc/renderd.conf -S
+    #kill $(pidof renderd)
 }
 
-runtest glib
-sleep 10
-runtest jemalloc
-sleep 10
-runtest tcmalloc
+function compare_malloc() {
+    runtest glib
+    sleep 10
+    runtest jemalloc
+    sleep 10
+    runtest tcmalloc
+    echo "Comparison completed."
+}
 
-echo "All done."
+# compare_malloc
+
+runtest jemalloc

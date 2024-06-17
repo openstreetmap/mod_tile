@@ -29,6 +29,7 @@
 #include "config.h"
 #include "g_logger.h"
 #include "protocol.h"
+#include "protocol_helper.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
 #include "renderd_config.h"
@@ -126,6 +127,7 @@ int main(int argc, char **argv)
 	int all = 0;
 	int force = 0;
 	int verbose = 0;
+	int stop_renderd = 0;
 	struct storage_backend *store;
 	struct stat_info s;
 
@@ -153,13 +155,14 @@ int main(int argc, char **argv)
 			{"socket",      required_argument, 0, 's'},
 			{"tile-dir",    required_argument, 0, 't'},
 			{"verbose",     no_argument,       0, 'v'},
+			{"stop",        no_argument,       0, 'S'},
 
 			{"help",        no_argument,       0, 'h'},
 			{"version",     no_argument,       0, 'V'},
 			{0, 0, 0, 0}
 		};
 
-		int c = getopt_long(argc, argv, "ac:fm:G:l:W:X:Y:Z:g:w:x:y:z:n:s:t:vhV", long_options, &option_index);
+		int c = getopt_long(argc, argv, "ac:fm:G:l:W:X:Y:Z:g:w:x:y:z:n:s:t:vShV", long_options, &option_index);
 
 		if (c == -1) {
 			break;
@@ -266,6 +269,10 @@ int main(int argc, char **argv)
 				verbose = 1;
 				break;
 
+			case 'S': /* -S, --stop */
+				stop_renderd = 1;
+				break;
+
 			case 'h': /* -h, --help */
 				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
 				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
@@ -280,6 +287,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
 				fprintf(stderr, "\n");
 				fprintf(stderr, "  -h, --help                        display this help and exit\n");
+				fprintf(stderr, "  -v, --verbose                     turn on verbose output\n");
+				fprintf(stderr, "  -S, --stop                        request renderd to stop and exit");
 				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
 				fprintf(stderr, "\n");
 				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
@@ -418,6 +427,38 @@ int main(int argc, char **argv)
 				return 1;
 			}
 		}
+	}
+
+	if (stop_renderd != 0) {
+		g_logger(G_LOG_LEVEL_INFO, "Sending STOP comand to renderd");
+		int fd = make_connection(socketname);
+
+		if (fd < 0) {
+			g_logger(G_LOG_LEVEL_ERROR, "connect failed for: %s", socketname);
+			return 1;
+		}
+
+		struct protocol cmd;
+		bzero(&cmd, sizeof(cmd));
+		cmd.ver = 1;
+		cmd.cmd = cmdStop;
+		if (send_cmd(&cmd, fd) < 1) {
+			g_logger(G_LOG_LEVEL_ERROR, "send error: %s", strerror(errno));
+		}
+	
+		struct protocol rsp;
+		bzero(&rsp, sizeof(rsp));
+
+		g_logger(G_LOG_LEVEL_DEBUG, "Waiting for response");
+
+		int ret = recv_cmd(&rsp, fd, 1);
+
+		if (ret < 1) {
+			return 0;
+		}
+
+		g_logger(G_LOG_LEVEL_DEBUG, "Got response %i", rsp.cmd);
+		return 0;
 	}
 
 	store = init_storage_backend(tile_dir);

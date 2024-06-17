@@ -420,99 +420,119 @@ void *render_thread(void *arg)
 		}
 	}
 
-	while (1) {
+	struct item *item;
+	g_logger(G_LOG_LEVEL_DEBUG, "Render thread waiting for work...");
+	while ((item = request_queue_fetch_request(render_request_queue)) != NULL) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Render thread received work: %p", item);
+
 		enum protoCmd ret;
-		struct item *item = request_queue_fetch_request(render_request_queue);
 		render_time = -1;
 
-		if (item) {
-			struct protocol *req = &item->req;
+		struct protocol *req = &item->req;
 #ifdef METATILE
-			// At very low zoom the whole world may be smaller than METATILE
-			unsigned int size = MIN(METATILE, 1 << req->z);
+		// At very low zoom the whole world may be smaller than METATILE
+		unsigned int size = MIN(METATILE, 1 << req->z);
 
-			for (i = 0; i < iMaxConfigs; ++i) {
-				if (!strcmp(maps[i].xmlname, req->xmlname)) {
-					if (maps[i].ok) {
-						if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
+		for (i = 0; i < iMaxConfigs; ++i) {
+			if (!strcmp(maps[i].xmlname, req->xmlname)) {
+				if (maps[i].ok) {
+					if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
 
-							metaTile tiles(req->xmlname, req->options, item->mx, item->my, req->z);
+						metaTile tiles(req->xmlname, req->options, item->mx, item->my, req->z);
 
-							timeval tim;
-							gettimeofday(&tim, NULL);
-							long t1 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
+						timeval tim;
+						gettimeofday(&tim, NULL);
+						long t1 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
 
-							struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
+						struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
 
-							if (sinfo.size > 0)
-								g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, age %.2f days",
-									 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
-									 (tim.tv_sec - sinfo.mtime) / 86400.0);
-							else
-								g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, new metatile",
-									 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
+						if (sinfo.size > 0)
+							g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, age %.2f days",
+									req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
+									(tim.tv_sec - sinfo.mtime) / 86400.0);
+						else
+							g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, new metatile",
+									req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
 
-							ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
+						ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
 
-							gettimeofday(&tim, NULL);
-							long t2 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
+						gettimeofday(&tim, NULL);
+						long t2 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
 
-							g_logger(G_LOG_LEVEL_DEBUG, "DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
-								 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
+						g_logger(G_LOG_LEVEL_DEBUG, "DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
+								req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
 
-							render_time = t2 - t1;
+						render_time = t2 - t1;
 
-							if (ret == cmdDone) {
-								try {
-									tiles.save(maps[i].store);
+						if (ret == cmdDone) {
+							try {
+								tiles.save(maps[i].store);
 #ifdef HTCP_EXPIRE_CACHE
-									tiles.expire_tiles(maps[i].htcpsock, maps[i].host, maps[i].xmluri);
+								tiles.expire_tiles(maps[i].htcpsock, maps[i].host, maps[i].xmluri);
 #endif // HTCP_EXPIRE_CACHE
 
-								} catch (std::exception const &ex) {
-									g_logger(G_LOG_LEVEL_ERROR, "Received exception when writing metatile to disk: %s", ex.what());
-									ret = cmdNotDone;
-								} catch (...) {
-									// Treat any error as fatal and request end of processing
-									g_logger(G_LOG_LEVEL_CRITICAL, "Failed writing metatile to disk with unknown error, requesting exit.");
-									ret = cmdNotDone;
-									request_exit();
-								}
+							} catch (std::exception const &ex) {
+								g_logger(G_LOG_LEVEL_ERROR, "Received exception when writing metatile to disk: %s", ex.what());
+								ret = cmdNotDone;
+							} catch (...) {
+								// Treat any error as fatal and request end of processing
+								g_logger(G_LOG_LEVEL_CRITICAL, "Failed writing metatile to disk with unknown error, requesting exit.");
+								ret = cmdNotDone;
+								request_exit();
 							}
+						}
 
 #else // METATILE
-			ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, maps[i].output_format);
+		ret = render(maps[i].map, maps[i].tile_dir, req->xmlname, maps[i].prj, req->x, req->y, req->z, maps[i].output_format);
 #ifdef HTCP_EXPIRE_CACHE
-			cache_expire(maps[i].htcpsock, maps[i].host, maps[i].xmluri, req->x, req->y, req->z);
+		cache_expire(maps[i].htcpsock, maps[i].host, maps[i].xmluri, req->x, req->y, req->z);
 #endif // HTCP_EXPIRE_CACHE
 #endif // METATILE
-						} else {
-							g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
-								 req->xmlname, req->z, req->x, req->y);
-							ret = cmdIgnore;
-						}
 					} else {
-						g_logger(G_LOG_LEVEL_ERROR, "Received request for map layer '%s' which failed to load", req->xmlname);
-						ret = cmdNotDone;
+						g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
+								req->xmlname, req->z, req->x, req->y);
+						ret = cmdIgnore;
 					}
-
-					send_response(item, ret, render_time);
-
-					if ((ret != cmdDone) && (ret != cmdIgnore)) {
-						sleep(10); // Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
-					}
-
-					break;
+				} else {
+					g_logger(G_LOG_LEVEL_ERROR, "Received request for map layer '%s' which failed to load", req->xmlname);
+					ret = cmdNotDone;
 				}
-			}
 
-			if (i == iMaxConfigs) {
-				g_logger(G_LOG_LEVEL_ERROR, "No map for: %s", req->xmlname);
+				send_response(item, ret, render_time);
+
+				if ((ret != cmdDone) && (ret != cmdIgnore)) {
+					sleep(10); // Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
+				}
+
+				break;
 			}
-		} else {
-			sleep(1); // TODO: Use an event to indicate there are new requests
+		}
+
+		if (i == iMaxConfigs) {
+			g_logger(G_LOG_LEVEL_ERROR, "No map for: %s", req->xmlname);
 		}
 	}
 
+	g_logger(G_LOG_LEVEL_DEBUG, "Render thread is cleaning up...");
+	for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
+		if (maps[iMaxConfigs].ok) {
+			free((void *) maps[iMaxConfigs].output_format);
+			if (maps[iMaxConfigs].store != NULL) {
+				maps[iMaxConfigs].store->close_storage(maps[iMaxConfigs].store);
+				free(maps[iMaxConfigs].store);
+				maps[iMaxConfigs].store = NULL;
+			}
+			free((void *) maps[iMaxConfigs].xmlfile);
+			free((void *) maps[iMaxConfigs].xmlname);
+#ifdef HTCP_EXPIRE_CACHE
+			free((void *) maps[iMaxConfigs].host);
+			free((void *) maps[iMaxConfigs].htcphost);
+			free((void *) maps[iMaxConfigs].xmluri);
+			close(maps[iMaxConfigs].htcpsock);
+#endif
+		}
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Render thread exiting.");
 	return NULL;
 }

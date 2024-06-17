@@ -172,7 +172,7 @@ struct item *request_queue_fetch_request(struct request_queue * queue)
 
 	pthread_mutex_lock(&(queue->qLock));
 
-	while ((queue->reqNum == 0) && (queue->dirtyNum == 0) && (queue->reqLowNum == 0) && (queue->reqPrioNum == 0) && (queue->reqBulkNum == 0)) {
+	while ((queue->reqNum == 0) && (queue->dirtyNum == 0) && (queue->reqLowNum == 0) && (queue->reqPrioNum == 0) && (queue->reqBulkNum == 0) && (queue->isClosing == 0)) {
 		pthread_cond_wait(&(queue->qCond), &(queue->qLock));
 	}
 
@@ -289,6 +289,13 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 
 	pthread_mutex_lock(&(queue->qLock));
 
+	// If the queue is closed, it cannot accept any new requests
+	if (queue->isClosing == 1) {
+		pthread_mutex_unlock(&(queue->qLock));
+		free(item);
+		return cmdNotDone;
+	}
+
 	// Check for a matching request in the current rendering or dirty queues
 	status = pending(queue, item);
 
@@ -362,6 +369,10 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 
 void request_queue_remove_request(struct request_queue * queue, struct item * request, int render_time)
 {
+	if (request == NULL) {
+		return;
+	}
+
 	pthread_mutex_lock(&(queue->qLock));
 
 	if (request->inQueue != queueRender) {
@@ -435,6 +446,10 @@ int request_queue_no_requests_queued(struct request_queue * queue, enum protoCmd
 			noReq = queue->reqBulkNum;
 			break;
 
+		case cmdStop:
+			noReq = queue->reqPrioNum + queue->reqNum + queue->reqLowNum + queue->dirtyNum + queue->reqBulkNum;
+			break;
+
 		default:
 			break;
 	}
@@ -493,13 +508,48 @@ struct request_queue * request_queue_init()
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
+	queue->isClosing = 0;
+
 	return queue;
 }
 
 void request_queue_close(struct request_queue * queue)
 {
-	//TODO: Free items if the queues are not empty at closing time
-	pthread_mutex_destroy(&(queue->qLock));
-	free(queue->item_hashidx);
-	free(queue);
+	if (queue == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Pointer to allocated queue expected.");
+		return;
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "request_queue_close(%p)", queue);
+	pthread_mutex_lock(&(queue->qLock));
+	queue->isClosing = 1;
+	pthread_cond_broadcast(&(queue->qCond));
+	pthread_mutex_unlock(&(queue->qLock));
+	g_logger(G_LOG_LEVEL_DEBUG, "request_queue_close(): isClosing flag now set.");
+}
+
+void request_queue_destroy(struct request_queue **queue)
+{
+	if (queue == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Pointer to allocated queue expected.");
+		return;
+	}
+
+	pthread_mutex_lock(&((*queue)->qLock));
+	if ((*queue)->isClosing == 0) {
+		g_logger(G_LOG_LEVEL_ERROR, "Destroying un-closed queue! Call request_queue_close() first!");
+	}
+	pthread_mutex_unlock(&((*queue)->qLock));
+
+	if (0 < request_queue_no_requests_queued(*queue, cmdStop)) {
+		g_logger(G_LOG_LEVEL_WARNING, "There are still requests in the queue!");
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Destroying request queue: %p", *queue);
+	pthread_cond_destroy(&((*queue)->qCond));
+	pthread_mutex_destroy(&((*queue)->qLock));
+	free((*queue)->item_hashidx);
+	free(*queue);
+	*queue = NULL;
+	g_logger(G_LOG_LEVEL_DEBUG, "Request queue destroyed.");
 }

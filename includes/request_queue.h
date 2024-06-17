@@ -57,10 +57,12 @@ struct request_queue {
 	pthread_mutex_t qLock;
 	pthread_cond_t qCond;
 	stats_struct stats;
+	int isClosing;
 };
 
 struct request_queue *request_queue_init();
 void request_queue_close(struct request_queue *queue);
+void request_queue_destroy(struct request_queue **queue);
 
 struct item *request_queue_fetch_request(struct request_queue *queue);
 enum protoCmd request_queue_add_request(struct request_queue *queue, struct item *request);
