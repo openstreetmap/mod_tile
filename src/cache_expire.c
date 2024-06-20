@@ -15,12 +15,14 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
-#include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "cache_expire.h"
 #include "g_logger.h"

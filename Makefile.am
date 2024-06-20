@@ -5,15 +5,15 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 
 STORE_SOURCES = \
+	src/g_logger.c \
 	src/store.c \
 	src/store_file.c \
 	src/store_file_utils.c \
 	src/store_memcached.c \
-	src/store_rados.c \
-	src/store_ro_http_proxy.c \
-	src/store_ro_composite.c \
 	src/store_null.c \
-	src/g_logger.c
+	src/store_rados.c \
+	src/store_ro_composite.c \
+	src/store_ro_http_proxy.c
 STORE_LDFLAGS = $(LIBMEMCACHED_LDFLAGS) $(LIBRADOS_LDFLAGS) $(LIBCURL) $(GLIB_LIBS)
 
 STORE_CPPFLAGS =
@@ -22,8 +22,8 @@ bin_PROGRAMS = \
 	renderd \
 	render_expired \
 	render_list \
-	render_speedtest \
-	render_old
+	render_old \
+	render_speedtest
 noinst_PROGRAMS = gen_tile_test
 
 man_MANS = \
@@ -37,33 +37,33 @@ man_MANS = \
 renderddir = $(sysconfdir)
 
 renderd_SOURCES = \
-	src/daemon.c \
+	src/renderd.c \
+	src/cache_expire.c \
 	src/daemon_compat.c \
 	src/gen_tile.cpp \
-	src/sys_utils.c \
-	src/request_queue.c \
-	src/cache_expire.c \
 	src/metatile.cpp \
 	src/parameterize_style.cpp \
 	src/protocol_helper.c \
+	src/request_queue.c \
+	src/sys_utils.c \
 	$(STORE_SOURCES)
 renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
-renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 renderd_DATA = etc/renderd/renderd.conf
+renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
 render_speedtest_SOURCES = \
-	src/speedtest.cpp \
+	src/render_speedtest.cpp \
+	src/g_logger.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
-	src/sys_utils.c \
-	src/g_logger.c
+	src/sys_utils.c
 render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
 
 render_list_SOURCES = \
 	src/render_list.c \
-	src/sys_utils.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
+	src/sys_utils.c \
 	$(STORE_SOURCES)
 render_list_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
 
@@ -76,28 +76,19 @@ render_expired_SOURCES = \
 render_expired_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS)
 
 render_old_SOURCES = \
-	src/store_file_utils.c \
 	src/render_old.c \
-	src/sys_utils.c \
+	src/g_logger.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
-	src/g_logger.c
+	src/store_file_utils.c \
+	src/sys_utils.c
 render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
 gen_tile_test_SOURCES = \
 	src/gen_tile_test.cpp \
-	src/metatile.cpp \
-	src/request_queue.c \
-	src/protocol_helper.c \
-	src/daemon.c \
-	src/daemon_compat.c \
-	src/gen_tile.cpp \
-	src/sys_utils.c \
-	src/cache_expire.c \
-	src/parameterize_style.cpp \
-	$(STORE_SOURCES)
+	$(renderd_SOURCES)
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
 gen_tile_test_CXXFLAGS = $(MAPNIK_CFLAGS)
 gen_tile_test_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
@@ -114,16 +105,16 @@ all-local:
 		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c  \
-			@srcdir@/src/sys_utils.c \
+			@srcdir@/src/g_logger.c \
 			@srcdir@/src/store.c \
 			@srcdir@/src/store_file.c \
 			@srcdir@/src/store_file_utils.c \
 			@srcdir@/src/store_memcached.c \
-			@srcdir@/src/store_rados.c \
-			@srcdir@/src/store_ro_http_proxy.c \
-			@srcdir@/src/store_ro_composite.c \
 			@srcdir@/src/store_null.c \
-			@srcdir@/src/g_logger.c
+			@srcdir@/src/store_rados.c \
+			@srcdir@/src/store_ro_composite.c \
+			@srcdir@/src/store_ro_http_proxy.c \
+			@srcdir@/src/sys_utils.c
 
 install-mod_tile:
 	mkdir -p $(DESTDIR)`$(APXS) -q LIBEXECDIR`
@@ -132,13 +123,13 @@ install-mod_tile:
 		$(subst -pthread,-Wc$(COMMA)-pthread,$(GLIB_CFLAGS)) \
 		-I@srcdir@/includes $(AM_LDFLAGS) $(STORE_LDFLAGS) \
 			@srcdir@/src/mod_tile.c \
-			@srcdir@/src/sys_utils.c \
+			@srcdir@/src/g_logger.c \
 			@srcdir@/src/store.c \
 			@srcdir@/src/store_file.c \
 			@srcdir@/src/store_file_utils.c \
 			@srcdir@/src/store_memcached.c \
-			@srcdir@/src/store_rados.c \
-			@srcdir@/src/store_ro_http_proxy.c \
-			@srcdir@/src/store_ro_composite.c \
 			@srcdir@/src/store_null.c \
-			@srcdir@/src/g_logger.c
+			@srcdir@/src/store_rados.c \
+			@srcdir@/src/store_ro_composite.c \
+			@srcdir@/src/store_ro_http_proxy.c \
+			@srcdir@/src/sys_utils.c

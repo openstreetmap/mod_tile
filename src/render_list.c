@@ -15,32 +15,21 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <getopt.h>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/un.h>
-#include <poll.h>
-#include <errno.h>
-#include <math.h>
-#include <getopt.h>
-#include <time.h>
-#include <limits.h>
-#include <string.h>
-#include <strings.h>
+#include <unistd.h>
 
-#include <pthread.h>
-
-#include "gen_tile.h"
-#include "protocol.h"
 #include "config.h"
+#include "protocol.h"
 #include "render_config.h"
-#include "store.h"
-#include "sys_utils.h"
 #include "render_submit_queue.h"
+#include "store.h"
 
 const char * tile_dir_default = RENDERD_TILE_DIR;
 
@@ -60,13 +49,12 @@ static int maxLoad = MAX_LOAD_OLD;
 
 int foreground = 1;
 
-
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;

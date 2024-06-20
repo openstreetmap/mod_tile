@@ -15,26 +15,25 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <mapnik/version.hpp>
-#include <mapnik/map.hpp>
-#include <mapnik/layer.hpp>
-#include <mapnik/params.hpp>
 #include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
+#include <mapnik/layer.hpp>
+#include <mapnik/map.hpp>
+#include <mapnik/params.hpp>
+#include <mapnik/version.hpp>
 
 #if MAPNIK_MAJOR_VERSION < 4
 #include <boost/optional.hpp>
 #endif
 
-#include "parameterize_style.hpp"
 #include "g_logger.h"
+#include "parameterize_style.hpp"
 
-
-static void parameterize_map_language(mapnik::Map &m, char * parameter)
+static void parameterize_map_language(mapnik::Map &m, char *parameter)
 {
 	unsigned int i;
-	char * data = strdup(parameter);
-	char * tok;
+	char *data = strdup(parameter);
+	char *tok;
 	char name_replace[256];
 
 	name_replace[0] = 0;
@@ -43,7 +42,7 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 
 	if (!tok) {
 		free(data);
-		return;        //No parameterization given
+		return; // No parameterization given
 	}
 
 	strncat(name_replace, ", coalesce(", 255);
@@ -58,7 +57,6 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 		}
 
 		tok = strtok(NULL, ",");
-
 	}
 
 	free(data);
@@ -67,9 +65,9 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 
 	for (i = 0; i < m.layer_count(); i++) {
 #if MAPNIK_VERSION >= 300000
-		mapnik::layer& l = m.get_layer(i);
+		mapnik::layer &l = m.get_layer(i);
 #else
-		mapnik::layer& l = m.getLayer(i);
+		mapnik::layer &l = m.getLayer(i);
 #endif
 		mapnik::parameters params = l.datasource()->params();
 
@@ -88,12 +86,11 @@ static void parameterize_map_language(mapnik::Map &m, char * parameter)
 #endif
 			}
 		}
-
 	}
 }
 
 
-parameterize_function_ptr init_parameterization_function(char * function_name)
+parameterize_function_ptr init_parameterization_function(char *function_name)
 {
 	if (strcmp(function_name, "") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Parameterize_style not specified (or empty string specified)");

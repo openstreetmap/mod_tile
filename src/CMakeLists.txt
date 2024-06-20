@@ -32,15 +32,23 @@ set(COMMON_LIBRARIES
   Threads::Threads
 )
 
+set(RENDER_SRCS
+  ${COMMON_SRCS}
+  protocol_helper.c
+)
+set(RENDER_LIBRARIES
+  ${COMMON_LIBRARIES}
+)
+
 set(STORE_SRCS
-  store_file_utils.c
+  store.c
   store_file.c
+  store_file_utils.c
   store_memcached.c
   store_null.c
   store_rados.c
   store_ro_composite.c
   store_ro_http_proxy.c
-  store.c
 )
 set(STORE_LIBRARIES
   ${CAIRO_LIBRARIES}
@@ -82,14 +90,13 @@ set_target_properties(mod_tile PROPERTIES PREFIX "" SUFFIX ".so")
 #-----------------------------------------------------------------------------
 
 set(render_expired_SRCS
-  ${COMMON_SRCS}
+  ${RENDER_SRCS}
   ${STORE_SRCS}
-  protocol_helper.c
   render_expired.c
   render_submit_queue.c
 )
 set(render_expired_LIBS
-  ${COMMON_LIBRARIES}
+  ${RENDER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_expired ${render_expired_SRCS})
@@ -102,14 +109,13 @@ target_link_libraries(render_expired ${render_expired_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_list_SRCS
-  ${COMMON_SRCS}
+  ${RENDER_SRCS}
   ${STORE_SRCS}
-  protocol_helper.c
   render_list.c
   render_submit_queue.c
 )
 set(render_list_LIBS
-  ${COMMON_LIBRARIES}
+  ${RENDER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(render_list ${render_list_SRCS})
@@ -122,14 +128,13 @@ target_link_libraries(render_list ${render_list_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_old_SRCS
-  ${COMMON_SRCS}
-  protocol_helper.c
+  ${RENDER_SRCS}
   render_old.c
   render_submit_queue.c
   store_file_utils.c
 )
 set(render_old_LIBS
-  ${COMMON_LIBRARIES}
+  ${RENDER_LIBRARIES}
 )
 add_executable(render_old ${render_old_SRCS})
 target_link_libraries(render_old ${render_old_LIBS})
@@ -141,13 +146,12 @@ target_link_libraries(render_old ${render_old_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_speedtest_SRCS
-  ${COMMON_SRCS}
-  protocol_helper.c
+  ${RENDER_SRCS}
+  render_speedtest.cpp
   render_submit_queue.c
-  speedtest.cpp
 )
 set(render_speedtest_LIBS
-  ${COMMON_LIBRARIES}
+  ${RENDER_LIBRARIES}
 )
 add_executable(render_speedtest ${render_speedtest_SRCS})
 target_link_libraries(render_speedtest ${render_speedtest_LIBS})
@@ -159,34 +163,33 @@ target_link_libraries(render_speedtest ${render_speedtest_LIBS})
 #-----------------------------------------------------------------------------
 
 set(renderd_SRCS
-  ${COMMON_SRCS}
+  ${RENDER_SRCS}
   ${STORE_SRCS}
   cache_expire.c
   daemon_compat.c
-  daemon.c
   gen_tile.cpp
   metatile.cpp
   parameterize_style.cpp
-  protocol_helper.c
+  renderd.c
   request_queue.c
 )
 set(renderd_LIBS
-  ${COMMON_LIBRARIES}
   ${ICU_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
+  ${RENDER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
 add_executable(renderd ${renderd_SRCS})
 target_link_libraries(renderd ${renderd_LIBS})
 
+if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 #
 #  Test targets
 #
 #-----------------------------------------------------------------------------
 
-if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 #
 #  gen_tile_test
@@ -201,6 +204,6 @@ set(gen_tile_test_LIBS
   ${renderd_LIBS}
 )
 add_executable(gen_tile_test ${gen_tile_test_SRCS})
+target_compile_definitions(gen_tile_test PRIVATE MAIN_ALREADY_DEFINED)
 target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
-target_compile_options(gen_tile_test PRIVATE -DMAIN_ALREADY_DEFINED)
 endif()

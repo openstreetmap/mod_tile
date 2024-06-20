@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef DAEMON_H
-#define DAEMON_H
+#ifndef RENDERD_H
+#define RENDERD_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,9 +26,9 @@ extern "C" {
 int daemon(int nochdir, int noclose);
 #endif
 
-#include <limits.h> /* for PATH_MAX */
 #include "gen_tile.h"
 #include "protocol.h"
+#include <limits.h>
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
@@ -62,13 +62,12 @@ typedef struct {
 	int num_threads;
 } xmlconfigitem;
 
-
-
-extern struct request_queue * render_request_queue;
+extern struct request_queue *render_request_queue;
 
 void statsRenderFinish(int z, long time);
 void request_exit(void);
 void send_response(struct item *item, enum protoCmd rsp, int render_time);
+enum protoCmd rx_request(struct protocol *req, int fd);
 
 #ifdef __cplusplus
 }

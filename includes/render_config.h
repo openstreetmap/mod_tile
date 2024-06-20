@@ -33,7 +33,7 @@
 
 // TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
 // this is now only used if DIRECTORY_HASH is undefined
-//#define TILE_PATH "/var/www/html/osm_tiles2"
+// #define TILE_PATH "/var/www/html/osm_tiles2"
 
 // MAX_LOAD_OLD: if tile is out of date, don't re-render it if past this load threshold (users gets old tile)
 // (This is the default value. Can be overwritten in Apache config with ModTileMaxLoadOld.)
@@ -44,8 +44,8 @@
 // MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
 #define MAX_LOAD_ANY 100
 
-//VERYOLD_THRESHOLD: defines how old a tile needs to be (in microseconds) to get rendering priority rather than renderingLow priority
-//1000000*3600*24*365 = 31536000000000
+// VERYOLD_THRESHOLD: defines how old a tile needs to be (in microseconds) to get rendering priority rather than renderingLow priority
+// 1000000*3600*24*365 = 31536000000000
 #define VERYOLD_THRESHOLD 31536000000000
 
 // Location of osm.xml file
@@ -89,9 +89,13 @@
 #define REQUEST_TIMEOUT (3)
 #define FD_INVALID (-1)
 
+#ifndef MIN
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
 
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)>(y)?(x):(y))
+#ifndef MAX
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
 
 #define MAX_CONNECTIONS (2048)
 
@@ -101,11 +105,11 @@
 // Use this to enable meta-tiles which will render NxN tiles at once
 // Note: This should be a power of 2 (2, 4, 8, 16 ...)
 #define METATILE (8)
-//#undef METATILE
+// #undef METATILE
 
-//Fallback to standard tiles if meta tile doesn't exist
-//Legacy - not needed on new installs
-//#undef METATILEFALLBACK
+// Fallback to standard tiles if meta tile doesn't exist
+// Legacy - not needed on new installs
+// #undef METATILEFALLBACK
 
 // Metatiles are much larger in size so we don't need big queues to handle large areas
 #ifdef METATILE

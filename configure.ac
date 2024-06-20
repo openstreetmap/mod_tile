@@ -11,7 +11,7 @@ AC_INIT([mod_tile],
         [http://trac.openstreetmap.org])
 AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
-AC_CONFIG_SRCDIR([src/convert_meta.c])
+AC_CONFIG_SRCDIR([src/mod_tile.c])
 AC_CONFIG_HEADERS([includes/config.h])
 AC_CONFIG_MACRO_DIR([m4])
 

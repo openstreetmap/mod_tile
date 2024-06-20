@@ -15,33 +15,23 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <dirent.h>
+#include <errno.h>
+#include <getopt.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/un.h>
-#include <poll.h>
-#include <errno.h>
-#include <math.h>
-#include <getopt.h>
 #include <time.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <limits.h>
-#include <string.h>
+#include <unistd.h>
 
-#include <pthread.h>
-
-
-#include "gen_tile.h"
-#include "protocol.h"
 #include "config.h"
+#include "protocol.h"
 #include "render_config.h"
-#include "store_file_utils.h"
 #include "render_submit_queue.h"
+#include "store_file_utils.h"
 #include "sys_utils.h"
 
 const char * tile_dir_default = RENDERD_TILE_DIR;
@@ -66,19 +56,17 @@ static struct timeval start, end;
 
 int foreground = 1;
 
-
-
 void display_rate(struct timeval start, struct timeval end, int num)
 {
 	int d_s, d_us;
 	float sec;
 
-	d_s  = end.tv_sec  - start.tv_sec;
+	d_s = end.tv_sec - start.tv_sec;
 	d_us = end.tv_usec - start.tv_usec;
 
 	sec = d_s + d_us / 1000000.0;
 
-	printf("%d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
+	printf("Rendered %d tiles in %.2f seconds (%.2f tiles/s)\n", num, sec, num / sec);
 	fflush(NULL);
 }
 
