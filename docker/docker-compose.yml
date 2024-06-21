@@ -127,15 +127,21 @@ services:
     build:
       <<: *build_defaults_debian
       args:
-        libmapnik_version: "3.1"
+        libmapnik_version: "4.0"
         debian_version: unstable
+        runner_additional_packages: >-
+          libcurl4t64
+          libglib2.0-0t64
   debian-unstable-autotools:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
-        libmapnik_version: "3.1"
+        libmapnik_version: "4.0"
         debian_version: unstable
+        runner_additional_packages: >-
+          libcurl4t64
+          libglib2.0-0t64
       dockerfile: docker/debian/Dockerfile.autotools
   fedora-34:
     <<: *service_defaults
@@ -241,14 +247,14 @@ services:
     build:
       <<: *build_defaults_ubuntu
       args:
-        libmapnik_version: "3.1"
+        libmapnik_version: "4.0"
         ubuntu_version: "devel"
   ubuntu-devel-autotools:
     <<: *service_defaults
     build:
       <<: *build_defaults_ubuntu
       args:
-        libmapnik_version: "3.1"
+        libmapnik_version: "4.0"
         ubuntu_version: "devel"
       dockerfile: docker/ubuntu/Dockerfile.autotools
   ubuntu-devel-full:
@@ -256,7 +262,7 @@ services:
     build:
       <<: *build_defaults_ubuntu
       args:
-        libmapnik_version: "3.1"
+        libmapnik_version: "4.0"
         runner_additional_packages: >-
           curl
           gdal-bin

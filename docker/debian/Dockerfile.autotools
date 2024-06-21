@@ -1,6 +1,7 @@
 # Arguments
 ARG debian_version=12
 ARG libmapnik_version=3.1
+ARG runner_additional_packages=libcurl4 libglib2.0
 
 # Builder
 FROM debian:${debian_version} as builder
@@ -44,6 +45,7 @@ FROM debian:${debian_version} as runner
 ## Arguments
 ARG debian_version
 ARG libmapnik_version
+ARG runner_additional_packages
 
 ## Install runner dependencies
 RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
@@ -51,11 +53,9 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
-    apt-get --no-install-recommends --yes install \
+    apt-get --no-install-recommends --yes install ${runner_additional_packages} \
         apache2 \
         libcairo2 \
-        libcurl4 \
-        libglib2.0 \
         libiniparser1 \
         libmapnik${libmapnik_version} \
         libmemcached11 \
