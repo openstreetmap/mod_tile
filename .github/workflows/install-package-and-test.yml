@@ -11,6 +11,7 @@ on:
 
 jobs:
   install-package-and-test:
+    continue-on-error: ${{ matrix.experimental || false }}
     name: ${{ matrix.image }}
     runs-on: ubuntu-latest
     strategy:
@@ -18,10 +19,13 @@ jobs:
         image:
           - "debian:11"
           - "debian:12"
-          - "debian:unstable"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
-          - "ubuntu:devel"
+        include:
+          - image: "debian:unstable"
+            experimental: true
+          - image: "ubuntu:devel"
+            experimental: true
       fail-fast: false
     container:
       image: ${{ matrix.image }}
