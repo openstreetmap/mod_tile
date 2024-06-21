@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # Define mod_tile version number
-m4_define([mod_tile_version], [0.7.1])
+m4_define([mod_tile_version], [0.7.2])
 
 AC_PREREQ([2.61])
 AX_CONFIG_NICE
