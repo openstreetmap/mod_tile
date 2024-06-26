@@ -62,7 +62,7 @@ fi
 
 #MUNIN_STATEFILE=latency.state
 
-data=$(wget -q http://localhost/mod_tile -O -)
+data=$(wget -q ${MOD_TILE_URL:-http://localhost/mod_tile} -O -)
 
 totalDuration=$(expr match "$data" '.*DurationTileBufferReads: \([0-9]*\)')
 noTotal=$(expr match "$data" '.*NoTileBufferReads: \([0-9]*\)')

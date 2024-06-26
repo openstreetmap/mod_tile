@@ -56,7 +56,7 @@ if [ "$1" = "config" ]; then
   exit 0
 fi
 
-data=$(wget -q http://localhost/mod_tile -O -)
+data=$(wget -q ${MOD_TILE_URL:-http://localhost/mod_tile} -O -)
 
 fresh=$(expr match "$data" '.*NoFreshCache: \([0-9]*\)')
 freshRender=$(expr match "$data" '.*NoFreshRender: \([0-9]*\)')

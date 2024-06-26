@@ -34,7 +34,7 @@ if [ "$1" = "config" ]; then
   exit 0
 fi
 
-tstamp=$(sed -e '/^timestamp=/!d' -e 's/.*=//' -e 's/Z//' -e 's/T/Z/' -e 's/\\\\//' -e 's/\\\\//' -e q /home/osm/replicate/state.txt)
+tstamp=$(sed -e '/^timestamp=/!d' -e 's/.*=//' -e 's/Z//' -e 's/T/Z/' -e 's/\\\\//' -e 's/\\\\//' -e q ${REPLICATION_STATE:-/home/osm/replicate/state.txt})
 tstampsec=$(date --date=$tstamp +%s)
 nowsec=$(date +%s)
 
