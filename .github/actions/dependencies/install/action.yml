@@ -104,27 +104,21 @@ inputs:
       memcached
   opensuse-mapnik-build-dependencies:
     default: >-
-      bzip2
+      cmake
       freetype-devel
       gdal-devel
+      git
       harfbuzz-devel
-      libboost_filesystem1_75_0-devel
-      libboost_headers1_75_0-devel
-      libboost_program_options1_75_0-devel
       libboost_regex1_75_0-devel
-      libboost_system1_75_0-devel
       libicu-devel
       libjpeg8-devel
       libpng16-devel
       libtiff-devel
       libwebp-devel
       libxml2-devel
-      make
       postgresql-devel
       proj-devel
-      python3
       sqlite3-devel
-      tar
       zlib-devel
   rhel-build-dependencies:
     default: >-
@@ -145,9 +139,10 @@ inputs:
   rhel-mapnik-build-dependencies:
     default: >-
       boost-devel
-      bzip2
+      cmake
       freetype-devel
       gdal-devel
+      git
       harfbuzz-devel
       libicu-devel
       libjpeg-devel
@@ -155,12 +150,9 @@ inputs:
       libtiff-devel
       libwebp-devel
       libxml2-devel
-      make
       postgresql-devel
       proj-devel
-      python3
       sqlite-devel
-      tar
       zlib-devel
   ubuntu-build-dependencies:
     default: >-
@@ -196,9 +188,9 @@ inputs:
       lcov
       memcached
   mapnik-build-version-centos-stream:
-    default: 3.1.0
+    default: 4.0.0
   mapnik-build-version-opensuse:
-    default: 3.1.0
+    default: 4.0.0
 
 runs:
   using: composite
@@ -309,11 +301,15 @@ runs:
       if: (!matrix.mapnik_latest && startsWith(matrix.image, 'opensuse/'))
 
     - name: Build & Install latest `mapnik` (Debian/Ubuntu)
-      uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
+      uses: ./.github/actions/dependencies/build-and-install/mapnik
+      with:
+        version: latest
       if: |
         matrix.mapnik_latest &&
         (startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'ubuntu:') || runner.os == 'Linux')
 
     - name: Build & Install latest `mapnik` (openSUSE)
-      uses: ./.github/actions/dependencies/build-and-install/mapnik/latest
+      uses: ./.github/actions/dependencies/build-and-install/mapnik
+      with:
+        version: latest
       if: (matrix.mapnik_latest && startsWith(matrix.image, 'opensuse/'))

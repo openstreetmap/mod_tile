@@ -28,12 +28,7 @@ sudo zypper --non-interactive install \
   gdal \
   glib2-devel \
   harfbuzz-devel \
-  libboost_atomic-devel \
-  libboost_filesystem-devel \
-  libboost_headers-devel \
-  libboost_program_options-devel \
   libboost_regex-devel \
-  libboost_system-devel \
   libcurl-devel \
   libicu-devel \
   libiniparser-devel \

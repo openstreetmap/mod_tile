@@ -14,13 +14,11 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
-    dnf config-manager --save \
-        --setopt=${extra_repository}.enabled=1 && \
+    dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
         boost-devel \
-        bzip2 \
         cairo-devel \
         cmake \
         freetype-devel \
@@ -36,12 +34,9 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
         libwebp-devel \
         libxml2-devel \
         make \
-        patch \
         postgresql-devel \
         proj-devel \
-        python3 \
         sqlite-devel \
-        tar \
         zlib-devel
 
 ## Download, Build & Install `Mapnik`
@@ -56,14 +51,21 @@ RUN --mount=id=centos:stream${centos_stream_version}-mapnik-src:latest,target=/t
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     export DESTDIR=/tmp/mapnik && \
     cmake -B . -S /tmp/mapnik_src \
+        -DBUILD_BENCHMARK:BOOL=OFF \
+        -DBUILD_DEMO_CPP:BOOL=OFF \
         -DBUILD_DEMO_VIEWER:BOOL=OFF \
         -DBUILD_TESTING:BOOL=OFF \
+        -DBUILD_UTILITY_GEOMETRY_TO_WKB:BOOL=OFF \
+        -DBUILD_UTILITY_MAPNIK_INDEX:BOOL=OFF \
+        -DBUILD_UTILITY_MAPNIK_RENDER:BOOL=OFF \
+        -DBUILD_UTILITY_OGRINDEX:BOOL=OFF \
+        -DBUILD_UTILITY_PGSQL2SQLITE:BOOL=OFF \
+        -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
+        -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_CXX_STANDARD:STRING=17 \
-        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-        -DMAPNIK_PKGCONF_DIR:PATH=/usr/share/pkgconfig && \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr && \
     cmake --build . && \
-    (cmake --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip)
+    cmake --install . --strip
 
 # Builder
 FROM quay.io/centos/centos:stream${centos_stream_version} as builder
@@ -77,8 +79,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
-    dnf config-manager --save \
-        --setopt=${extra_repository}.enabled=1 && \
+    dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
@@ -124,9 +125,9 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
-    export DESTDIR=/tmp/mod_tile && \
-    ctest --output-on-failure && \
-    (cmake --install . --strip || make DESTDIR=${DESTDIR} install/strip)
+    ctest --output-on-failure
+RUN export DESTDIR=/tmp/mod_tile && \
+    cmake --install . --strip
 
 # Runner
 FROM quay.io/centos/centos:stream${centos_stream_version} as runner
@@ -140,8 +141,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
-    dnf config-manager --save \
-        --setopt=${extra_repository}.enabled=1 && \
+    dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
     dnf --assumeyes install epel-release && \
     dnf --assumeyes upgrade && \
     dnf --assumeyes install \
