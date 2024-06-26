@@ -73,7 +73,7 @@ COPY --from=builder \
 
 ## Fix mapnik directories
 RUN sed \
-        --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input)#g" \
+        --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input | grep mapnik)#g" \
         --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
         /usr/local/etc/renderd.conf > /etc/renderd.conf
 

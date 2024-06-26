@@ -44,9 +44,9 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
-    export DESTDIR=/tmp/mod_tile && \
-    ctest --output-on-failure && \
-    (cmake --install . --strip || make DESTDIR=${DESTDIR} install/strip)
+    ctest --output-on-failure
+RUN export DESTDIR=/tmp/mod_tile && \
+    cmake --install . --strip
 
 # Runner
 FROM ubuntu:${ubuntu_version} as runner

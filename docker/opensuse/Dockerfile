@@ -1,6 +1,7 @@
 # Arguments
 ARG boost_version
 ARG gcc_version
+ARG mapnik_version=4.0.0
 ARG opensuse_version=leap:15
 
 # Mapnik Builder
@@ -9,10 +10,11 @@ FROM opensuse/${opensuse_version} as mapnik-builder
 ## Arguments
 ARG boost_version
 ARG gcc_version
+ARG mapnik_version
 ARG opensuse_version
 
 ## Install mapnik-builder dependencies
-RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
@@ -24,12 +26,7 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         gdal-devel \
         git \
         harfbuzz-devel \
-        libboost_atomic${boost_version}-devel \
-        libboost_filesystem${boost_version}-devel \
-        libboost_headers${boost_version}-devel \
-        libboost_program_options${boost_version}-devel \
         libboost_regex${boost_version}-devel \
-        libboost_system${boost_version}-devel \
         libicu-devel \
         libjpeg8-devel \
         libpng16-devel \
@@ -38,9 +35,7 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         libxml2-devel \
         postgresql-devel \
         proj-devel \
-        python3 \
         sqlite3-devel \
-        tar \
         zlib-devel && \
     if [ -n "${gcc_version}" ]; then \
         update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 10; \
@@ -51,13 +46,13 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
 
 ## Download, Build & Install `Mapnik`
 WORKDIR /tmp/mapnik_src
-RUN --mount=id=opensuse:${opensuse_version}-mapnik-src:latest,target=/tmp/mapnik_src,type=cache \
+RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
     if [ ! -f CMakeLists.txt ]; then \
-        git clone --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src; \
+        git clone --branch v${mapnik_version} --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src; \
     fi
 WORKDIR /tmp/mapnik_build
-RUN --mount=id=opensuse:${opensuse_version}-mapnik-src:latest,target=/tmp/mapnik_src,type=cache \
-    --mount=id=opensuse:${opensuse_version}-mapnik-build:latest,target=/tmp/mapnik_build,type=cache \
+RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
+    --mount=id=opensuse/${opensuse_version}-mapnik-build:${mapnik_version},target=/tmp/mapnik_build,type=cache \
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     export DESTDIR=/tmp/mapnik && \
     cmake -B . -S /tmp/mapnik_src \
@@ -65,12 +60,17 @@ RUN --mount=id=opensuse:${opensuse_version}-mapnik-src:latest,target=/tmp/mapnik
         -DBUILD_DEMO_CPP:BOOL=OFF \
         -DBUILD_DEMO_VIEWER:BOOL=OFF \
         -DBUILD_TESTING:BOOL=OFF \
+        -DBUILD_UTILITY_GEOMETRY_TO_WKB:BOOL=OFF \
+        -DBUILD_UTILITY_MAPNIK_INDEX:BOOL=OFF \
+        -DBUILD_UTILITY_MAPNIK_RENDER:BOOL=OFF \
+        -DBUILD_UTILITY_OGRINDEX:BOOL=OFF \
+        -DBUILD_UTILITY_PGSQL2SQLITE:BOOL=OFF \
+        -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
+        -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_CXX_STANDARD:STRING=17 \
-        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-        -DMAPNIK_PKGCONF_DIR:PATH=/usr/share/pkgconfig && \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr && \
     cmake --build . && \
-    (cmake --install . --prefix /usr --strip || make DESTDIR=${DESTDIR} install/strip)
+    cmake --install . --strip
 
 # Builder
 FROM opensuse/${opensuse_version} as builder
@@ -80,7 +80,7 @@ ARG boost_version
 ARG opensuse_version
 
 ## Install builder dependencies
-RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
@@ -93,12 +93,7 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         gdal \
         glib2-devel \
         harfbuzz-devel \
-        libboost_atomic${boost_version}-devel \
-        libboost_filesystem${boost_version}-devel \
-        libboost_headers${boost_version}-devel \
-        libboost_program_options${boost_version}-devel \
         libboost_regex${boost_version}-devel \
-        libboost_system${boost_version}-devel \
         libcurl-devel \
         libicu-devel \
         libiniparser-devel \
@@ -131,9 +126,9 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
 RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
-    export DESTDIR=/tmp/mod_tile && \
-    ctest --output-on-failure && \
-    (cmake --install . --strip || make DESTDIR=${DESTDIR} install/strip)
+    ctest --output-on-failure
+RUN export DESTDIR=/tmp/mod_tile && \
+    cmake --install . --strip
 
 # Runner
 FROM opensuse/${opensuse_version} as runner
@@ -143,7 +138,7 @@ ARG boost_version
 ARG opensuse_version
 
 ## Install runner dependencies
-RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
@@ -152,11 +147,7 @@ RUN --mount=id=opensuse:${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
         cairo-devel \
         gdal \
         harfbuzz-devel \
-        libboost_atomic${boost_version}-devel \
-        libboost_filesystem${boost_version}-devel \
-        libboost_program_options${boost_version}-devel \
         libboost_regex${boost_version}-devel \
-        libboost_system${boost_version}-devel \
         libicu-devel \
         libiniparser-devel \
         libjpeg8-devel \
