@@ -63,12 +63,12 @@ if [ "$1" = "config" ]; then
   exit 0
 fi
 
-reqprocessed=$(sed -e '/^ReqRendered/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
-reqprioprocessed=$(sed -e '/^ReqPrioRendered/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
-reqpriolowprocessed=$(sed -e '/^ReqLowRendered/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
-dirtprocessed=$(sed -e '/^DirtyRendered/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
-reqbulkprocessed=$(sed -e '/^ReqBulkRendered/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
-dropped=$(sed -e '/^DropedRequest/!d' -e 's/.*: //' -e q /run/renderd/renderd.stats)
+reqprocessed=$(sed -e '/^ReqRendered/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
+reqprioprocessed=$(sed -e '/^ReqPrioRendered/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
+reqpriolowprocessed=$(sed -e '/^ReqLowRendered/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
+dirtprocessed=$(sed -e '/^DirtyRendered/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
+reqbulkprocessed=$(sed -e '/^ReqBulkRendered/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
+dropped=$(sed -e '/^DropedRequest/!d' -e 's/.*: //' -e q ${RENDERD_STATS:-/run/renderd/renderd.stats})
 
 echo "req.value " $reqprocessed
 echo "reqLow.value " $reqpriolowprocessed
