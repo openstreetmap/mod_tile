@@ -1,66 +1,52 @@
 ---
 inputs:
   version:
+    default: latest
     description: Version of Mapnik to build & install
     required: true
 
 runs:
   using: composite
   steps:
-    - name: Create `Mapnik` source directory
-      run: |
-        mkdir mapnik-src
-      shell: bash --noprofile --norc -euxo pipefail {0}
-
-    - name: Cache "Download `Mapnik`" & "Build `Mapnik`"
-      id: cache-mapnik-src
+    - name: Cache "Checkout `Mapnik`" & "Build `Mapnik`"
+      id: cache-mapnik
       uses: actions/cache@v4
       with:
-        path: mapnik-src
-        key: ${{ matrix.image }}-${{ matrix.compiler }}-mapnik-${{ inputs.version }}
+        path: |
+          mapnik-build
+          mapnik-src
+        key: ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.compiler }}-mapnik-${{ inputs.version }}
 
-    - name: Download `Mapnik`
-      run: |
-        curl --silent --location \
-          https://github.com/mapnik/mapnik/releases/download/v${{ inputs.version }}/mapnik-v${{ inputs.version }}.tar.bz2 \
-          | tar --extract --bzip2 --strip-components=1 --file=-
-      shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: mapnik-src
-      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+    - name: Checkout `Mapnik`
+      uses: actions/checkout@v4
+      with:
+        path: mapnik-src
+        ref: ${{ inputs.version != 'latest' && format('v{0}', inputs.version) || '' }}
+        repository: mapnik/mapnik
+        submodules: recursive
+      if: steps.cache-mapnik.outputs.cache-hit != 'true'
 
     - name: Build `Mapnik`
       run: |
-        # Export variables
-        export CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"
-        export GDAL_DATA=/usr/share/gdal
-        export JOBS=${JOBS:-$(nproc)}
-        export PROJ_LIB=/usr/share/proj
-        export PYTHON=${PYTHON:-python3}
-
-        # Create GDAL_DATA/PROJ_LIB directories
-        mkdir --parents ${GDAL_DATA} ${PROJ_LIB}
-
-        # Configure & build
-        ./configure \
-          CC="${CC:-gcc}" \
-          CUSTOM_CFLAGS="${CUSTOM_CFLAGS:-}" \
-          CUSTOM_CXXFLAGS="${CUSTOM_CXXFLAGS:-}" \
-          CUSTOM_DEFINES="${CUSTOM_DEFINES:-}" \
-          CUSTOM_LDFLAGS="${CUSTOM_LDFLAGS:-}" \
-          CXX="${CXX:-g++}" \
-          FAST=True \
-          OPTIMIZATION=0 \
-          PREFIX="/usr"
-         make PYTHON=${PYTHON} || make PYTHON=${PYTHON}
+        export CMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL:-$(nproc)}
+        cmake -B mapnik-build -S mapnik-src \
+          -DBUILD_BENCHMARK:BOOL=OFF \
+          -DBUILD_DEMO_CPP:BOOL=OFF \
+          -DBUILD_DEMO_VIEWER:BOOL=OFF \
+          -DBUILD_TESTING:BOOL=OFF \
+          -DBUILD_UTILITY_GEOMETRY_TO_WKB:BOOL=OFF \
+          -DBUILD_UTILITY_MAPNIK_INDEX:BOOL=OFF \
+          -DBUILD_UTILITY_MAPNIK_RENDER:BOOL=OFF \
+          -DBUILD_UTILITY_OGRINDEX:BOOL=OFF \
+          -DBUILD_UTILITY_PGSQL2SQLITE:BOOL=OFF \
+          -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
+          -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
+          -DCMAKE_BUILD_TYPE:STRING=Release \
+          -DCMAKE_INSTALL_PREFIX:PATH=/usr
+        cmake --build mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: mapnik-src
-      if: steps.cache-mapnik-src.outputs.cache-hit != 'true'
+      if: steps.cache-mapnik.outputs.cache-hit != 'true'
 
     - name: Install `Mapnik`
-      run: |
-        # Export `PYTHON`
-        export PYTHON=${PYTHON:-python3}
-
-        make install PYTHON=${PYTHON}
+      run: ${{ !matrix.image && 'sudo' || '' }} cmake --install mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
-      working-directory: mapnik-src
