@@ -32,9 +32,8 @@ set(USE_CAIRO ON CACHE BOOL "Add cairo support if available (for `store_ro_compo
 set(USE_CURL ON CACHE BOOL "Add curl support if available (for `store_ro_http_proxy.c` backend)")
 set(USE_MEMCACHED ON CACHE BOOL "Add memcached support if available (for `store_memcached.c` backend)")
 set(USE_RADOS ON CACHE BOOL "Add rados support if available (for `store_rados.c` backend)")
-
-set(MALLOC_LIB "glib" CACHE STRING "Memory Management Library for `renderd`")
-set_property(CACHE MALLOC_LIB PROPERTY STRINGS glib jemalloc tcmalloc)
+set(MALLOC_LIB "libc" CACHE STRING "Memory Management Library for `renderd`")
+set_property(CACHE MALLOC_LIB PROPERTY STRINGS "libc" "jemalloc" "mimalloc" "tcmalloc")
 
 #-----------------------------------------------------------------------------
 #
@@ -47,19 +46,6 @@ include(GNUInstallDirs)
 # Packages
 find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
-
-if (${MALLOC_LIB} STREQUAL "jemalloc")
-  # Switch to jemalloc (http://jemalloc.net) as the malloc/free
-  # implementation in renderd.
-  # Should address https://github.com/openstreetmap/mod_tile/issues/181
-  find_package(PkgConfig REQUIRED)
-  pkg_search_module(JEMALLOC REQUIRED jemalloc)
-elseif (${MALLOC_LIB} STREQUAL "tcmalloc")
-  # Switch to tcmalloc (https://github.com/google/tcmalloc)
-  # as the malloc/free implementation in renderd.
-  find_package(PkgConfig REQUIRED)
-  pkg_search_module(TCMALLOC REQUIRED libtcmalloc)
-endif()
 
 find_package(APR REQUIRED)
 find_package(GLIB 2.50 REQUIRED)
@@ -104,6 +90,20 @@ include(CheckLibraryExists)
 if(NOT HAVE_POW)
   check_library_exists(m pow "" HAVE_LIB_M)
   find_library(MATH_LIBRARY m REQUIRED)
+endif()
+
+if(NOT MALLOC_LIB STREQUAL "libc")
+  message(STATUS "Using '${MALLOC_LIB}' for memory managment")
+  if(MALLOC_LIB STREQUAL "jemalloc")
+    # jemalloc (http://jemalloc.net)
+    find_library(MALLOC_LIBRARY jemalloc REQUIRED)
+  elseif(MALLOC_LIB STREQUAL "mimalloc")
+    # mimalloc (https://github.com/microsoft/mimalloc)
+    find_library(MALLOC_LIBRARY mimalloc REQUIRED)
+  elseif(MALLOC_LIB STREQUAL "tcmalloc")
+    # tcmalloc (https://github.com/google/tcmalloc)
+    find_library(MALLOC_LIBRARY tcmalloc REQUIRED)
+  endif()
 endif()
 
 #-----------------------------------------------------------------------------

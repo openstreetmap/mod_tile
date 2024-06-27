@@ -41,7 +41,6 @@ set(RENDER_LIBRARIES
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${MATH_LIBRARY}
-  Threads::Threads
 )
 
 set(STORE_SRCS
@@ -60,6 +59,11 @@ set(STORE_LIBRARIES
   ${LIBMEMCACHED_LIBRARIES}
   ${LIBRADOS_LIBRARIES}
 )
+
+if(NOT MALLOC_LIB STREQUAL "libc")
+  message(STATUS "Prepending '${MALLOC_LIBRARY}' to RENDER_LIBRARIES")
+  list(PREPEND RENDER_LIBRARIES ${MALLOC_LIBRARY})
+endif()
 
 #-----------------------------------------------------------------------------
 #
@@ -179,26 +183,12 @@ set(renderd_SRCS
   renderd.c
   request_queue.c
 )
-
 set(renderd_LIBS
   ${ICU_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
   ${RENDER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
-
-if ("${MALLOC_LIB}" STREQUAL "jemalloc")
-  message(STATUS "Using 'jemalloc' for memory management")
-  # JEMALLOC libraries should come *before* the GLIB libraries.
-  list(PREPEND renderd_LIBS ${JEMALLOC_LIBRARIES})
-elseif ("${MALLOC_LIB}" STREQUAL "tcmalloc")
-  message(STATUS "Using 'tcmalloc' for memory management")
-  # TCMALLOC libraries should come *before* the GLIB libraries.
-  list(PREPEND renderd_LIBS ${TCMALLOC_LIBRARIES})
-else()
-  message(STATUS "Using 'glib' for memory managment")
-endif()
-
 add_executable(renderd ${renderd_SRCS})
 target_link_libraries(renderd ${renderd_LIBS})
 
