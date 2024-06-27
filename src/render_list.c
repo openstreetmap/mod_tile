@@ -439,14 +439,19 @@ int main(int argc, char **argv)
 		}
 
 		struct protocol cmd;
+
 		bzero(&cmd, sizeof(cmd));
+
 		cmd.ver = 1;
+
 		cmd.cmd = cmdStop;
+
 		if (send_cmd(&cmd, fd) < 1) {
 			g_logger(G_LOG_LEVEL_ERROR, "send error: %s", strerror(errno));
 		}
-	
+
 		struct protocol rsp;
+
 		bzero(&rsp, sizeof(rsp));
 
 		g_logger(G_LOG_LEVEL_DEBUG, "Waiting for response");

@@ -858,6 +858,7 @@ int main(int argc, char **argv)
 	}
 
 	stats_thread = pthread_self();
+
 	if (strnlen(config.stats_filename, PATH_MAX - 1)) {
 		if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn stats writeout thread");
@@ -879,6 +880,7 @@ int main(int argc, char **argv)
 	}
 
 	int slave_thread_count = 0;
+
 	if (active_renderd_section_num == 0) {
 		// Only the master renderd opens connections to its slaves
 		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
@@ -935,7 +937,6 @@ int main(int argc, char **argv)
 		g_logger(G_LOG_LEVEL_INFO, "Destroying request queue...");
 		request_queue_destroy(&render_request_queue);
 		g_logger(G_LOG_LEVEL_INFO, "Request queue destroyed.");
-		
 	}
 
 	return 0;

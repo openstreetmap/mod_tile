@@ -421,7 +421,9 @@ void *render_thread(void *arg)
 	}
 
 	struct item *item;
+
 	g_logger(G_LOG_LEVEL_DEBUG, "Render thread waiting for work...");
+
 	while ((item = request_queue_fetch_request(render_request_queue)) != NULL) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Render thread received work: %p", item);
 
@@ -448,11 +450,11 @@ void *render_thread(void *arg)
 
 						if (sinfo.size > 0)
 							g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, age %.2f days",
-									req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
-									(tim.tv_sec - sinfo.mtime) / 86400.0);
+								 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1,
+								 (tim.tv_sec - sinfo.mtime) / 86400.0);
 						else
 							g_logger(G_LOG_LEVEL_DEBUG, "START TILE %s %d %d-%d %d-%d, new metatile",
-									req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
+								 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1);
 
 						ret = render(&(maps[i]), item->mx, item->my, req->z, req->options, tiles);
 
@@ -460,7 +462,7 @@ void *render_thread(void *arg)
 						long t2 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
 
 						g_logger(G_LOG_LEVEL_DEBUG, "DONE TILE %s %d %d-%d %d-%d in %.3lf seconds",
-								req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
+							 req->xmlname, req->z, item->mx, item->mx + size - 1, item->my, item->my + size - 1, (t2 - t1) / 1000.0);
 
 						render_time = t2 - t1;
 
@@ -490,7 +492,7 @@ void *render_thread(void *arg)
 #endif // METATILE
 					} else {
 						g_logger(G_LOG_LEVEL_WARNING, "Received request for map layer %s is outside of acceptable bounds z(%i), x(%i), y(%i)",
-								req->xmlname, req->z, req->x, req->y);
+							 req->xmlname, req->z, req->x, req->y);
 						ret = cmdIgnore;
 					}
 				} else {
@@ -514,14 +516,17 @@ void *render_thread(void *arg)
 	}
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Render thread is cleaning up...");
+
 	for (iMaxConfigs = 0; iMaxConfigs < XMLCONFIGS_MAX; ++iMaxConfigs) {
 		if (maps[iMaxConfigs].ok) {
 			free((void *) maps[iMaxConfigs].output_format);
+
 			if (maps[iMaxConfigs].store != NULL) {
 				maps[iMaxConfigs].store->close_storage(maps[iMaxConfigs].store);
 				free(maps[iMaxConfigs].store);
 				maps[iMaxConfigs].store = NULL;
 			}
+
 			free((void *) maps[iMaxConfigs].xmlfile);
 			free((void *) maps[iMaxConfigs].xmlname);
 #ifdef HTCP_EXPIRE_CACHE

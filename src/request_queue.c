@@ -536,9 +536,11 @@ void request_queue_destroy(struct request_queue **queue)
 	}
 
 	pthread_mutex_lock(&((*queue)->qLock));
+
 	if ((*queue)->isClosing == 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "Destroying un-closed queue! Call request_queue_close() first!");
 	}
+
 	pthread_mutex_unlock(&((*queue)->qLock));
 
 	if (0 < request_queue_no_requests_queued(*queue, cmdStop)) {
