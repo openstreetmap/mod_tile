@@ -22,19 +22,19 @@ Dependencies
 ------------
 
 * `Supported Operating Systems`
-    * `GNU/Linux` (works best on Debian or Ubuntu)
     * `FreeBSD`
+    * `GNU/Linux`
     * `macOS`
 * `Supported Build Systems`
-    * `GNU Autotools <https://www.gnu.org/software/software.html>`__
     * `CMake <https://cmake.org/>`__
+    * `GNU Autotools <https://www.gnu.org/software/software.html>`__
 * `Runtime/Build Dependencies`
     * `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
-    * `Mapnik <https://mapnik.org/>`__
-    * `Cairo 2D graphics library  <https://cairographics.org/>`__
-    * `Curl library (SSL variant) <https://curl.haxx.se/>`__
-    * `Iniparser library <https://github.com/ndevilla/iniparser>`__
+    * `Cairo 2D graphics library (optional) <https://cairographics.org/>`__
+    * `Curl library (optional) <https://curl.haxx.se/>`__
     * `GLib library <https://gitlab.gnome.org/GNOME/glib>`__
+    * `Iniparser library <https://github.com/ndevilla/iniparser>`__
+    * `Mapnik library <https://mapnik.org/>`__
     * `Memcached library (optional) <https://libmemcached.org/>`__
     * `RADOS library (optional) <https://docs.ceph.com/en/latest/rados/api/librados/>`__
 
