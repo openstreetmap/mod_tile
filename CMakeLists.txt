@@ -25,9 +25,13 @@ set(CMAKE_CXX_STANDARD 11 CACHE STRING "Sets the C++ standard.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation directory")
 set(ENABLE_MAN ON CACHE BOOL "Build man pages")
 set(ENABLE_TESTS OFF CACHE BOOL "Build test suite")
-set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation directory")
+set(USE_CAIRO ON CACHE BOOL "Add cairo support if available (for `store_ro_composite.c` backend)")
+set(USE_CURL ON CACHE BOOL "Add curl support if available (for `store_ro_http_proxy.c` backend)")
+set(USE_MEMCACHED ON CACHE BOOL "Add memcached support if available (for `store_memcached.c` backend)")
+set(USE_RADOS ON CACHE BOOL "Add rados support if available (for `store_rados.c` backend)")
 
 #-----------------------------------------------------------------------------
 #
@@ -38,21 +42,30 @@ set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation 
 include(GNUInstallDirs)
 
 # Packages
-find_package(CURL)
 find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
 
 find_package(APR REQUIRED)
-find_package(CAIRO REQUIRED)
 find_package(GLIB REQUIRED)
 find_package(HTTPD REQUIRED)
 find_package(INIPARSER REQUIRED)
 find_package(LIBMAPNIK REQUIRED)
-find_package(LIBMEMCACHED)
-find_package(LIBRADOS)
 
 if(LIBMAPNIK_VERSION VERSION_GREATER_EQUAL 4)
   set(CMAKE_CXX_STANDARD 17)
+endif()
+
+if(USE_CURL)
+  find_package(CURL)
+endif()
+if(USE_CAIRO)
+  find_package(CAIRO)
+endif()
+if(USE_MEMCACHED)
+  find_package(LIBMEMCACHED)
+endif()
+if(USE_RADOS)
+  find_package(LIBRADOS)
 endif()
 
 # Programs

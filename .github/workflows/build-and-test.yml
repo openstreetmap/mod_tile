@@ -172,9 +172,6 @@ jobs:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
           - os: macos-14
-            build_system: Autotools
-            compiler: LLVM
-          - os: macos-14
             build_system: CMake
             compiler: LLVM
         exclude:
