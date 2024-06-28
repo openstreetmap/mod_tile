@@ -1206,8 +1206,31 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 	}
 }
 
+TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
+{
+	int found;
+	std::string err_log_lines, out_log_lines;
+	struct storage_backend *store = NULL;
+
+#ifndef HAVE_CAIRO
+	SECTION("storage/initialise", "should return NULL") {
+		start_capture();
+		REQUIRE(init_storage_backend("composite:{") == NULL);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		found = err_log_lines.find("init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
+		REQUIRE(found > -1);
+	}
+#endif
+}
+
 TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 {
+	int found;
+	std::string err_log_lines, out_log_lines;
+	struct storage_backend *store = NULL;
+
+#ifdef HAVE_LIBCURL
 	SECTION("storage/initialise", "should return 1") {
 		struct storage_backend *store = NULL;
 
@@ -1216,6 +1239,16 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 
 		store->close_storage(store);
 	}
+#else
+	SECTION("storage/initialise", "should return NULL") {
+		start_capture();
+		REQUIRE(init_storage_backend("ro_http_proxy://") == NULL);
+		std::tie(err_log_lines, out_log_lines) = end_capture();
+
+		found = err_log_lines.find("init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
+		REQUIRE(found > -1);
+	}
+#endif
 }
 
 TEST_CASE("projections", "Test projections")
