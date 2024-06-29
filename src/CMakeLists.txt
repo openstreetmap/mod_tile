@@ -41,7 +41,6 @@ set(RENDER_LIBRARIES
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${MATH_LIBRARY}
-  Threads::Threads
 )
 
 set(STORE_SRCS
@@ -60,6 +59,11 @@ set(STORE_LIBRARIES
   ${LIBMEMCACHED_LIBRARIES}
   ${LIBRADOS_LIBRARIES}
 )
+
+if(NOT MALLOC_LIB STREQUAL "libc")
+  message(STATUS "Prepending '${MALLOC_LIBRARY}' to RENDER_LIBRARIES")
+  list(PREPEND RENDER_LIBRARIES ${MALLOC_LIBRARY})
+endif()
 
 #-----------------------------------------------------------------------------
 #
