@@ -173,6 +173,8 @@ void request_exit(void)
 	// Any write to the exit pipe will trigger a graceful exit
 	char c = 0;
 
+	g_logger(G_LOG_LEVEL_INFO, "Sending exit request");
+
 	if (write(exit_pipe_fd, &c, sizeof(c)) < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to write to the exit pipe: %s", strerror(errno));
 	}
@@ -212,10 +214,10 @@ void process_loop(int listen_fd)
 		num = poll(pfd, num_cslots + PFD_SPECIAL_COUNT, -1);
 
 		if (num == -1) {
-			g_logger(G_LOG_LEVEL_ERROR, "poll(): %s", strerror(errno));
+			g_logger(G_LOG_LEVEL_DEBUG, "poll(): %s", strerror(errno));
 		} else if (num) {
 			if (pfd[PFD_EXIT_PIPE].revents & POLLIN) {
-				// A render thread wants us to exit
+				g_logger(G_LOG_LEVEL_INFO, "Received exit request, exiting process_loop");
 				break;
 			}
 
@@ -893,6 +895,8 @@ int main(int argc, char **argv)
 	process_loop(fd);
 
 	unlink(config.socketname);
+	free_map_sections(maps);
+	free_renderd_sections(config_slaves);
 	close(fd);
 	return 0;
 }
