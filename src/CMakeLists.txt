@@ -57,6 +57,11 @@ set(STORE_LIBRARIES
   ${LIBRADOS_LIBRARIES}
 )
 
+if(NOT MALLOC_LIB STREQUAL "libc")
+  message(STATUS "Prepending '${MALLOC_LIBRARY}' to RENDER_LIBRARIES")
+  list(PREPEND RENDER_LIBRARIES ${MALLOC_LIBRARY})
+endif()
+
 #-----------------------------------------------------------------------------
 #
 #  Installed targets
