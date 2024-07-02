@@ -172,12 +172,6 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 
 #ifdef METATILE
 // Returns the path to the meta-tile and the offset within the meta-tile
-int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
-{
-	return xyzo_to_meta(path, len, tile_dir, xmlconfig, "", x, y, z);
-}
-
-// Returns the path to the meta-tile and the offset within the meta-tile
 int xyzo_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, const char *options, int x, int y, int z)
 {
 	unsigned char i, hash[5], offset, mask;
@@ -213,6 +207,12 @@ int xyzo_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlco
 
 #endif // DIRECTORY_HASH
 	return offset;
+}
+
+// Returns the path to the meta-tile and the offset within the meta-tile
+int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
+{
+	return xyzo_to_meta(path, len, tile_dir, xmlconfig, "", x, y, z);
 }
 #else // METATILE
 void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
