@@ -84,7 +84,8 @@ apr_shm_t *delaypool_shm;
 apr_global_mutex_t *stats_mutex;
 apr_global_mutex_t *delaypool_mutex;
 
-char *mutexfilename;
+char *stats_mutexfilename;
+char *delaypool_mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
@@ -1756,15 +1757,15 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex.%ld", P_tmpdir, (long int)getpid());
+	stats_mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_stats.%ld", P_tmpdir, (long int)getpid());
 
-	rs = apr_global_mutex_create(&stats_mutex, (const char *)mutexfilename,
+	rs = apr_global_mutex_create(&stats_mutex, (const char *)stats_mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
 			     "Failed to create mutex on file %s",
-			     mutexfilename);
+			     stats_mutexfilename);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -1785,15 +1786,15 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_delay.%ld", P_tmpdir, (long int)getpid());
+	delaypool_mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_delaypool.%ld", P_tmpdir, (long int)getpid());
 
-	rs = apr_global_mutex_create(&delaypool_mutex, (const char *)mutexfilename,
+	rs = apr_global_mutex_create(&delaypool_mutex, (const char *)delaypool_mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
 			     "Failed to create mutex on file %s",
-			     mutexfilename);
+			     delaypool_mutexfilename);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -1830,13 +1831,13 @@ static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 	 * the mutex pointer global here.
 	 */
 	rs = apr_global_mutex_child_init(&stats_mutex,
-					 (const char *)mutexfilename,
+					 (const char *)stats_mutexfilename,
 					 p);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
 			     "Failed to reopen mutex on file %s",
-			     mutexfilename);
+			     stats_mutexfilename);
 		/* There's really nothing else we can do here, since
 		 * This routine doesn't return a status. */
 		exit(1); /* Ugly, but what else? */
