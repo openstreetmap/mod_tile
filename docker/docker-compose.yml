@@ -77,6 +77,13 @@ services:
         centos_stream_version: "9"
         extra_repository: crb
       dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
+  centos-stream-10-development:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_centos_stream
+      args:
+        centos_stream_version: "10-development"
+        extra_repository: crb
   debian-10:
     <<: *service_defaults
     build:

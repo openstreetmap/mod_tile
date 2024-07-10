@@ -4,7 +4,7 @@ ARG libmapnik_version=3.1
 ARG runner_additional_packages=libcurl4 libglib2.0
 
 # Builder
-FROM debian:${debian_version} as builder
+FROM debian:${debian_version} AS builder
 
 ## Arguments
 ARG debian_version
@@ -40,7 +40,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
 RUN make test
 
 # Runner
-FROM debian:${debian_version} as runner
+FROM debian:${debian_version} AS runner
 
 ## Arguments
 ARG debian_version

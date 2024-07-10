@@ -4,7 +4,7 @@ ARG runner_additional_packages
 ARG ubuntu_version=24.04
 
 # Builder
-FROM ubuntu:${ubuntu_version} as builder
+FROM ubuntu:${ubuntu_version} AS builder
 
 ## Arguments
 ARG ubuntu_version
@@ -49,7 +49,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM ubuntu:${ubuntu_version} as runner
+FROM ubuntu:${ubuntu_version} AS runner
 
 ## Arguments
 ARG libmapnik_version

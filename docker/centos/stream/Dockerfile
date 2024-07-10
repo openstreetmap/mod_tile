@@ -4,7 +4,7 @@ ARG extra_repository=crb
 ARG mapnik_version=4.0.0
 
 # Mapnik Builder
-FROM quay.io/centos/centos:stream${centos_stream_version} as mapnik-builder
+FROM quay.io/centos/centos:stream${centos_stream_version} AS mapnik-builder
 
 ## Arguments
 ARG centos_stream_version
@@ -70,7 +70,7 @@ RUN --mount=id=centos:stream${centos_stream_version}-mapnik-src:${mapnik_version
     cmake --install . --strip
 
 # Builder
-FROM quay.io/centos/centos:stream${centos_stream_version} as builder
+FROM quay.io/centos/centos:stream${centos_stream_version} AS builder
 
 ## Arguments
 ARG centos_stream_version
@@ -132,7 +132,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM quay.io/centos/centos:stream${centos_stream_version} as runner
+FROM quay.io/centos/centos:stream${centos_stream_version} AS runner
 
 ## Arguments
 ARG centos_stream_version

@@ -2,7 +2,7 @@
 ARG fedora_version=40
 
 # Builder
-FROM fedora:${fedora_version} as builder
+FROM fedora:${fedora_version} AS builder
 
 ## Arguments
 ARG fedora_version
@@ -44,7 +44,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM fedora:${fedora_version} as runner
+FROM fedora:${fedora_version} AS runner
 
 ## Arguments
 ARG fedora_version

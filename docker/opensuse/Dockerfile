@@ -5,7 +5,7 @@ ARG mapnik_version=4.0.0
 ARG opensuse_version=leap:15
 
 # Mapnik Builder
-FROM opensuse/${opensuse_version} as mapnik-builder
+FROM opensuse/${opensuse_version} AS mapnik-builder
 
 ## Arguments
 ARG boost_version
@@ -73,7 +73,7 @@ RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=
     cmake --install . --strip
 
 # Builder
-FROM opensuse/${opensuse_version} as builder
+FROM opensuse/${opensuse_version} AS builder
 
 ## Arguments
 ARG boost_version
@@ -131,7 +131,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM opensuse/${opensuse_version} as runner
+FROM opensuse/${opensuse_version} AS runner
 
 ## Arguments
 ARG boost_version

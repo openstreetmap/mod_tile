@@ -2,7 +2,7 @@
 ARG runner_additional_packages
 
 # Builder
-FROM archlinux:latest as builder
+FROM archlinux:latest AS builder
 
 ## Install builder dependencies
 RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
@@ -45,7 +45,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM archlinux:latest as runner
+FROM archlinux:latest AS runner
 
 ## Arguments
 ARG runner_additional_packages
