@@ -43,6 +43,7 @@ inputs:
       libmemcached-devel
       librados-devel
       mapnik-devel
+      mapnik-static
       sqlite-devel
   fedora-test-dependencies:
     default: >-

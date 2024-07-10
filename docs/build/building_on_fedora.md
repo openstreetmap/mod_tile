@@ -28,7 +28,8 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   libcurl-devel \
   libmemcached-devel \
   librados-devel \
-  mapnik-devel
+  mapnik-devel \
+  mapnik-static
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
