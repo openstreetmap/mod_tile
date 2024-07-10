@@ -1,17 +1,18 @@
+# hadolint global ignore=DL3008,DL3025,DL3059
 # Arguments
 ARG debian_version=12
 ARG libmapnik_version=3.1
 ARG runner_additional_packages=libcurl4 libglib2.0
 
 # Builder
-FROM debian:${debian_version} as builder
+FROM debian:${debian_version} AS builder
 
 ## Arguments
 ARG debian_version
 
 ## Install builder dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
@@ -34,7 +35,7 @@ RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/va
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
@@ -43,13 +44,13 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM debian:${debian_version} as runner
+FROM debian:${debian_version} AS runner
 
 ## Arguments
 ARG debian_version
@@ -57,8 +58,8 @@ ARG libmapnik_version
 ARG runner_additional_packages
 
 ## Install runner dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
