@@ -1756,8 +1756,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex.%ld",
-				     (long int)getpid());
+	mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex.%ld", P_tmpdir, (long int)getpid());
 
 	rs = apr_global_mutex_create(&stats_mutex, (const char *)mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
@@ -1786,8 +1785,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_delay.%ld",
-				     (long int)getpid());
+	mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_delay.%ld", P_tmpdir, (long int)getpid());
 
 	rs = apr_global_mutex_create(&delaypool_mutex, (const char *)mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
