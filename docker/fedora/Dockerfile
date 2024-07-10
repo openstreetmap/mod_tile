@@ -23,6 +23,7 @@ RUN --mount=id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf,typ
       libmemcached-devel \
       librados-devel \
       mapnik-devel \
+      mapnik-static \
       procps
 
 ## Build, Test & Install `mod_tile`
