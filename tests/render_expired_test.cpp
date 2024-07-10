@@ -110,8 +110,8 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: z/x/y"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: x y z"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: z/x/y"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: x y z"));
 	}
 
 	SECTION("--tile-dir with invalid option", "should return 1") {
