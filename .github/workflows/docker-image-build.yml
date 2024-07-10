@@ -9,9 +9,24 @@ on:
       - ".github/workflows/docker-image-build.yml"
 
 jobs:
+  dockerfile-lint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile*
+          failure-threshold: warning
+          recursive: true
+
   docker-image-build:
     continue-on-error: ${{ matrix.experimental || false }}
     name: Build & Test (${{ matrix.service-name }})
+    needs: dockerfile-lint
     runs-on: ubuntu-latest
     strategy:
       matrix:

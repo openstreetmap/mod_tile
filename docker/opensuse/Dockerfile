@@ -1,20 +1,23 @@
+# hadolint global ignore=DL3025,DL3036,DL3037,DL3059
 # Arguments
 ARG boost_version
 ARG gcc_version
 ARG mapnik_version=4.0.0
-ARG opensuse_version=leap:15
+ARG opensuse_release=leap
+ARG opensuse_version=15
 
 # Mapnik Builder
-FROM opensuse/${opensuse_version} as mapnik-builder
+FROM opensuse/${opensuse_release}:${opensuse_version} AS mapnik-builder
 
 ## Arguments
 ARG boost_version
 ARG gcc_version
 ARG mapnik_version
+ARG opensuse_release
 ARG opensuse_version
 
 ## Install mapnik-builder dependencies
-RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
@@ -46,14 +49,14 @@ RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zy
 
 ## Download, Build & Install `Mapnik`
 WORKDIR /tmp/mapnik_src
-RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
+RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
     if [ ! -f CMakeLists.txt ]; then \
         git clone --branch v${mapnik_version} --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src; \
     fi
 WORKDIR /tmp/mapnik_build
-RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
-    --mount=id=opensuse/${opensuse_version}-mapnik-build:${mapnik_version},target=/tmp/mapnik_build,type=cache \
-    export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
+    --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapnik-build:${mapnik_version},target=/tmp/mapnik_build \
+    CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     export DESTDIR=/tmp/mapnik && \
     cmake -B . -S /tmp/mapnik_src \
         -DBUILD_BENCHMARK:BOOL=OFF \
@@ -73,14 +76,15 @@ RUN --mount=id=opensuse/${opensuse_version}-mapnik-src:${mapnik_version},target=
     cmake --install . --strip
 
 # Builder
-FROM opensuse/${opensuse_version} as builder
+FROM opensuse/${opensuse_release}:${opensuse_version} AS builder
 
 ## Arguments
 ARG boost_version
+ARG opensuse_release
 ARG opensuse_version
 
 ## Install builder dependencies
-RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
@@ -116,7 +120,7 @@ RUN id nobody || useradd --home-dir / --no-create-home --shell /usr/sbin/nologin
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
@@ -125,20 +129,21 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM opensuse/${opensuse_version} as runner
+FROM opensuse/${opensuse_release}:${opensuse_version} AS runner
 
 ## Arguments
 ARG boost_version
+ARG opensuse_release
 ARG opensuse_version
 
 ## Install runner dependencies
-RUN --mount=id=opensuse/${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
     zypper modifyrepo --all --keep-packages && \
     zypper --non-interactive update && \
     zypper --non-interactive install \
