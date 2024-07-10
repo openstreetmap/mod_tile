@@ -82,7 +82,7 @@ APLOG_USE_MODULE(tile);
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
 apr_global_mutex_t *stats_mutex;
-apr_global_mutex_t *delay_mutex;
+apr_global_mutex_t *delaypool_mutex;
 
 char *mutexfilename;
 int layerCount = 0;
@@ -816,7 +816,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 		return 1;
 	}
 
-	if (get_global_lock(r, delay_mutex) == 0) {
+	if (get_global_lock(r, delaypool_mutex) == 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
 		return 1;
 	};
@@ -845,11 +845,11 @@ static int delay_allowed(request_rec *r, enum tileState state)
 			if (delay > 0) {
 				/* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
 				if (j > 0) {
-					apr_global_mutex_unlock(delay_mutex);
+					apr_global_mutex_unlock(delaypool_mutex);
 					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", ip_addr, delay);
 					sleep(CLIENT_PENALTY);
 
-					if (get_global_lock(r, delay_mutex) == 0) {
+					if (get_global_lock(r, delaypool_mutex) == 0) {
 						ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
 						return 0;
 					};
@@ -895,7 +895,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 		delay = 0;
 	}
 
-	apr_global_mutex_unlock(delay_mutex);
+	apr_global_mutex_unlock(delaypool_mutex);
 
 	if (delay > 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", ip_addr, delay);
@@ -1789,7 +1789,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_delay.%ld",
 				     (long int)getpid());
 
-	rs = apr_global_mutex_create(&delay_mutex, (const char *)mutexfilename,
+	rs = apr_global_mutex_create(&delaypool_mutex, (const char *)mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
 
 	if (rs != APR_SUCCESS) {
@@ -1800,7 +1800,7 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	}
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-	rs = ap_unixd_set_global_mutex_perms(delay_mutex);
+	rs = ap_unixd_set_global_mutex_perms(delaypool_mutex);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
