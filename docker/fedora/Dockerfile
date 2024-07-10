@@ -1,3 +1,4 @@
+# hadolint global ignore=DL3025,DL3040,DL3041,DL3059
 # Arguments
 ARG fedora_version=40
 
@@ -8,7 +9,7 @@ FROM fedora:${fedora_version} AS builder
 ARG fedora_version
 
 ## Install builder dependencies
-RUN --mount=id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install \
@@ -29,7 +30,7 @@ RUN --mount=id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf,typ
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=/var \
@@ -38,7 +39,7 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
@@ -50,7 +51,7 @@ FROM fedora:${fedora_version} AS runner
 ARG fedora_version
 
 ## Install runner dependencies
-RUN --mount=id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install \

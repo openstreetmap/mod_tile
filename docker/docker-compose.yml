@@ -205,13 +205,15 @@ services:
       args:
         boost_version: "1_75_0"
         gcc_version: "13"
-        opensuse_version: "leap:15"
+        opensuse_release: leap
+        opensuse_version: "15"
   opensuse-tumbleweed:
     <<: *service_defaults
     build:
       <<: *build_defaults_opensuse
       args:
-        opensuse_version: "tumbleweed"
+        opensuse_release: tumbleweed
+        opensuse_version: latest
   ubuntu-20.04:
     <<: *service_defaults
     build:

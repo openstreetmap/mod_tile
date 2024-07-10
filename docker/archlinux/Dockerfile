@@ -1,12 +1,17 @@
+# hadolint global ignore=DL3025,DL3059
 # Arguments
+ARG archlinux_version=latest
 ARG runner_additional_packages
 
 # Builder
-FROM archlinux:latest AS builder
+FROM archlinux:${archlinux_version} AS builder
+
+## Arguments
+ARG archlinux_version
 
 ## Install builder dependencies
-RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
-    --mount=id=archlinux:latest-/var/lib/pacman/sync,sharing=locked,target=/var/lib/pacman/sync,type=cache \
+RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cache/pacman/pkg,target=/var/cache/pacman/pkg \
+    --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/lib/pacman/sync,target=/var/lib/pacman/sync \
     pacman --sync --refresh --sysupgrade --noconfirm \
         apache \
         apr \
@@ -29,7 +34,7 @@ RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_build
-RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     cmake -B . -S /tmp/mod_tile_src \
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DCMAKE_CXX_STANDARD:STRING=17 \
@@ -39,20 +44,21 @@ RUN export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
-RUN export CTEST_PARALLEL_LEVEL=$(nproc) && \
+RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM archlinux:latest AS runner
+FROM archlinux:${archlinux_version} AS runner
 
 ## Arguments
+ARG archlinux_version
 ARG runner_additional_packages
 
 ## Install runner dependencies
-RUN --mount=id=archlinux:latest-/var/cache/pacman/pkg,sharing=locked,target=/var/cache/pacman/pkg,type=cache \
-    --mount=id=archlinux:latest-/var/lib/pacman/sync,sharing=locked,target=/var/lib/pacman/sync,type=cache \
+RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cache/pacman/pkg,target=/var/cache/pacman/pkg \
+    --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/lib/pacman/sync,target=/var/lib/pacman/sync \
     pacman --sync --refresh --sysupgrade --noconfirm ${runner_additional_packages} \
         apache \
         cairo \

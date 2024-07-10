@@ -1,3 +1,4 @@
+# hadolint global ignore=DL3025,DL3040,DL3041,DL3059
 # Arguments
 ARG centos_stream_version=9
 ARG extra_repository=crb
@@ -12,7 +13,7 @@ ARG extra_repository
 ARG mapnik_version
 
 ## Install mapnik-builder dependencies
-RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
@@ -43,14 +44,14 @@ RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/
 
 ## Download, Build & Install `Mapnik`
 WORKDIR /tmp/mapnik_src
-RUN --mount=id=centos:stream${centos_stream_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
+RUN --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
     if [ ! -f CMakeLists.txt ]; then \
         git clone --branch v${mapnik_version} --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src; \
     fi
 WORKDIR /tmp/mapnik_build
-RUN --mount=id=centos:stream${centos_stream_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src,type=cache \
-    --mount=id=centos:stream${centos_stream_version}-mapnik-build:${mapnik_version},target=/tmp/mapnik_build,type=cache \
-    export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+RUN --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
+    --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-build:${mapnik_version},target=/tmp/mapnik_build \
+    CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL && \
     export DESTDIR=/tmp/mapnik && \
     cmake -B . -S /tmp/mapnik_src \
         -DBUILD_BENCHMARK:BOOL=OFF \
@@ -77,7 +78,7 @@ ARG centos_stream_version
 ARG extra_repository
 
 ## Install builder dependencies
-RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
@@ -128,7 +129,7 @@ ARG centos_stream_version
 ARG extra_repository
 
 ## Install runner dependencies
-RUN --mount=id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf,type=cache,sharing=locked \
+RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
@@ -162,13 +163,15 @@ COPY --from=builder \
     /etc/httpd/conf.d/renderd-example-map.conf
 
 ## Fix mapnik directories
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN sed \
         --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input | grep mapnik)#g" \
         --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
         /usr/local/etc/renderd.conf > /etc/renderd.conf
+SHELL ["/bin/sh", "-c"]
 
 ## Add configuration
-RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/httpd/conf.modules.d/11-tile.conf
+RUN printf "LoadModule tile_module %s\n" "$(find /usr -name mod_tile.so)" > /etc/httpd/conf.modules.d/11-tile.conf
 RUN printf '\n[example-map]\nMAXZOOM=20\nMINZOOM=0\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-jpg]\nMAXZOOM=20\nMINZOOM=0\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png256]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf

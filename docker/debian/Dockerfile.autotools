@@ -1,3 +1,4 @@
+# hadolint global ignore=DL3008,DL3025,DL3059
 # Arguments
 ARG debian_version=12
 ARG libmapnik_version=3.1
@@ -10,8 +11,8 @@ FROM debian:${debian_version} AS builder
 ARG debian_version
 
 ## Install builder dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
@@ -48,8 +49,8 @@ ARG libmapnik_version
 ARG runner_additional_packages
 
 ## Install runner dependencies
-RUN --mount=id=debian:${debian_version}-/var/cache/apt,sharing=locked,target=/var/cache/apt,type=cache \
-    --mount=id=debian:${debian_version}-/var/lib/apt,sharing=locked,target=/var/lib/apt,type=cache \
+RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes update && \
     apt-get --yes upgrade && \
@@ -72,13 +73,15 @@ COPY --from=builder \
     /etc/apache2/sites-available/renderd-example-map.conf
 
 ## Fix mapnik directories
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN sed \
         --expression "s#/usr/lib/mapnik/3.1/input#$(find /usr -mindepth 1 -type d -name input | grep mapnik)#g" \
         --expression "s#/usr/share/fonts/truetype#/usr/share/fonts#g" \
         /usr/local/etc/renderd.conf > /etc/renderd.conf
+SHELL ["/bin/sh", "-c"]
 
 ## Add configuration
-RUN printf "LoadModule tile_module $(find /usr -name mod_tile.so)\n" > /etc/apache2/mods-available/tile.load
+RUN printf "LoadModule tile_module %s\n" "$(find /usr -name mod_tile.so)" > /etc/apache2/mods-available/tile.load
 RUN printf '\n[example-map]\nMAXZOOM=20\nMINZOOM=0\nURI=/tiles/renderd-example\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-jpg]\nMAXZOOM=20\nMINZOOM=0\nTYPE=jpg image/jpeg jpeg\nURI=/tiles/renderd-example-jpg\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 RUN printf '\n[example-map-png256]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png256\nURI=/tiles/renderd-example-png256\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
