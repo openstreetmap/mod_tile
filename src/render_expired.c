@@ -380,14 +380,14 @@ int main(int argc, char **argv)
 			}
 
 			if (verbose) {
-				g_logger(G_LOG_LEVEL_WARNING, "bad line %d: %s", num_all, tmp);
+				g_logger(G_LOG_LEVEL_WARNING, "Read invalid line: %s", tmp);
 			}
 
 			continue;
 		}
 
 		if (verbose) {
-			g_logger(G_LOG_LEVEL_MESSAGE, "read: x=%d y=%d z=%d", x, y, z);
+			g_logger(G_LOG_LEVEL_MESSAGE, "Read valid line: %d/%d/%d", z, x, y);
 		}
 
 		while (z > max_zoom) {
@@ -402,22 +402,18 @@ int main(int argc, char **argv)
 			z++;
 		}
 
-		if (verbose) {
-			g_logger(G_LOG_LEVEL_MESSAGE, "loop: x=%d y=%d z=%d up to z=%d", x, y, z, min_zoom);
-		}
-
 		num_read++;
 
 		if (progress && (num_read % 100) == 0) {
 			g_logger(G_LOG_LEVEL_INFO, "Read and expanded %i tiles from list.", num_read);
 		}
 
+		if (verbose) {
+			g_logger(G_LOG_LEVEL_MESSAGE, "Starting loop on %d/%d/%d for zoom levels %d to %d", z, x, y, min_zoom, max_zoom);
+		}
+
 		for (; z >= min_zoom; z--, x >>= 1, y >>= 1) {
 			char name[PATH_MAX];
-
-			if (verbose) {
-				g_logger(G_LOG_LEVEL_MESSAGE, "process: x=%d y=%d z=%d", x, y, z);
-			}
 
 			// don't do anything if this tile was already requested.
 			// renderd does keep a list internally to avoid enqueing the same tile
@@ -425,10 +421,14 @@ int main(int argc, char **argv)
 			// cause extra work.
 			if (TILE_REQUESTED(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels)) {
 				if (verbose) {
-					g_logger(G_LOG_LEVEL_MESSAGE, "already requested");
+					g_logger(G_LOG_LEVEL_MESSAGE, "Already requested metatile containing '%d/%d/%d', moving on to next input line", z, x, y);
 				}
 
 				break;
+			}
+
+			if (verbose) {
+				g_logger(G_LOG_LEVEL_MESSAGE, "Processing: %d/%d/%d", z, x, y);
 			}
 
 			// mark tile as requested. (do this even if, below, the tile is not
@@ -442,26 +442,27 @@ int main(int argc, char **argv)
 
 			num_all++;
 			s = store->tile_stat(store, mapname, "", x, y, z);
+			store->tile_storage_id(store, mapname, "", x, y, z, name);
 
 			if (s.size > 0) { // Tile exists
 				// tile exists on disk; delete/touch/render it
 				if (delete_from_passed && z >= delete_from) {
 					if (progress) {
-						g_logger(G_LOG_LEVEL_MESSAGE, "delete: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+						g_logger(G_LOG_LEVEL_MESSAGE, "Deleting '%s'", name);
 					}
 
 					store->metatile_delete(store, mapname, x, y, z);
 					num_unlink++;
 				} else if (touch_from_passed && z >= touch_from) {
 					if (progress) {
-						g_logger(G_LOG_LEVEL_MESSAGE, "touch: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+						g_logger(G_LOG_LEVEL_MESSAGE, "Touching '%s'", name);
 					}
 
 					store->metatile_expire(store, mapname, x, y, z);
 					num_touch++;
 				} else if (doRender) {
 					if (progress) {
-						g_logger(G_LOG_LEVEL_MESSAGE, "render: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+						g_logger(G_LOG_LEVEL_MESSAGE, "Rendering '%s'", name);
 					}
 
 					enqueue(mapname, x, y, z);
@@ -469,7 +470,7 @@ int main(int argc, char **argv)
 				}
 			} else {
 				if (verbose) {
-					g_logger(G_LOG_LEVEL_MESSAGE, "not on disk: %s", store->tile_storage_id(store, mapname, "", x, y, z, name));
+					g_logger(G_LOG_LEVEL_MESSAGE, "Skipping '%s' (metatile does not exist)", name);
 				}
 
 				num_ignore++;

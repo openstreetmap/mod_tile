@@ -103,15 +103,32 @@ TEST_CASE("render_expired specific", "specific testing")
 	}
 
 	SECTION("--config with valid --map, --verbose and bad input lines", "should return 0") {
+		std::string input = "z/x/y\nx y z\n";
 		std::string map = "example-map";
 		std::string tile_dir = P_tmpdir;
 		std::vector<std::string> argv = {"--config", renderd_conf, "--map", map, "--tile-dir", tile_dir, "--verbose"};
-		std::string input = "z/x/y\nx y z\n";
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: z/x/y"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: x y z"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: z/x/y"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: x y z"));
+	}
+
+	SECTION("--touch-from 0 with --max-zoom 19, --verbose and overlapping input lines", "should return 0") {
+		std::string input = "16/56715/4908\n17/113420/9816\n18/226860/19632\n19/453726/39265\n";
+		std::string tile_dir = P_tmpdir;
+		std::vector<std::string> argv = {"--max-zoom", std::to_string(19), "--tile-dir", tile_dir, "--touch-from", std::to_string(0), "--verbose"};
+
+		int status = run_command(test_binary, argv, input);
+		REQUIRE(WEXITSTATUS(status) == 0);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Raising --min-zoom from '0' to '3'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 16/56715/4908"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 17/113420/9816"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '15/28355/2454'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 18/226860/19632"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '19/453720/39264'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 19/453726/39265"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '19/453726/39265'"));
 	}
 
 	SECTION("--tile-dir with invalid option", "should return 1") {
