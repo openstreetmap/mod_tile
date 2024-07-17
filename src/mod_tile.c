@@ -81,12 +81,11 @@ APLOG_USE_MODULE(tile);
 
 apr_shm_t *stats_shm;
 apr_shm_t *delaypool_shm;
-char *shmfilename;
-char *shmfilename_delaypool;
 apr_global_mutex_t *stats_mutex;
-apr_global_mutex_t *delay_mutex;
+apr_global_mutex_t *delaypool_mutex;
 
-char *mutexfilename;
+char *stats_mutexfilename;
+char *delaypool_mutexfilename;
 int layerCount = 0;
 int global_max_zoom = 0;
 
@@ -818,7 +817,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 		return 1;
 	}
 
-	if (get_global_lock(r, delay_mutex) == 0) {
+	if (get_global_lock(r, delaypool_mutex) == 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, skipping delay pool accounting\n");
 		return 1;
 	};
@@ -847,11 +846,11 @@ static int delay_allowed(request_rec *r, enum tileState state)
 			if (delay > 0) {
 				/* If we are on the second round, we really  hit an empty delaypool, timeout for a while to slow down clients */
 				if (j > 0) {
-					apr_global_mutex_unlock(delay_mutex);
+					apr_global_mutex_unlock(delaypool_mutex);
 					ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, throttling (%i)\n", ip_addr, delay);
 					sleep(CLIENT_PENALTY);
 
-					if (get_global_lock(r, delay_mutex) == 0) {
+					if (get_global_lock(r, delaypool_mutex) == 0) {
 						ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Could not acquire lock, but had to delay\n");
 						return 0;
 					};
@@ -897,7 +896,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 		delay = 0;
 	}
 
-	apr_global_mutex_unlock(delay_mutex);
+	apr_global_mutex_unlock(delaypool_mutex);
 
 	if (delay > 0) {
 		ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Delaypool: Client %s has hit its limits, rejecting (%i)\n", ip_addr, delay);
@@ -1673,37 +1672,25 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 		return OK;
 	} /* Kilroy was here */
 
-	/* Create the shared memory segment */
-
-	/*
-	 * Create a unique filename using our pid. This information is
-	 * stashed in the global variable so the children inherit it.
-	 * TODO get the location from the environment $TMPDIR or somesuch.
-	 */
-	shmfilename = apr_psprintf(pconf, "/tmp/httpd_shm.%ld", (long int)getpid());
-	shmfilename_delaypool = apr_psprintf(pconf, "/tmp/httpd_shm_delay.%ld", (long int)getpid());
-
-	/* Now create that segment
+	/* Create the shared memory segment
 	 * would prefer to use scfg->configs->nelts here but that does
 	 * not seem to be set at this stage, so rely on previously set layerCount */
 
 	rs = apr_shm_create(&stats_shm, sizeof(stats_data) + layerCount * 2 * sizeof(apr_uint64_t),
-			    (const char *)shmfilename, pconf);
+			    NULL, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
-			     "Failed to create shared memory segment on file %s",
-			     shmfilename);
+			     "Failed to create 'stats' shared memory segment");
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
 	rs = apr_shm_create(&delaypool_shm, sizeof(delaypool),
-			    (const char *)shmfilename_delaypool, pconf);
+			    NULL, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
-			     "Failed to create shared memory segment on file %s",
-			     shmfilename_delaypool);
+			     "Failed to create 'delaypool' shared memory segment");
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -1770,16 +1757,15 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex.%ld",
-				     (long int)getpid());
+	stats_mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_stats.%ld", P_tmpdir, (long int)getpid());
 
-	rs = apr_global_mutex_create(&stats_mutex, (const char *)mutexfilename,
+	rs = apr_global_mutex_create(&stats_mutex, (const char *)stats_mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
 			     "Failed to create mutex on file %s",
-			     mutexfilename);
+			     stats_mutexfilename);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
@@ -1800,21 +1786,20 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	 * depending on OS and locking mechanism of choice, the file
 	 * may or may not be actually created.
 	 */
-	mutexfilename = apr_psprintf(pconf, "/tmp/httpd_mutex_delay.%ld",
-				     (long int)getpid());
+	delaypool_mutexfilename = apr_psprintf(pconf, "%s/httpd_mutex_delaypool.%ld", P_tmpdir, (long int)getpid());
 
-	rs = apr_global_mutex_create(&delay_mutex, (const char *)mutexfilename,
+	rs = apr_global_mutex_create(&delaypool_mutex, (const char *)delaypool_mutexfilename,
 				     APR_LOCK_DEFAULT, pconf);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, rs, s,
 			     "Failed to create mutex on file %s",
-			     mutexfilename);
+			     delaypool_mutexfilename);
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
 #ifdef MOD_TILE_SET_MUTEX_PERMS
-	rs = ap_unixd_set_global_mutex_perms(delay_mutex);
+	rs = ap_unixd_set_global_mutex_perms(delaypool_mutex);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
@@ -1846,13 +1831,13 @@ static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 	 * the mutex pointer global here.
 	 */
 	rs = apr_global_mutex_child_init(&stats_mutex,
-					 (const char *)mutexfilename,
+					 (const char *)stats_mutexfilename,
 					 p);
 
 	if (rs != APR_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_CRIT, rs, s,
 			     "Failed to reopen mutex on file %s",
-			     shmfilename);
+			     stats_mutexfilename);
 		/* There's really nothing else we can do here, since
 		 * This routine doesn't return a status. */
 		exit(1); /* Ugly, but what else? */
