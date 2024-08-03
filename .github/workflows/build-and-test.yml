@@ -250,7 +250,7 @@ jobs:
           echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
 
       - name: Provision VM
-        uses: hummeltech/freebsd-vagrant-action@v1.4
+        uses: hummeltech/freebsd-vagrant-action@v2
         with:
           box: generic/${{ matrix.box_generic }}
           cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
