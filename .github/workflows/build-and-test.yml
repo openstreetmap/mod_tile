@@ -83,6 +83,8 @@ jobs:
 
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
+        with:
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
         if: |
           matrix.compiler != 'LLVM' &&
           !startsWith(matrix.image, 'opensuse/') &&
@@ -137,6 +139,8 @@ jobs:
 
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
+        with:
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package
@@ -197,6 +201,7 @@ jobs:
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
         with:
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
           genhtml-extra-options: --keep-going --ignore-errors count,inconsistent,range
           lcov-extra-options: --keep-going --ignore-errors count,inconsistent,range
         if: matrix.os != 'macos-12'
@@ -273,6 +278,8 @@ jobs:
 
       - name: Process & Report `mod_tile` coverage results
         uses: ./.github/actions/coverage
+        with:
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Package `mod_tile`
         uses: ./.github/actions/cmake/package

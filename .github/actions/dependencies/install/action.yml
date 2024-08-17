@@ -30,6 +30,7 @@ inputs:
   debian-test-dependencies:
     default: >-
       apache2
+      git
       jq
       lcov
       memcached
@@ -47,6 +48,7 @@ inputs:
       sqlite-devel
   fedora-test-dependencies:
     default: >-
+      git
       httpd
       jq
       lcov
@@ -185,13 +187,14 @@ inputs:
   ubuntu-test-dependencies:
     default: >-
       apache2
+      git
       jq
       lcov
       memcached
   mapnik-build-version-centos-stream:
-    default: 4.0.0
+    default: 4.0.3
   mapnik-build-version-opensuse:
-    default: 4.0.0
+    default: 4.0.3
 
 runs:
   using: composite
