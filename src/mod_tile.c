@@ -545,7 +545,7 @@ static void add_expiry(request_rec *r, struct protocol * cmd)
 	} else {
 
 		/* Test if the tile we are serving is out of date, then set a low maxAge*/
-		if (state == tileOld) {
+		if (state == tileOld || state == tileVeryOld) {
 			holdoff = (scfg->cache_duration_dirty / 2) * (rand() / (RAND_MAX
 					+ 1.0));
 			maxAge = scfg->cache_duration_dirty + holdoff;
@@ -1182,7 +1182,7 @@ static int tile_handler_status(request_rec *r)
 	return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s. Stored in %s\n\n"
 			     "(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
 			     " Access times might not be updated on all file systems)\n",
-			     (state == tileOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
+			     (state == tileOld || state == tileVeryOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
 			     rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
 }
 
