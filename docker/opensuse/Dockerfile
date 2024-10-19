@@ -2,7 +2,7 @@
 # Arguments
 ARG boost_version
 ARG gcc_version
-ARG mapnik_version=4.0.0
+ARG mapnik_version=4.0.3
 ARG opensuse_release=leap
 ARG opensuse_version=15
 
@@ -107,6 +107,7 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         libtiff-devel \
         libwebp-devel \
         libxml2-devel \
+        procps \
         proj-devel \
         tar
 

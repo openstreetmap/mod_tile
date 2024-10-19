@@ -134,6 +134,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: 4
         libmapnik_version: "4.0"
         debian_version: unstable
         runner_additional_packages: >-
@@ -144,6 +145,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: 4
         libmapnik_version: "4.0"
         debian_version: unstable
         runner_additional_packages: >-
