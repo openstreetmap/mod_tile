@@ -165,8 +165,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-12
           - macos-13
+          - macos-14
         build_system:
           - CMake
         compiler:
@@ -174,7 +174,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
-          - os: macos-14
+          - os: macos-15
             build_system: CMake
             compiler: LLVM
         exclude:
