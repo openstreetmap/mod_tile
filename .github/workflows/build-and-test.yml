@@ -223,14 +223,14 @@ jobs:
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-
-      ${{ matrix.box_generic }}
+      ${{ matrix.box_freebsd }}
       (${{ matrix.build_system }})
       (${{ matrix.compiler }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        box_generic:
-          - freebsd13
+        box_freebsd:
+          - FreeBSD-13.4-STABLE
         build_system:
           - CMake
         compiler:
@@ -238,7 +238,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
-          - box_generic: freebsd14
+          - box_freebsd: FreeBSD-14.1-STABLE
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -254,9 +254,9 @@ jobs:
           echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
 
       - name: Provision VM
-        uses: hummeltech/freebsd-vagrant-action@v2
+        uses: hummeltech/freebsd-vagrant-action@v3
         with:
-          box: generic/${{ matrix.box_generic }}
+          box: freebsd/${{ matrix.box_freebsd }}
           cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
           memory: 4096
 
