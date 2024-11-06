@@ -106,6 +106,7 @@ inputs:
       jq
       lcov
       memcached
+      procps
   opensuse-mapnik-build-dependencies:
     default: >-
       cmake
