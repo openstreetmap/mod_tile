@@ -1,5 +1,39 @@
 ---
 inputs:
+  centos-stream-build-dependencies:
+    default: >-
+      cairo-devel
+      glib2-devel
+      httpd-devel
+      iniparser-devel
+      libcurl-devel
+      libmemcached-devel
+      librados2-devel
+  centos-stream-test-dependencies:
+    default: >-
+      httpd
+      jq
+      lcov
+      memcached
+      procps
+  centos-stream-mapnik-build-dependencies:
+    default: >-
+      boost-devel
+      cmake
+      freetype-devel
+      gdal-devel
+      git
+      harfbuzz-devel
+      libicu-devel
+      libjpeg-devel
+      libpng-devel
+      libtiff-devel
+      libwebp-devel
+      libxml2-devel
+      postgresql-devel
+      proj-devel
+      sqlite-devel
+      zlib-devel
   debian-build-dependencies:
     default: >-
       apache2-dev
@@ -125,40 +159,6 @@ inputs:
       proj-devel
       sqlite3-devel
       zlib-devel
-  rhel-build-dependencies:
-    default: >-
-      cairo-devel
-      glib2-devel
-      httpd-devel
-      iniparser-devel
-      libcurl-devel
-      libmemcached-devel
-      librados2-devel
-  rhel-test-dependencies:
-    default: >-
-      httpd
-      jq
-      lcov
-      memcached
-      procps
-  rhel-mapnik-build-dependencies:
-    default: >-
-      boost-devel
-      cmake
-      freetype-devel
-      gdal-devel
-      git
-      harfbuzz-devel
-      libicu-devel
-      libjpeg-devel
-      libpng-devel
-      libtiff-devel
-      libwebp-devel
-      libxml2-devel
-      postgresql-devel
-      proj-devel
-      sqlite-devel
-      zlib-devel
   ubuntu-build-dependencies:
     default: >-
       apache2-dev
@@ -206,9 +206,9 @@ runs:
       with:
         dependencies: epel-release
         packages: >-
-          ${{ inputs.rhel-build-dependencies }}
-          ${{ inputs.rhel-mapnik-build-dependencies }}
-          ${{ inputs.rhel-test-dependencies }}
+          ${{ inputs.centos-stream-build-dependencies }}
+          ${{ inputs.centos-stream-mapnik-build-dependencies }}
+          ${{ inputs.centos-stream-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake redhat-rpm-config' }}
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc gcc-c++' }}
           rpm-build
