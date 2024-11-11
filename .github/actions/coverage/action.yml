@@ -4,6 +4,8 @@ inputs:
     default: ""
   lcov-extra-options:
     default: ""
+  codecov-token:
+    default: ""
 
 runs:
   using: composite
@@ -33,9 +35,12 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Report `mod_tile` coverage results to `codecov.io`
-      uses: codecov/codecov-action@v3.1.5
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ inputs.codecov-token }}
       with:
-        files: coverage.info
+        disable_search: true
+        file: coverage.info
 
     - name: Write `mod_tile` coverage summary to `$GITHUB_STEP_SUMMARY`
       run: |
@@ -53,7 +58,7 @@ runs:
 
     - name: Set `COVERAGE_ARTIFACT_NAME`
       run: |
-        echo "COVERAGE_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_generic || github.job }}-${{ matrix.build_system }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
+        echo "COVERAGE_ARTIFACT_NAME=$(echo ${{ matrix.image || matrix.os || matrix.box_freebsd || github.job }}-${{ matrix.build_system }}-${{ matrix.compiler }} | sed 's/[^0-9a-zA-Z-]/_/g')" >> ${GITHUB_ENV}
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Upload `mod_tile` coverage artifacts

@@ -6,7 +6,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 
 A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
 
-## Fedora 34/35/36/37/38/39/40
+## Fedora 34/35/36/37/38/39/40/41
 
 ```shell
 #!/usr/bin/env bash
@@ -29,7 +29,8 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   libmemcached-devel \
   librados-devel \
   mapnik-devel \
-  mapnik-static
+  mapnik-static \
+  procps
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)

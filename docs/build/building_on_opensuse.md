@@ -38,6 +38,7 @@ sudo zypper --non-interactive install \
   libtiff-devel \
   libwebp-devel \
   libxml2-devel \
+  procps \
   proj-devel \
   tar
 

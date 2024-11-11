@@ -2,7 +2,7 @@
 # Arguments
 ARG centos_stream_version=9
 ARG extra_repository=crb
-ARG mapnik_version=4.0.0
+ARG mapnik_version=4.0.3
 
 # Mapnik Builder
 FROM quay.io/centos/centos:stream${centos_stream_version} AS mapnik-builder
