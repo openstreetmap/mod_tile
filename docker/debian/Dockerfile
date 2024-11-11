@@ -1,6 +1,7 @@
 # hadolint global ignore=DL3008,DL3025,DL3059
 # Arguments
 ARG debian_version=12
+ARG libiniparser_version=1
 ARG libmapnik_version=3.1
 ARG runner_additional_packages=libcurl4 libglib2.0
 
@@ -54,6 +55,7 @@ FROM debian:${debian_version} AS runner
 
 ## Arguments
 ARG debian_version
+ARG libiniparser_version
 ARG libmapnik_version
 ARG runner_additional_packages
 
@@ -66,7 +68,7 @@ RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt
     apt-get --no-install-recommends --yes install ${runner_additional_packages} \
         apache2 \
         libcairo2 \
-        libiniparser1 \
+        libiniparser${libiniparser_version} \
         libmapnik${libmapnik_version} \
         libmemcached11 \
         libmemcachedutil2 \
