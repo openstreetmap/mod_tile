@@ -2415,7 +2415,7 @@ static const command_rec tile_cmds[] = {
 	AP_INIT_TAKE1("ModTileCacheExtendedDuration", mod_tile_cache_extended_duration_config, NULL, OR_OPTIONS, "set length of extended period caching"),
 	AP_INIT_TAKE1("ModTileCacheExtendedHostName", mod_tile_cache_extended_hostname_config, NULL, OR_OPTIONS, "set hostname for extended period caching"),
 	AP_INIT_TAKE1("ModTileCacheLastModifiedFactor", mod_tile_cache_duration_last_modified_factor_config, NULL, OR_OPTIONS, "Set the factor by which the last modified determines cache expiry"),
-	AP_INIT_TAKE1("ModTileEnableTileThrottlingXForward", mod_tile_enable_throttling_xforward, NULL, OR_OPTIONS, "0 1 2 - use X-Forwarded-For http header to determin IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"),
+	AP_INIT_TAKE1("ModTileEnableTileThrottlingXForward", mod_tile_enable_throttling_xforward, NULL, OR_OPTIONS, "0 1 2 - use X-Forwarded-For http header to determine IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"),
 	AP_INIT_TAKE1("ModTileMaxLoadMissing", mod_tile_max_load_missing_config, NULL, OR_OPTIONS, "Set max load for rendering missing tiles"),
 	AP_INIT_TAKE1("ModTileMaxLoadOld", mod_tile_max_load_old_config, NULL, OR_OPTIONS, "Set max load for rendering old tiles"),
 	AP_INIT_TAKE1("ModTileMissingRequestTimeout", mod_tile_request_timeout_priority_config, NULL, OR_OPTIONS, "Set timeout in seconds on missing mod_tile requests"),
