@@ -2996,7 +2996,7 @@ static const command_rec tile_cmds[] = {
 		mod_tile_enable_throttling_xforward,      /* config action routine */
 		NULL,                            /* argument to include in call */
 		OR_OPTIONS,                      /* where available */
-		"0 1 2 - use X-Forwarded-For http header to determin IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"  /* directive description */
+		"0 1 2 - use X-Forwarded-For http header to determine IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"  /* directive description */
 	),
 	AP_INIT_TAKE2(
 		"ModTileThrottlingTiles",        /* directive name */
