@@ -233,7 +233,7 @@ jobs:
     strategy:
       matrix:
         box_freebsd:
-          - FreeBSD-13.4-STABLE
+          - freebsd-13
         build_system:
           - CMake
         compiler:
@@ -241,7 +241,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
-          - box_freebsd: FreeBSD-14.1-STABLE
+          - box_freebsd: freebsd-14
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -257,18 +257,19 @@ jobs:
           echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
 
       - name: Provision VM
-        uses: hummeltech/freebsd-vagrant-action@v3
+        uses: hummeltech/freebsd-vagrant-action@v4
         with:
-          box: freebsd/${{ matrix.box_freebsd }}
+          box: bento/${{ matrix.box_freebsd }}
           cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
           memory: 4096
+          ssh_shell: sh
 
       # Mapnik is not in the `quarterly` repository (2023.10.12)
       - name: Use "latest" repository
         run: |
           sudo mkdir -p /usr/local/etc/pkg/repos
           sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf | sudo tee /usr/local/etc/pkg/repos/FreeBSD.conf
-          sudo pkg upgrade
+          sudo pkg upgrade --yes
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
