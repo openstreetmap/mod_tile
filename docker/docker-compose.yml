@@ -264,6 +264,7 @@ services:
     build:
       <<: *build_defaults_ubuntu
       args:
+        libiniparser_version: 4
         libmapnik_version: "4.0"
         ubuntu_version: "devel"
   ubuntu-devel-autotools:
@@ -271,6 +272,7 @@ services:
     build:
       <<: *build_defaults_ubuntu
       args:
+        libiniparser_version: 4
         libmapnik_version: "4.0"
         ubuntu_version: "devel"
       dockerfile: docker/ubuntu/Dockerfile.autotools
@@ -279,6 +281,7 @@ services:
     build:
       <<: *build_defaults_ubuntu
       args:
+        libiniparser_version: 4
         libmapnik_version: "4.0"
         runner_additional_packages: >-
           curl
