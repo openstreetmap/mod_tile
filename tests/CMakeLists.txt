@@ -889,6 +889,76 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
 
     # Generate URL path for tiles
+    set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/5/5/5.png")
+    # Generate tile URLs
+    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    add_test(NAME cors_empty_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code} --output /dev/null\"
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD0_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD1_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD0_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD1_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(cors_empty_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
+
+    # Generate URL path for tiles
+    set(TILE_URL_PATH "/good_add_tile_config/${TILE_ZXY}.png")
+    # Generate tile URLs
+    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
+    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
+    add_test(NAME cors_empty_${STORAGE_BACKEND}_add_tile_config
+      COMMAND ${BASH} -c "
+        RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code} --output /dev/null\"
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD0_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD1_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD0_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD1_URL})
+        echo \"Response code: '\${RESPONSE_CODE}'\"
+        if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
+          exit 1;
+        fi
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(cors_empty_${STORAGE_BACKEND}_add_tile_config PROPERTIES
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+    )
+
+    # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/cors_all/${TILE_ZXY}.png")
     # Generate tile URLs
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")

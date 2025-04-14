@@ -1871,6 +1871,7 @@ static const char *_add_tile_config(cmd_parms *cmd,
 
 	int attribution_len = strnlen(attribution, PATH_MAX);
 	int baseuri_len = strnlen(baseuri, PATH_MAX);
+	int cors_len = strnlen(cors, PATH_MAX);
 	int hostnames_len = 1;
 	int server_alias_len = strnlen(server_alias, PATH_MAX);
 	int tile_dir_len = strnlen(tile_dir, PATH_MAX);
@@ -1885,6 +1886,11 @@ static const char *_add_tile_config(cmd_parms *cmd,
 		baseuri = apr_pstrdup(cmd->pool, "/");
 	} else if (baseuri[baseuri_len - 1] != '/') {
 		baseuri = apr_psprintf(cmd->pool, "%s/", baseuri);
+	}
+
+	// If cors is empty, set it to NULL
+	if (cors_len == 0) {
+		cors = NULL;
 	}
 
 	// If server_alias is set, increment hostnames_len
@@ -1954,7 +1960,7 @@ static const char *_add_tile_config(cmd_parms *cmd,
 
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char *fileExtension)
 {
-	char *cors = NULL;
+	char *cors = "";
 	char *mimeType = "image/png";
 
 	if (strcmp(fileExtension, "js") == 0) {
@@ -2010,7 +2016,7 @@ static const char *add_tile_config(cmd_parms *cmd, void *mconfig, int argc, char
 		return "AddTileConfig error, the configured zoom level lies outside of the range supported by this server";
 	}
 
-	return _add_tile_config(cmd, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, "", "", "", NULL, tile_dir, 0);
+	return _add_tile_config(cmd, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, "", "", "", "", tile_dir, 0);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *config_file_name)
