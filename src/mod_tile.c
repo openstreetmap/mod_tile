@@ -2010,7 +2010,7 @@ static const char *add_tile_config(cmd_parms *cmd, void *mconfig, int argc, char
 		return "AddTileConfig error, the configured zoom level lies outside of the range supported by this server";
 	}
 
-	return _add_tile_config(cmd, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, "", "", "", "", tile_dir, 0);
+	return _add_tile_config(cmd, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, "", "", "", NULL, tile_dir, 0);
 }
 
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *config_file_name)
