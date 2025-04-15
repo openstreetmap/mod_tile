@@ -3,8 +3,19 @@
 ARG archlinux_version=latest
 ARG runner_additional_packages
 
+# Base
+FROM archlinux:${archlinux_version} AS base
+
+## Arguments
+ARG archlinux_version
+
+## Install base dependencies
+RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cache/pacman/pkg,target=/var/cache/pacman/pkg \
+    --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/lib/pacman/sync,target=/var/lib/pacman/sync \
+    pacman --sync --refresh --sysupgrade --noconfirm
+
 # Builder
-FROM archlinux:${archlinux_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG archlinux_version
@@ -12,7 +23,7 @@ ARG archlinux_version
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cache/pacman/pkg,target=/var/cache/pacman/pkg \
     --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/lib/pacman/sync,target=/var/lib/pacman/sync \
-    pacman --sync --refresh --sysupgrade --noconfirm \
+    pacman --sync --refresh --noconfirm \
         apache \
         apr \
         boost \
@@ -50,7 +61,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM archlinux:${archlinux_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG archlinux_version
@@ -59,7 +70,7 @@ ARG runner_additional_packages
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cache/pacman/pkg,target=/var/cache/pacman/pkg \
     --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/lib/pacman/sync,target=/var/lib/pacman/sync \
-    pacman --sync --refresh --sysupgrade --noconfirm ${runner_additional_packages} \
+    pacman --sync --refresh --noconfirm ${runner_additional_packages} \
         apache \
         cairo \
         curl \

@@ -6,8 +6,20 @@ ARG mapnik_version=4.0.3
 ARG opensuse_release=leap
 ARG opensuse_version=15
 
+# Base
+FROM opensuse/${opensuse_release}:${opensuse_version} AS base
+
+## Arguments
+ARG opensuse_release
+ARG opensuse_version
+
+## Install base dependencies
+RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
+    zypper modifyrepo --all --keep-packages && \
+    zypper --non-interactive update
+
 # Mapnik Builder
-FROM opensuse/${opensuse_release}:${opensuse_version} AS mapnik-builder
+FROM base AS mapnik-builder
 
 ## Arguments
 ARG boost_version
@@ -18,8 +30,6 @@ ARG opensuse_version
 
 ## Install mapnik-builder dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper modifyrepo --all --keep-packages && \
-    zypper --non-interactive update && \
     zypper --non-interactive install \
         cairo-devel \
         cmake \
@@ -76,7 +86,7 @@ RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapni
     cmake --install . --strip
 
 # Builder
-FROM opensuse/${opensuse_release}:${opensuse_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG boost_version
@@ -85,8 +95,6 @@ ARG opensuse_version
 
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper modifyrepo --all --keep-packages && \
-    zypper --non-interactive update && \
     zypper --non-interactive install \
         apache2-devel \
         cairo-devel \
@@ -136,7 +144,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM opensuse/${opensuse_release}:${opensuse_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG boost_version
@@ -145,8 +153,6 @@ ARG opensuse_version
 
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper modifyrepo --all --keep-packages && \
-    zypper --non-interactive update && \
     zypper --non-interactive install \
         apache2 \
         apache2-utils \
