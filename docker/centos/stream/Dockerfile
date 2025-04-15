@@ -4,22 +4,31 @@ ARG centos_stream_version=9
 ARG extra_repository=crb
 ARG mapnik_version=4.0.3
 
-# Mapnik Builder
-FROM quay.io/centos/centos:stream${centos_stream_version} AS mapnik-builder
+# Base
+FROM quay.io/centos/centos:stream${centos_stream_version} AS base
 
 ## Arguments
 ARG centos_stream_version
 ARG extra_repository
-ARG mapnik_version
 
-## Install mapnik-builder dependencies
+## Install base dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
     echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
     echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install "dnf-command(config-manager)" && \
     dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
     dnf --assumeyes install epel-release && \
-    dnf --assumeyes upgrade && \
+    dnf --assumeyes upgrade
+
+# Mapnik Builder
+FROM base AS mapnik-builder
+
+## Arguments
+ARG centos_stream_version
+ARG mapnik_version
+
+## Install mapnik-builder dependencies
+RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
     dnf --assumeyes install \
         boost-devel \
         cairo-devel \
@@ -71,20 +80,13 @@ RUN --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-src:${map
     cmake --install . --strip
 
 # Builder
-FROM quay.io/centos/centos:stream${centos_stream_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG centos_stream_version
-ARG extra_repository
 
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
-    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
-    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
-    dnf --assumeyes install "dnf-command(config-manager)" && \
-    dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
-    dnf --assumeyes install epel-release && \
-    dnf --assumeyes upgrade && \
     dnf --assumeyes install \
         boost-devel \
         cairo-devel \
@@ -133,20 +135,13 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM quay.io/centos/centos:stream${centos_stream_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG centos_stream_version
-ARG extra_repository
 
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
-    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
-    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
-    dnf --assumeyes install "dnf-command(config-manager)" && \
-    dnf config-manager --save --setopt=${extra_repository}.enabled=1 && \
-    dnf --assumeyes install epel-release && \
-    dnf --assumeyes upgrade && \
     dnf --assumeyes install \
         boost-regex \
         cairo \

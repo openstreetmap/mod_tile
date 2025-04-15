@@ -5,8 +5,21 @@ ARG libiniparser_version=1
 ARG libmapnik_version=3.1
 ARG runner_additional_packages=libcurl4 libglib2.0
 
+# Base
+FROM debian:${debian_version} AS base
+
+## Arguments
+ARG debian_version
+
+## Install base dependencies
+RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get --yes update && \
+    apt-get --yes upgrade
+
 # Builder
-FROM debian:${debian_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG debian_version
@@ -15,8 +28,6 @@ ARG debian_version
 RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
     --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
     apt-get --no-install-recommends --yes install \
         apache2 \
         apache2-dev \
@@ -42,7 +53,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
 RUN make test
 
 # Runner
-FROM debian:${debian_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG debian_version
@@ -54,8 +65,6 @@ ARG runner_additional_packages
 RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
     --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
     apt-get --no-install-recommends --yes install ${runner_additional_packages} \
         apache2 \
         libcairo2 \
