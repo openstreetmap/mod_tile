@@ -47,6 +47,8 @@ jobs:
           mkdir -p /usr/share/renderd
           cp -av utils/example-map /usr/share/renderd/
           cp -av etc/apache2/renderd-example-map.conf /etc/apache2/sites-available/renderd-example-map.conf
+          MAPNIK_INPUT=$(find /usr -type d -name input | grep mapnik)
+          sed -i "s#/usr/lib/mapnik/3.1/input#${MAPNIK_INPUT}#g" /etc/renderd.conf
           printf '
           [example-map]
           URI=/tiles/renderd-example
