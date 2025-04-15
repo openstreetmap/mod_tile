@@ -5,8 +5,21 @@ ARG libmapnik_version=3.1
 ARG runner_additional_packages
 ARG ubuntu_version=24.04
 
+# Base
+FROM ubuntu:${ubuntu_version} AS base
+
+## Arguments
+ARG ubuntu_version
+
+## Install base dependencies
+RUN --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/cache/apt,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/lib/apt,target=/var/lib/apt \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get --yes update && \
+    apt-get --yes upgrade
+
 # Builder
-FROM ubuntu:${ubuntu_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG ubuntu_version
@@ -15,8 +28,6 @@ ARG ubuntu_version
 RUN --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/cache/apt,target=/var/cache/apt \
     --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
     apt-get --no-install-recommends --yes install \
         apache2 \
         apache2-dev \
@@ -51,7 +62,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM ubuntu:${ubuntu_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG libiniparser_version
@@ -63,8 +74,6 @@ ARG ubuntu_version
 RUN --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/cache/apt,target=/var/cache/apt \
     --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get --yes update && \
-    apt-get --yes upgrade && \
     apt-get --no-install-recommends --yes install ${runner_additional_packages} \
         apache2 \
         libcairo2 \

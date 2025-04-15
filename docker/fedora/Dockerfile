@@ -1,17 +1,27 @@
 # hadolint global ignore=DL3025,DL3040,DL3041,DL3059
 # Arguments
-ARG fedora_version=40
+ARG fedora_version=42
+
+# Base
+FROM fedora:${fedora_version} AS base
+
+## Arguments
+ARG fedora_version
+
+## Install base dependencies
+RUN --mount=type=cache,sharing=locked,id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf \
+    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
+    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
+    dnf --assumeyes upgrade
 
 # Builder
-FROM fedora:${fedora_version} AS builder
+FROM base AS builder
 
 ## Arguments
 ARG fedora_version
 
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf \
-    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
-    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install \
       cairo-devel \
       cmake \
@@ -45,15 +55,13 @@ RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
 
 # Runner
-FROM fedora:${fedora_version} AS runner
+FROM base AS runner
 
 ## Arguments
 ARG fedora_version
 
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=fedora:${fedora_version}-/var/cache/dnf,target=/var/cache/dnf \
-    echo "install_weak_deps=False" >> /etc/dnf/dnf.conf && \
-    echo "keepcache=True" >> /etc/dnf/dnf.conf && \
     dnf --assumeyes install \
       cairo \
       glib2 \
