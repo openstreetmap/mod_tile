@@ -1,6 +1,6 @@
 # hadolint global ignore=DL3025,DL3040,DL3041,DL3059
 # Arguments
-ARG fedora_version=40
+ARG fedora_version=42
 
 # Builder
 FROM fedora:${fedora_version} AS builder

@@ -6,7 +6,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 
 A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
 
-## Fedora 34/35/36/37/38/39/40/41
+## Fedora 34/35/36/37/38/39/40/41/42
 
 ```shell
 #!/usr/bin/env bash

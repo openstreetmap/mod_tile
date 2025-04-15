@@ -200,6 +200,12 @@ services:
       <<: *build_defaults_fedora
       args:
         fedora_version: "41"
+  fedora-42:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_fedora
+      args:
+        fedora_version: "42"
   fedora-rawhide:
     <<: *service_defaults
     build:
