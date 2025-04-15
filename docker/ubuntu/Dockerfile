@@ -1,5 +1,6 @@
 # hadolint global ignore=DL3008,DL3025,DL3059
 # Arguments
+ARG libiniparser_version=1
 ARG libmapnik_version=3.1
 ARG runner_additional_packages
 ARG ubuntu_version=24.04
@@ -53,6 +54,7 @@ RUN export DESTDIR=/tmp/mod_tile && \
 FROM ubuntu:${ubuntu_version} AS runner
 
 ## Arguments
+ARG libiniparser_version
 ARG libmapnik_version
 ARG runner_additional_packages
 ARG ubuntu_version
@@ -68,7 +70,7 @@ RUN --mount=type=cache,sharing=locked,id=ubuntu:${ubuntu_version}-/var/cache/apt
         libcairo2 \
         libcurl4 \
         libglib2.0-0 \
-        libiniparser1 \
+        libiniparser${libiniparser_version} \
         libmapnik${libmapnik_version} \
         libmemcached11 \
         librados2
