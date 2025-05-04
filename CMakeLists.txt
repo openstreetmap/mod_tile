@@ -16,7 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 project(mod_tile
   DESCRIPTION "Renders map tiles with Mapnik and serves them using Apache HTTP Server"
   HOMEPAGE_URL "https://github.com/openstreetmap/mod_tile"
-  VERSION 0.8.0
+  VERSION 0.8.1
 )
 
 set(CMAKE_C_STANDARD 99)
