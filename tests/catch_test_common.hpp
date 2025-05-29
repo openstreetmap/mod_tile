@@ -38,6 +38,6 @@ std::string get_captured_stdout(bool print = false);
 void start_capture(bool debug = false);
 std::tuple<std::string, std::string> end_capture(bool print = false);
 
-int run_command(std::string file, std::vector<std::string> argv = {}, std::string input = "");
+int run_command(const std::string &file, std::vector<std::string> argv = {}, const std::string &input = "");
 
 #endif

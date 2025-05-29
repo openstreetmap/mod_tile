@@ -73,5 +73,6 @@ void request_queue_copy_stats(struct request_queue *queue, stats_struct *stats);
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

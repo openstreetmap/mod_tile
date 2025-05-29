@@ -283,7 +283,7 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 
 	for (yy = 0; yy < render_size_ty; yy++) {
 		for (xx = 0; xx < render_size_tx; xx++) {
-			mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+			mapnik::image_view<mapnik::image<mapnik::rgba8_t >> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
 			struct mapnik::image_view_any vw(vw1);
 			tiles.set(xx, yy, save_to_string(vw, map->output_format));
 		}
@@ -291,6 +291,7 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 
 	return cmdDone; // OK
 }
+
 #else  // METATILE
 static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char *outputFormat)
 {
@@ -335,6 +336,7 @@ static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, project
 
 	return cmdDone; // OK
 }
+
 #endif // METATILE
 
 void render_init(const char *plugins_dir, const char *font_dir, int font_dir_recurse)

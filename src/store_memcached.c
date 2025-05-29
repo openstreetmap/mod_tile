@@ -266,6 +266,7 @@ static int memcached_close_storage(struct storage_backend * store)
 	memcached_free(store->storage_ctx);
 	return 0;
 }
+
 #endif //Have memcached
 
 struct storage_backend * init_storage_memcached(const char * connection_string)

@@ -214,6 +214,7 @@ int xyz_to_meta(char *path, size_t len, const char *tile_dir, const char *xmlcon
 {
 	return xyzo_to_meta(path, len, tile_dir, xmlconfig, "", x, y, z);
 }
+
 #else // METATILE
 void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlconfig, int x, int y, int z)
 {
@@ -235,4 +236,5 @@ void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlco
 #endif // DIRECTORY_HASH
 	return;
 }
+
 #endif // METATILE

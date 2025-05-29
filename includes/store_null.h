@@ -26,6 +26,7 @@ struct storage_backend *init_storage_null();
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif /* STORE_NULL_H */

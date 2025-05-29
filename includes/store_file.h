@@ -28,5 +28,6 @@ struct storage_backend *init_storage_file(const char *tile_dir);
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

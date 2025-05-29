@@ -52,6 +52,7 @@ void render_init(const char *plugins_dir, const char *font_dir, int font_recurse
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

@@ -30,6 +30,7 @@ int init_cache_expire(const char *htcphost);
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

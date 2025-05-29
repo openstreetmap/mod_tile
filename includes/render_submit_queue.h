@@ -29,6 +29,7 @@ void print_statistics(void);
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

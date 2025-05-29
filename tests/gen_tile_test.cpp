@@ -115,7 +115,7 @@ void *fetch_thread(void *arg)
 	return NULL;
 }
 
-std::string create_tile_dir(std::string dir_name = "mod_tile_test", const char *tmp_dir = getenv("TMPDIR"))
+std::string create_tile_dir(const std::string &dir_name = "mod_tile_test", const char *tmp_dir = getenv("TMPDIR"))
 {
 	if (tmp_dir == NULL) {
 		tmp_dir = P_tmpdir;
@@ -129,7 +129,7 @@ std::string create_tile_dir(std::string dir_name = "mod_tile_test", const char *
 	return tile_dir;
 }
 
-int delete_tile_dir(std::string tile_dir)
+int delete_tile_dir(const std::string &tile_dir)
 {
 	return rmdir(tile_dir.c_str());
 }
@@ -1014,6 +1014,7 @@ TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 		found = out_log_lines.find("init_storage_memcached: Creating memcached ctx with options");
 		REQUIRE(found > -1);
 	}
+
 #else
 	SECTION("memcached storage/initialise", "should return NULL") {
 		start_capture();
@@ -1023,6 +1024,7 @@ TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 		found = err_log_lines.find("init_storage_memcached: Support for memcached has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
+
 #endif
 }
 
@@ -1221,6 +1223,7 @@ TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 		found = err_log_lines.find("init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
+
 #endif
 }
 
@@ -1239,6 +1242,7 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 
 		store->close_storage(store);
 	}
+
 #else
 	SECTION("storage/initialise", "should return NULL") {
 		start_capture();
@@ -1248,6 +1252,7 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 		found = err_log_lines.find("init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
+
 #endif
 }
 
