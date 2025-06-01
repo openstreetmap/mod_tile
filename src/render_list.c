@@ -41,6 +41,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "render_list not implemented for non-metatile mode. Feel free to submit fix!\n");
 	return -1;
 }
+
 #else
 
 int lon2tilex(double lon, int z)
@@ -572,4 +573,5 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
 #endif

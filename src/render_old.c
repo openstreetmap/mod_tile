@@ -43,6 +43,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "render_old not implemented for non-metatile mode. Feel free to submit fix!\n");
 	return -1;
 }
+
 #else
 
 static int num_render = 0, num_all = 0;
@@ -433,4 +434,5 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
 #endif

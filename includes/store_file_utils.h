@@ -49,6 +49,7 @@ void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlco
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

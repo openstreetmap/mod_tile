@@ -32,7 +32,7 @@ std::string err_log_lines, out_log_lines;
 captured_stdio captured_stderr;
 captured_stdio captured_stdout;
 
-int run_command(std::string file, std::vector<std::string> argv, std::string input)
+int run_command(const std::string &file, std::vector<std::string> argv, const std::string &input)
 {
 	auto mode = redi::pstreams::pstdout | redi::pstreams::pstderr | redi::pstreams::pstdin;
 

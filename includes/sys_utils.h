@@ -26,6 +26,7 @@ double get_load_avg(void);
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

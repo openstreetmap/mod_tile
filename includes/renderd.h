@@ -80,5 +80,6 @@ enum protoCmd rx_request(struct protocol *req, int fd);
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

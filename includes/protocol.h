@@ -87,5 +87,6 @@ struct protocol_v2 {
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

@@ -43,5 +43,6 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

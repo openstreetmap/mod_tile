@@ -41,6 +41,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Speed test not implemented for non-metatile mode. Feel free to submit fix!\n");
 	return -1;
 }
+
 #else
 
 #if 1
@@ -101,6 +102,7 @@ public:
 		x = round(d + x * Bc[zoom]);
 		y = round(d + 0.5 * log((1 + f) / (1 - f)) * -Cc[zoom]);
 	}
+
 	void fromPixelToLL(double &x, double &y, int zoom)
 	{
 		double e = zc[zoom];
@@ -349,4 +351,5 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
 #endif

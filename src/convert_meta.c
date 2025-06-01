@@ -49,6 +49,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "convert_meta not implemented for non-metatile mode. Feel free to submit fix!\n");
 	return -1;
 }
+
 #else
 
 static int minZoom = 0;
@@ -226,4 +227,5 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
 #endif

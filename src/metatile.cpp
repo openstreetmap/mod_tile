@@ -79,8 +79,6 @@ void metaTile::save(struct storage_backend * store)
 	m.z = z_;
 
 	offset = header_size;
-	limit = (1 << z_);
-	limit = MIN(limit, METATILE);
 	limit = METATILE;
 
 	// Generate offset table

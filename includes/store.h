@@ -50,5 +50,6 @@ struct storage_backend *init_storage_backend(const char *options);
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif

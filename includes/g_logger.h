@@ -32,6 +32,7 @@ const char *g_logger_level_name(int log_level);
 
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif

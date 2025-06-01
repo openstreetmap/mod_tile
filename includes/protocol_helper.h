@@ -29,5 +29,6 @@ int recv_cmd(struct protocol *cmd, int fd, int block);
 
 #ifdef __cplusplus
 }
+
 #endif
 #endif
