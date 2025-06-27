@@ -297,6 +297,10 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 		struct pollfd rx;
 		int s;
 
+		size_t already_read = 0;
+		size_t want = sizeof(struct protocol_v2);
+		bzero(&resp, sizeof(struct protocol));
+
 		while (1) {
 			rx.fd = fd;
 			rx.events = POLLIN;
@@ -304,42 +308,48 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 
 			if (s > 0) {
 				bzero(&resp, sizeof(struct protocol));
-				ret = recv(fd, &resp, sizeof(struct protocol_v2), 0);
+				ret = recv(fd, &resp + already_read, want - already_read, 0);
 
-				if (ret != sizeof(struct protocol_v2)) {
-					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket. Got %d bytes but expected %d. Errno %d (%s)",
-						      ret, (int)sizeof(struct protocol_v2), errno, strerror(errno));
+				// a return value of <= 0 means that there is some kind of error
+				if (ret <= 0) {
+					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket: %s",
+						strerror(errno));
 					break;
 				}
 
-				if (resp.ver == 3) {
-					ret += recv(fd, ((void *)&resp) + sizeof(struct protocol_v2), sizeof(struct protocol) - sizeof(struct protocol_v2), 0);
-				}
+				// other return values mean that some bytes were read, not necessary as many as we wanted
+				already_read += ret;
+				// first integer in message is protocol version
+				if (already_read >= sizeof(int))
+					want = (resp.ver == 3) ? sizeof(struct protocol) : sizeof(struct protocol_v2);
 
-				if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
-					close(fd);
+				// do we have a complete packet?
+				if (already_read == want) {
+					if (cmd->x == resp.x && cmd->y == resp.y && cmd->z == resp.z && !strcmp(cmd->xmlname, resp.xmlname)) {
+						close(fd);
 
-					if (resp.cmd == cmdDone) {
-						return 1;
+						if (resp.cmd == cmdDone) {
+							return 1;
+						} else {
+							return 0;
+						}
 					} else {
-						return 0;
+						ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+								  "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
+								  resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
 					}
-				} else {
-					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-						      "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
-						      resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
 				}
 			} else if (s == 0) {
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-					      "request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
-					      cmd->xmlname, cmd->z, cmd->x, cmd->y,
-					      timeout);
+						"request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
+						cmd->xmlname, cmd->z, cmd->x, cmd->y,
+						timeout);
 				break;
 			} else {
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-					      "request_tile: Request xml(%s) z(%d) x(%d) y(%d) timeout %i seconds failed with reason: %s",
-					      cmd->xmlname, cmd->z, cmd->x, cmd->y,
-					      timeout, strerror(errno));
+						"request_tile: Request xml(%s) z(%d) x(%d) y(%d) timeout %i seconds failed with reason: %s",
+						cmd->xmlname, cmd->z, cmd->x, cmd->y,
+						timeout, strerror(errno));
 				break;
 			}
 		}
