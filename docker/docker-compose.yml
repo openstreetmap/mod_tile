@@ -89,6 +89,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.0"
         debian_version: "10"
   debian-10-autotools:
@@ -96,6 +97,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.0"
         debian_version: "10"
       dockerfile: docker/debian/Dockerfile.autotools
@@ -104,6 +106,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "11"
   debian-11-autotools:
@@ -111,6 +114,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "11"
       dockerfile: docker/debian/Dockerfile.autotools
@@ -119,6 +123,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "12"
   debian-12-autotools:
@@ -126,16 +131,28 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "12"
+      dockerfile: docker/debian/Dockerfile.autotools
+  debian-13:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
+      args:
+        debian_version: "13"
+  debian-13-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
+      args:
+        debian_version: "13"
       dockerfile: docker/debian/Dockerfile.autotools
   debian-unstable:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
-        libiniparser_version: 4
-        libmapnik_version: "4.0"
         debian_version: unstable
         runner_additional_packages: >-
           libcurl4t64
@@ -145,8 +162,6 @@ services:
     build:
       <<: *build_defaults_debian
       args:
-        libiniparser_version: 4
-        libmapnik_version: "4.0"
         debian_version: unstable
         runner_additional_packages: >-
           libcurl4t64

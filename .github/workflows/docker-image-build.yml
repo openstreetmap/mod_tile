@@ -33,8 +33,8 @@ jobs:
         service-name:
           - archlinux
           - centos-stream-9
-          - debian-11
           - debian-12
+          - debian-13
           - fedora-41
           - fedora-42
           - opensuse-leap-15

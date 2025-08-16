@@ -6,7 +6,7 @@ Please see our [Continuous Integration script](/.github/workflows/build-and-test
 
 A Docker-based building & testing setup pipeline is also available [here](/docker) for your convenience.
 
-## Debian 10/11/12
+## Debian 10/11/12/13
 
 ```shell
 #!/usr/bin/env bash

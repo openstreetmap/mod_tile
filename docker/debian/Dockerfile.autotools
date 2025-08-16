@@ -1,8 +1,8 @@
 # hadolint global ignore=DL3008,DL3025,DL3059
 # Arguments
-ARG debian_version=12
-ARG libiniparser_version=1
-ARG libmapnik_version=3.1
+ARG debian_version=13
+ARG libiniparser_version=4
+ARG libmapnik_version=4.0
 ARG runner_additional_packages=libcurl4 libglib2.0
 
 # Base
