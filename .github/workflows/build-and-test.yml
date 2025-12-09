@@ -92,7 +92,7 @@ jobs:
         uses: ./.github/actions/coverage
         with:
           codecov-token: ${{ secrets.CODECOV_TOKEN }}
-          lcov-extra-options: --ignore-errors inconsistent
+          lcov-extra-options: ${{ matrix.image == 'debian:13' && '--ignore-errors inconsistent' || '' }}
         if: |
           matrix.compiler != 'LLVM' &&
           !startsWith(matrix.image, 'opensuse/') &&
