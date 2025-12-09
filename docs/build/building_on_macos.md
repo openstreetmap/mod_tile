@@ -4,7 +4,7 @@ This document provides users with step-by-step instructions on how to compile an
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
-## macOS 11/12/13/14/15
+## macOS 11/12/13/14/15/26
 
 ```shell
 #!/usr/bin/env bash
