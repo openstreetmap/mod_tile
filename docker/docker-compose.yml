@@ -235,14 +235,25 @@ services:
       <<: *build_defaults_opensuse
       args:
         boost_version: "1_75_0"
-        gcc_version: "13"
+        gcc_version: 15
         opensuse_release: leap
-        opensuse_version: "15"
+        opensuse_version: 15
+  opensuse-leap-16:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_opensuse
+      args:
+        boost_version: "1_86_0"
+        gcc_version: 15
+        opensuse_release: leap
+        opensuse_version: "16.0"
   opensuse-tumbleweed:
     <<: *service_defaults
     build:
       <<: *build_defaults_opensuse
       args:
+        additional_packages: apache2-prefork libavif-devel libboost_url-devel
+        mapnik_version: 4.1.4
         opensuse_release: tumbleweed
         opensuse_version: latest
   ubuntu-20.04:

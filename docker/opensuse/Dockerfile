@@ -1,8 +1,9 @@
 # hadolint global ignore=DL3025,DL3036,DL3037,DL3059
 # Arguments
+ARG additional_packages
 ARG boost_version
 ARG gcc_version
-ARG mapnik_version=4.0.3
+ARG mapnik_version=4.0.4
 ARG opensuse_release=leap
 ARG opensuse_version=15
 
@@ -22,6 +23,7 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
 FROM base AS mapnik-builder
 
 ## Arguments
+ARG additional_packages
 ARG boost_version
 ARG gcc_version
 ARG mapnik_version
@@ -30,7 +32,7 @@ ARG opensuse_version
 
 ## Install mapnik-builder dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper --non-interactive install \
+    zypper --non-interactive install ${additional_packages} \
         cairo-devel \
         cmake \
         freetype-devel \
@@ -39,6 +41,7 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         gdal-devel \
         git \
         harfbuzz-devel \
+        libboost_context${boost_version}-devel \
         libboost_regex${boost_version}-devel \
         libicu-devel \
         libjpeg8-devel \
@@ -89,13 +92,14 @@ RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapni
 FROM base AS builder
 
 ## Arguments
+ARG additional_packages
 ARG boost_version
 ARG opensuse_release
 ARG opensuse_version
 
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper --non-interactive install \
+    zypper --non-interactive install ${additional_packages} \
         apache2-devel \
         cairo-devel \
         cmake \
@@ -105,6 +109,7 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         gdal \
         glib2-devel \
         harfbuzz-devel \
+        libboost_context${boost_version}-devel \
         libboost_regex${boost_version}-devel \
         libcurl-devel \
         libicu-devel \
@@ -138,7 +143,9 @@ RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL &
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
         -DENABLE_TESTS:BOOL=ON && \
     cmake --build .
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
+    if [[ "${additional_packages}" == *"apache2-prefork"* ]]; then ln -s /usr/lib64/apache2-prefork/* /usr/lib64/apache2/; fi && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
@@ -147,18 +154,20 @@ RUN export DESTDIR=/tmp/mod_tile && \
 FROM base AS runner
 
 ## Arguments
+ARG additional_packages
 ARG boost_version
 ARG opensuse_release
 ARG opensuse_version
 
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
-    zypper --non-interactive install \
+    zypper --non-interactive install ${additional_packages} \
         apache2 \
         apache2-utils \
         cairo-devel \
         gdal \
         harfbuzz-devel \
+        libboost_context${boost_version}-devel \
         libboost_regex${boost_version}-devel \
         libicu-devel \
         libiniparser-devel \
