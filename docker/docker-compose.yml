@@ -77,18 +77,19 @@ services:
         centos_stream_version: "9"
         extra_repository: crb
       dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
-  centos-stream-10-development:
+  centos-stream-10:
     <<: *service_defaults
     build:
       <<: *build_defaults_centos_stream
       args:
-        centos_stream_version: "10-development"
+        centos_stream_version: "10"
         extra_repository: crb
   debian-10:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.0"
         debian_version: "10"
   debian-10-autotools:
@@ -96,6 +97,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.0"
         debian_version: "10"
       dockerfile: docker/debian/Dockerfile.autotools
@@ -104,6 +106,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "11"
   debian-11-autotools:
@@ -111,6 +114,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "11"
       dockerfile: docker/debian/Dockerfile.autotools
@@ -119,6 +123,7 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "12"
   debian-12-autotools:
@@ -126,17 +131,30 @@ services:
     build:
       <<: *build_defaults_debian
       args:
+        libiniparser_version: "1"
         libmapnik_version: "3.1"
         debian_version: "12"
+      dockerfile: docker/debian/Dockerfile.autotools
+  debian-13:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
+      args:
+        debian_version: "13"
+  debian-13-autotools:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_debian
+      args:
+        debian_version: "13"
       dockerfile: docker/debian/Dockerfile.autotools
   debian-unstable:
     <<: *service_defaults
     build:
       <<: *build_defaults_debian
       args:
-        libiniparser_version: 4
-        libmapnik_version: "4.0"
         debian_version: unstable
+        libmapnik_version: "4.1"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -145,9 +163,8 @@ services:
     build:
       <<: *build_defaults_debian
       args:
-        libiniparser_version: 4
-        libmapnik_version: "4.0"
         debian_version: unstable
+        libmapnik_version: "4.1"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -271,7 +288,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.0"
+        libmapnik_version: "4.1"
         ubuntu_version: "devel"
   ubuntu-devel-autotools:
     <<: *service_defaults
@@ -279,7 +296,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.0"
+        libmapnik_version: "4.1"
         ubuntu_version: "devel"
       dockerfile: docker/ubuntu/Dockerfile.autotools
   ubuntu-devel-full:
@@ -288,7 +305,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.0"
+        libmapnik_version: "4.1"
         runner_additional_packages: >-
           curl
           gdal-bin
