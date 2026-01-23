@@ -154,7 +154,7 @@ services:
       <<: *build_defaults_debian
       args:
         debian_version: unstable
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -164,7 +164,7 @@ services:
       <<: *build_defaults_debian
       args:
         debian_version: unstable
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -299,7 +299,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         ubuntu_version: "devel"
   ubuntu-devel-autotools:
     <<: *service_defaults
@@ -307,7 +307,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         ubuntu_version: "devel"
       dockerfile: docker/ubuntu/Dockerfile.autotools
   ubuntu-devel-full:
