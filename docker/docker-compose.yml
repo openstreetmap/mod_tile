@@ -154,7 +154,7 @@ services:
       <<: *build_defaults_debian
       args:
         debian_version: unstable
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -164,7 +164,7 @@ services:
       <<: *build_defaults_debian
       args:
         debian_version: unstable
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         runner_additional_packages: >-
           libcurl4t64
           libglib2.0-0t64
@@ -235,14 +235,25 @@ services:
       <<: *build_defaults_opensuse
       args:
         boost_version: "1_75_0"
-        gcc_version: "13"
+        gcc_version: 15
         opensuse_release: leap
-        opensuse_version: "15"
+        opensuse_version: 15
+  opensuse-leap-16:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_opensuse
+      args:
+        boost_version: "1_86_0"
+        gcc_version: 15
+        opensuse_release: leap
+        opensuse_version: "16.0"
   opensuse-tumbleweed:
     <<: *service_defaults
     build:
       <<: *build_defaults_opensuse
       args:
+        additional_packages: apache2-prefork libavif-devel libboost_url-devel
+        mapnik_version: 4.1.4
         opensuse_release: tumbleweed
         opensuse_version: latest
   ubuntu-20.04:
@@ -288,7 +299,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         ubuntu_version: "devel"
   ubuntu-devel-autotools:
     <<: *service_defaults
@@ -296,7 +307,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         ubuntu_version: "devel"
       dockerfile: docker/ubuntu/Dockerfile.autotools
   ubuntu-devel-full:
