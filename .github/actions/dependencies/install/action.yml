@@ -47,8 +47,10 @@ inputs:
     default: >-
       cmake
       git
+      libboost-context-dev
       libboost-program-options-dev
       libboost-regex-dev
+      libboost-url-dev
       libfreetype6-dev
       libgdal-dev
       libharfbuzz-dev
@@ -172,8 +174,10 @@ inputs:
     default: >-
       cmake
       git
+      libboost-context-dev
       libboost-program-options-dev
       libboost-regex-dev
+      libboost-url-dev
       libfreetype6-dev
       libgdal-dev
       libharfbuzz-dev
