@@ -1351,7 +1351,8 @@ static int tile_handler_json(request_rec *r)
 	return OK;
 }
 
-static int _get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy) {
+static int _get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy)
+{
 	stats_data *stats;
 	unsigned long sizeof_config_elements;
 
