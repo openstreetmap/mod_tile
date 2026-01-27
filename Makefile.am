@@ -26,6 +26,7 @@ bin_PROGRAMS = \
 	render_speedtest
 noinst_PROGRAMS = \
 	gen_tile_test \
+	renderd_config_test_helper \
 	renderd_config_test \
 	renderd_test \
 	render_expired_test \
@@ -109,6 +110,12 @@ gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED
 gen_tile_test_CXXFLAGS = $(renderd_CXXFLAGS)
 gen_tile_test_LDADD = $(renderd_LDADD) catch_test_common.o
 
+renderd_config_test_helper_SOURCES = \
+	tests/renderd_config_test_helper.cpp \
+	src/g_logger.c \
+	src/renderd_config.c
+renderd_config_test_helper_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) catch_main.o
+
 renderd_config_test_SOURCES = \
 	tests/renderd_config_test.cpp
 renderd_config_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
@@ -137,7 +144,7 @@ CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
 COMMA=,
 
-test: gen_tile_test renderd_config_test renderd_test render_expired_test render_list_test render_old_test render_speedtest_test
+test: gen_tile_test renderd_config_test_helper renderd_config_test renderd_test render_expired_test render_list_test render_old_test render_speedtest_test
 	./gen_tile_test
 	./renderd_config_test
 	./renderd_test

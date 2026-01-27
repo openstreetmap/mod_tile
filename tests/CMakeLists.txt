@@ -1253,6 +1253,15 @@ target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
 
 #-----------------------------------------------------------------------------
 #
+#  renderd_config_test_helper
+#
+#-----------------------------------------------------------------------------
+
+# Added by ${PROJECT_SOURCE_DIR}/src/CMakeLists.txt
+# (in order to reduce redundant source and library definitions)
+
+#-----------------------------------------------------------------------------
+#
 #  Additional options for targets added hereafter
 #
 #-----------------------------------------------------------------------------

@@ -21,6 +21,12 @@
 #include "render_config.h"
 #include "renderd.h"
 
+#ifdef HAVE_INIPARSER_INIPARSER_H
+#include <iniparser/iniparser.h>
+#else
+#include <iniparser.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,9 +43,9 @@ void free_map_sections(xmlconfigitem *map_sections);
 void free_renderd_section(renderd_config renderd_section);
 void free_renderd_sections(renderd_config *renderd_sections);
 void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level);
-void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads);
-void process_mapnik_section(const char *config_file_name, renderd_config *config_dest);
-void process_renderd_sections(const char *config_file_name, renderd_config *configs_dest);
+void process_map_sections(dictionary *ini, const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads);
+void process_mapnik_section(dictionary *ini, const char *config_file_name, renderd_config *config_dest);
+void process_renderd_sections(dictionary *ini, const char *config_file_name, renderd_config *configs_dest);
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,7 @@
 
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
+#include "config.h"
 #include "render_config.h"
 #include "renderd.h"
 
@@ -30,6 +31,10 @@
 
 #ifndef PROJECT_BINARY_DIR
 #define PROJECT_BINARY_DIR "."
+#endif
+
+#ifndef RENDERD_CONF
+#define RENDERD_CONF "./etc/renderd/renderd.conf.examples"
 #endif
 
 // Only render_list uses all functions in renderd_config.c
@@ -446,5 +451,87 @@ TEST_CASE("renderd_config config parser", "specific testing")
 		std::remove(renderd_conf.c_str());
 		REQUIRE(WEXITSTATUS(status) == 7);
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Duplicate renderd config section names for section 0: renderd0 & renderd"));
+	}
+}
+
+
+TEST_CASE("renderd_config_test_helper", "specific testing")
+{
+	std::string test_binary = (std::string) "." + "/" + "renderd_config_test_helper";
+
+	SECTION("valid renderd.conf file with valid active renderd section", "should return 0") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(0)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("valid renderd.conf file with valid active renderd section (process_renderd_sections)", "should return 0") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(0), "process_renderd_sections"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("valid renderd.conf file with valid active renderd section (process_mapnik_section)", "should return 0") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(0), "process_mapnik_section"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("valid renderd.conf file with valid active renderd section (process_map_sections)", "should return 0") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(0), "process_map_sections"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("valid renderd.conf file with invalid active renderd section", "should return 1") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(MAX_SLAVES)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Active renderd section (" + std::to_string(MAX_SLAVES) + ") must be between 0 and " + std::to_string(MAX_SLAVES - 1) + "."));
+	}
+
+	SECTION("valid renderd.conf file with nonexistent active renderd section", "should return 1") {
+		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(MAX_SLAVES - 1)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Active renderd section (" + std::to_string(MAX_SLAVES - 1) + ") does not exist."));
+	}
+
+	SECTION("nonexistent renderd.conf file with valid active renderd section", "should return 1") {
+		std::vector<std::string> argv = {"doesnotexist", std::to_string(0)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_config_file): 'doesnotexist'"));
+	}
+
+	SECTION("nonexistent renderd.conf file with valid active renderd section (process_renderd_sections)", "should return 1") {
+		std::vector<std::string> argv = {"doesnotexist", std::to_string(0), "process_renderd_sections"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_renderd_sections): 'doesnotexist'"));
+	}
+
+	SECTION("nonexistent renderd.conf file with valid active renderd section (process_mapnik_section)", "should return 1") {
+		std::vector<std::string> argv = {"doesnotexist", std::to_string(0), "process_mapnik_section"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_mapnik_section): 'doesnotexist'"));
+	}
+
+	SECTION("nonexistent renderd.conf file with valid active renderd section (process_map_sections)", "should return 1") {
+		std::vector<std::string> argv = {"doesnotexist", std::to_string(0), "process_map_sections"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_map_sections): 'doesnotexist'"));
 	}
 }

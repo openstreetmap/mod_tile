@@ -551,7 +551,7 @@ static void add_expiry(request_rec *r, struct protocol *cmd)
 
 	apr_table_mergen(t, "Cache-Control",
 			 apr_psprintf(r->pool, "max-age=%li", maxAge));
-	timestr = (char *)apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+	timestr = (char *)apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 }
@@ -1301,7 +1301,7 @@ static int tile_handler_json(request_rec *r)
 		}
 	}
 
-	buf = (char *)apr_palloc(r->pool, 8 * 1024);
+	buf = (char *)apr_pcalloc(r->pool, 8 * 1024);
 
 	snprintf(buf, 8 * 1024,
 		 "{\n"
@@ -1343,7 +1343,7 @@ static int tile_handler_json(request_rec *r)
 	ap_set_content_length(r, len);
 	apr_table_mergen(t, "Cache-Control",
 			 apr_psprintf(r->pool, "max-age=%li", maxAge));
-	timestr = (char *)apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+	timestr = (char *)apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 	ap_rwrite(buf, len, r);
@@ -1351,14 +1351,33 @@ static int tile_handler_json(request_rec *r)
 	return OK;
 }
 
+static int _get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy) {
+	stats_data *stats;
+	unsigned long sizeof_config_elements;
+
+	if (get_global_lock(r, stats_mutex) != 0) {
+		// Copy over the global counter variable into
+		// local variables, that we can immediately
+		// release the lock again
+		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
+		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+		*stats_copy = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
+		(*stats_copy)->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
+		(*stats_copy)->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
+		apr_global_mutex_unlock(stats_mutex);
+	} else {
+		return error_message(r, "Failed to acquire lock, can't copy stats");
+	}
+
+	return OK;
+}
+
 static int tile_handler_mod_stats(request_rec *r)
 {
-	stats_data *stats;
-	stats_data *local_stats;
 	int i;
-	unsigned long sizeof_config_elements;
-	tile_server_conf *scfg;
+	stats_data *local_stats;
 	tile_config_rec *tile_configs;
+	tile_server_conf *scfg;
 
 	if (strcmp(r->handler, "tile_mod_stats")) {
 		return DECLINED;
@@ -1371,18 +1390,10 @@ static int tile_handler_mod_stats(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	if (get_global_lock(r, stats_mutex) != 0) {
-		// Copy over the global counter variable into
-		// local variables, that we can immediately
-		// release the lock again
-		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
-		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
-		local_stats = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
-		local_stats->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
-		local_stats->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
-		apr_global_mutex_unlock(stats_mutex);
-	} else {
-		return error_message(r, "Failed to acquire lock, can't display stats");
+	_get_stats_copy(r, scfg, &local_stats);
+
+	if (!local_stats) {
+		return OK;
 	}
 
 	ap_rprintf(r, "NoResp200: %" APR_UINT64_T_FMT "\n", local_stats->noResp200);
@@ -1421,12 +1432,10 @@ static int tile_handler_mod_stats(request_rec *r)
 
 static int tile_handler_metrics(request_rec *r)
 {
-	stats_data *stats;
-	stats_data *local_stats;
 	int i;
-	unsigned long sizeof_config_elements;
-	tile_server_conf *scfg;
+	stats_data *local_stats;
 	tile_config_rec *tile_configs;
+	tile_server_conf *scfg;
 
 	if (strcmp(r->handler, "tile_metrics")) {
 		return DECLINED;
@@ -1439,18 +1448,10 @@ static int tile_handler_metrics(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	if (get_global_lock(r, stats_mutex) != 0) {
-		// Copy over the global counter variable into
-		// local variables, that we can immediately
-		// release the lock again
-		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
-		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
-		local_stats = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
-		local_stats->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
-		local_stats->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
-		apr_global_mutex_unlock(stats_mutex);
-	} else {
-		return error_message(r, "Failed to acquire lock, can't display stats");
+	_get_stats_copy(r, scfg, &local_stats);
+
+	if (!local_stats) {
+		return OK;
 	}
 
 	ap_rprintf(r, "# HELP modtile_http_responses_total Number of HTTP responses by response code\n");
@@ -1554,7 +1555,7 @@ static int tile_handler_serve(request_rec *r)
 	gettimeofday(&start, NULL);
 
 	// FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
-	buf = (char *)apr_palloc(r->pool, tile_max);
+	buf = (char *)apr_pcalloc(r->pool, tile_max);
 
 	if (!buf) {
 		if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
@@ -1894,7 +1895,7 @@ static const char *_add_tile_config(cmd_parms *cmd,
 		tile_dir = apr_pstrndup(cmd->pool, scfg->tile_dir, PATH_MAX);
 	}
 
-	char **hostnames = (char **)malloc(sizeof(char *) * hostnames_len);
+	char **hostnames = (char **)apr_pcalloc(cmd->pool, sizeof(char *) * hostnames_len);
 
 	// Set first hostname to server_hostname value (if set,) otherwise use localhost
 	if (cmd->server->server_hostname == NULL) {
@@ -2022,7 +2023,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
 	xmlconfigitem maps[XMLCONFIGS_MAX];
 
-	process_map_sections(config_file_name, maps, "", 0);
+	process_map_sections(NULL, config_file_name, maps, "", 0);
 
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
 		if (maps[i].xmlname != NULL) {

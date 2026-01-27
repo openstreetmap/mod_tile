@@ -219,4 +219,23 @@ target_include_directories(gen_tile_test PRIVATE ${PROJECT_SOURCE_DIR}/tests)
 target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
 set_target_properties(gen_tile_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests)
 
+#-----------------------------------------------------------------------------
+#
+#  renderd_config_test_helper
+#
+#-----------------------------------------------------------------------------
+
+set(renderd_config_test_helper_SRCS
+  ${PROJECT_SOURCE_DIR}/tests/renderd_config_test_helper.cpp
+  g_logger.c
+  renderd_config.c
+)
+set(renderd_config_test_helper_LIBS
+  ${GLIB_LIBRARIES}
+  ${INIPARSER_LIBRARIES}
+)
+add_executable(renderd_config_test_helper ${renderd_config_test_helper_SRCS})
+target_link_libraries(renderd_config_test_helper ${renderd_config_test_helper_LIBS})
+set_target_properties(renderd_config_test_helper PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests)
+
 endif()
