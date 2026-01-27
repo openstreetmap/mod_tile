@@ -171,6 +171,17 @@ function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME R
     FIXTURES_CLEANUP ${FIXTURE_NAME}
     REQUIRED_FILES ${FILE_NAME}
   )
+  add_test(NAME head_tile_${TEST_NAME}
+    COMMAND ${BASH} -c "
+      echo 'Submitting HEAD request for ${TEST_URL}'
+      ${CURL_CMD} --head ${TEST_URL}
+    "
+    WORKING_DIRECTORY tests
+  )
+  set_tests_properties(head_tile_${TEST_NAME} PROPERTIES
+    FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
+    FIXTURES_SETUP ${FIXTURE_NAME}
+  )
 endfunction()
 
 #-----------------------------------------------------------------------------
@@ -653,7 +664,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set(STATUS_OFF_URL "${HTTPD1_URL}/status")
     set(STATUS_ON_URL "${HTTPD0_URL}/status")
     # Increment count for stats (only counted by requests to HTTPD0_URL, HTTPD1_URL has stats disabled)
-    math(EXPR STATS_COUNTER "${STATS_COUNTER} + 1")
+    ## Includes HEAD requests
+    math(EXPR STATS_COUNTER "${STATS_COUNTER} + 2")
 
     add_good_tile_download_test(
       ${MAP_NAME}_${STORAGE_BACKEND}_0
@@ -1233,6 +1245,15 @@ target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
 #-----------------------------------------------------------------------------
 #
 #  gen_tile_test
+#
+#-----------------------------------------------------------------------------
+
+# Added by ${PROJECT_SOURCE_DIR}/src/CMakeLists.txt
+# (in order to reduce redundant source and library definitions)
+
+#-----------------------------------------------------------------------------
+#
+#  renderd_config_test_helper
 #
 #-----------------------------------------------------------------------------
 

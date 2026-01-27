@@ -551,7 +551,7 @@ static void add_expiry(request_rec *r, struct protocol *cmd)
 
 	apr_table_mergen(t, "Cache-Control",
 			 apr_psprintf(r->pool, "max-age=%li", maxAge));
-	timestr = (char *)apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+	timestr = (char *)apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 }
@@ -1301,7 +1301,7 @@ static int tile_handler_json(request_rec *r)
 		}
 	}
 
-	buf = (char *)malloc(8 * 1024);
+	buf = (char *)apr_pcalloc(r->pool, 8 * 1024);
 
 	snprintf(buf, 8 * 1024,
 		 "{\n"
@@ -1343,22 +1343,42 @@ static int tile_handler_json(request_rec *r)
 	ap_set_content_length(r, len);
 	apr_table_mergen(t, "Cache-Control",
 			 apr_psprintf(r->pool, "max-age=%li", maxAge));
-	timestr = (char *)apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+	timestr = (char *)apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 	ap_rwrite(buf, len, r);
-	free(buf);
+
+	return OK;
+}
+
+static int _get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy)
+{
+	stats_data *stats;
+	unsigned long sizeof_config_elements;
+
+	if (get_global_lock(r, stats_mutex) != 0) {
+		// Copy over the global counter variable into
+		// local variables, that we can immediately
+		// release the lock again
+		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
+		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+		*stats_copy = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
+		(*stats_copy)->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
+		(*stats_copy)->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
+		apr_global_mutex_unlock(stats_mutex);
+	} else {
+		return error_message(r, "Failed to acquire lock, can't copy stats");
+	}
 
 	return OK;
 }
 
 static int tile_handler_mod_stats(request_rec *r)
 {
-	stats_data *stats;
-	stats_data local_stats;
 	int i;
-	tile_server_conf *scfg;
+	stats_data *local_stats;
 	tile_config_rec *tile_configs;
+	tile_server_conf *scfg;
 
 	if (strcmp(r->handler, "tile_mod_stats")) {
 		return DECLINED;
@@ -1371,64 +1391,52 @@ static int tile_handler_mod_stats(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	if (get_global_lock(r, stats_mutex) != 0) {
-		// Copy over the global counter variable into
-		// local variables, that we can immediately
-		// release the lock again
-		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
-		memcpy(&local_stats, stats, sizeof(stats_data));
-		local_stats.noResp200Layer = (apr_uint64_t *)malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
-		memcpy(local_stats.noResp200Layer, stats->noResp200Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
-		local_stats.noResp404Layer = (apr_uint64_t *)malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
-		memcpy(local_stats.noResp404Layer, stats->noResp404Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
-		apr_global_mutex_unlock(stats_mutex);
-	} else {
-		return error_message(r, "Failed to acquire lock, can't display stats");
+	_get_stats_copy(r, scfg, &local_stats);
+
+	if (!local_stats) {
+		return OK;
 	}
 
-	ap_rprintf(r, "NoResp200: %" APR_UINT64_T_FMT "\n", local_stats.noResp200);
-	ap_rprintf(r, "NoResp304: %" APR_UINT64_T_FMT "\n", local_stats.noResp304);
-	ap_rprintf(r, "NoResp404: %" APR_UINT64_T_FMT "\n", local_stats.noResp404);
-	ap_rprintf(r, "NoResp503: %" APR_UINT64_T_FMT "\n", local_stats.noResp503);
-	ap_rprintf(r, "NoResp5XX: %" APR_UINT64_T_FMT "\n", local_stats.noResp5XX);
-	ap_rprintf(r, "NoRespOther: %" APR_UINT64_T_FMT "\n", local_stats.noRespOther);
-	ap_rprintf(r, "NoFreshCache: %" APR_UINT64_T_FMT "\n", local_stats.noFreshCache);
-	ap_rprintf(r, "NoOldCache: %" APR_UINT64_T_FMT "\n", local_stats.noOldCache);
-	ap_rprintf(r, "NoVeryOldCache: %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldCache);
-	ap_rprintf(r, "NoFreshRender: %" APR_UINT64_T_FMT "\n", local_stats.noFreshRender);
-	ap_rprintf(r, "NoOldRender: %" APR_UINT64_T_FMT "\n", local_stats.noOldRender);
-	ap_rprintf(r, "NoVeryOldRender: %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldRender);
+	ap_rprintf(r, "NoResp200: %" APR_UINT64_T_FMT "\n", local_stats->noResp200);
+	ap_rprintf(r, "NoResp304: %" APR_UINT64_T_FMT "\n", local_stats->noResp304);
+	ap_rprintf(r, "NoResp404: %" APR_UINT64_T_FMT "\n", local_stats->noResp404);
+	ap_rprintf(r, "NoResp503: %" APR_UINT64_T_FMT "\n", local_stats->noResp503);
+	ap_rprintf(r, "NoResp5XX: %" APR_UINT64_T_FMT "\n", local_stats->noResp5XX);
+	ap_rprintf(r, "NoRespOther: %" APR_UINT64_T_FMT "\n", local_stats->noRespOther);
+	ap_rprintf(r, "NoFreshCache: %" APR_UINT64_T_FMT "\n", local_stats->noFreshCache);
+	ap_rprintf(r, "NoOldCache: %" APR_UINT64_T_FMT "\n", local_stats->noOldCache);
+	ap_rprintf(r, "NoVeryOldCache: %" APR_UINT64_T_FMT "\n", local_stats->noVeryOldCache);
+	ap_rprintf(r, "NoFreshRender: %" APR_UINT64_T_FMT "\n", local_stats->noFreshRender);
+	ap_rprintf(r, "NoOldRender: %" APR_UINT64_T_FMT "\n", local_stats->noOldRender);
+	ap_rprintf(r, "NoVeryOldRender: %" APR_UINT64_T_FMT "\n", local_stats->noVeryOldRender);
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "NoRespZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.noRespZoom[i]);
+		ap_rprintf(r, "NoRespZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats->noRespZoom[i]);
 	}
 
-	ap_rprintf(r, "NoTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats.noTotalBufferRetrieval);
-	ap_rprintf(r, "DurationTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats.totalBufferRetrievalTime);
+	ap_rprintf(r, "NoTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats->noTotalBufferRetrieval);
+	ap_rprintf(r, "DurationTileBufferReads: %" APR_UINT64_T_FMT "\n", local_stats->totalBufferRetrievalTime);
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "NoTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.noZoomBufferRetrieval[i]);
-		ap_rprintf(r, "DurationTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats.zoomBufferRetrievalTime[i]);
+		ap_rprintf(r, "NoTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats->noZoomBufferRetrieval[i]);
+		ap_rprintf(r, "DurationTileBufferReadZoom%02i: %" APR_UINT64_T_FMT "\n", i, local_stats->zoomBufferRetrievalTime[i]);
 	}
 
 	for (i = 0; i < scfg->configs->nelts; ++i) {
 		tile_config_rec *tile_config = &tile_configs[i];
-		ap_rprintf(r, "NoRes200Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
-		ap_rprintf(r, "NoRes404Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
+		ap_rprintf(r, "NoRes200Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats->noResp200Layer[i]);
+		ap_rprintf(r, "NoRes404Layer%s: %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats->noResp404Layer[i]);
 	}
 
-	free(local_stats.noResp200Layer);
-	free(local_stats.noResp404Layer);
 	return OK;
 }
 
 static int tile_handler_metrics(request_rec *r)
 {
-	stats_data *stats;
-	stats_data local_stats;
 	int i;
-	tile_server_conf *scfg;
+	stats_data *local_stats;
 	tile_config_rec *tile_configs;
+	tile_server_conf *scfg;
 
 	if (strcmp(r->handler, "tile_metrics")) {
 		return DECLINED;
@@ -1441,58 +1449,49 @@ static int tile_handler_metrics(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	if (get_global_lock(r, stats_mutex) != 0) {
-		// Copy over the global counter variable into
-		// local variables, that we can immediately
-		// release the lock again
-		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
-		memcpy(&local_stats, stats, sizeof(stats_data));
-		local_stats.noResp200Layer = (apr_uint64_t *)malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
-		memcpy(local_stats.noResp200Layer, stats->noResp200Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
-		local_stats.noResp404Layer = (apr_uint64_t *)malloc(sizeof(apr_uint64_t) * scfg->configs->nelts);
-		memcpy(local_stats.noResp404Layer, stats->noResp404Layer, sizeof(apr_uint64_t) * scfg->configs->nelts);
-		apr_global_mutex_unlock(stats_mutex);
-	} else {
-		return error_message(r, "Failed to acquire lock, can't display stats");
+	_get_stats_copy(r, scfg, &local_stats);
+
+	if (!local_stats) {
+		return OK;
 	}
 
 	ap_rprintf(r, "# HELP modtile_http_responses_total Number of HTTP responses by response code\n");
 	ap_rprintf(r, "# TYPE modtile_http_responses_total counter\n");
-	ap_rprintf(r, "modtile_http_responses_total{status=\"200\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp200);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"304\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp304);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"404\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp404);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"503\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp503);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"5XX\"} %" APR_UINT64_T_FMT "\n", local_stats.noResp5XX);
-	ap_rprintf(r, "modtile_http_responses_total{status=\"other\"} %" APR_UINT64_T_FMT "\n", local_stats.noRespOther);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"200\"} %" APR_UINT64_T_FMT "\n", local_stats->noResp200);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"304\"} %" APR_UINT64_T_FMT "\n", local_stats->noResp304);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"404\"} %" APR_UINT64_T_FMT "\n", local_stats->noResp404);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"503\"} %" APR_UINT64_T_FMT "\n", local_stats->noResp503);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"5XX\"} %" APR_UINT64_T_FMT "\n", local_stats->noResp5XX);
+	ap_rprintf(r, "modtile_http_responses_total{status=\"other\"} %" APR_UINT64_T_FMT "\n", local_stats->noRespOther);
 
 	ap_rprintf(r, "# HELP modtile_tiles_total Tiles served\n");
 	ap_rprintf(r, "# TYPE modtile_tiles_total counter\n");
-	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noFreshCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noOldCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldCache);
-	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"yes\"} %" APR_UINT64_T_FMT "\n", local_stats.noFreshRender);
-	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats.noOldRender);
-	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats.noVeryOldRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats->noFreshCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats->noOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"no\"} %" APR_UINT64_T_FMT "\n", local_stats->noVeryOldCache);
+	ap_rprintf(r, "modtile_tiles_total{age=\"fresh\",rendered=\"yes\"} %" APR_UINT64_T_FMT "\n", local_stats->noFreshRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"old\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats->noOldRender);
+	ap_rprintf(r, "modtile_tiles_total{age=\"outdated\",rendered=\"attempted\"} %" APR_UINT64_T_FMT "\n", local_stats->noVeryOldRender);
 
 	ap_rprintf(r, "# HELP modtile_zoom_responses_total Tiles served by zoom level\n");
 	ap_rprintf(r, "# TYPE modtile_zoom_responses_total counter\n");
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "modtile_zoom_responses_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats.noRespZoom[i]);
+		ap_rprintf(r, "modtile_zoom_responses_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats->noRespZoom[i]);
 	}
 
 	ap_rprintf(r, "# HELP modtile_tile_reads_total Tiles served from the tile buffer\n");
 	ap_rprintf(r, "# TYPE modtile_tile_reads_total counter\n");
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "modtile_tile_reads_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats.noZoomBufferRetrieval[i]);
+		ap_rprintf(r, "modtile_tile_reads_total{zoom=\"%02i\"} %" APR_UINT64_T_FMT "\n", i, local_stats->noZoomBufferRetrieval[i]);
 	}
 
 	ap_rprintf(r, "# HELP modtile_tile_reads_seconds_total Tile buffer duration\n");
 	ap_rprintf(r, "# TYPE modtile_tile_reads_seconds_total counter\n");
 
 	for (i = 0; i <= global_max_zoom; i++) {
-		ap_rprintf(r, "modtile_tile_reads_seconds_total{zoom=\"%02i\"} %lf\n", i, (double)local_stats.zoomBufferRetrievalTime[i] / 1000000.0);
+		ap_rprintf(r, "modtile_tile_reads_seconds_total{zoom=\"%02i\"} %lf\n", i, (double)local_stats->zoomBufferRetrievalTime[i] / 1000000.0);
 	}
 
 	ap_rprintf(r, "# HELP modtile_layer_responses_total Layer responses\n");
@@ -1500,12 +1499,10 @@ static int tile_handler_metrics(request_rec *r)
 
 	for (i = 0; i < scfg->configs->nelts; ++i) {
 		tile_config_rec *tile_config = &tile_configs[i];
-		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"200\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp200Layer[i]);
-		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"404\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats.noResp404Layer[i]);
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"200\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats->noResp200Layer[i]);
+		ap_rprintf(r, "modtile_layer_responses_total{layer=\"%s\",status=\"404\"} %" APR_UINT64_T_FMT "\n", tile_config->baseuri, local_stats->noResp404Layer[i]);
 	}
 
-	free(local_stats.noResp200Layer);
-	free(local_stats.noResp404Layer);
 	return OK;
 }
 
@@ -1523,13 +1520,13 @@ static int tile_handler_serve(request_rec *r)
 	tile_config_rec *tile_configs;
 	struct tile_request_data *rdata;
 	struct protocol *cmd;
-
-	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
+	tile_server_conf *scfg;
 
 	if (strcmp(r->handler, "tile_serve")) {
 		return DECLINED;
 	}
 
+	scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
 	rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
 	cmd = rdata->cmd;
 
@@ -1559,7 +1556,7 @@ static int tile_handler_serve(request_rec *r)
 	gettimeofday(&start, NULL);
 
 	// FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
-	buf = (char *)malloc(tile_max);
+	buf = (char *)apr_pcalloc(r->pool, tile_max);
 
 	if (!buf) {
 		if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
@@ -1610,8 +1607,6 @@ static int tile_handler_serve(request_rec *r)
 		incTimingCounter((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec), cmd->z, r);
 
 		if ((errstatus = ap_meets_conditions(r)) != OK) {
-			free(buf);
-
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
 					      "Failed to increase response stats counter");
@@ -1620,7 +1615,6 @@ static int tile_handler_serve(request_rec *r)
 			return errstatus;
 		} else {
 			ap_rwrite(buf, len, r);
-			free(buf);
 
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1631,7 +1625,6 @@ static int tile_handler_serve(request_rec *r)
 		}
 	}
 
-	free(buf);
 	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to read tile from disk: %s", err_msg);
 
 	if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
@@ -1903,7 +1896,7 @@ static const char *_add_tile_config(cmd_parms *cmd,
 		tile_dir = apr_pstrndup(cmd->pool, scfg->tile_dir, PATH_MAX);
 	}
 
-	char **hostnames = (char **)malloc(sizeof(char *) * hostnames_len);
+	char **hostnames = (char **)apr_pcalloc(cmd->pool, sizeof(char *) * hostnames_len);
 
 	// Set first hostname to server_hostname value (if set,) otherwise use localhost
 	if (cmd->server->server_hostname == NULL) {
@@ -2031,7 +2024,7 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
 	xmlconfigitem maps[XMLCONFIGS_MAX];
 
-	process_map_sections(config_file_name, maps, "", 0);
+	process_map_sections(NULL, config_file_name, maps, "", 0);
 
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
 		if (maps[i].xmlname != NULL) {

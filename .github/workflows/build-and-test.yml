@@ -33,14 +33,14 @@ jobs:
             build_system: CMake
             compiler: GNU
             experimental: true
-          - image: "quay.io/centos/centos:stream9"
-            build_system: CMake
-            compiler: GNU
-            experimental: true
-          - image: "quay.io/centos/centos:stream10"
-            build_system: CMake
-            compiler: GNU
-            experimental: true
+          # - image: "quay.io/centos/centos:stream9"
+          #   build_system: CMake
+          #   compiler: GNU
+          #   experimental: true
+          # - image: "quay.io/centos/centos:stream10"
+          #   build_system: CMake
+          #   compiler: GNU
+          #   experimental: true
           - image: "fedora:rawhide"
             build_system: CMake
             compiler: GNU

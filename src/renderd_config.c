@@ -33,9 +33,7 @@
 
 static void copy_string(const char *src, const char **dest, size_t maxlen)
 {
-	size_t size = sizeof(char) * strnlen(src, maxlen);
-
-	*dest = strndup(src, size);
+	*dest = strndup(src, maxlen);
 
 	if (*dest == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "copy_string: strndup error");
@@ -195,15 +193,19 @@ int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum,
 	return opt;
 }
 
-void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads)
+void process_map_sections(dictionary *ini, const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads)
 {
+	int ini_loaded_here = 0;
 	int map_section_num = -1;
 
-	dictionary *ini = iniparser_load(config_file_name);
-
 	if (!ini) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file: %s", config_file_name);
-		exit(1);
+		ini = iniparser_load(config_file_name);
+		ini_loaded_here = 1;
+
+		if (!ini) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file (process_map_sections): '%s'", config_file_name);
+			exit(1);
+		}
 	}
 
 	bzero(maps_dest, sizeof(xmlconfigitem) * XMLCONFIGS_MAX);
@@ -214,8 +216,8 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 		const char *section = iniparser_getsecname(ini, section_num);
 
 		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { // this is a map config section
-			char *ini_type_copy, *ini_type_part, *ini_type_context;
-			const char *ini_type;
+			char *ini_type_copy, *ini_type_context;
+			const char *ini_type, *ini_type_part;
 			int ini_type_part_maxlen = 64, ini_type_part_num = 0;
 
 			map_section_num++;
@@ -318,12 +320,13 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 			maps_dest[map_section_num].num_threads = num_threads;
 
 			free(ini_type_copy);
-			free(ini_type_part);
 			free((void *)ini_type);
 		}
 	}
 
-	iniparser_freedict(ini);
+	if (ini_loaded_here == 1) {
+		iniparser_freedict(ini);
+	}
 
 	if (map_section_num < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "No map config sections were found in file: %s", config_file_name);
@@ -331,15 +334,19 @@ void process_map_sections(const char *config_file_name, xmlconfigitem *maps_dest
 	}
 }
 
-void process_mapnik_section(const char *config_file_name, renderd_config *config_dest)
+void process_mapnik_section(dictionary *ini, const char *config_file_name, renderd_config *config_dest)
 {
+	int ini_loaded_here = 0;
 	int mapnik_section_num = -1;
 
-	dictionary *ini = iniparser_load(config_file_name);
-
 	if (!ini) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file: %s", config_file_name);
-		exit(1);
+		ini = iniparser_load(config_file_name);
+		ini_loaded_here = 1;
+
+		if (!ini) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file (process_mapnik_section): '%s'", config_file_name);
+			exit(1);
+		}
 	}
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing mapnik config section");
@@ -356,7 +363,9 @@ void process_mapnik_section(const char *config_file_name, renderd_config *config
 		}
 	}
 
-	iniparser_freedict(ini);
+	if (ini_loaded_here == 1) {
+		iniparser_freedict(ini);
+	}
 
 	if (mapnik_section_num < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "No mapnik config section was found in file: %s", config_file_name);
@@ -364,16 +373,20 @@ void process_mapnik_section(const char *config_file_name, renderd_config *config
 	}
 }
 
-void process_renderd_sections(const char *config_file_name, renderd_config *configs_dest)
+void process_renderd_sections(dictionary *ini, const char *config_file_name, renderd_config *configs_dest)
 {
+	int ini_loaded_here = 0;
 	int renderd_section_num = -1;
 	int renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
 
-	dictionary *ini = iniparser_load(config_file_name);
-
 	if (!ini) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file: %s", config_file_name);
-		exit(1);
+		ini = iniparser_load(config_file_name);
+		ini_loaded_here = 1;
+
+		if (!ini) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file (process_renderd_sections): '%s'", config_file_name);
+			exit(1);
+		}
 	}
 
 	bzero(configs_dest, sizeof(renderd_config) * MAX_SLAVES);
@@ -430,7 +443,9 @@ void process_renderd_sections(const char *config_file_name, renderd_config *conf
 		}
 	}
 
-	iniparser_freedict(ini);
+	if (ini_loaded_here == 1) {
+		iniparser_freedict(ini);
+	}
 
 	if (renderd_section_num < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "No renderd config sections were found in file: %s", config_file_name);
@@ -448,11 +463,33 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 
 	num_slave_threads = 0;
 
+	if (active_renderd_section_num < 0 || active_renderd_section_num >= MAX_SLAVES) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Active renderd section (%i) must be between %i and %i.", active_renderd_section_num, 0, MAX_SLAVES - 1);
+		exit(1);
+	}
+
 	g_logger(log_level, "Parsing renderd config file '%s':", config_file_name);
 
-	process_renderd_sections(config_file_name, config_slaves);
-	process_mapnik_section(config_file_name, &config_slaves[active_renderd_section_num]);
-	process_map_sections(config_file_name, maps, config_slaves[active_renderd_section_num].tile_dir, config_slaves[active_renderd_section_num].num_threads);
+	dictionary *ini = iniparser_load(config_file_name);
+
+	if (!ini) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to load config file (process_config_file): '%s'", config_file_name);
+		exit(1);
+	}
+
+	free_renderd_sections(config_slaves);
+	process_renderd_sections(ini, config_file_name, config_slaves);
+
+	if (config_slaves[active_renderd_section_num].num_threads == 0) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Active renderd section (%i) does not exist.", active_renderd_section_num);
+		exit(1);
+	}
+
+	process_mapnik_section(ini, config_file_name, &config_slaves[active_renderd_section_num]);
+	free_map_sections(maps);
+	process_map_sections(ini, config_file_name, maps, config_slaves[active_renderd_section_num].tile_dir, config_slaves[active_renderd_section_num].num_threads);
+	iniparser_freedict(ini);
+
 	config = config_slaves[active_renderd_section_num];
 
 	for (int i = 0; i < MAX_SLAVES; i++) {
