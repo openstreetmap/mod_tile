@@ -28,8 +28,7 @@
 #include "render_config.h"
 #include "store.h"
 
-metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z):
-	x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options)
+metaTile::metaTile(const std::string &xmlconfig, const std::string &options, int x, int y, int z) : x_(x), y_(y), z_(z), xmlconfig_(xmlconfig), options_(options)
 {
 	clear();
 }
@@ -59,13 +58,13 @@ int metaTile::xyz_to_meta_offset(int x, int y, int z)
 	return (x & mask) * METATILE + (y & mask);
 }
 
-void metaTile::save(struct storage_backend * store)
+void metaTile::save(struct storage_backend *store)
 {
 	int ox, oy, limit;
 	ssize_t offset;
 	struct meta_layout m;
 	struct entry offsets[METATILE * METATILE];
-	char * metatilebuffer;
+	char *metatilebuffer;
 	char *tmp;
 
 	memset(&m, 0, sizeof(m));
@@ -86,12 +85,12 @@ void metaTile::save(struct storage_backend * store)
 		for (oy = 0; oy < limit; oy++) {
 			int mt = xyz_to_meta_offset(x_ + ox, y_ + oy, z_);
 			offsets[mt].offset = offset;
-			offsets[mt].size   = tile[ox][oy].size();
+			offsets[mt].size = tile[ox][oy].size();
 			offset += offsets[mt].size;
 		}
 	}
 
-	metatilebuffer = (char *) malloc(offset);
+	metatilebuffer = (char *)malloc(offset);
 
 	if (metatilebuffer == 0) {
 		g_logger(G_LOG_LEVEL_WARNING, "Failed to write metatile. Out of memory");
@@ -117,7 +116,6 @@ void metaTile::save(struct storage_backend * store)
 
 	free(metatilebuffer);
 }
-
 
 void metaTile::expire_tiles(int sock, const char *host, const char *uri)
 {

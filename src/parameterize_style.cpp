@@ -91,7 +91,6 @@ parameterize_function_ptr init_parameterization_function(const char *function_na
 		return parameterize_map_language;
 	} else {
 		g_logger(G_LOG_LEVEL_WARNING, "unknown parameterization function for '%s'", function_name);
+		return NULL;
 	}
-
-	return NULL;
 }

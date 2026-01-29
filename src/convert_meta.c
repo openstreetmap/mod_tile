@@ -127,7 +127,7 @@ static void descend(const char *search)
 int main(int argc, char **argv)
 {
 	int z, c;
-	const char *map = "default";
+	const char *map = XMLCONFIG_DEFAULT;
 
 	while (1) {
 		int option_index = 0;

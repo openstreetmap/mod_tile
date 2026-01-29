@@ -174,7 +174,7 @@ static struct protocol *fetch(void)
 	pthread_cond_signal(&qCondNotFull);
 	pthread_mutex_unlock(&qLock);
 
-	struct protocol *cmd = malloc(sizeof(struct protocol));
+	struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
 
 	cmd->ver = 2;
 	cmd->cmd = cmdRenderBulk;
@@ -192,7 +192,7 @@ static struct protocol *fetch(void)
 void enqueue(const char *xmlname, int x, int y, int z)
 {
 	// Add this path in the local render queue
-	struct qItem *e = malloc(sizeof(struct qItem));
+	struct qItem *e = (struct qItem *)malloc(sizeof(struct qItem));
 
 	e->mapname = strdup(xmlname);
 	e->x = x;
@@ -265,7 +265,7 @@ int make_connection(const char *spath)
 		if (!hostname_len) {
 			hostname = strdup(RENDERD_HOST);
 		} else {
-			hostname = malloc(hostname_len + sizeof('\0'));
+			hostname = (char *)malloc(hostname_len + sizeof('\0'));
 			assert(hostname != NULL);
 			strncpy(hostname, spath, hostname_len);
 		}
@@ -408,7 +408,7 @@ void spawn_workers(int num, const char *spath, int max_load)
 	qMaxLen = no_workers;
 
 	g_logger(G_LOG_LEVEL_MESSAGE, "Starting %d rendering threads", no_workers);
-	workers = calloc(sizeof(pthread_t), no_workers);
+	workers = (pthread_t *)calloc(sizeof(pthread_t), no_workers);
 
 	if (!workers) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating worker memory: %s", strerror(errno));
