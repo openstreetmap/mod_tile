@@ -83,11 +83,11 @@ int recv_cmd(struct protocol * cmd, int fd,  int block)
 			break;
 
 		case 2:
-			ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
+			ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
 			break;
 
 		case 3:
-			ret2 = recv(fd, ((void*)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
+			ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
 			break;
 	}
 

@@ -77,31 +77,31 @@ void g_logger(int log_level, const char *format, ...)
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
 			case G_LOG_LEVEL_ERROR:
-				g_log_writer_standard_streams(log_level, log_fields, 1, NULL);
+				g_log_writer_standard_streams((GLogLevelFlags)log_level, log_fields, 1, NULL);
 				break;
 
 			// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
 			case G_LOG_LEVEL_INFO:
-				g_log_writer_standard_streams(log_level, log_fields, 1, NULL);
+				g_log_writer_standard_streams((GLogLevelFlags)log_level, log_fields, 1, NULL);
 				break;
 
 			default:
-				g_log_writer_default(log_level, log_fields, 1, NULL);
+				g_log_writer_default((GLogLevelFlags)log_level, log_fields, 1, NULL);
 		}
 	} else if (g_log_writer_is_journald(fileno(stderr))) {
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
 			case G_LOG_LEVEL_ERROR:
-				g_log_writer_journald(log_level, log_fields, 1, NULL);
+				g_log_writer_journald((GLogLevelFlags)log_level, log_fields, 1, NULL);
 				break;
 
 			// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
 			case G_LOG_LEVEL_INFO:
-				g_log_writer_journald(log_level, log_fields, 1, NULL);
+				g_log_writer_journald((GLogLevelFlags)log_level, log_fields, 1, NULL);
 				break;
 
 			default:
-				g_log_writer_default(log_level, log_fields, 1, NULL);
+				g_log_writer_default((GLogLevelFlags)log_level, log_fields, 1, NULL);
 		}
 	} else {
 		setlogmask(LOG_UPTO(LOG_INFO));

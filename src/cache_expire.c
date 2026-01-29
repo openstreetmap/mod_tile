@@ -32,9 +32,9 @@
  * URL.
  * RFC for HTCP can be found at http://www.htcp.org/
  */
-static void cache_expire_url(int sock, char * url)
+static void cache_expire_url(int sock, char *url)
 {
-	char * buf;
+	char *buf;
 
 	if (sock < 0) {
 		return;
@@ -44,7 +44,7 @@ static void cache_expire_url(int sock, char * url)
 	int url_len;
 
 	url_len = strlen(url);
-	buf = (char *) malloc(12 + 22 + url_len);
+	buf = (char *)malloc(12 + 22 + url_len);
 
 	if (!buf) {
 		return;
@@ -52,58 +52,58 @@ static void cache_expire_url(int sock, char * url)
 
 	idx = 0;
 
-	//16 bit: Overall length of the datagram packet, including this header
+	// 16 bit: Overall length of the datagram packet, including this header
 	*((uint16_t *)(&buf[idx])) = htons(12 + 22 + url_len);
 	idx += 2;
 
-	//HTCP version. Currently at 0.0
-	buf[idx++] = 0; //Major version
-	buf[idx++] = 0; //Minor version
+	// HTCP version. Currently at 0.0
+	buf[idx++] = 0; // Major version
+	buf[idx++] = 0; // Minor version
 
-	//Length of HTCP data, including this field
+	// Length of HTCP data, including this field
 	*((uint16_t *)(&buf[idx])) = htons(8 + 22 + url_len);
 	idx += 2;
 
-	//HTCP opcode CLR=4
+	// HTCP opcode CLR=4
 	buf[idx++] = 4;
-	//Reserved
+	// Reserved
 	buf[idx++] = 0;
 
-	//32 bit transaction id;
+	// 32 bit transaction id;
 	*((uint32_t *)(&buf[idx])) = htonl(255);
 	idx += 4;
 
 	buf[idx++] = 0;
-	buf[idx++] = 0; //HTCP reason
+	buf[idx++] = 0; // HTCP reason
 
-	//Length of the Method string
+	// Length of the Method string
 	*((uint16_t *)(&buf[idx])) = htons(4);
 	idx += 2;
 
-	///Method string
+	/// Method string
 	memcpy(&buf[idx], "HEAD", 4);
 	idx += 4;
 
-	//Length of the url string
+	// Length of the url string
 	*((uint16_t *)(&buf[idx])) = htons(url_len);
 	idx += 2;
 
-	//Url string
+	// Url string
 	memcpy(&buf[idx], url, url_len);
 	idx += url_len;
 
-	//Length of version string
+	// Length of version string
 	*((uint16_t *)(&buf[idx])) = htons(8);
 	idx += 2;
 
-	//version string
+	// version string
 	memcpy(&buf[idx], "HTTP/1.1", 8);
 	idx += 8;
 
-	//Length of request headers. Currently 0 as we don't have any headers to send
+	// Length of request headers. Currently 0 as we don't have any headers to send
 	*((uint16_t *)(&buf[idx])) = htons(0);
 
-	if (send(sock, (void *) buf, (12 + 22 + url_len), 0) < (12 + 22 + url_len)) {
+	if (send(sock, (void *)buf, (12 + 22 + url_len), 0) < (12 + 22 + url_len)) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to send HTCP purge for %s", url);
 	};
 
@@ -117,13 +117,13 @@ void cache_expire(int sock, const char *host, const char *uri, int x, int y, int
 		return;
 	}
 
-	char * url = (char *)malloc(1024);
+	char *url = (char *)malloc(1024);
 	snprintf(url, 1024, "http://%s%s%i/%i/%i.png", host, uri, z, x, y);
 	cache_expire_url(sock, url);
 	free(url);
 }
 
-int init_cache_expire(const char * htcphost)
+int init_cache_expire(const char *htcphost)
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -132,7 +132,7 @@ int init_cache_expire(const char * htcphost)
 	/* Obtain address(es) matching host/port */
 
 	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC; /* Allow IPv4 or IPv6 */
+	hints.ai_family = AF_UNSPEC;	/* Allow IPv4 or IPv6 */
 	hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 	hints.ai_flags = 0;
 	hints.ai_protocol = 0; /* Any protocol */
@@ -157,7 +157,7 @@ int init_cache_expire(const char * htcphost)
 		}
 
 		if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1) {
-			break;        /* Success */
+			break; /* Success */
 		}
 
 		close(sfd);
@@ -171,5 +171,4 @@ int init_cache_expire(const char * htcphost)
 	freeaddrinfo(result); /* No longer needed */
 
 	return sfd;
-
 }

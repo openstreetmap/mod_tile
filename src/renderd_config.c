@@ -15,7 +15,9 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <sys/un.h>
 #include <unistd.h>
@@ -45,6 +47,16 @@ static char *name_with_section(const char *section, const char *name)
 {
 	int len;
 	char *key;
+
+	if (!section) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "name_with_section: invalid section %s", section);
+		exit(7);
+	}
+
+	if (!name) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "name_with_section: invalid name %s", name);
+		exit(7);
+	}
 
 	len = asprintf(&key, "%s:%s", section, name);
 
@@ -104,7 +116,7 @@ static void process_config_string(const dictionary *ini, const char *section, co
 	free(key);
 }
 
-static char *process_config_string_with_trailing_slash(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
+static void process_config_string_with_trailing_slash(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
 {
 	char *key = name_with_section(section, name);
 	const char *src = iniparser_getstring(ini, key, notfound);
@@ -120,7 +132,10 @@ static char *process_config_string_with_trailing_slash(const dictionary *ini, co
 			exit(7);
 		}
 
+		g_logger(G_LOG_LEVEL_DEBUG, "\t\tAdded trailing slash to %s: '%s'", key, tempsrc);
+
 		copy_string(tempsrc, dest, maxlen);
+
 		free(tempsrc);
 	} else {
 		copy_string(src, dest, maxlen);
@@ -129,52 +144,52 @@ static char *process_config_string_with_trailing_slash(const dictionary *ini, co
 	free(key);
 }
 
-void free_map_section(xmlconfigitem map_section)
+void free_map_section(xmlconfigitem *map_section)
 {
-	free((void *)map_section.attribution);
-	free((void *)map_section.cors);
-	free((void *)map_section.description);
-	free((void *)map_section.file_extension);
-	free((void *)map_section.host);
-	free((void *)map_section.htcpip);
-	free((void *)map_section.mime_type);
-	free((void *)map_section.output_format);
-	free((void *)map_section.parameterization);
-	free((void *)map_section.server_alias);
-	free((void *)map_section.tile_dir);
-	free((void *)map_section.xmlfile);
-	free((void *)map_section.xmlname);
-	free((void *)map_section.xmluri);
-	bzero(&map_section, sizeof(xmlconfigitem));
+	free((void *)map_section->attribution);
+	free((void *)map_section->cors);
+	free((void *)map_section->description);
+	free((void *)map_section->file_extension);
+	free((void *)map_section->host);
+	free((void *)map_section->htcpip);
+	free((void *)map_section->mime_type);
+	free((void *)map_section->output_format);
+	free((void *)map_section->parameterization);
+	free((void *)map_section->server_alias);
+	free((void *)map_section->tile_dir);
+	free((void *)map_section->xmlfile);
+	free((void *)map_section->xmlname);
+	free((void *)map_section->xmluri);
+	bzero(map_section, sizeof(xmlconfigitem));
 }
 
 void free_map_sections(xmlconfigitem *map_sections)
 {
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
 		if (map_sections[i].xmlname != NULL) {
-			free_map_section(map_sections[i]);
+			free_map_section(&map_sections[i]);
 		}
 	}
 }
 
-void free_renderd_section(renderd_config renderd_section)
+void free_renderd_section(renderd_config *renderd_section)
 {
-	free((void *)renderd_section.iphostname);
-	free((void *)renderd_section.mapnik_font_dir);
-	free((void *)renderd_section.mapnik_plugins_dir);
-	free((void *)renderd_section.name);
-	free((void *)renderd_section.pid_filename);
-	free((void *)renderd_section.socketname);
-	free((void *)renderd_section.stats_filename);
-	free((void *)renderd_section.tile_dir);
-	bzero(&renderd_section, sizeof(renderd_config));
+	free((void *)renderd_section->iphostname);
+	free((void *)renderd_section->mapnik_font_dir);
+	free((void *)renderd_section->mapnik_plugins_dir);
+	free((void *)renderd_section->name);
+	free((void *)renderd_section->pid_filename);
+	free((void *)renderd_section->socketname);
+	free((void *)renderd_section->stats_filename);
+	free((void *)renderd_section->tile_dir);
+	bzero(renderd_section, sizeof(renderd_config));
 }
 
 void free_renderd_sections(renderd_config *renderd_sections)
 {
 	for (int i = 0; i < MAX_SLAVES; i++) {
 		if (renderd_sections[i].num_threads != 0) {
-			free_renderd_section(renderd_sections[i]);
+			free_renderd_section(&renderd_sections[i]);
 		}
 	}
 }
@@ -491,7 +506,7 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 {
 	extern int num_slave_threads;
 
-	extern renderd_config config;
+	extern renderd_config *config;
 	extern renderd_config config_slaves[MAX_SLAVES];
 	extern xmlconfigitem maps[XMLCONFIGS_MAX];
 
@@ -524,7 +539,7 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 	process_map_sections(ini, config_file_name, maps, config_slaves[active_renderd_section_num].tile_dir, config_slaves[active_renderd_section_num].num_threads);
 	iniparser_freedict(ini);
 
-	config = config_slaves[active_renderd_section_num];
+	config = &config_slaves[active_renderd_section_num];
 
 	for (int i = 0; i < MAX_SLAVES; i++) {
 		if (config_slaves[i].num_threads == 0) {
@@ -553,28 +568,28 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): tile_dir = '%s'", i, config_slaves[i].tile_dir);
 	}
 
-	if (config.ipport > 0) {
-		g_logger(log_level, "\trenderd: ip socket = '%s':%i", config.iphostname, config.ipport);
+	if (config->ipport > 0) {
+		g_logger(log_level, "\trenderd: ip socket = '%s:%i'", config->iphostname, config->ipport);
 	} else {
-		g_logger(log_level, "\trenderd: unix socketname = '%s'", config.socketname);
+		g_logger(log_level, "\trenderd: unix socketname = '%s'", config->socketname);
 	}
 
-	g_logger(log_level, "\trenderd: num_threads = '%i'", config.num_threads);
+	g_logger(log_level, "\trenderd: num_threads = '%i'", config->num_threads);
 
 	if (active_renderd_section_num == 0 && num_slave_threads > 0) {
 		g_logger(log_level, "\trenderd: num_slave_threads = '%i'", num_slave_threads);
 	}
 
-	g_logger(log_level, "\trenderd: pid_file = '%s'", config.pid_filename);
+	g_logger(log_level, "\trenderd: pid_file = '%s'", config->pid_filename);
 
-	if (strnlen(config.stats_filename, PATH_MAX)) {
-		g_logger(log_level, "\trenderd: stats_file = '%s'", config.stats_filename);
+	if (strnlen(config->stats_filename, PATH_MAX)) {
+		g_logger(log_level, "\trenderd: stats_file = '%s'", config->stats_filename);
 	}
 
-	g_logger(log_level, "\trenderd: tile_dir = '%s'", config.tile_dir);
-	g_logger(log_level, "\tmapnik:  font_dir = '%s'", config.mapnik_font_dir);
-	g_logger(log_level, "\tmapnik:  font_dir_recurse = '%s'", config.mapnik_font_dir_recurse ? "true" : "false");
-	g_logger(log_level, "\tmapnik:  plugins_dir = '%s'", config.mapnik_plugins_dir);
+	g_logger(log_level, "\trenderd: tile_dir = '%s'", config->tile_dir);
+	g_logger(log_level, "\tmapnik:  font_dir = '%s'", config->mapnik_font_dir);
+	g_logger(log_level, "\tmapnik:  font_dir_recurse = '%s'", config->mapnik_font_dir_recurse ? "true" : "false");
+	g_logger(log_level, "\tmapnik:  plugins_dir = '%s'", config->mapnik_plugins_dir);
 
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
 		if (maps[i].xmlname != NULL) {

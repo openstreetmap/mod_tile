@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 		}
 
 		if (!socketname_passed) {
-			socketname = strndup(config.socketname, PATH_MAX);
+			socketname = strndup(config->socketname, PATH_MAX);
 			socketname_passed = 1;
 		}
 	}

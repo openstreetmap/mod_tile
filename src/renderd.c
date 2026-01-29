@@ -122,7 +122,7 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 
 	// Upgrade version 1 and 2 to  version 3
 	if (req->ver == 1) {
-		strcpy(req->xmlname, "default");
+		strcpy(req->xmlname, XMLCONFIG_DEFAULT);
 	}
 
 	if (req->ver < 3) {
@@ -311,7 +311,7 @@ void *stats_writeout_thread(void * arg)
 	int noFailedAttempts = 0;
 	char tmpName[PATH_MAX];
 
-	snprintf(tmpName, sizeof(tmpName), "%s.tmp", config.stats_filename);
+	snprintf(tmpName, sizeof(tmpName), "%s.tmp", config->stats_filename);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Starting stats writeout thread: %lu", (unsigned long) pthread_self());
 
@@ -364,7 +364,7 @@ void *stats_writeout_thread(void * arg)
 
 			fclose(statfile);
 
-			if (rename(tmpName, config.stats_filename)) {
+			if (rename(tmpName, config->stats_filename)) {
 				g_logger(G_LOG_LEVEL_WARNING, "Failed to overwrite stats file: %i", errno);
 				noFailedAttempts++;
 
@@ -816,7 +816,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	fd = server_socket_init(&config);
+	fd = server_socket_init(config);
 
 #if 0
 
@@ -844,7 +844,7 @@ int main(int argc, char **argv)
 
 	sigaction(SIGTERM, &sigExitAction, NULL);
 
-	render_init(config.mapnik_plugins_dir, config.mapnik_font_dir, config.mapnik_font_dir_recurse);
+	render_init(config->mapnik_plugins_dir, config->mapnik_font_dir, config->mapnik_font_dir_recurse);
 
 	/* unless the command line said to run in foreground mode, fork and detach from terminal */
 	if (foreground) {
@@ -855,7 +855,7 @@ int main(int argc, char **argv)
 		}
 
 		/* write pid file */
-		FILE *pidfile = fopen(config.pid_filename, "w");
+		FILE *pidfile = fopen(config->pid_filename, "w");
 
 		if (pidfile) {
 			(void) fprintf(pidfile, "%d\n", getpid());
@@ -863,7 +863,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (strnlen(config.stats_filename, PATH_MAX - 1)) {
+	if (strnlen(config->stats_filename, PATH_MAX - 1)) {
 		if (pthread_create(&stats_thread, NULL, stats_writeout_thread, NULL)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn stats writeout thread");
 			close(fd);
@@ -873,9 +873,9 @@ int main(int argc, char **argv)
 		g_logger(G_LOG_LEVEL_INFO, "No stats file specified in config. Stats reporting disabled");
 	}
 
-	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
+	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config->num_threads);
 
-	for (i = 0; i < config.num_threads; i++) {
+	for (i = 0; i < config->num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
 			close(fd);
@@ -901,14 +901,14 @@ int main(int argc, char **argv)
 		for (i = 0; i < MAX_SLAVES; i++) {
 			if (active_renderd_section_num != i && config_slaves[i].num_threads != 0) {
 				g_logger(G_LOG_LEVEL_DEBUG, "Freeing unused renderd config section %i: %s", i, config_slaves[i].name);
-				free_renderd_section(config_slaves[i]);
+				free_renderd_section(&config_slaves[i]);
 			}
 		}
 	}
 
 	process_loop(fd);
 
-	unlink(config.socketname);
+	unlink(config->socketname);
 	free_map_sections(maps);
 	free_renderd_sections(config_slaves);
 	close(fd);

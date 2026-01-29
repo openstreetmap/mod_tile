@@ -74,7 +74,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
 	struct meta_layout *m = (struct meta_layout *)malloc(header_len);
 	size_t file_offset, tile_size;
 
-	meta_offset = xyzo_to_meta(path, sizeof(path), store->storage_ctx, xmlconfig, options, x, y, z);
+	meta_offset = xyzo_to_meta(path, sizeof(path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
 
 	fd = open(path, O_RDONLY);
 
@@ -189,7 +189,7 @@ static struct stat_info file_tile_stat(struct storage_backend * store, const cha
 		tile_stat.ctime = st_stat.st_ctime;
 	}
 
-	if (tile_stat.mtime < getPlanetTime(store->storage_ctx, xmlconfig)) {
+	if (tile_stat.mtime < getPlanetTime((char *)(store->storage_ctx), xmlconfig)) {
 		tile_stat.expired = 1;
 	} else {
 		tile_stat.expired = 0;
@@ -218,10 +218,11 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
 	xyzo_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
 	g_logger(G_LOG_LEVEL_DEBUG, "Creating and writing a metatile to %s", meta_path);
 
-	tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
+	tmp = (char *)malloc(sizeof(char) * strlen(meta_path) + 24);
 	snprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, (unsigned long) pthread_self());
 
 	if (mkdirp(tmp)) {
+		g_logger(G_LOG_LEVEL_WARNING, "Error creating directory %s: %s", tmp, strerror(errno));
 		free(tmp);
 		return -1;
 	}
@@ -270,7 +271,7 @@ static int file_metatile_expire(struct storage_backend * store, const char *xmlc
 	struct utimbuf touchTime;
 
 	//TODO: deal with options
-	xyz_to_meta(name, sizeof(name), store->storage_ctx, xmlconfig, x, y, z);
+	xyz_to_meta(name, sizeof(name), (char *)(store->storage_ctx), xmlconfig, x, y, z);
 
 	if (stat(name, &s) == 0) {// 0 is success
 		// tile exists on disk; mark it as expired
@@ -306,7 +307,7 @@ static int file_close_storage(struct storage_backend * store)
 struct storage_backend * init_storage_file(const char * tile_dir)
 {
 
-	struct storage_backend * store = malloc(sizeof(struct storage_backend));
+	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
 
 	if (store == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_file: Failed to allocate memory for storage backend");

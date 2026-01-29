@@ -114,7 +114,7 @@ struct projectionconfig *get_projection(const char *srs)
 
 	if (strstr(srs, "+proj=merc +a=6378137 +b=6378137") != NULL) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Using web mercator projection settings");
-		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+		prj = static_cast<struct projectionconfig *>(malloc(sizeof(struct projectionconfig)));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -20037508.3428;
@@ -123,7 +123,7 @@ struct projectionconfig *get_projection(const char *srs)
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Using plate carree projection settings");
-		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+		prj = static_cast<struct projectionconfig *>(malloc(sizeof(struct projectionconfig)));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -10018754.1714;
@@ -132,7 +132,7 @@ struct projectionconfig *get_projection(const char *srs)
 		prj->aspect_y = 1;
 	} else if (strcmp(srs, "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Using bng projection settings");
-		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+		prj = static_cast<struct projectionconfig *>(malloc(sizeof(struct projectionconfig)));
 		prj->bound_x0 = 0;
 		prj->bound_y0 = 0;
 		prj->bound_x1 = 700000;
@@ -141,7 +141,7 @@ struct projectionconfig *get_projection(const char *srs)
 		prj->aspect_y = 2;
 	} else {
 		g_logger(G_LOG_LEVEL_WARNING, "Unknown projection string, using web mercator as never the less. %s", srs);
-		prj = (struct projectionconfig *)malloc(sizeof(struct projectionconfig));
+		prj = static_cast<struct projectionconfig *>(malloc(sizeof(struct projectionconfig)));
 		prj->bound_x0 = -20037508.3428;
 		prj->bound_x1 = 20037508.3428;
 		prj->bound_y0 = -20037508.3428;
@@ -187,7 +187,7 @@ static void load_fonts(const char *font_dir, int recurse)
 static void parameterize_map_max_connections(Map &m, int num_threads)
 {
 	unsigned int i;
-	char *tmp = (char *)malloc(20);
+	char *tmp = static_cast<char *>(malloc(20));
 
 	for (i = 0; i < m.layer_count(); i++) {
 		layer &l = m.get_layer(i);
@@ -283,7 +283,7 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 
 	for (yy = 0; yy < render_size_ty; yy++) {
 		for (xx = 0; xx < render_size_tx; xx++) {
-			mapnik::image_view<mapnik::image<mapnik::rgba8_t >> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
+			mapnik::image_view<mapnik::image<mapnik::rgba8_t>> vw1(xx * map->tilesize, yy * map->tilesize, map->tilesize, map->tilesize, buf);
 			struct mapnik::image_view_any vw(vw1);
 			tiles.set(xx, yy, save_to_string(vw, map->output_format));
 		}
@@ -292,7 +292,7 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 	return cmdDone; // OK
 }
 
-#else  // METATILE
+#else // METATILE
 static enum protoCmd render(Map &m, const char *tile_dir, char *xmlname, projection &prj, int x, int y, int z, char *outputFormat)
 {
 	char filename[PATH_MAX];
