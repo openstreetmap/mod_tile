@@ -196,11 +196,12 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
 
-      - name: Set CPATH, ICU_ROOT & LIBRARY_PATH
+      - name: Set CPATH, ICU_ROOT, LIBRARY_PATH & TEST_PARALLEL_LEVEL
         run: |
           echo "CPATH=$(brew --prefix)/include" >> ${GITHUB_ENV}
           echo "ICU_ROOT=$(brew --prefix icu4c)" >> ${GITHUB_ENV}
           echo "LIBRARY_PATH=$(brew --prefix)/lib" >> ${GITHUB_ENV}
+          echo "TEST_PARALLEL_LEVEL=1" >> ${GITHUB_ENV}
 
       - name: Build `mod_tile`
         uses: ./.github/actions/build

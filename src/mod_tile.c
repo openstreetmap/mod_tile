@@ -119,6 +119,88 @@ static int error_message(request_rec *r, const char *format, ...)
 	return OK;
 }
 
+static apr_pool_t *create_buffer_pool(request_rec *r)
+{
+	apr_allocator_t *allocator;
+	apr_pool_t *pool;
+
+	if (apr_allocator_create(&allocator) != APR_SUCCESS) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+			      "Failed to create buffer allocator");
+	}
+
+	apr_allocator_max_free_set(allocator, 1);
+
+	if (apr_pool_create_ex(&pool, NULL, NULL, allocator) != APR_SUCCESS) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+			      "Failed to create buffer pool");
+		apr_allocator_destroy(allocator);
+	}
+
+	apr_allocator_owner_set(allocator, pool);
+
+	return pool;
+}
+
+static void destroy_buffer_pool(apr_pool_t *pool)
+{
+	apr_pool_destroy(pool);
+}
+
+static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
+{
+	apr_status_t rs;
+	int camped;
+
+	for (camped = 0; camped < MAXCAMP; camped++) {
+		rs = apr_global_mutex_trylock(mutex);
+
+		if (APR_STATUS_IS_EBUSY(rs)) {
+			apr_sleep(CAMPOUT);
+		} else if (rs == APR_SUCCESS) {
+			return 1;
+		} else if (APR_STATUS_IS_ENOTIMPL(rs)) {
+			/* If it's not implemented, just hang in the mutex. */
+			rs = apr_global_mutex_lock(mutex);
+
+			if (rs == APR_SUCCESS) {
+				return 1;
+			} else {
+				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Could not get hardlock");
+				return 0;
+			}
+		} else {
+			ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, "Unknown return status from trylock");
+			return 0;
+		}
+	}
+
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Timedout trylock");
+	return 0;
+}
+
+static int get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy)
+{
+	stats_data *stats;
+	unsigned long sizeof_config_elements;
+
+	if (get_global_lock(r, stats_mutex) != 0) {
+		// Copy over the global counter variable into
+		// local variables, that we can immediately
+		// release the lock again
+		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
+		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
+		*stats_copy = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
+		(*stats_copy)->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
+		(*stats_copy)->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
+		apr_global_mutex_unlock(stats_mutex);
+	} else {
+		return error_message(r, "Failed to acquire lock, can't copy stats");
+	}
+
+	return OK;
+}
+
 static int socket_init(request_rec *r)
 {
 	struct addrinfo hints;
@@ -554,38 +636,6 @@ static void add_expiry(request_rec *r, struct protocol *cmd)
 	timestr = (char *)apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
-}
-
-static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
-{
-	apr_status_t rs;
-	int camped;
-
-	for (camped = 0; camped < MAXCAMP; camped++) {
-		rs = apr_global_mutex_trylock(mutex);
-
-		if (APR_STATUS_IS_EBUSY(rs)) {
-			apr_sleep(CAMPOUT);
-		} else if (rs == APR_SUCCESS) {
-			return 1;
-		} else if (APR_STATUS_IS_ENOTIMPL(rs)) {
-			/* If it's not implemented, just hang in the mutex. */
-			rs = apr_global_mutex_lock(mutex);
-
-			if (rs == APR_SUCCESS) {
-				return 1;
-			} else {
-				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Could not get hardlock");
-				return 0;
-			}
-		} else {
-			ap_log_rerror(APLOG_MARK, APLOG_NOTICE, 0, r, "Unknown return status from trylock");
-			return 0;
-		}
-	}
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Timedout trylock");
-	return 0;
 }
 
 static int incRespCounter(int resp, request_rec *r, struct protocol *cmd, int layerNumber)
@@ -1301,7 +1351,8 @@ static int tile_handler_json(request_rec *r)
 		}
 	}
 
-	buf = (char *)apr_pcalloc(r->pool, 8 * 1024);
+	apr_pool_t *pool = create_buffer_pool(r);
+	buf = (char *)apr_pcalloc(pool, 8 * 1024);
 
 	snprintf(buf, 8 * 1024,
 		 "{\n"
@@ -1347,28 +1398,7 @@ static int tile_handler_json(request_rec *r)
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 	ap_rwrite(buf, len, r);
-
-	return OK;
-}
-
-static int _get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy)
-{
-	stats_data *stats;
-	unsigned long sizeof_config_elements;
-
-	if (get_global_lock(r, stats_mutex) != 0) {
-		// Copy over the global counter variable into
-		// local variables, that we can immediately
-		// release the lock again
-		sizeof_config_elements = sizeof(apr_uint64_t) * scfg->configs->nelts;
-		stats = (stats_data *)apr_shm_baseaddr_get(stats_shm);
-		*stats_copy = (stats_data *)apr_pmemdup(r->pool, stats, sizeof(stats_data));
-		(*stats_copy)->noResp200Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp200Layer, sizeof_config_elements);
-		(*stats_copy)->noResp404Layer = (apr_uint64_t *)apr_pmemdup(r->pool, stats->noResp404Layer, sizeof_config_elements);
-		apr_global_mutex_unlock(stats_mutex);
-	} else {
-		return error_message(r, "Failed to acquire lock, can't copy stats");
-	}
+	destroy_buffer_pool(pool);
 
 	return OK;
 }
@@ -1391,7 +1421,7 @@ static int tile_handler_mod_stats(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	_get_stats_copy(r, scfg, &local_stats);
+	get_stats_copy(r, scfg, &local_stats);
 
 	if (!local_stats) {
 		return OK;
@@ -1449,7 +1479,7 @@ static int tile_handler_metrics(request_rec *r)
 		return error_message(r, "Stats are not enabled for this server");
 	}
 
-	_get_stats_copy(r, scfg, &local_stats);
+	get_stats_copy(r, scfg, &local_stats);
 
 	if (!local_stats) {
 		return OK;
@@ -1556,7 +1586,8 @@ static int tile_handler_serve(request_rec *r)
 	gettimeofday(&start, NULL);
 
 	// FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
-	buf = (char *)apr_pcalloc(r->pool, tile_max);
+	apr_pool_t *pool = create_buffer_pool(r);
+	buf = (char *)apr_pcalloc(pool, tile_max);
 
 	if (!buf) {
 		if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
@@ -1607,6 +1638,8 @@ static int tile_handler_serve(request_rec *r)
 		incTimingCounter((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec), cmd->z, r);
 
 		if ((errstatus = ap_meets_conditions(r)) != OK) {
+			destroy_buffer_pool(pool);
+
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
 					      "Failed to increase response stats counter");
@@ -1615,6 +1648,7 @@ static int tile_handler_serve(request_rec *r)
 			return errstatus;
 		} else {
 			ap_rwrite(buf, len, r);
+			destroy_buffer_pool(pool);
 
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1625,6 +1659,7 @@ static int tile_handler_serve(request_rec *r)
 		}
 	}
 
+	destroy_buffer_pool(pool);
 	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to read tile from disk: %s", err_msg);
 
 	if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
