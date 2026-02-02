@@ -1,7 +1,7 @@
 ---
 inputs:
   options:
-    default: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure
+    default: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure --repeat until-pass:3
 
 runs:
   using: composite

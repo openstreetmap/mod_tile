@@ -10,6 +10,10 @@ runs:
       run: ./configure
       shell: bash --noprofile --norc -euxo pipefail {0}
 
+    - name: Override default `MAPNIK_PLUGINS_DIR`
+      run: echo "#define MAPNIK_PLUGINS_DIR \"$(find /usr -mindepth 1 -type d -name input | grep mapnik)\"" >> includes/config.h
+      shell: bash --noprofile --norc -euxo pipefail {0}
+
     - name: Run `make`
       run: make
       shell: bash --noprofile --norc -euxo pipefail {0}
