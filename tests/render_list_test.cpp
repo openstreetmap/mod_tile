@@ -248,6 +248,31 @@ TEST_CASE("render_list min/max int generator", "min/max int generator testing")
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
+
+	SECTION(option + " option is negative", "should return 1") {
+		std::vector<std::string> argv = {option, "-1"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >="));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("(-1 was provided)"));
+	}
+
+	SECTION(option + " option is float", "should return 1") {
+		std::vector<std::string> argv = {option, "1.23456789"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be an integer (1.23456789 was provided)"));
+	}
+
+	SECTION(option + " option is not an integer", "should return 1") {
+		std::vector<std::string> argv = {option, "invalid"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be an integer (invalid was provided)"));
+	}
 }
 
 TEST_CASE("render_list min/max lat generator", "min/max double generator testing")
@@ -269,6 +294,51 @@ TEST_CASE("render_list min/max lat generator", "min/max double generator testing
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
+
+	SECTION(option + " option is too large", "should return 1") {
+		std::vector<std::string> argv = {option, std::to_string(max + .1)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be <= 85.051100 (85.151100 was provided)"));
+	}
+
+	SECTION(option + " option is too small", "should return 1") {
+		std::vector<std::string> argv = {option, std::to_string(min - .1)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >= -85.051100 (-85.151100 was provided)"));
+	}
+
+	SECTION(option + " option is not a double", "should return 1") {
+		std::vector<std::string> argv = {option, "invalid"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be a double (invalid was provided)"));
+	}
+
+	SECTION(option + " option is positive with --help", "should return 0") {
+		std::vector<std::string> argv = {option, std::to_string(max), "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION(option + " option is negative with --help", "should return 0") {
+		std::vector<std::string> argv = {option, std::to_string(min), "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION(option + " option is double with --help", "should return 0") {
+		std::vector<std::string> argv = {option, "1.23456789", "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
 }
 
 TEST_CASE("render_list min/max lon generator", "min/max double generator testing")
@@ -286,6 +356,51 @@ TEST_CASE("render_list min/max lon generator", "min/max double generator testing
 
 	SECTION(option + " option is negative with --help", "should return 0") {
 		std::vector<std::string> argv = {option, std::to_string(min), "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION(option + " option is too large", "should return 1") {
+		std::vector<std::string> argv = {option, std::to_string(max + .1)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be <= 180.000000 (180.100000 was provided)"));
+	}
+
+	SECTION(option + " option is too small", "should return 1") {
+		std::vector<std::string> argv = {option, std::to_string(min - .1)};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >= -180.000000 (-180.100000 was provided)"));
+	}
+
+	SECTION(option + " option is not a double", "should return 1") {
+		std::vector<std::string> argv = {option, "invalid"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 1);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be a double (invalid was provided)"));
+	}
+
+	SECTION(option + " option is positive with --help", "should return 0") {
+		std::vector<std::string> argv = {option, std::to_string(max), "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION(option + " option is negative with --help", "should return 0") {
+		std::vector<std::string> argv = {option, std::to_string(min), "--help"};
+
+		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION(option + " option is double with --help", "should return 0") {
+		std::vector<std::string> argv = {option, "1.23456789", "--help"};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);

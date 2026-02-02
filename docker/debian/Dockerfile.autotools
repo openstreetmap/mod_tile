@@ -46,9 +46,11 @@ RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
 WORKDIR /tmp/mod_tile_src
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN export DESTDIR=/tmp/mod_tile && \
     ./autogen.sh && \
     ./configure && \
+    echo "#define MAPNIK_PLUGINS_DIR \"$(find /usr -mindepth 1 -type d -name input | grep mapnik)\"" >> includes/config.h && \
     make DESTDIR=${DESTDIR} install install-mod_tile
 RUN make test
 

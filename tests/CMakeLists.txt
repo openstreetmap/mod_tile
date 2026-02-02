@@ -221,8 +221,8 @@ add_test(
 )
 
 add_test(
-  NAME renderd_config_test
-  COMMAND renderd_config_test
+  NAME unit_tests
+  COMMAND unit_tests
 )
 
 foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
@@ -1254,15 +1254,6 @@ target_include_directories(catch_test_common_o PRIVATE ${GLIB_INCLUDE_DIRS})
 
 #-----------------------------------------------------------------------------
 #
-#  renderd_config_test_helper
-#
-#-----------------------------------------------------------------------------
-
-# Added by ${PROJECT_SOURCE_DIR}/src/CMakeLists.txt
-# (in order to reduce redundant source and library definitions)
-
-#-----------------------------------------------------------------------------
-#
 #  Additional options for targets added hereafter
 #
 #-----------------------------------------------------------------------------
@@ -1327,15 +1318,4 @@ add_executable(render_speedtest_test
 add_executable(renderd_test
   $<TARGET_OBJECTS:catch_main_o>
   renderd_test.cpp
-)
-
-#-----------------------------------------------------------------------------
-#
-#  renderd_config_test
-#
-#-----------------------------------------------------------------------------
-
-add_executable(renderd_config_test
-  $<TARGET_OBJECTS:catch_main_o>
-  renderd_config_test.cpp
 )

@@ -26,13 +26,12 @@ bin_PROGRAMS = \
 	render_speedtest
 noinst_PROGRAMS = \
 	gen_tile_test \
-	renderd_config_test_helper \
-	renderd_config_test \
 	renderd_test \
 	render_expired_test \
 	render_list_test \
 	render_old_test \
-	render_speedtest_test
+	render_speedtest_test \
+	unit_tests
 
 man_MANS = \
 	docs/man/renderd.1 \
@@ -60,14 +59,14 @@ renderd_CXXFLAGS = $(MAPNIK_CFLAGS)
 renderd_DATA = etc/renderd/renderd.conf
 renderd_LDADD = $(PTHREAD_CFLAGS) $(MAPNIK_LDFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
-render_speedtest_SOURCES = \
-	src/render_speedtest.cpp \
-	src/g_logger.c \
+render_expired_SOURCES = \
+	src/render_expired.c \
 	src/protocol_helper.c \
 	src/render_submit_queue.c \
 	src/renderd_config.c \
-	src/sys_utils.c
-render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
+	src/sys_utils.c \
+	$(STORE_SOURCES)
+render_expired_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
 render_list_SOURCES = \
 	src/render_list.c \
@@ -78,15 +77,6 @@ render_list_SOURCES = \
 	$(STORE_SOURCES)
 render_list_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
 
-render_expired_SOURCES = \
-	src/render_expired.c \
-	src/protocol_helper.c \
-	src/render_submit_queue.c \
-	src/renderd_config.c \
-	src/sys_utils.c \
-	$(STORE_SOURCES)
-render_expired_LDADD = $(PTHREAD_CFLAGS) $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS)
-
 render_old_SOURCES = \
 	src/render_old.c \
 	src/g_logger.c \
@@ -96,6 +86,15 @@ render_old_SOURCES = \
 	src/store_file_utils.c \
 	src/sys_utils.c
 render_old_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
+
+render_speedtest_SOURCES = \
+	src/render_speedtest.cpp \
+	src/g_logger.c \
+	src/protocol_helper.c \
+	src/render_submit_queue.c \
+	src/renderd_config.c \
+	src/sys_utils.c
+render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
@@ -109,16 +108,6 @@ gen_tile_test_SOURCES = \
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED
 gen_tile_test_CXXFLAGS = $(renderd_CXXFLAGS)
 gen_tile_test_LDADD = $(renderd_LDADD) catch_test_common.o
-
-renderd_config_test_helper_SOURCES = \
-	tests/renderd_config_test_helper.cpp \
-	src/g_logger.c \
-	src/renderd_config.c
-renderd_config_test_helper_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) catch_main.o
-
-renderd_config_test_SOURCES = \
-	tests/renderd_config_test.cpp
-renderd_config_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
 
 renderd_test_SOURCES = \
 	tests/renderd_test.cpp
@@ -140,18 +129,23 @@ render_speedtest_test_SOURCES = \
 	tests/render_speedtest_test.cpp
 render_speedtest_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
 
+unit_tests_SOURCES = \
+	tests/unit_tests.cpp
+unit_tests_CXXFLAGS = -Isrc
+unit_tests_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) $(MAPNIK_LDFLAGS) $(PTHREAD_CFLAGS) catch_main.o catch_test_common.o
+
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
 COMMA=,
 
-test: gen_tile_test renderd_config_test_helper renderd_config_test renderd_test render_expired_test render_list_test render_old_test render_speedtest_test
+test: gen_tile_test renderd_test render_expired_test render_list_test render_old_test render_speedtest_test unit_tests
 	./gen_tile_test
-	./renderd_config_test
 	./renderd_test
 	./render_expired_test
 	./render_list_test
 	./render_old_test
 	./render_speedtest_test
+	./unit_tests
 
 all-local:
 	$(APXS) -c $(DEF_LDLIBS) $(AM_CFLAGS) \

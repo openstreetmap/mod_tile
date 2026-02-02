@@ -20,4 +20,6 @@
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
-int foreground = 1;
+extern "C" {
+	int foreground = 1;
+}
