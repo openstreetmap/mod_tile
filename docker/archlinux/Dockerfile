@@ -35,6 +35,7 @@ RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cac
         git \
         glib2 \
         iniparser \
+        jemalloc \
         lcov \
         libmemcached \
         make \
@@ -53,7 +54,8 @@ RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL &
         -DCMAKE_INSTALL_PREFIX:PATH=/usr \
         -DCMAKE_INSTALL_RUNSTATEDIR:PATH=/run \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
-        -DENABLE_TESTS:BOOL=ON && \
+        -DENABLE_TESTS:BOOL=ON \
+        -DMALLOC_LIB:STRING=jemalloc && \
     cmake --build .
 RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
     ctest --output-on-failure
@@ -76,6 +78,7 @@ RUN --mount=type=cache,sharing=locked,id=archlinux:${archlinux_version}-/var/cac
         curl \
         glib2 \
         iniparser \
+        jemalloc \
         libmemcached \
         mapnik \
         memcached \
