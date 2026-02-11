@@ -20,7 +20,7 @@ runs:
       if: failure()
 
     - name: Upload `mod_tile` test artifacts on failure
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Artifacts - ${{ env.TEST_ARTIFACT_NAME }}
         path: build/tests

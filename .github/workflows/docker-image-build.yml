@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Lint with hadolint
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: Dockerfile*
           failure-threshold: warning
@@ -34,8 +34,8 @@ jobs:
           - archlinux
           - debian-12
           - debian-13
-          - fedora-41
           - fedora-42
+          - fedora-43
           - opensuse-leap-15
           - opensuse-leap-16
           - ubuntu-22.04
@@ -60,7 +60,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build & Start
         run: docker compose up --build --detach ${{ matrix.service-name }}

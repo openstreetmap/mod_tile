@@ -1,49 +1,37 @@
 #!/usr/bin/env sh
 
-if [ ! -f /opt/styles/mapnik.xml ]
-then
-    git clone https://github.com/gravitystorm/openstreetmap-carto.git --depth 1 /opt/openstreetmap-carto
-
-    cp --archive /opt/openstreetmap-carto/patterns /opt/openstreetmap-carto/symbols /opt/styles/
-
-    python3 /opt/openstreetmap-carto/scripts/get-external-data.py --cache --config /opt/openstreetmap-carto/external-data.yml --data /opt/data
-
-    cd /opt && /opt/openstreetmap-carto/scripts/get-fonts.sh && cd -
-
-    psql --command "CREATE EXTENSION postgis;" --dbname "${PGDATABASE}" --host "${PGHOST}" --user "${PGUSER}"
-    psql --command "CREATE EXTENSION hstore;" --dbname "${PGDATABASE}" --host "${PGHOST}" --user "${PGUSER}"
-    psql --command "ALTER TABLE geometry_columns OWNER TO ${PGUSER};" --dbname "${PGDATABASE}" --host "${PGHOST}" --user "${PGUSER}"
-    psql --command "ALTER TABLE spatial_ref_sys OWNER TO ${PGUSER};" --dbname "${PGDATABASE}" --host "${PGHOST}" --user "${PGUSER}"
-
-    if [ ! -f /opt/data/region.osm.pbf ]
-    then
-        curl --location "${DOWNLOAD_PBF:-http://download.geofabrik.de/asia/vietnam-latest.osm.pbf}" --output /opt/data/region.osm.pbf
-    fi
-
-    osm2pgsql \
-        --create \
-        --database "${PGDATABASE}" \
-        --host "${PGHOST}" \
-        --hstore \
-        --number-processes "$(nproc)" \
-        --slim \
-        --tag-transform-script /opt/openstreetmap-carto/openstreetmap-carto.lua \
-        --user "${PGUSER}" \
-        -G \
-        -S /opt/openstreetmap-carto/openstreetmap-carto.style \
-        /opt/data/region.osm.pbf
-
-    psql --dbname "${PGDATABASE}" --file /opt/openstreetmap-carto/indexes.sql --host "${PGHOST}" --user "${PGUSER}"
-
-    npm install --global carto
-    carto /opt/openstreetmap-carto/project.mml > /opt/styles/mapnik.xml
-fi
+export DATADIR=/opt/data
+export FONTDIR=/opt/fonts
+export MAPNIK_XML=/opt/styles/mapnik.xml
 
 sed -i \
-    -e 's#/usr/share/renderd/example-map/mapnik.xml#/opt/styles/mapnik.xml#g' \
-    -e 's/pid_file=/num_threads=-1\npid_file=/g' \
-    -e 's#font_dir=.*#font_dir=/opt/fonts#g' \
+    -e "s#^xml=.*#xml=${MAPNIK_XML}#Ig" \
+    -e "s#^pid_file=#num_threads=-1\npid_file=#Ig" \
+    -e "s#^font_dir=.*#font_dir=${FONTDIR}#Ig" \
     /etc/renderd.conf
+
+if [ ! -f ${MAPNIK_XML} ]
+then
+    export OPENSTREETMAP_CARTO_DIR=/opt/openstreetmap-carto
+    git clone https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1 ${OPENSTREETMAP_CARTO_DIR}
+
+    cp --archive ${OPENSTREETMAP_CARTO_DIR}/patterns ${OPENSTREETMAP_CARTO_DIR}/symbols /opt/styles/
+
+    export EXTERNAL_DATA_SCRIPT_FLAGS="--cache --config ${OPENSTREETMAP_CARTO_DIR}/external-data.yml --data ${DATADIR} --no-update"
+    export OSM2PGSQL_DATAFILE="${DATADIR}/region.osm.pbf"
+
+    if [ ! -f ${OSM2PGSQL_DATAFILE} ]
+    then
+        curl --location "${DOWNLOAD_PBF:-http://download.geofabrik.de/asia/vietnam-latest.osm.pbf}" --output ${OSM2PGSQL_DATAFILE}
+    fi
+
+    cd ${OPENSTREETMAP_CARTO_DIR}
+
+    sh scripts/docker-startup.sh import
+
+    npm install --global carto
+    carto ${OPENSTREETMAP_CARTO_DIR}/project.mml > ${MAPNIK_XML}
+fi
 
 apachectl -e debug -k start
 renderd --foreground

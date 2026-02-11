@@ -223,6 +223,12 @@ services:
       <<: *build_defaults_fedora
       args:
         fedora_version: "42"
+  fedora-43:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults_fedora
+      args:
+        fedora_version: "43"
   fedora-rawhide:
     <<: *service_defaults
     build:
@@ -316,7 +322,7 @@ services:
       <<: *build_defaults_ubuntu
       args:
         libiniparser_version: 4
-        libmapnik_version: "4.1"
+        libmapnik_version: "4.2"
         runner_additional_packages: >-
           curl
           gdal-bin
