@@ -62,7 +62,7 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Upload `mod_tile` coverage artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Coverage Artifacts - ${{ env.COVERAGE_ARTIFACT_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
         path: |

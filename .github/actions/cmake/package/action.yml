@@ -33,7 +33,7 @@ runs:
       working-directory: build
 
     - name: Upload `mod_tile` package artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         if-no-files-found: ignore
         name: Package Artifacts - ${{ env.CPACK_PACKAGE_FILE_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
