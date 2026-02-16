@@ -389,21 +389,27 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 			s = poll(&rx, 1, timeout * 1000);
 
 			if (s > 0) {
-				bzero(&resp, sizeof(struct protocol));
-				ret = recv(fd, &resp + already_read, want - already_read, 0);
+				ret = recv(fd, (char *)&resp + already_read, want - already_read, 0);
 
-				// a return value of <= 0 means that there is some kind of error
+				// a return value of <= 0 means that there is some kind of error or EOF
 				if (ret <= 0) {
+					// handle interrupted system calls gracefully
+					if (ret == -1 && errno == EINTR) {
+						continue;
+					}
+
 					ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "request_tile: Failed to read response from rendering socket: %s",
-						strerror(errno));
+						      strerror(errno));
 					break;
 				}
 
 				// other return values mean that some bytes were read, not necessary as many as we wanted
 				already_read += ret;
+
 				// first integer in message is protocol version
-				if (already_read >= sizeof(int))
+				if (already_read >= sizeof(int)) {
 					want = (resp.ver == 3) ? sizeof(struct protocol) : sizeof(struct protocol_v2);
+				}
 
 				// do we have a complete packet?
 				if (already_read == want) {
@@ -417,21 +423,22 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 						}
 					} else {
 						ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-								  "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
-								  resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
+							      "Response does not match request: xml(%s,%s) z(%d,%d) x(%d,%d) y(%d,%d)", cmd->xmlname,
+							      resp.xmlname, cmd->z, resp.z, cmd->x, resp.x, cmd->y, resp.y);
+						break;
 					}
 				}
 			} else if (s == 0) {
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-						"request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
-						cmd->xmlname, cmd->z, cmd->x, cmd->y,
-						timeout);
+					      "request_tile: Request xml(%s) z(%d) x(%d) y(%d) could not be rendered in %i seconds",
+					      cmd->xmlname, cmd->z, cmd->x, cmd->y,
+					      timeout);
 				break;
 			} else {
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-						"request_tile: Request xml(%s) z(%d) x(%d) y(%d) timeout %i seconds failed with reason: %s",
-						cmd->xmlname, cmd->z, cmd->x, cmd->y,
-						timeout, strerror(errno));
+					      "request_tile: Request xml(%s) z(%d) x(%d) y(%d) timeout %i seconds failed with reason: %s",
+					      cmd->xmlname, cmd->z, cmd->x, cmd->y,
+					      timeout, strerror(errno));
 				break;
 			}
 		}
