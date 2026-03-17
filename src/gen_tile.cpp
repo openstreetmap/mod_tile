@@ -208,7 +208,7 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig *map)
 {
 	int oob, limit;
 
-	// Validate tile co-ordinates
+	// Validate tile coordinates
 	oob = (z < map->minzoom || z > map->maxzoom);
 
 	if (!oob) {

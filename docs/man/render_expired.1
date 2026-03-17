@@ -22,7 +22,7 @@ Render_expired has three potential strategies of how to expire map tiles:
 .BR
 2) Delete tiles: Render_expired can delete expired tiles from disk. The next time the tile then gets viewed it will get re-rendered, assuming a dynamic rendering setup like mod_tile is installed
 .BR
-3) Mark tiles as dirty: A dynamic tile rendering system like mod_tile decides if a tile needs re-rendering by comparing the timestamp of the tile with the time of the planet-import-complet timestamp. Render_expired can set the timestamp of a tile back many years, ensuring it is older than the db import time, thus causeing the tile to be considered dirty and in need for re-render.
+3) Mark tiles as dirty: A dynamic tile rendering system like mod_tile decides if a tile needs re-rendering by comparing the timestamp of the tile with the time of the planet-import-complet timestamp. Render_expired can set the timestamp of a tile back many years, ensuring it is older than the db import time, thus causing the tile to be considered dirty and in need for re-render.
 .PP
 These three strategies can be combined and applied at different zoom levels. E.g. Zoom level 17-18 get deleted, z11 - z16 get marked dirty and z6 - z10 get rendered directly.
 .PP

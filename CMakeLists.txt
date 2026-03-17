@@ -93,7 +93,7 @@ if(NOT HAVE_POW)
 endif()
 
 if(NOT MALLOC_LIB STREQUAL "libc")
-  message(STATUS "Using '${MALLOC_LIB}' for memory managment")
+  message(STATUS "Using '${MALLOC_LIB}' for memory management")
   if(MALLOC_LIB STREQUAL "jemalloc")
     # jemalloc (http://jemalloc.net)
     find_library(MALLOC_LIBRARY jemalloc REQUIRED)
