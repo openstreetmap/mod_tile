@@ -33,7 +33,7 @@
 #include "store.h"
 
 // macros handling our tile marking arrays (these are essentially bit arrays
-// that have one bit for each tile on the repsective zoom level; since we only
+// that have one bit for each tile on the respective zoom level; since we only
 // need them for meta tile levels, even if someone were to render level 20,
 // we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
 // levels) - this saves us the hassle of working with a tree structure.
@@ -417,7 +417,7 @@ int main(int argc, char **argv)
 			char name[PATH_MAX];
 
 			// don't do anything if this tile was already requested.
-			// renderd does keep a list internally to avoid enqueing the same tile
+			// renderd does keep a list internally to avoid enqueuing the same tile
 			// twice but in case it has already rendered the tile we don't want to
 			// cause extra work.
 			if (TILE_REQUESTED(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels)) {

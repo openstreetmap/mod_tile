@@ -1154,7 +1154,7 @@ set(DIRECTIVE_ERRORS
   "AddTileConfig error, URL path not defined"
   "AddTileConfig error, name of renderd config not defined"
   "AddTileConfig error, the configured zoom level lies outside of the range supported by this server"
-  "LoadTileConfigFile takes one argument, load an entire renderd config file"
+  "LoadTileConfigFile takes one argument, Load an entire renderd config file"
   "LoadTileConfigFile error, unable to open config file"
   "ModTileCacheDurationDirty argument must be an integer"
   "ModTileCacheDurationLowZoom second argument must be an integer"

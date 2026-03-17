@@ -873,7 +873,7 @@ static int delay_allowed(request_rec *r, enum tileState state)
 	};
 
 	if (memcmp(&(delayp->users[hashkey].ip_addr), &ip, sizeof(struct in6_addr)) == 0) {
-		/* Repeat the process to determine if we have tockens in the bucket, as the fillup only runs once a client hits an empty bucket,
+		/* Repeat the process to determine if we have tokens in the bucket, as the fillup only runs once a client hits an empty bucket,
 		   so in the mean time, the bucket might have been filled */
 		for (j = 0; j < 3; j++) {
 			// ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking delays: Current poolsize: %i tiles and %i renders\n", delayp->users[hashkey].available_tiles, delayp->users[hashkey].available_render_req);
@@ -1385,7 +1385,7 @@ static int tile_handler_json(request_rec *r)
 	len = strlen(buf);
 
 	/*
-	 * Add HTTP headers. Make this file cachable for 1 week
+	 * Add HTTP headers. Make this file cacheable for 1 week
 	 */
 	md5 = ap_md5_binary(r->pool, (unsigned char *)buf, len);
 	apr_table_setn(r->headers_out, "ETag",
@@ -2437,39 +2437,39 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 }
 
 static const command_rec tile_cmds[] = {
-	AP_INIT_FLAG("ModTileBulkMode", mod_tile_enable_bulk_mode, NULL, OR_OPTIONS, "On Off - make all requests to renderd with bulk render priority, never mark tiles dirty"),
-	AP_INIT_FLAG("ModTileEnableDirtyURL", mod_tile_enable_dirty_url, NULL, OR_OPTIONS, "On Off - whether to handle .../dirty urls "),
-	AP_INIT_FLAG("ModTileEnableStats", mod_tile_enable_stats, NULL, OR_OPTIONS, "On Off - enable of keeping stats about what mod_tile is serving"),
-	AP_INIT_FLAG("ModTileEnableStatusURL", mod_tile_enable_status_url, NULL, OR_OPTIONS, "On Off - whether to handle .../status urls "),
-	AP_INIT_FLAG("ModTileEnableTileThrottling", mod_tile_enable_throttling, NULL, OR_OPTIONS, "On Off - enable of throttling of IPs that excessively download tiles such as scrapers"),
-	AP_INIT_TAKE1("LoadTileConfigFile", load_tile_config, NULL, OR_OPTIONS, "load an entire renderd config file"),
+	AP_INIT_FLAG("ModTileBulkMode", mod_tile_enable_bulk_mode, NULL, OR_OPTIONS, "On Off - Make all requests to renderd with bulk render priority, never mark tiles dirty"),
+	AP_INIT_FLAG("ModTileEnableDirtyURL", mod_tile_enable_dirty_url, NULL, OR_OPTIONS, "On Off - Whether to handle .../dirty urls"),
+	AP_INIT_FLAG("ModTileEnableStats", mod_tile_enable_stats, NULL, OR_OPTIONS, "On Off - Enable keeping stats about what mod_tile is serving"),
+	AP_INIT_FLAG("ModTileEnableStatusURL", mod_tile_enable_status_url, NULL, OR_OPTIONS, "On Off - Whether to handle .../status urls"),
+	AP_INIT_FLAG("ModTileEnableTileThrottling", mod_tile_enable_throttling, NULL, OR_OPTIONS, "On Off - Enable throttling of IPs that excessively download tiles such as scrapers"),
+	AP_INIT_TAKE1("LoadTileConfigFile", load_tile_config, NULL, OR_OPTIONS, "Load an entire renderd config file"),
 	AP_INIT_TAKE1("ModTileCacheDurationDirty", mod_tile_cache_duration_dirty_config, NULL, OR_OPTIONS, "Set the cache expiry for serving dirty tiles"),
 	AP_INIT_TAKE1("ModTileCacheDurationMax", mod_tile_cache_duration_max_config, NULL, OR_OPTIONS, "Set the maximum cache expiry in seconds"),
 	AP_INIT_TAKE1("ModTileCacheDurationMinimum", mod_tile_cache_duration_minimum_config, NULL, OR_OPTIONS, "Set the minimum cache expiry"),
-	AP_INIT_TAKE1("ModTileCacheExtendedDuration", mod_tile_cache_extended_duration_config, NULL, OR_OPTIONS, "set length of extended period caching"),
-	AP_INIT_TAKE1("ModTileCacheExtendedHostName", mod_tile_cache_extended_hostname_config, NULL, OR_OPTIONS, "set hostname for extended period caching"),
+	AP_INIT_TAKE1("ModTileCacheExtendedDuration", mod_tile_cache_extended_duration_config, NULL, OR_OPTIONS, "Set length of extended period caching"),
+	AP_INIT_TAKE1("ModTileCacheExtendedHostName", mod_tile_cache_extended_hostname_config, NULL, OR_OPTIONS, "Set hostname for extended period caching"),
 	AP_INIT_TAKE1("ModTileCacheLastModifiedFactor", mod_tile_cache_duration_last_modified_factor_config, NULL, OR_OPTIONS, "Set the factor by which the last modified determines cache expiry"),
-	AP_INIT_TAKE1("ModTileEnableTileThrottlingXForward", mod_tile_enable_throttling_xforward, NULL, OR_OPTIONS, "0 1 2 - use X-Forwarded-For http header to determine IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"),
+	AP_INIT_TAKE1("ModTileEnableTileThrottlingXForward", mod_tile_enable_throttling_xforward, NULL, OR_OPTIONS, "0 1 2 - Use X-Forwarded-For http header to determine IP for throttling when available. 0 => off, 1 => use first entry, 2 => use last entry of the caching chain"),
 	AP_INIT_TAKE1("ModTileMaxLoadMissing", mod_tile_max_load_missing_config, NULL, OR_OPTIONS, "Set max load for rendering missing tiles"),
 	AP_INIT_TAKE1("ModTileMaxLoadOld", mod_tile_max_load_old_config, NULL, OR_OPTIONS, "Set max load for rendering old tiles"),
 	AP_INIT_TAKE1("ModTileMissingRequestTimeout", mod_tile_request_timeout_priority_config, NULL, OR_OPTIONS, "Set timeout in seconds on missing mod_tile requests"),
 	AP_INIT_TAKE1("ModTileRenderdSocketName", mod_tile_renderd_socket_name_config, NULL, OR_OPTIONS, "Set name of unix domain socket for connecting to rendering daemon"),
 	AP_INIT_TAKE1("ModTileRequestTimeout", mod_tile_request_timeout_config, NULL, OR_OPTIONS, "Set timeout in seconds on mod_tile requests"),
 	AP_INIT_TAKE1("ModTileTileDir", mod_tile_tile_dir_config, NULL, OR_OPTIONS, "Set name of tile cache directory"),
-	AP_INIT_TAKE1("ModTileVeryOldThreshold", mod_tile_very_old_threshold_config, NULL, OR_OPTIONS, "set the time threshold from when an outdated tile ist considered very old and rendered with slightly higher priority."),
+	AP_INIT_TAKE1("ModTileVeryOldThreshold", mod_tile_very_old_threshold_config, NULL, OR_OPTIONS, "Set the time threshold from when an outdated tile is considered very old and rendered with slightly higher priority."),
 	AP_INIT_TAKE2("ModTileCacheDurationLowZoom", mod_tile_cache_duration_low_config, NULL, OR_OPTIONS, "Set the minimum cache duration and zoom level for low zoom tiles"),
 	AP_INIT_TAKE2("ModTileCacheDurationMediumZoom", mod_tile_cache_duration_medium_config, NULL, OR_OPTIONS, "Set the minimum cache duration and zoom level for medium zoom tiles"),
 	AP_INIT_TAKE2("ModTileRenderdSocketAddr", mod_tile_renderd_socket_address_config, NULL, OR_OPTIONS, "Set address and port of the TCP socket for connecting to rendering daemon"),
 	AP_INIT_TAKE2("ModTileThrottlingRenders", mod_tile_delaypool_render_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
 	AP_INIT_TAKE2("ModTileThrottlingTiles", mod_tile_delaypool_tiles_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
-	AP_INIT_TAKE3("AddTileMimeConfig", add_tile_mime_config, NULL, OR_OPTIONS, "path, name of renderd config and file extension to use"),
-	AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "path, name of renderd config and optional key-value pairs to use"),
+	AP_INIT_TAKE3("AddTileMimeConfig", add_tile_mime_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and file extension to use"),
+	AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and optional key-value pairs to use"),
 	{NULL}
 };
 
 module AP_MODULE_DECLARE_DATA tile_module = {
 STANDARD20_MODULE_STUFF,
-NULL,		/* dir config creater */
+NULL,		/* dir config creator */
 NULL,		/* dir merger --- default is to override */
 create_tile_config, /* server config */
 merge_tile_config,	/* merge server config */

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Plugin to monitor queue length of tiles submited for rendering in renderd
+# Plugin to monitor queue length of tiles submitted for rendering in renderd
 #
 # Parameters:
 #

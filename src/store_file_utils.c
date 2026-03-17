@@ -101,7 +101,7 @@ static int check_xyz(int x, int y, int z)
 {
 	int oob, limit;
 
-	// Validate tile co-ordinates
+	// Validate tile coordinates
 	oob = (z < 0 || z > MAX_ZOOM);
 
 	if (!oob) {
@@ -220,7 +220,7 @@ void xyz_to_path(char *path, size_t len, const char *tile_dir, const char *xmlco
 {
 #ifdef DIRECTORY_HASH
 	// We attempt to cluster the tiles so that a 16x16 square of tiles will be in a single directory
-	// Hash stores our 40 bit result of mixing the 20 bits of the x & y co-ordinates
+	// Hash stores our 40 bit result of mixing the 20 bits of the x & y coordinates
 	// 4 bits of x & y are used per byte of output
 	unsigned char i, hash[5];
 

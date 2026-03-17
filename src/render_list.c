@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 				break;
 
 			case 'G': /* -G, --max-lat */
-				max_lat = min_max_double_opt(optarg, "maximum latitute", -85.0511, 85.0511);
+				max_lat = min_max_double_opt(optarg, "maximum latitude", -85.0511, 85.0511);
 				max_lat_passed = 1;
 				break;
 
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
 				break;
 
 			case 'g': /* -g, --min-lat */
-				min_lat = min_max_double_opt(optarg, "minimum latitute", -85.0511, 85.0511);
+				min_lat = min_max_double_opt(optarg, "minimum latitude", -85.0511, 85.0511);
 				min_lat_passed = 1;
 				break;
 

@@ -154,7 +154,7 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 	item->fd = (req->cmd == cmdDirty) ? FD_INVALID : fd;
 
 #ifdef METATILE
-	/* Round down request co-ordinates to the neareast N (should be a power of 2)
+	/* Round down request coordinates to the nearest N (should be a power of 2)
 	 * Note: request path is no longer consistent but this will be recalculated
 	 * when the metatile is being rendered.
 	 */
@@ -574,7 +574,7 @@ int server_socket_init(renderd_config *sConfig)
  * the slave renderer. It then blocks and waits for the response with no timeout.
  * As it only sends one request at a time (there are as many slave_thread threads as there
  * are rendering threads on the slaves) nothing gets queued on the slave and should get
- * rendererd immediately. Thus overall, requests should be nicely load balanced between
+ * rendered immediately. Thus overall, requests should be nicely load balanced between
  * all the rendering threads available both locally and in the slaves.
  */
 void *slave_thread(void * arg)
