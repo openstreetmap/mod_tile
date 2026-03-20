@@ -278,7 +278,7 @@ static int file_metatile_expire(struct storage_backend * store, const char *xmlc
 		if (!gmtime_r(&(s.st_mtime), &touchCalendar)) {
 			touchTime.modtime = 315558000;
 		} else {
-			if (touchCalendar.tm_year > 105) { // Tile hasn't already been marked as expired
+			if (touchCalendar.tm_year > 115) { // Tile hasn't already been marked as expired
 				touchCalendar.tm_year -= 20; //Set back by 20 years, to keep the creation time as reference.
 				touchTime.modtime = mktime(&touchCalendar);
 			} else {
