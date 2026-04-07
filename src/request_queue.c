@@ -491,6 +491,15 @@ struct request_queue * request_queue_init()
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
 	queue->hashidxSize = HASHIDX_SIZE;
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
+
+	if (queue->item_hashidx == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to allocate memory for request queue hash index");
+		pthread_cond_destroy(&(queue->qCond));
+		pthread_mutex_destroy(&(queue->qLock));
+		free(queue);
+		return NULL;
+	}
+
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;

@@ -300,6 +300,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 
 	if (res != CURLE_OK) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));
+		free(ctx->baseurl);
 		free(ctx);
 		free(store);
 		return NULL;
@@ -309,6 +310,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 
 	if (!ctx->ctx) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise curl");
+		free(ctx->baseurl);
 		free(ctx);
 		free(store);
 		return NULL;

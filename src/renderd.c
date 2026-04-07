@@ -589,7 +589,20 @@ void *slave_thread(void * arg)
 	struct protocol * req_slave;
 
 	req_slave = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (req_slave == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for req_slave");
+		return NULL;
+	}
+
 	resp = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (resp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for resp");
+		free(req_slave);
+		return NULL;
+	}
+
 	bzero(req_slave, sizeof(struct protocol));
 	bzero(resp, sizeof(struct protocol));
 

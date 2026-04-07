@@ -218,7 +218,13 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
 	xyzo_to_meta(meta_path, sizeof(meta_path), (char *)(store->storage_ctx), xmlconfig, options, x, y, z);
 	g_logger(G_LOG_LEVEL_DEBUG, "Creating and writing a metatile to %s", meta_path);
 
-	tmp = malloc(sizeof(char) * strlen(meta_path) + 24);
+	tmp = malloc(strlen(meta_path) + 24);
+
+	if (tmp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "file_metatile_write: failed to allocate memory for temp path");
+		return -1;
+	}
+
 	snprintf(tmp, strlen(meta_path) + 24, "%s.%lu", meta_path, (unsigned long) pthread_self());
 
 	if (mkdirp(tmp)) {
@@ -245,7 +251,14 @@ static int file_metatile_write(struct storage_backend * store, const char *xmlco
 	}
 
 	close(fd);
-	rename(tmp, meta_path);
+
+	if (rename(tmp, meta_path) != 0) {
+		g_logger(G_LOG_LEVEL_WARNING, "Error renaming temp file %s to %s: %s", tmp, meta_path, strerror(errno));
+		unlink(tmp);
+		free(tmp);
+		return -1;
+	}
+
 	free(tmp);
 
 	return sz;
