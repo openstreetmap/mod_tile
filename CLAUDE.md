@@ -134,6 +134,11 @@ Test infrastructure uses `tests/httpd.conf.in` and `tests/renderd.conf.in` templ
 - **`src/request_queue.c:request_queue_close`** — queued render items are not freed on shutdown (items in all five priority lists leak). The TODO comment is present in the source. Safe in practice because renderd only shuts down at process exit, but should be fixed for clean valgrind runs.
 - **`src/store_ro_http_proxy.c:strcpy` at line 165** — `xmlconfig` is copied into `ctx->cache.xmlname[XMLCONFIG_MAX]` (41 bytes) without a prior length check. The caller is the storage backend interface which in practice receives validated xmlconfig names, but the copy is not bounds-safe.
 - **`src/renderd.c` / `src/mod_tile.c` — `bzero` usage** — several files use the deprecated `bzero()` instead of `memset(..., 0, ...)`. Functionally equivalent on Linux but not strictly portable.
+- **`src/gen_tile.cpp:render_thread` — startup `strndup`/`malloc` leaks** — `output_format`, `xmlfile`, `xmlname` (`strndup`), `prj` (`malloc`), and `store` (`init_storage_backend`) are allocated once per thread at startup and never freed. The render thread runs in an infinite loop and never exits, so these do not accumulate in practice.
+
+## Parameterized rendering cache
+
+When `parameterize_style` is configured (e.g. for multilingual maps), `render()` in `src/gen_tile.cpp` maintains a per-`xmlmapconfig` cache (`parameterized_map_cache`) mapping options strings to pre-built `mapnik::Map` copies. This prevents Mapnik's PostGIS datasource plugin from creating a new PostgreSQL connection pool entry on every render, which previously caused rapid memory exhaustion. The cache is per render-thread and unbounded in size; in practice the number of distinct options values is small (e.g. one per requested language).
 
 ## Repository Layout
 

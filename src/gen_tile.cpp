@@ -89,6 +89,11 @@ struct projectionconfig {
 
 struct xmlmapconfig {
 	Map map;
+	/* Cache of parameterized Map copies keyed by the options string.
+	 * Avoids recreating PostGIS datasource objects (and their connection
+	 * pools) on every render, which would accumulate in Mapnik's global
+	 * ConnectionManager and exhaust memory under sustained load. */
+	std::map<std::string, mapnik::Map> parameterized_map_cache;
 	const char *host;
 	const char *htcphost;
 	const char *output_format;
@@ -247,31 +252,43 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 	unsigned int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
 	unsigned int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
-	map->map.resize(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
-	map->map.zoom_to_box(tile2prjbounds(map->prj, x, y, z));
+	/* Select the map to render with: a cached parameterized copy, or the base map. */
+	mapnik::Map *render_map;
 
-	if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
-		map->map.set_buffer_size((map->tilesize >> 1) * map->scale);
+	if (map->parameterize_function) {
+		/* Look up or create a parameterized map for this options string.
+		 * Re-using a cached copy avoids calling set_datasource() on every
+		 * render, which would create a new PostGIS connection pool entry in
+		 * Mapnik's global ConnectionManager each time and leak memory. */
+		auto it = map->parameterized_map_cache.find(std::string(options));
+
+		if (it == map->parameterized_map_cache.end()) {
+			mapnik::Map parameterized = map->map;
+			map->parameterize_function(parameterized, options);
+			parameterized.load_fonts();
+			auto inserted = map->parameterized_map_cache.emplace(std::string(options), std::move(parameterized));
+			it = inserted.first;
+			g_logger(G_LOG_LEVEL_DEBUG, "Cached new parameterized map for options '%s' (cache size: %zu)",
+				 options, map->parameterized_map_cache.size());
+		}
+
+		render_map = &it->second;
+	} else {
+		render_map = &map->map;
 	}
 
-	// m.zoom(size+1);
+	render_map->resize(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
+	render_map->zoom_to_box(tile2prjbounds(map->prj, x, y, z));
+
+	if (render_map->buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
+		render_map->set_buffer_size((map->tilesize >> 1) * map->scale);
+	}
 
 	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
 
 	try {
-		if (map->parameterize_function) {
-			Map map_parameterized = map->map;
-
-			map->parameterize_function(map_parameterized, options);
-
-			map_parameterized.load_fonts();
-
-			mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized, buf, map->scale);
-			ren.apply();
-		} else {
-			mapnik::agg_renderer<mapnik::image_32> ren(map->map, buf, map->scale);
-			ren.apply();
-		}
+		mapnik::agg_renderer<mapnik::image_32> ren(*render_map, buf, map->scale);
+		ren.apply();
 	} catch (std::exception const &ex) {
 		g_logger(G_LOG_LEVEL_ERROR, "failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x + render_size_tx - 1, y, y + render_size_ty - 1);
 		g_logger(G_LOG_LEVEL_ERROR, "  reason: %s", ex.what());
