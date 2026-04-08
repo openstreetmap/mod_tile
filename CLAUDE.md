@@ -135,6 +135,7 @@ Test infrastructure uses `tests/httpd.conf.in` and `tests/renderd.conf.in` templ
 - **`src/store_ro_http_proxy.c:strcpy` at line 165** — `xmlconfig` is copied into `ctx->cache.xmlname[XMLCONFIG_MAX]` (41 bytes) without a prior length check. The caller is the storage backend interface which in practice receives validated xmlconfig names, but the copy is not bounds-safe.
 - **`src/renderd.c` / `src/mod_tile.c` — `bzero` usage** — several files use the deprecated `bzero()` instead of `memset(..., 0, ...)`. Functionally equivalent on Linux but not strictly portable.
 - **`src/gen_tile.cpp:render_thread` — startup `strndup`/`malloc` leaks** — `output_format`, `xmlfile`, `xmlname` (`strndup`), `prj` (`malloc`), and `store` (`init_storage_backend`) are allocated once per thread at startup and never freed. The render thread runs in an infinite loop and never exits, so these do not accumulate in practice.
+- **`src/store_ro_composite.c` — `connection_string_secondary` (strdup) not freed on late error paths** — after the `strdup` on the secondary connection string, several subsequent error paths (store_primary init failure, store_secondary init failure) free it, but if `store_secondary` init succeeds and a later step fails the pointer may still leak depending on the code path. Low risk: composite storage is rarely used and init failures abort the process.
 
 ## Parameterized rendering cache
 
