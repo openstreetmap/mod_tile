@@ -116,6 +116,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 		if (res != CURLE_OK) {
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve file: %s", curl_easy_strerror(res));
+			free(chunk.memory);
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;
@@ -126,6 +127,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 		if (res != CURLE_OK) {
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve HTTP code: %s", curl_easy_strerror(res));
+			free(chunk.memory);
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;

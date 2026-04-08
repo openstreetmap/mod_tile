@@ -888,6 +888,12 @@ int main(int argc, char **argv)
 
 	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
 
+	if (render_threads == NULL) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for render threads");
+		close(fd);
+		return 7;
+	}
+
 	for (i = 0; i < config.num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
@@ -900,6 +906,12 @@ int main(int argc, char **argv)
 		// Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
+
+		if (slave_threads == NULL) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for slave threads");
+			close(fd);
+			return 7;
+		}
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {

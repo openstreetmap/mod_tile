@@ -74,6 +74,11 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
 	struct meta_layout *m = (struct meta_layout *)malloc(header_len);
 	size_t file_offset, tile_size;
 
+	if (m == NULL) {
+		snprintf(log_msg, PATH_MAX - 1, "Failed to allocate memory for metatile header\n");
+		return -1;
+	}
+
 	meta_offset = xyzo_to_meta(path, sizeof(path), store->storage_ctx, xmlconfig, options, x, y, z);
 
 	fd = open(path, O_RDONLY);
