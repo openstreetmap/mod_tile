@@ -170,14 +170,11 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 
 void request_exit(void)
 {
-	// Any write to the exit pipe will trigger a graceful exit
+	// Any write to the exit pipe will trigger a graceful exit.
+	// This function is called from a signal handler, so only async-signal-safe
+	// functions (write(2)) may be used here — no g_logger, no strerror.
 	char c = 0;
-
-	g_logger(G_LOG_LEVEL_INFO, "Sending exit request");
-
-	if (write(exit_pipe_fd, &c, sizeof(c)) < 0) {
-		g_logger(G_LOG_LEVEL_ERROR, "Failed to write to the exit pipe: %s", strerror(errno));
-	}
+	(void)write(exit_pipe_fd, &c, sizeof(c));
 }
 
 void process_loop(int listen_fd)
@@ -589,7 +586,20 @@ void *slave_thread(void * arg)
 	struct protocol * req_slave;
 
 	req_slave = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (req_slave == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for req_slave");
+		return NULL;
+	}
+
 	resp = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (resp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for resp");
+		free(req_slave);
+		return NULL;
+	}
+
 	bzero(req_slave, sizeof(struct protocol));
 	bzero(resp, sizeof(struct protocol));
 
@@ -670,10 +680,27 @@ void *slave_thread(void * arg)
 			retry = 10;
 
 			while ((ret_size < sizeof(struct protocol)) && (retry > 0)) {
-				ret_size = recv(pfd, resp + ret_size, (sizeof(struct protocol)
-								       - ret_size), 0);
+				ssize_t n = recv(pfd, (char *)resp + ret_size,
+						 sizeof(struct protocol) - ret_size, 0);
 
-				if ((errno == EPIPE) || ret_size == 0) {
+				if (n < 0) {
+					if (errno == EINTR) {
+						continue;
+					}
+
+					if (errno == EPIPE) {
+						close(pfd);
+						pfd = FD_INVALID;
+						ret_size = 0;
+						g_logger(G_LOG_LEVEL_ERROR, "Pipe to Renderd slave closed");
+						break;
+					}
+
+					retry--;
+					continue;
+				}
+
+				if (n == 0) {
 					close(pfd);
 					pfd = FD_INVALID;
 					ret_size = 0;
@@ -681,7 +708,7 @@ void *slave_thread(void * arg)
 					break;
 				}
 
-				retry--;
+				ret_size += n;
 			}
 
 			if (ret_size < sizeof(struct protocol)) {
@@ -875,6 +902,12 @@ int main(int argc, char **argv)
 
 	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config.num_threads);
 
+	if (render_threads == NULL) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for render threads");
+		close(fd);
+		return 7;
+	}
+
 	for (i = 0; i < config.num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
@@ -887,6 +920,12 @@ int main(int argc, char **argv)
 		// Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
+
+		if (slave_threads == NULL) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for slave threads");
+			close(fd);
+			return 7;
+		}
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
