@@ -50,7 +50,9 @@ struct item_idx {
 };
 
 struct request_queue {
+	int dirtyLimit;
 	int hashidxSize;
+	int requestLimit;
 	struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
 	struct item_idx *item_hashidx;
 	int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
@@ -60,6 +62,7 @@ struct request_queue {
 };
 
 struct request_queue *request_queue_init();
+struct request_queue *request_queue_init_with_limits(int request_limit, int dirty_limit);
 void request_queue_close(struct request_queue *queue);
 
 struct item *request_queue_fetch_request(struct request_queue *queue);

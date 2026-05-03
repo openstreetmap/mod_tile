@@ -3,6 +3,8 @@ pid_file=@RENDERD_PIDFILE@
 socketname=@RENDERD_SOCKET@
 stats_file=@RENDERD_RUN_DIR@/renderd.stats
 tile_dir=@RENDERD_TILE_DIR@
+; request_queue_limit=256
+; dirty_queue_limit=8000
 
 [mapnik]
 font_dir=@MAPNIK_FONTS_DIR@
