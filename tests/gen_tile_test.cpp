@@ -377,7 +377,7 @@ TEST_CASE("renderd/queueing", "request queueing")
 		struct item *item;
 		request_queue *queue = request_queue_init();
 
-		for (int i = 1; i < (2 * REQ_LIMIT + DIRTY_LIMIT + 2); i++) {
+		for (int i = 1; i < (2 * DEFAULT_REQUEST_QUEUE_LIMIT + DEFAULT_DIRTY_QUEUE_LIMIT + 2); i++) {
 			item = init_render_request(cmdRenderPrio);
 			res = request_queue_add_request(queue, item);
 			INFO("i: " << i);
@@ -386,19 +386,47 @@ TEST_CASE("renderd/queueing", "request queueing")
 			INFO("NoDirt: " << request_queue_no_requests_queued(queue, cmdDirty));
 			INFO("NoBulk: " << request_queue_no_requests_queued(queue, cmdRenderBulk));
 
-			if (i <= REQ_LIMIT) {
+			if (i <= DEFAULT_REQUEST_QUEUE_LIMIT) {
 				REQUIRE(res == cmdIgnore);
 				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == i);
-			} else if (i <= (REQ_LIMIT + DIRTY_LIMIT)) {
+			} else if (i <= (DEFAULT_REQUEST_QUEUE_LIMIT + DEFAULT_DIRTY_QUEUE_LIMIT)) {
 				// Requests should overflow into the dirty queue
 				REQUIRE(res == cmdNotDone);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - REQ_LIMIT));
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == DEFAULT_REQUEST_QUEUE_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - DEFAULT_REQUEST_QUEUE_LIMIT));
 			} else {
 				// Requests should be dropped altogether
 				REQUIRE(res == cmdNotDone);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == DIRTY_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == DEFAULT_REQUEST_QUEUE_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == DEFAULT_DIRTY_QUEUE_LIMIT);
+			}
+		}
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/configured overflow limits", "test if configurable queue limits are honoured") {
+		enum protoCmd res;
+		struct item *item;
+		request_queue *queue = request_queue_init_with_limits(2, 3);
+
+		REQUIRE(queue != NULL);
+
+		for (int i = 1; i < 8; i++) {
+			item = init_render_request(cmdRenderPrio);
+			res = request_queue_add_request(queue, item);
+
+			if (i <= 2) {
+				REQUIRE(res == cmdIgnore);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == i);
+			} else if (i <= 5) {
+				REQUIRE(res == cmdNotDone);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 2);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - 2));
+			} else {
+				REQUIRE(res == cmdNotDone);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 2);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 3);
 			}
 		}
 
@@ -409,7 +437,7 @@ TEST_CASE("renderd/queueing", "request queueing")
 		pthread_t *addition_threads;
 		request_queue *queue;
 
-		REQUIRE((NO_THREADS * NO_QUEUE_REQUESTS) < DIRTY_LIMIT);
+		REQUIRE((NO_THREADS * NO_QUEUE_REQUESTS) < DEFAULT_DIRTY_QUEUE_LIMIT);
 
 		for (int j = 0; j < NO_TEST_REPEATS; j++) { // As we are looking for race conditions, repeat this test many times
 			addition_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));

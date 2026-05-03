@@ -42,9 +42,11 @@ typedef struct {
 	const char *socketname;
 	const char *stats_filename;
 	const char *tile_dir;
+	int dirty_queue_limit;
 	int ipport;
 	int mapnik_font_dir_recurse;
 	int num_threads;
+	int request_queue_limit;
 } renderd_config;
 
 typedef struct {

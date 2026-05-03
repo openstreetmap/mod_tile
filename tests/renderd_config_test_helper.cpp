@@ -3,6 +3,7 @@
 #include "renderd_config.h"
 
 #include <glib.h>
+#include <stdio.h>
 
 int main(int argc, char **argv)
 {
@@ -26,6 +27,17 @@ int main(int argc, char **argv)
 
 	if (strcmp(process_function, "process_config_file") == 0) {
 		process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_WARNING);
+	}
+
+	if (strcmp(process_function, "assert_queue_limits") == 0) {
+		int expected_request_queue_limit = atoi(argv[4]);
+		int expected_dirty_queue_limit = atoi(argv[5]);
+		process_config_file(config_file_name, active_renderd_section_num, G_LOG_LEVEL_WARNING);
+
+		if (config.request_queue_limit != expected_request_queue_limit || config.dirty_queue_limit != expected_dirty_queue_limit) {
+			fprintf(stderr, "queue limits mismatch: request_queue_limit=%i dirty_queue_limit=%i\n", config.request_queue_limit, config.dirty_queue_limit);
+			exit(1);
+		}
 	}
 
 	if (strcmp(process_function, "process_renderd_sections") == 0) {

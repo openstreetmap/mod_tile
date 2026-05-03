@@ -21,10 +21,29 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <limits.h>
 
 #include "render_config.h"
 #include "request_queue.h"
 #include "g_logger.h"
+
+#define MIN_HASHIDX_SIZE 2213
+
+static int request_queue_hash_size(int request_limit, int dirty_limit)
+{
+	/*
+	 * Keep the de-duplication index roughly proportional to the configured
+	 * queue capacity. Large dirty queues are useful only if duplicate lookup
+	 * remains cheap while the queue is backlogged.
+	 */
+	size_t queue_capacity = (4 * (size_t) request_limit) + (size_t) dirty_limit;
+
+	if (queue_capacity > INT_MAX) {
+		return INT_MAX;
+	}
+
+	return MAX(MIN_HASHIDX_SIZE, (int) queue_capacity);
+}
 
 static int calcHashKey(struct request_queue *queue, struct item *item)
 {
@@ -306,27 +325,27 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 	}
 
 	// New request, add it to render or dirty queue
-	if ((req->cmd == cmdRender) && (queue->reqNum < REQ_LIMIT)) {
+	if ((req->cmd == cmdRender) && (queue->reqNum < queue->requestLimit)) {
 		list = &(queue->reqHead);
 		item->inQueue = queueRequest;
 		item->originatedQueue = queueRequest;
 		queue->reqNum++;
-	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < REQ_LIMIT)) {
+	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < queue->requestLimit)) {
 		list = &(queue->reqPrioHead);
 		item->inQueue = queueRequestPrio;
 		item->originatedQueue = queueRequestPrio;
 		queue->reqPrioNum++;
-	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < REQ_LIMIT)) {
+	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < queue->requestLimit)) {
 		list = &(queue->reqLowHead);
 		item->inQueue = queueRequestLow;
 		item->originatedQueue = queueRequestLow;
 		queue->reqLowNum++;
-	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < REQ_LIMIT)) {
+	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < queue->requestLimit)) {
 		list = &(queue->reqBulkHead);
 		item->inQueue = queueRequestBulk;
 		item->originatedQueue = queueRequestBulk;
 		queue->reqBulkNum++;
-	} else if (queue->dirtyNum < DIRTY_LIMIT) {
+	} else if (queue->dirtyNum < queue->dirtyLimit) {
 		list = &(queue->dirtyHead);
 		item->inQueue = queueDirty;
 		item->originatedQueue = queueDirty;
@@ -450,7 +469,7 @@ void request_queue_copy_stats(struct request_queue * queue, stats_struct * stats
 	pthread_mutex_unlock(&queue->qLock);
 }
 
-struct request_queue * request_queue_init()
+struct request_queue * request_queue_init_with_limits(int request_limit, int dirty_limit)
 {
 	int res;
 	struct request_queue * queue = calloc(1, sizeof(struct request_queue));
@@ -458,6 +477,15 @@ struct request_queue * request_queue_init()
 	if (queue == NULL) {
 		return NULL;
 	}
+
+	if (request_limit < 1 || dirty_limit < 0) {
+		g_logger(G_LOG_LEVEL_ERROR, "Invalid request queue limits: request_queue_limit=%i dirty_queue_limit=%i", request_limit, dirty_limit);
+		free(queue);
+		return NULL;
+	}
+
+	queue->requestLimit = request_limit;
+	queue->dirtyLimit = dirty_limit;
 
 	res = pthread_mutex_init(&(queue->qLock), NULL);
 
@@ -489,11 +517,22 @@ struct request_queue * request_queue_init()
 	queue->reqBulkHead.next = queue->reqBulkHead.prev = &(queue->reqBulkHead);
 	queue->dirtyHead.next = queue->dirtyHead.prev = &(queue->dirtyHead);
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
-	queue->hashidxSize = HASHIDX_SIZE;
+	queue->hashidxSize = request_queue_hash_size(request_limit, dirty_limit);
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
+	if (queue->item_hashidx == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to initialise request queue index with %i entries", queue->hashidxSize);
+		pthread_mutex_destroy(&(queue->qLock));
+		free(queue);
+		return NULL;
+	}
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;
+}
+
+struct request_queue * request_queue_init()
+{
+	return request_queue_init_with_limits(DEFAULT_REQUEST_QUEUE_LIMIT, DEFAULT_DIRTY_QUEUE_LIMIT);
 }
 
 void request_queue_close(struct request_queue * queue)

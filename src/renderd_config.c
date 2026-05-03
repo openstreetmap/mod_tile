@@ -425,7 +425,9 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 			copy_string(section, &configs_dest[renderd_section_num].name, renderd_strlen + 2);
 
 			process_config_int(ini, section, "ipport", &configs_dest[renderd_section_num].ipport, 0);
+			process_config_int(ini, section, "dirty_queue_limit", &configs_dest[renderd_section_num].dirty_queue_limit, DEFAULT_DIRTY_QUEUE_LIMIT);
 			process_config_int(ini, section, "num_threads", &configs_dest[renderd_section_num].num_threads, NUM_THREADS);
+			process_config_int(ini, section, "request_queue_limit", &configs_dest[renderd_section_num].request_queue_limit, DEFAULT_REQUEST_QUEUE_LIMIT);
 			process_config_string(ini, section, "iphostname", &configs_dest[renderd_section_num].iphostname, "", INILINE_MAX);
 			process_config_string(ini, section, "pid_file", &configs_dest[renderd_section_num].pid_filename, RENDERD_PIDFILE, PATH_MAX);
 			process_config_string(ini, section, "socketname", &configs_dest[renderd_section_num].socketname, RENDERD_SOCKET, PATH_MAX);
@@ -434,6 +436,16 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 
 			if (configs_dest[renderd_section_num].num_threads == -1) {
 				configs_dest[renderd_section_num].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+			}
+
+			if (configs_dest[renderd_section_num].request_queue_limit < 1) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified request_queue_limit (%i) is too small, must be greater than or equal to %i.", configs_dest[renderd_section_num].request_queue_limit, 1);
+				exit(7);
+			}
+
+			if (configs_dest[renderd_section_num].dirty_queue_limit < 0) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified dirty_queue_limit (%i) is too small, must be greater than or equal to %i.", configs_dest[renderd_section_num].dirty_queue_limit, 0);
+				exit(7);
 			}
 
 			if (strnlen(configs_dest[renderd_section_num].socketname, PATH_MAX) >= renderd_socketname_maxlen) {
@@ -510,6 +522,8 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 		}
 
 		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): num_threads = '%i'", i, config_slaves[i].num_threads);
+		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): request_queue_limit = '%i'", i, config_slaves[i].request_queue_limit);
+		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): dirty_queue_limit = '%i'", i, config_slaves[i].dirty_queue_limit);
 		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): pid_file = '%s'", i, config_slaves[i].pid_filename);
 
 		if (strnlen(config_slaves[i].stats_filename, PATH_MAX)) {
@@ -526,6 +540,8 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 	}
 
 	g_logger(log_level, "\trenderd: num_threads = '%i'", config.num_threads);
+	g_logger(log_level, "\trenderd: request_queue_limit = '%i'", config.request_queue_limit);
+	g_logger(log_level, "\trenderd: dirty_queue_limit = '%i'", config.dirty_queue_limit);
 
 	if (active_renderd_section_num == 0 && num_slave_threads > 0) {
 		g_logger(log_level, "\trenderd: num_slave_threads = '%i'", num_slave_threads);
