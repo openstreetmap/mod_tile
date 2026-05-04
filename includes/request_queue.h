@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 #define HASHIDX_SIZE 2213
+#define PENDING_QUEUE_RANKS 5
 
 typedef struct {
 	long noDirtyRender;
@@ -53,7 +54,8 @@ struct request_queue {
 	int dirtyLimit;
 	int hashidxSize;
 	int requestLimit;
-	struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
+	struct item pendingHead, renderHead;
+	struct item *pendingTail[PENDING_QUEUE_RANKS];
 	struct item_idx *item_hashidx;
 	int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
 	pthread_mutex_t qLock;
