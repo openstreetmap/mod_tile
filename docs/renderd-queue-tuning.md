@@ -1,6 +1,7 @@
 # renderd Queue Tuning
 
-`renderd` keeps incoming render requests in five queues:
+`renderd` keeps incoming render requests in a priority queue with five priority
+classes:
 
 - priority request queue: missing tiles where a client is waiting
 - request queue: stale tiles where a client is waiting
@@ -8,10 +9,12 @@
 - dirty queue: background work where no client waits for the response
 - bulk request queue: explicit bulk rendering work
 
-Requests are fetched in that priority order. When a time-critical request queue
-is full, new requests overflow into the dirty queue. That prevents immediate
-drops, but it also means the overflowed request no longer gets client-waiting
-priority.
+Requests are fetched by effective priority, preserving FIFO order within the
+same priority class. When a time-critical request class is full, new requests
+overflow into the dirty class. That prevents immediate drops, but it also means
+the overflowed request no longer gets client-waiting priority until a later
+client request for the same tile can promote it back into the appropriate
+priority class.
 
 ## Configuration
 
@@ -44,6 +47,10 @@ Do not increase `dirty_queue_limit` blindly on an overloaded server. If the
 higher-priority queues are continuously non-empty, dirty work may still starve,
 and a larger dirty queue mainly stores more backlog. Watch queue length, queue
 time, render throughput, and dropped-tile metrics before and after the change.
+When a client requests a tile that is already queued as lower-priority work,
+`renderd` raises that existing item in the priority queue if the target priority
+class has capacity. If the target class is still full, the request remains
+background work and the client receives the usual not-done response.
 
 Increase gradually. For example, move from the default to a limit sized for
 roughly 10 minutes of dirty work, then one hour, before trying day-scale values.
@@ -63,6 +70,7 @@ whether the service has predictable low-load windows.
 6. Roll back to the previous values if dirty queue time grows continuously or
    missing-tile requests appear to be delayed by old background work.
 
-This setting only changes queue capacity. It does not implement bounded
-overtaking or fairness between queues; those would require a larger queue
+This setting changes per-priority capacity and works with duplicate promotion
+for already queued tiles. It does not implement bounded overtaking or broader
+fairness between unrelated queued tiles; those would require a larger queue
 scheduler change.
