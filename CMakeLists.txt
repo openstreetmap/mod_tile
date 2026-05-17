@@ -84,6 +84,8 @@ include(CheckIncludeFile)
 check_include_file(paths.h HAVE_PATHS_H)
 check_include_file(sys/cdefs.h HAVE_SYS_CDEFS_H)
 check_include_file(sys/loadavg.h HAVE_SYS_LOADAVG_H)
+check_include_file(iniparser.h HAVE_INIPARSER_H)
+check_include_file(iniparser/iniparser.h HAVE_INIPARSER_INIPARSER_H)
 
 # Libraries
 include(CheckLibraryExists)
@@ -181,9 +183,9 @@ set(VERSION "${PROJECT_VERSION}")
 #
 #-----------------------------------------------------------------------------
 
-# include/config.h.in
+# include/config.h.cmake.in
 configure_file(
-  ${PROJECT_SOURCE_DIR}/includes/config.h.in
+  ${PROJECT_SOURCE_DIR}/includes/config.h.cmake.in
   ${PROJECT_SOURCE_DIR}/includes/config.h
 )
 

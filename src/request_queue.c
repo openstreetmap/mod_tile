@@ -505,6 +505,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 {
 	enum protoCmd status;
 	const struct protocol *req;
+	enum protoCmd add_status = cmdIgnore;
 	int item_added = 0;
 	req = &(item->req);
 
@@ -557,6 +558,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 		item->originatedQueue = queueDirty;
 		queue->dirtyNum++;
 		item->fd = FD_INVALID; // No response after render
+		add_status = cmdNotDone;
 		item_added = 1;
 	} else {
 		// The queue is severely backlogged. Drop request
@@ -580,7 +582,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 
 	pthread_mutex_unlock(&queue->qLock);
 
-	return (item->inQueue == queueDirty) ? cmdNotDone : cmdIgnore;
+	return add_status;
 }
 
 void request_queue_remove_request(struct request_queue * queue, struct item * request, int render_time)
@@ -716,17 +718,21 @@ struct request_queue * request_queue_init_with_limits(int request_limit, int dir
 
 	queue->pendingHead.next = queue->pendingHead.prev = &(queue->pendingHead);
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
+
 	for (int i = 0; i < PENDING_QUEUE_RANKS; i++) {
 		queue->pendingTail[i] = &(queue->pendingHead);
 	}
+
 	queue->hashidxSize = request_queue_hash_size(request_limit, dirty_limit);
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
+
 	if (queue->item_hashidx == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to initialise request queue index with %i entries", queue->hashidxSize);
 		pthread_mutex_destroy(&(queue->qLock));
 		free(queue);
 		return NULL;
 	}
+
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;
