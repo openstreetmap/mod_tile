@@ -104,6 +104,31 @@ static void process_config_string(const dictionary *ini, const char *section, co
 	free(key);
 }
 
+static char *process_config_string_with_trailing_slash(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
+{
+	char *key = name_with_section(section, name);
+	const char *src = iniparser_getstring(ini, key, notfound);
+
+	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
+
+	if (src[strnlen(src, maxlen) - 1] != '/') {
+		char *tempsrc = strndup(src, maxlen);
+		int len = asprintf(&tempsrc, "%s/", src);
+
+		if (len == -1) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "process_config_string_with_trailing_slash: asprintf error");
+			exit(7);
+		}
+
+		copy_string(tempsrc, dest, maxlen);
+		free(tempsrc);
+	} else {
+		copy_string(src, dest, maxlen);
+	}
+
+	free(key);
+}
+
 void free_map_section(xmlconfigitem map_section)
 {
 	free((void *)map_section.attribution);
@@ -241,8 +266,8 @@ void process_map_sections(dictionary *ini, const char *config_file_name, xmlconf
 			process_config_string(ini, section, "parameterize_style", &maps_dest[map_section_num].parameterization, "", PATH_MAX);
 			process_config_string(ini, section, "server_alias", &maps_dest[map_section_num].server_alias, "", PATH_MAX);
 			process_config_string(ini, section, "tiledir", &maps_dest[map_section_num].tile_dir, default_tile_dir, PATH_MAX);
-			process_config_string(ini, section, "uri", &maps_dest[map_section_num].xmluri, "", PATH_MAX);
 			process_config_string(ini, section, "xml", &maps_dest[map_section_num].xmlfile, "", PATH_MAX);
+			process_config_string_with_trailing_slash(ini, section, "uri", &maps_dest[map_section_num].xmluri, "", PATH_MAX);
 
 			process_config_double(ini, section, "scale", &maps_dest[map_section_num].scale_factor, 1.0);
 
@@ -277,9 +302,7 @@ void process_map_sections(dictionary *ini, const char *config_file_name, xmlconf
 			process_config_string(ini, section, "type", &ini_type, "png image/png png256", INILINE_MAX);
 			ini_type_copy = strndup(ini_type, INILINE_MAX);
 
-			for (ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_context);
-					ini_type_part;
-					ini_type_part = strtok_r(NULL, " ", &ini_type_context)) {
+			for (ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_context); ini_type_part; ini_type_part = strtok_r(NULL, " ", &ini_type_context)) {
 				switch (ini_type_part_num) {
 					case 0:
 						copy_string(ini_type_part, &maps_dest[map_section_num].file_extension, ini_type_part_maxlen);
@@ -331,6 +354,17 @@ void process_map_sections(dictionary *ini, const char *config_file_name, xmlconf
 	if (map_section_num < 0) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "No map config sections were found in file: %s", config_file_name);
 		exit(1);
+	}
+
+	if (map_section_num > 0) {
+		for (int x = 0; x < map_section_num; x++) {
+			for (int y = x + 1; y <= map_section_num; y++) {
+				if (strncmp(maps_dest[x].xmluri, maps_dest[y].xmluri, strnlen(maps_dest[x].xmluri, PATH_MAX)) == 0) {
+					g_logger(G_LOG_LEVEL_CRITICAL, "Specified URI path ('%s' in map section '%s') must not be the parent of any subsequent map config section's URI path, e.g., '%s' in map section '%s'.", maps_dest[x].xmluri, maps_dest[x].xmlname, maps_dest[y].xmluri, maps_dest[y].xmlname);
+					exit(7);
+				}
+			}
+		}
 	}
 }
 
