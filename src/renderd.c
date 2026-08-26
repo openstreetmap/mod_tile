@@ -809,7 +809,7 @@ int main(int argc, char **argv)
 	}
 
 	g_logger(G_LOG_LEVEL_INFO, "Initialising request queue");
-	render_request_queue = request_queue_init();
+	render_request_queue = request_queue_init_with_limits(config.request_queue_limit, config.dirty_queue_limit);
 
 	if (render_request_queue == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to initialise request queue");

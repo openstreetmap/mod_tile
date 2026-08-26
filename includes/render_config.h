@@ -114,14 +114,13 @@
 // Metatiles are much larger in size so we don't need big queues to handle large areas
 #ifdef METATILE
 #define QUEUE_MAX (64)
-#define REQ_LIMIT (256)
-#define DIRTY_LIMIT (8000)
+#define DEFAULT_REQUEST_QUEUE_LIMIT (256)
+#define DEFAULT_DIRTY_QUEUE_LIMIT (8000)
 
 #else
 #define QUEUE_MAX (1024)
-#define REQ_LIMIT (512)
-#define DIRTY_LIMIT (10000)
-#define HASHIDX_SIZE 22123
+#define DEFAULT_REQUEST_QUEUE_LIMIT (512)
+#define DEFAULT_DIRTY_QUEUE_LIMIT (10000)
 #endif
 
 // Penalty for client making an invalid request (in seconds)

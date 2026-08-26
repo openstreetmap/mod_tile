@@ -21,21 +21,64 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <limits.h>
 
 #include "render_config.h"
 #include "request_queue.h"
 #include "g_logger.h"
 
-static int calcHashKey(struct request_queue *queue, struct item *item)
-{
-	uint64_t xmlnameHash = 0;
-	uint64_t key;
+#define MIN_HASHIDX_SIZE 2213
 
-	for (int i = 0; (item->req.xmlname[i] != 0) && (i < sizeof(item->req.xmlname)); i++) {
-		xmlnameHash += item->req.xmlname[i];
+static int request_queue_hash_size(int request_limit, int dirty_limit)
+{
+	/*
+	 * Keep the de-duplication index roughly proportional to the configured
+	 * queue capacity. Large dirty queues are useful only if duplicate lookup
+	 * remains cheap while the queue is backlogged.
+	 */
+	size_t queue_capacity = (4 * (size_t) request_limit) + (size_t) dirty_limit;
+
+	if (queue_capacity > INT_MAX) {
+		return INT_MAX;
 	}
 
-	key = ((uint64_t)(xmlnameHash & 0x1FF) << 52) + ((uint64_t)(item->req.z) << 48) + ((uint64_t)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
+	return MAX(MIN_HASHIDX_SIZE, (int) queue_capacity);
+}
+
+static uint64_t string_hash(const char *value, size_t max_len)
+{
+	uint64_t hash = 0;
+
+	for (size_t i = 0; (i < max_len) && (value[i] != 0); i++) {
+		hash = (hash * 33) + (unsigned char)value[i];
+	}
+
+	return hash;
+}
+
+static int same_tile_request(struct item *item, struct item *test)
+{
+	return (item->mx == test->mx) &&
+	       (item->my == test->my) &&
+	       (item->req.z == test->req.z) &&
+	       (strncmp(item->req.xmlname, test->req.xmlname, sizeof(item->req.xmlname)) == 0) &&
+	       (strncmp(item->req.mimetype, test->req.mimetype, sizeof(item->req.mimetype)) == 0) &&
+	       (strncmp(item->req.options, test->req.options, sizeof(item->req.options)) == 0);
+}
+
+static int calcHashKey(struct request_queue *queue, struct item *item)
+{
+	uint64_t key;
+	uint64_t name_hash = string_hash(item->req.xmlname, sizeof(item->req.xmlname));
+	uint64_t mimetype_hash = string_hash(item->req.mimetype, sizeof(item->req.mimetype));
+	uint64_t options_hash = string_hash(item->req.options, sizeof(item->req.options));
+
+	key = ((name_hash & 0x1FF) << 52) +
+	      ((mimetype_hash & 0xFF) << 44) +
+	      ((options_hash & 0xFF) << 36) +
+	      ((uint64_t)(item->req.z) << 32) +
+	      ((uint64_t)(item->mx & 0xFFFF) << 16) +
+	      (item->my & 0xFFFF);
 	return key % queue->hashidxSize;
 }
 
@@ -54,9 +97,7 @@ static struct item * lookup_item_idx(struct request_queue * queue, struct item *
 		while (nextItem != NULL) {
 			test = nextItem->item;
 
-			if ((item->mx == test->mx) && (item->my == test->my)
-					&& (item->req.z == test->req.z) && (!strcmp(
-								item->req.xmlname, test->req.xmlname))) {
+			if (same_tile_request(item, test)) {
 				return test;
 			} else {
 				nextItem = nextItem->next;
@@ -110,9 +151,7 @@ static void remove_item_idx(struct request_queue * queue, struct item * item)
 	while (nextItem != NULL) {
 		test = nextItem->item;
 
-		if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z
-				== test->req.z) && (!strcmp(item->req.xmlname,
-						    test->req.xmlname))) {
+		if (same_tile_request(item, test)) {
 			/*
 			 * Found item, removing it from list
 			 */
@@ -143,6 +182,180 @@ static void remove_item_idx(struct request_queue * queue, struct item * item)
 	}
 }
 
+static int *request_queue_counter(struct request_queue *queue, enum queueEnum queue_type)
+{
+	switch (queue_type) {
+		case queueRequestPrio:
+			return &(queue->reqPrioNum);
+
+		case queueRequest:
+			return &(queue->reqNum);
+
+		case queueRequestLow:
+			return &(queue->reqLowNum);
+
+		case queueDirty:
+			return &(queue->dirtyNum);
+
+		case queueRequestBulk:
+			return &(queue->reqBulkNum);
+
+		default:
+			return NULL;
+	}
+}
+
+static int request_queue_limit(struct request_queue *queue, enum queueEnum queue_type)
+{
+	return (queue_type == queueDirty) ? queue->dirtyLimit : queue->requestLimit;
+}
+
+static int request_queue_rank(enum queueEnum queue_type)
+{
+	switch (queue_type) {
+		case queueRequestPrio:
+			return 0;
+
+		case queueRequest:
+			return 1;
+
+		case queueRequestLow:
+			return 2;
+
+		case queueDirty:
+			return 3;
+
+		case queueRequestBulk:
+			return 4;
+
+		default:
+			return INT_MAX;
+	}
+}
+
+static int request_queue_for_cmd(enum protoCmd cmd, enum queueEnum *queue_type)
+{
+	switch (cmd) {
+		case cmdRenderPrio:
+			*queue_type = queueRequestPrio;
+			return 1;
+
+		case cmdRender:
+			*queue_type = queueRequest;
+			return 1;
+
+		case cmdRenderLow:
+			*queue_type = queueRequestLow;
+			return 1;
+
+		case cmdDirty:
+			*queue_type = queueDirty;
+			return 1;
+
+		case cmdRenderBulk:
+			*queue_type = queueRequestBulk;
+			return 1;
+
+		default:
+			return 0;
+	}
+}
+
+static void request_queue_attach_duplicate(struct item *item, struct item *duplicate)
+{
+	duplicate->duplicates = item->duplicates;
+	item->duplicates = duplicate;
+	duplicate->inQueue = queueDuplicate;
+}
+
+static void request_queue_unlink_item(struct item *item)
+{
+	item->next->prev = item->prev;
+	item->prev->next = item->next;
+}
+
+static void request_queue_unlink_pending(struct request_queue *queue, struct item *item)
+{
+	int rank = request_queue_rank(item->inQueue);
+
+	if (rank < PENDING_QUEUE_RANKS && queue->pendingTail[rank] == item) {
+		if ((item->prev != &(queue->pendingHead)) && (request_queue_rank(item->prev->inQueue) == rank)) {
+			queue->pendingTail[rank] = item->prev;
+		} else {
+			queue->pendingTail[rank] = &(queue->pendingHead);
+		}
+	}
+
+	request_queue_unlink_item(item);
+}
+
+static void request_queue_insert_pending(struct request_queue *queue, struct item *item)
+{
+	struct item *pos;
+	int rank = request_queue_rank(item->inQueue);
+
+	if (rank >= PENDING_QUEUE_RANKS) {
+		return;
+	}
+
+	pos = &(queue->pendingHead);
+
+	for (int i = rank; i >= 0; i--) {
+		if (queue->pendingTail[i] != &(queue->pendingHead)) {
+			pos = queue->pendingTail[i];
+			break;
+		}
+	}
+
+	item->next = pos->next;
+	item->prev = pos;
+	item->prev->next = item;
+	item->next->prev = item;
+	queue->pendingTail[rank] = item;
+}
+
+static int request_queue_promote_pending(struct request_queue *queue, struct item *item, struct item *duplicate)
+{
+	enum queueEnum target_queue;
+	int *current_count;
+	int *target_count;
+
+	if (!request_queue_for_cmd(duplicate->req.cmd, &target_queue)) {
+		return 0;
+	}
+
+	if (target_queue == queueDirty) {
+		return 0;
+	}
+
+	if (request_queue_rank(target_queue) >= request_queue_rank(item->inQueue)) {
+		return 0;
+	}
+
+	target_count = request_queue_counter(queue, target_queue);
+	current_count = request_queue_counter(queue, item->inQueue);
+
+	if (target_count == NULL || current_count == NULL) {
+		return 0;
+	}
+
+	if (*target_count >= request_queue_limit(queue, target_queue)) {
+		return 0;
+	}
+
+	request_queue_unlink_pending(queue, item);
+	(*current_count)--;
+
+	item->inQueue = target_queue;
+	item->originatedQueue = target_queue;
+	request_queue_insert_pending(queue, item);
+	(*target_count)++;
+	request_queue_attach_duplicate(item, duplicate);
+	pthread_cond_signal(&queue->qCond);
+
+	return 1;
+}
+
 static enum protoCmd pending(struct request_queue * queue, struct item *test)
 {
 	// check all queues and render list to see if this request already queued
@@ -153,10 +366,12 @@ static enum protoCmd pending(struct request_queue * queue, struct item *test)
 	item = lookup_item_idx(queue, test);
 
 	if (item != NULL) {
+		if (request_queue_promote_pending(queue, item, test)) {
+			return cmdIgnore;
+		}
+
 		if ((item->inQueue == queueRender) || (item->inQueue == queueRequest) || (item->inQueue == queueRequestPrio) || (item->inQueue == queueRequestLow)) {
-			test->duplicates = item->duplicates;
-			item->duplicates = test;
-			test->inQueue = queueDuplicate;
+			request_queue_attach_duplicate(item, test);
 			return cmdIgnore;
 		} else if ((item->inQueue == queueDirty) || (item->inQueue == queueRequestBulk)) {
 			return cmdNotDone;
@@ -176,31 +391,45 @@ struct item *request_queue_fetch_request(struct request_queue * queue)
 		pthread_cond_wait(&(queue->qCond), &(queue->qLock));
 	}
 
-	if (queue->reqPrioNum) {
-		item = queue->reqPrioHead.next;
-		queue->reqPrioNum--;
-		queue->stats.noReqPrioRender++;
-	} else if (queue->reqNum) {
-		item = queue->reqHead.next;
-		queue->reqNum--;
-		queue->stats.noReqRender++;
-	} else if (queue->reqLowNum) {
-		item = queue->reqLowHead.next;
-		queue->reqLowNum--;
-		queue->stats.noReqLowRender++;
-	} else if (queue->dirtyNum) {
-		item = queue->dirtyHead.next;
-		queue->dirtyNum--;
-		queue->stats.noDirtyRender++;
-	} else if (queue->reqBulkNum) {
-		item = queue->reqBulkHead.next;
-		queue->reqBulkNum--;
-		queue->stats.noReqBulkRender++;
-	}
+	item = queue->pendingHead.next;
 
 	if (item) {
-		item->next->prev = item->prev;
-		item->prev->next = item->next;
+		switch (item->inQueue) {
+			case queueRequestPrio: {
+				queue->reqPrioNum--;
+				queue->stats.noReqPrioRender++;
+				break;
+			}
+
+			case queueRequest: {
+				queue->reqNum--;
+				queue->stats.noReqRender++;
+				break;
+			}
+
+			case queueRequestLow: {
+				queue->reqLowNum--;
+				queue->stats.noReqLowRender++;
+				break;
+			}
+
+			case queueDirty: {
+				queue->dirtyNum--;
+				queue->stats.noDirtyRender++;
+				break;
+			}
+
+			case queueRequestBulk: {
+				queue->reqBulkNum--;
+				queue->stats.noReqBulkRender++;
+				break;
+			}
+
+			default:
+				break;
+		}
+
+		request_queue_unlink_pending(queue, item);
 
 		//Add item to render queue
 		item->prev = &(queue->renderHead);
@@ -222,16 +451,16 @@ void request_queue_clear_requests_by_fd(struct request_queue * queue, int fd)
 {
 	struct item *item, *dupes, *queueHead;
 
-	/**Only need to look up on the shorter request and render queue,
-	 * as the all requests on the dirty queue already have a FD_INVALID
-	 * as a file descriptor, so using the linear list shouldn't be a problem
+	/**Only need to scan the pending priority queue and render queue.
+	 * Most dirty queue entries have FD_INVALID, but promoted duplicates may
+	 * carry a client fd while the primary item still represents the same tile.
 	 */
 	pthread_mutex_lock(&(queue->qLock));
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 2; i++) {
 		switch (i) {
 			case 0: {
-				queueHead = &(queue->reqHead);
+				queueHead = &(queue->pendingHead);
 				break;
 			}
 
@@ -239,21 +468,18 @@ void request_queue_clear_requests_by_fd(struct request_queue * queue, int fd)
 				queueHead = &(queue->renderHead);
 				break;
 			}
-
-			case 2: {
-				queueHead = &(queue->reqPrioHead);
-				break;
-			}
-
-			case 3: {
-				queueHead = &(queue->reqBulkHead);
-				break;
-			}
 		}
 
 		item = queueHead->next;
 
 		while (item != queueHead) {
+			if (queueHead == &(queue->pendingHead) && item->inQueue == queueDirty) {
+				int rank = request_queue_rank(queueDirty);
+
+				item = queue->pendingTail[rank]->next;
+				continue;
+			}
+
 			if (item->fd == fd) {
 				item->fd = FD_INVALID;
 			}
@@ -279,7 +505,8 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 {
 	enum protoCmd status;
 	const struct protocol *req;
-	struct item *list = NULL;
+	enum protoCmd add_status = cmdIgnore;
+	int item_added = 0;
 	req = &(item->req);
 
 	if (queue == NULL) {
@@ -306,32 +533,33 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 	}
 
 	// New request, add it to render or dirty queue
-	if ((req->cmd == cmdRender) && (queue->reqNum < REQ_LIMIT)) {
-		list = &(queue->reqHead);
+	if ((req->cmd == cmdRender) && (queue->reqNum < queue->requestLimit)) {
 		item->inQueue = queueRequest;
 		item->originatedQueue = queueRequest;
 		queue->reqNum++;
-	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < REQ_LIMIT)) {
-		list = &(queue->reqPrioHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < queue->requestLimit)) {
 		item->inQueue = queueRequestPrio;
 		item->originatedQueue = queueRequestPrio;
 		queue->reqPrioNum++;
-	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < REQ_LIMIT)) {
-		list = &(queue->reqLowHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < queue->requestLimit)) {
 		item->inQueue = queueRequestLow;
 		item->originatedQueue = queueRequestLow;
 		queue->reqLowNum++;
-	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < REQ_LIMIT)) {
-		list = &(queue->reqBulkHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < queue->requestLimit)) {
 		item->inQueue = queueRequestBulk;
 		item->originatedQueue = queueRequestBulk;
 		queue->reqBulkNum++;
-	} else if (queue->dirtyNum < DIRTY_LIMIT) {
-		list = &(queue->dirtyHead);
+		item_added = 1;
+	} else if (queue->dirtyNum < queue->dirtyLimit) {
 		item->inQueue = queueDirty;
 		item->originatedQueue = queueDirty;
 		queue->dirtyNum++;
 		item->fd = FD_INVALID; // No response after render
+		add_status = cmdNotDone;
+		item_added = 1;
 	} else {
 		// The queue is severely backlogged. Drop request
 		queue->stats.noReqDroped++;
@@ -340,11 +568,8 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 		return cmdNotDone;
 	}
 
-	if (list) {
-		item->next = list;
-		item->prev = list->prev;
-		item->prev->next = item;
-		list->prev = item;
+	if (item_added) {
+		request_queue_insert_pending(queue, item);
 		/* In addition to the linked list, add item to a hash table index
 		 * for faster lookup of pending requests.
 		 */
@@ -357,7 +582,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 
 	pthread_mutex_unlock(&queue->qLock);
 
-	return (list == &(queue->dirtyHead)) ? cmdNotDone : cmdIgnore;
+	return add_status;
 }
 
 void request_queue_remove_request(struct request_queue * queue, struct item * request, int render_time)
@@ -403,8 +628,7 @@ void request_queue_remove_request(struct request_queue * queue, struct item * re
 		queue->stats.timeZoomRender[request->req.z] += render_time;
 	}
 
-	request->next->prev = request->prev;
-	request->prev->next = request->next;
+	request_queue_unlink_item(request);
 	remove_item_idx(queue, request);
 	pthread_mutex_unlock(&(queue->qLock));
 }
@@ -450,7 +674,7 @@ void request_queue_copy_stats(struct request_queue * queue, stats_struct * stats
 	pthread_mutex_unlock(&queue->qLock);
 }
 
-struct request_queue * request_queue_init()
+struct request_queue * request_queue_init_with_limits(int request_limit, int dirty_limit)
 {
 	int res;
 	struct request_queue * queue = calloc(1, sizeof(struct request_queue));
@@ -458,6 +682,15 @@ struct request_queue * request_queue_init()
 	if (queue == NULL) {
 		return NULL;
 	}
+
+	if (request_limit < 1 || dirty_limit < 0) {
+		g_logger(G_LOG_LEVEL_ERROR, "Invalid request queue limits: request_queue_limit=%i dirty_queue_limit=%i", request_limit, dirty_limit);
+		free(queue);
+		return NULL;
+	}
+
+	queue->requestLimit = request_limit;
+	queue->dirtyLimit = dirty_limit;
 
 	res = pthread_mutex_init(&(queue->qLock), NULL);
 
@@ -483,17 +716,31 @@ struct request_queue * request_queue_init()
 	queue->stats.noReqLowRender = 0;
 	queue->stats.noReqBulkRender = 0;
 
-	queue->reqHead.next = queue->reqHead.prev = &(queue->reqHead);
-	queue->reqPrioHead.next = queue->reqPrioHead.prev = &(queue->reqPrioHead);
-	queue->reqLowHead.next = queue->reqLowHead.prev = &(queue->reqLowHead);
-	queue->reqBulkHead.next = queue->reqBulkHead.prev = &(queue->reqBulkHead);
-	queue->dirtyHead.next = queue->dirtyHead.prev = &(queue->dirtyHead);
+	queue->pendingHead.next = queue->pendingHead.prev = &(queue->pendingHead);
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
-	queue->hashidxSize = HASHIDX_SIZE;
+
+	for (int i = 0; i < PENDING_QUEUE_RANKS; i++) {
+		queue->pendingTail[i] = &(queue->pendingHead);
+	}
+
+	queue->hashidxSize = request_queue_hash_size(request_limit, dirty_limit);
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
+
+	if (queue->item_hashidx == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to initialise request queue index with %i entries", queue->hashidxSize);
+		pthread_mutex_destroy(&(queue->qLock));
+		free(queue);
+		return NULL;
+	}
+
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;
+}
+
+struct request_queue * request_queue_init()
+{
+	return request_queue_init_with_limits(DEFAULT_REQUEST_QUEUE_LIMIT, DEFAULT_DIRTY_QUEUE_LIMIT);
 }
 
 void request_queue_close(struct request_queue * queue)

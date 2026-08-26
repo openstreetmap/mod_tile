@@ -265,7 +265,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		struct item *itemL = init_render_request(cmdRenderLow);
 		request_queue_add_request(queue, itemL);
 
-		// We should be retrieving items in the order RenderPrio, Render, Dirty, Bulk
+		// We should retrieve items in priority queue order while preserving FIFO
+		// order within each priority class.
 		item2 = request_queue_fetch_request(queue);
 		INFO("itemRP: " << itemRP);
 		INFO("itemR: " << itemR);
@@ -372,12 +373,256 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
+	SECTION("renderd/queueing/promote pending lower priority request", "test if later interactive requests promote already queued background work") {
+		enum protoCmd res;
+		struct item *item;
+		struct item *duplicate;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(1, 4);
+
+		REQUIRE(queue != NULL);
+
+		item = init_render_request(cmdRenderPrio);
+		item->mx = 100;
+		res = request_queue_add_request(queue, item);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1);
+
+		item = init_render_request(cmdRenderPrio);
+		item->mx = 200;
+		res = request_queue_add_request(queue, item);
+		REQUIRE(res == cmdNotDone);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+
+		duplicate = init_render_request(cmdRenderPrio);
+		duplicate->mx = 200;
+		duplicate->fd = 42;
+		res = request_queue_add_request(queue, duplicate);
+		REQUIRE(res == cmdNotDone);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched->mx == 100);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		duplicate = init_render_request(cmdRenderPrio);
+		duplicate->mx = 200;
+		duplicate->fd = 43;
+		res = request_queue_add_request(queue, duplicate);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched->mx == 200);
+		REQUIRE(fetched->req.cmd == cmdRenderPrio);
+		REQUIRE(fetched->duplicates != NULL);
+		REQUIRE(fetched->duplicates->fd == 43);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched->duplicates);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/promote dirty request", "test if dirty work is requeued when a client starts waiting for the same tile") {
+		enum protoCmd res;
+		struct item *dirty;
+		struct item *duplicate;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(2, 4);
+
+		REQUIRE(queue != NULL);
+
+		dirty = init_render_request(cmdDirty);
+		dirty->mx = 300;
+		res = request_queue_add_request(queue, dirty);
+		REQUIRE(res == cmdNotDone);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+
+		duplicate = init_render_request(cmdRender);
+		duplicate->mx = 300;
+		duplicate->fd = 44;
+		res = request_queue_add_request(queue, duplicate);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == dirty);
+		REQUIRE(fetched->req.cmd == cmdDirty);
+		REQUIRE(fetched->duplicates != NULL);
+		REQUIRE(fetched->duplicates->fd == 44);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched->duplicates);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/promotion preserves primary response metadata", "test a later duplicate does not overwrite an already queued request") {
+		enum protoCmd res;
+		struct item *low;
+		struct item *priority;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(2, 4);
+
+		REQUIRE(queue != NULL);
+
+		low = init_render_request(cmdRenderLow);
+		low->mx = 375;
+		low->my = 375;
+		low->req.x = 376;
+		low->req.y = 377;
+		low->fd = 48;
+		res = request_queue_add_request(queue, low);
+		REQUIRE(res == cmdIgnore);
+
+		priority = init_render_request(cmdRenderPrio);
+		priority->mx = 375;
+		priority->my = 375;
+		priority->req.x = 378;
+		priority->req.y = 379;
+		priority->fd = 49;
+		res = request_queue_add_request(queue, priority);
+		REQUIRE(res == cmdIgnore);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == low);
+		REQUIRE(fetched->req.cmd == cmdRenderLow);
+		REQUIRE(fetched->req.x == 376);
+		REQUIRE(fetched->req.y == 377);
+		REQUIRE(fetched->duplicates != NULL);
+		REQUIRE(fetched->duplicates->req.cmd == cmdRenderPrio);
+		REQUIRE(fetched->duplicates->req.x == 378);
+		REQUIRE(fetched->duplicates->req.y == 379);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched->duplicates);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/options keep requests distinct", "test option variants are not deduplicated or promoted together") {
+		enum protoCmd res;
+		struct item *dirty;
+		struct item *duplicate;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(2, 4);
+
+		REQUIRE(queue != NULL);
+
+		dirty = init_render_request(cmdDirty);
+		dirty->mx = 325;
+		strcpy(dirty->req.options, "first");
+		res = request_queue_add_request(queue, dirty);
+		REQUIRE(res == cmdNotDone);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+
+		duplicate = init_render_request(cmdRender);
+		duplicate->mx = 325;
+		duplicate->fd = 46;
+		strcpy(duplicate->req.options, "second");
+		res = request_queue_add_request(queue, duplicate);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == duplicate);
+		REQUIRE((std::string)fetched->req.options == "second");
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == dirty);
+		REQUIRE((std::string)fetched->req.options == "first");
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/full-width options keep requests distinct", "test fixed-width option fields do not require NUL termination") {
+		enum protoCmd res;
+		struct item *first;
+		struct item *second;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(2, 4);
+
+		REQUIRE(queue != NULL);
+
+		first = init_render_request(cmdRender);
+		first->mx = 326;
+		memset(first->req.options, 'a', sizeof(first->req.options));
+		res = request_queue_add_request(queue, first);
+		REQUIRE(res == cmdIgnore);
+
+		second = init_render_request(cmdRender);
+		second->mx = 326;
+		memset(second->req.options, 'a', sizeof(second->req.options));
+		second->req.options[sizeof(second->req.options) - 1] = 'b';
+		res = request_queue_add_request(queue, second);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 2);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == first);
+		REQUIRE(memcmp(fetched->req.options, first->req.options, sizeof(fetched->req.options)) == 0);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == second);
+		REQUIRE(memcmp(fetched->req.options, second->req.options, sizeof(fetched->req.options)) == 0);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/dirty duplicate does not demote bulk request", "test background work does not replace already queued bulk work") {
+		enum protoCmd res;
+		struct item *bulk;
+		struct item *dirty;
+		struct item *fetched;
+		request_queue *queue = request_queue_init_with_limits(2, 4);
+
+		REQUIRE(queue != NULL);
+
+		bulk = init_render_request(cmdRenderBulk);
+		bulk->mx = 350;
+		bulk->fd = 45;
+		res = request_queue_add_request(queue, bulk);
+		REQUIRE(res == cmdIgnore);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 1);
+
+		dirty = init_render_request(cmdDirty);
+		dirty->mx = 350;
+		res = request_queue_add_request(queue, dirty);
+		REQUIRE(res == cmdNotDone);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdRenderBulk) == 1);
+		REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0);
+
+		fetched = request_queue_fetch_request(queue);
+		REQUIRE(fetched == bulk);
+		REQUIRE(fetched->req.cmd == cmdRenderBulk);
+		REQUIRE(fetched->fd == 45);
+		request_queue_remove_request(queue, fetched, 0);
+		free(fetched);
+
+		request_queue_close(queue);
+	}
+
 	SECTION("renderd/queueing/overflow requests", "test if requests correctly overflow from one request priority to the next") {
 		enum protoCmd res;
 		struct item *item;
 		request_queue *queue = request_queue_init();
 
-		for (int i = 1; i < (2 * REQ_LIMIT + DIRTY_LIMIT + 2); i++) {
+		for (int i = 1; i < (2 * DEFAULT_REQUEST_QUEUE_LIMIT + DEFAULT_DIRTY_QUEUE_LIMIT + 2); i++) {
 			item = init_render_request(cmdRenderPrio);
 			res = request_queue_add_request(queue, item);
 			INFO("i: " << i);
@@ -386,19 +631,47 @@ TEST_CASE("renderd/queueing", "request queueing")
 			INFO("NoDirt: " << request_queue_no_requests_queued(queue, cmdDirty));
 			INFO("NoBulk: " << request_queue_no_requests_queued(queue, cmdRenderBulk));
 
-			if (i <= REQ_LIMIT) {
+			if (i <= DEFAULT_REQUEST_QUEUE_LIMIT) {
 				REQUIRE(res == cmdIgnore);
 				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == i);
-			} else if (i <= (REQ_LIMIT + DIRTY_LIMIT)) {
+			} else if (i <= (DEFAULT_REQUEST_QUEUE_LIMIT + DEFAULT_DIRTY_QUEUE_LIMIT)) {
 				// Requests should overflow into the dirty queue
 				REQUIRE(res == cmdNotDone);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - REQ_LIMIT));
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == DEFAULT_REQUEST_QUEUE_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - DEFAULT_REQUEST_QUEUE_LIMIT));
 			} else {
 				// Requests should be dropped altogether
 				REQUIRE(res == cmdNotDone);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == REQ_LIMIT);
-				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == DIRTY_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == DEFAULT_REQUEST_QUEUE_LIMIT);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == DEFAULT_DIRTY_QUEUE_LIMIT);
+			}
+		}
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/configured overflow limits", "test if configurable queue limits are honoured") {
+		enum protoCmd res;
+		struct item *item;
+		request_queue *queue = request_queue_init_with_limits(2, 3);
+
+		REQUIRE(queue != NULL);
+
+		for (int i = 1; i < 8; i++) {
+			item = init_render_request(cmdRenderPrio);
+			res = request_queue_add_request(queue, item);
+
+			if (i <= 2) {
+				REQUIRE(res == cmdIgnore);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == i);
+			} else if (i <= 5) {
+				REQUIRE(res == cmdNotDone);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 2);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == (i - 2));
+			} else {
+				REQUIRE(res == cmdNotDone);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 2);
+				REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 3);
 			}
 		}
 
@@ -409,7 +682,7 @@ TEST_CASE("renderd/queueing", "request queueing")
 		pthread_t *addition_threads;
 		request_queue *queue;
 
-		REQUIRE((NO_THREADS * NO_QUEUE_REQUESTS) < DIRTY_LIMIT);
+		REQUIRE((NO_THREADS * NO_QUEUE_REQUESTS) < DEFAULT_DIRTY_QUEUE_LIMIT);
 
 		for (int j = 0; j < NO_TEST_REPEATS; j++) { // As we are looking for race conditions, repeat this test many times
 			addition_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));
@@ -560,6 +833,36 @@ TEST_CASE("renderd/queueing", "request queueing")
 		free(item);
 		item = request_queue_fetch_request(queue);
 		REQUIRE(item->fd == 6);
+		request_queue_remove_request(queue, item, 0);
+		free(item);
+
+		request_queue_close(queue);
+	}
+
+	SECTION("renderd/queueing/clear fd skips dirty backlog but reaches bulk", "Test fd clearing avoids fd-less dirty entries") {
+		struct request_queue *queue = request_queue_init_with_limits(4, 4);
+		struct item *item;
+
+		for (int i = 0; i < 4; i++) {
+			item = init_render_request(cmdDirty);
+			request_queue_add_request(queue, item);
+		}
+
+		item = init_render_request(cmdRenderBulk);
+		item->fd = 47;
+		request_queue_add_request(queue, item);
+		request_queue_clear_requests_by_fd(queue, 47);
+
+		for (int i = 0; i < 4; i++) {
+			item = request_queue_fetch_request(queue);
+			REQUIRE(item->req.cmd == cmdDirty);
+			request_queue_remove_request(queue, item, 0);
+			free(item);
+		}
+
+		item = request_queue_fetch_request(queue);
+		REQUIRE(item->req.cmd == cmdRenderBulk);
+		REQUIRE(item->fd == FD_INVALID);
 		request_queue_remove_request(queue, item, 0);
 		free(item);
 

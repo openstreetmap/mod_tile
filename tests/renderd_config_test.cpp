@@ -438,6 +438,38 @@ TEST_CASE("renderd_config config parser", "specific testing")
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified socketname (" + renderd_socketname + ") exceeds maximum allowed length of " + std::to_string(renderd_socketname_maxlen) + "."));
 	}
 
+	SECTION("renderd.conf renderd section request_queue_limit too small", "should return 7") {
+		std::string renderd_conf = std::tmpnam(nullptr);
+		std::ofstream renderd_conf_file;
+		renderd_conf_file.open(renderd_conf);
+		renderd_conf_file << "[mapnik]\n[map]\n";
+		renderd_conf_file << "[renderd]\nrequest_queue_limit=0\n";
+		renderd_conf_file.close();
+
+		std::vector<std::string> argv = {"--config", renderd_conf};
+
+		int status = run_command(test_binary, argv);
+		std::remove(renderd_conf.c_str());
+		REQUIRE(WEXITSTATUS(status) == 7);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified request_queue_limit (0) is too small, must be greater than or equal to 1."));
+	}
+
+	SECTION("renderd.conf renderd section dirty_queue_limit too small", "should return 7") {
+		std::string renderd_conf = std::tmpnam(nullptr);
+		std::ofstream renderd_conf_file;
+		renderd_conf_file.open(renderd_conf);
+		renderd_conf_file << "[mapnik]\n[map]\n";
+		renderd_conf_file << "[renderd]\ndirty_queue_limit=-1\n";
+		renderd_conf_file.close();
+
+		std::vector<std::string> argv = {"--config", renderd_conf};
+
+		int status = run_command(test_binary, argv);
+		std::remove(renderd_conf.c_str());
+		REQUIRE(WEXITSTATUS(status) == 7);
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified dirty_queue_limit (-1) is too small, must be greater than or equal to 0."));
+	}
+
 	SECTION("renderd.conf duplicate renderd section names", "should return 7") {
 		std::string renderd_conf = std::tmpnam(nullptr);
 		std::ofstream renderd_conf_file;
@@ -508,6 +540,21 @@ TEST_CASE("renderd_config_test_helper", "specific testing")
 		std::vector<std::string> argv = {RENDERD_CONF, std::to_string(0)};
 
 		int status = run_command(test_binary, argv);
+		REQUIRE(WEXITSTATUS(status) == 0);
+	}
+
+	SECTION("valid renderd.conf file with configured queue limits", "should return 0") {
+		std::string renderd_conf = std::tmpnam(nullptr);
+		std::ofstream renderd_conf_file;
+		renderd_conf_file.open(renderd_conf);
+		renderd_conf_file << "[mapnik]\n[map]\n";
+		renderd_conf_file << "[renderd]\nrequest_queue_limit=42\ndirty_queue_limit=4242\n";
+		renderd_conf_file.close();
+
+		std::vector<std::string> argv = {renderd_conf, std::to_string(0), "assert_queue_limits", "42", "4242"};
+
+		int status = run_command(test_binary, argv);
+		std::remove(renderd_conf.c_str());
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
