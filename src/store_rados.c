@@ -134,6 +134,11 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
 	int err;
 	char * buf_raw;
 
+	if (m == NULL) {
+		snprintf(log_msg, 1024, "Failed to allocate memory for metatile header\n");
+		return -1;
+	}
+
 	mask = METATILE - 1;
 	meta_offset = (x & mask) * METATILE + (y & mask);
 
@@ -233,6 +238,11 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
 	int sz2 = sz + sizeof(struct stat_info);
 	char * buf2 = malloc(sz2);
 	int err;
+
+	if (buf2 == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "rados_metatile_write: failed to allocate memory for write buffer");
+		return -1;
+	}
 
 	tile_stat.expired = 0;
 	tile_stat.size = sz;
@@ -351,7 +361,7 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 	int err;
 	int i;
 
-	if (ctx == NULL) {
+	if (ctx == NULL || store == NULL) {
 		free(ctx);
 		free(store);
 		return NULL;
