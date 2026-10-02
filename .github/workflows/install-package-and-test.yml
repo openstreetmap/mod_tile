@@ -19,8 +19,8 @@ jobs:
         image:
           - "debian:12"
           - "debian:13"
-          - "ubuntu:22.04"
           - "ubuntu:24.04"
+          - "ubuntu:26.04"
         include:
           - image: "debian:unstable"
             experimental: true

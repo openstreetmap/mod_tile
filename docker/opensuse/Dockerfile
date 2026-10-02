@@ -64,7 +64,8 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
 WORKDIR /tmp/mapnik_src
 RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
     if [ ! -f CMakeLists.txt ]; then \
-        git clone --branch v${mapnik_version} --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src; \
+        git clone --branch v${mapnik_version} --depth 1 --jobs 8 --recurse-submodules https://github.com/mapnik/mapnik.git /tmp/mapnik_src && \
+        sed --in-place 's/LANGUAGES CXX$/LANGUAGES CXX C/g' /tmp/mapnik_src/CMakeLists.txt; \
     fi
 WORKDIR /tmp/mapnik_build
 RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapnik-src:${mapnik_version},target=/tmp/mapnik_src \
@@ -199,6 +200,9 @@ RUN printf '\n[example-map-webp]\nMAXZOOM=20\nMINZOOM=0\nTYPE=webp image/webp we
 
 ## Enable `mod_access_compat`
 RUN sed -i 's/^APACHE_MODULES="actions/APACHE_MODULES="access_compat actions/g' /etc/sysconfig/apache2
+
+## Create directories `/srv/www/htdocs` & `/var/log/apache2`
+RUN mkdir --parents /srv/www/htdocs /var/log/apache2
 
 ## Start services
 CMD apachectl -e debug -k start; \
