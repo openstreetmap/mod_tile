@@ -150,7 +150,7 @@ inputs:
       gdal-devel
       git
       harfbuzz-devel
-      libboost_regex1_75_0-devel
+      libboost_regex1_86_0-devel
       libicu-devel
       libjpeg8-devel
       libpng16-devel
@@ -268,7 +268,7 @@ runs:
           ${{ inputs.opensuse-mapnik-build-dependencies }}
           ${{ inputs.opensuse-test-dependencies }}
           ${{ matrix.build_system == 'CMake' && 'cmake' || 'automake' }}
-          ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc12 gcc12-c++' }}
+          ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc15 gcc15-c++' }}
           rpm-build
       if: startsWith(matrix.image, 'opensuse/')
 
@@ -287,14 +287,14 @@ runs:
 
     - name: Link `gcc`/`g++` (openSUSE)
       run: |
-        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 40
-        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 40
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 40
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 40
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'opensuse/') && matrix.compiler == 'GNU'
 
     - name: Add `nobody` user/group (openSUSE)
       run: |
-        useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
+        id nobody || useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'opensuse/')
 

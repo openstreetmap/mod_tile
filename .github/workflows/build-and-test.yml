@@ -22,10 +22,10 @@ jobs:
         image:
           - "debian:12"
           - "debian:13"
-          - "fedora:42"
           - "fedora:43"
-          - "opensuse/leap:15"
-          - "ubuntu:22.04"
+          - "fedora:44"
+          - "opensuse/leap:16"
+          - "ubuntu:24.04"
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
@@ -49,16 +49,16 @@ jobs:
             build_system: CMake
             compiler: GNU
             experimental: true
-          - image: "ubuntu:24.04"
+          - image: "ubuntu:26.04"
             build_system: Autotools
             compiler: GNU
-          - image: "ubuntu:24.04"
+          - image: "ubuntu:26.04"
             build_system: Autotools
             compiler: LLVM
-          - image: "ubuntu:24.04"
+          - image: "ubuntu:26.04"
             build_system: CMake
             compiler: GNU
-          - image: "ubuntu:24.04"
+          - image: "ubuntu:26.04"
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -92,7 +92,8 @@ jobs:
         uses: ./.github/actions/coverage
         with:
           codecov-token: ${{ secrets.CODECOV_TOKEN }}
-          lcov-extra-options: ${{ matrix.image == 'debian:13' && '--ignore-errors inconsistent' || '' }}
+          genhtml-extra-options: ${{ matrix.image != 'debian:12' && '--ignore-errors inconsistent' || '' }}
+          lcov-extra-options: ${{ matrix.image != 'debian:12' && '--ignore-errors inconsistent' || '' }}
         if: |
           matrix.compiler != 'LLVM' &&
           !startsWith(matrix.image, 'opensuse/') &&
@@ -272,12 +273,12 @@ jobs:
           memory: 4096
           ssh_shell: sh
 
-      # Mapnik is not in the `quarterly` repository (2023.10.12)
-      - name: Use "latest" repository
-        run: |
-          sudo mkdir -p /usr/local/etc/pkg/repos
-          sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf | sudo tee /usr/local/etc/pkg/repos/FreeBSD.conf
-          sudo pkg upgrade --yes
+      ## In case Mapnik is not in the `quarterly` repository
+      # - name: Use "latest" repository
+      #   run: |
+      #     sudo mkdir -p /usr/local/etc/pkg/repos
+      #     sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf | sudo tee /usr/local/etc/pkg/repos/FreeBSD.conf
+      #     sudo pkg upgrade --yes
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install

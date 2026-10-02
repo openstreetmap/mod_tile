@@ -34,12 +34,11 @@ jobs:
           - archlinux
           - debian-12
           - debian-13
-          - fedora-42
           - fedora-43
-          - opensuse-leap-15
+          - fedora-44
           - opensuse-leap-16
-          - ubuntu-22.04
           - ubuntu-24.04
+          - ubuntu-26.04
         include:
           # - service-name: centos-stream-9
           #   experimental: true
