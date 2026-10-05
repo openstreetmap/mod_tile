@@ -456,8 +456,8 @@ int main(int argc, char **argv)
 
 			g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles for zoom %i from (%i, %i) to (%i, %i)", z, min_x, min_y, current_max_x, current_max_y);
 
-			for (x = min_x; x <= current_max_x; x += METATILE) {
-				for (y = min_y; y <= current_max_y; y += METATILE) {
+			for (x = min_x - (min_x % METATILE); x <= current_max_x; x += METATILE) {
+				for (y = min_y - (min_y % METATILE); y <= current_max_y; y += METATILE) {
 					if (!force) {
 						s = store->tile_stat(store, mapname, "", x, y, z);
 					}
