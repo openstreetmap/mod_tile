@@ -191,6 +191,8 @@ static struct protocol *fetch(void)
 
 void enqueue(const char *xmlname, int x, int y, int z)
 {
+	g_logger(G_LOG_LEVEL_DEBUG, "Enqueueing tile (xmlname=%s x=%i y=%i z=%i)", xmlname, x, y, z);
+
 	// Add this path in the local render queue
 	struct qItem *e = (struct qItem *)malloc(sizeof(struct qItem));
 
