@@ -68,13 +68,17 @@
       "output": { "outputOnFailure": true },
       "environment": {
         "ASAN_OPTIONS": "detect_leaks=0",
-        "UBSAN_OPTIONS": "print_stacktrace=1"
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       }
     },
     {
       "name": "tsan",
       "configurePreset": "tsan",
-      "output": { "outputOnFailure": true }
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "name": "_test$|^unit_tests$" } },
+      "environment": {
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/tests/tsan.supp"
+      }
     }
   ]
 }
