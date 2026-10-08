@@ -46,15 +46,17 @@ captured_stdio captured_stdout;
 
 std::string read_stderr(int buffer_size)
 {
-	char buffer[buffer_size];
-	read(captured_stderr.pipes[0], buffer, buffer_size);
+	std::string buffer(buffer_size, '\0');
+	ssize_t len = read(captured_stderr.pipes[0], &buffer[0], buffer_size);
+	buffer.resize(len > 0 ? len : 0);
 	return buffer;
 }
 
 std::string read_stdout(int buffer_size)
 {
-	char buffer[buffer_size];
-	read(captured_stdout.pipes[0], buffer, buffer_size);
+	std::string buffer(buffer_size, '\0');
+	ssize_t len = read(captured_stdout.pipes[0], &buffer[0], buffer_size);
+	buffer.resize(len > 0 ? len : 0);
 	return buffer;
 }
 

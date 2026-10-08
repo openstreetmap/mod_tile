@@ -428,7 +428,7 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 {
 	int ini_loaded_here = 0;
 	int renderd_section_num = -1;
-	int renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
+	size_t renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
 
 	if (!ini) {
 		ini = iniparser_load(config_file_name);
@@ -488,7 +488,7 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 			}
 
 			if (strnlen(configs_dest[renderd_section_num].socketname, PATH_MAX) >= renderd_socketname_maxlen) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified socketname (%s) exceeds maximum allowed length of %i.", configs_dest[renderd_section_num].socketname, renderd_socketname_maxlen);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified socketname (%s) exceeds maximum allowed length of %zu.", configs_dest[renderd_section_num].socketname, renderd_socketname_maxlen);
 				exit(7);
 			}
 		}

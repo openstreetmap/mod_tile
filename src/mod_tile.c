@@ -2576,7 +2576,7 @@ static const command_rec tile_cmds[] = {
 	AP_INIT_TAKE2("ModTileThrottlingTiles", mod_tile_delaypool_tiles_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
 	AP_INIT_TAKE3("AddTileMimeConfig", add_tile_mime_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and file extension to use"),
 	AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and optional key-value pairs to use"),
-	{NULL}
+	{0}
 };
 
 module AP_MODULE_DECLARE_DATA tile_module = {
@@ -2586,5 +2586,8 @@ NULL,		/* dir merger --- default is to override */
 create_tile_config, /* server config */
 merge_tile_config,	/* merge server config */
 tile_cmds,		/* command apr_table_t */
-register_hooks	/* register hooks */
+register_hooks,	/* register hooks */
+#if AP_MODULE_HAS_FLAGS(tile_module)
+AP_MODULE_FLAG_NONE	/* flags */
+#endif
 };
