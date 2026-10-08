@@ -120,11 +120,13 @@ static void process_config_string_with_trailing_slash(const dictionary *ini, con
 {
 	char *key = name_with_section(section, name);
 	const char *src = iniparser_getstring(ini, key, notfound);
+	size_t src_len = strnlen(src, maxlen);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
 
-	if (src[strnlen(src, maxlen) - 1] != '/') {
-		char *tempsrc = strndup(src, maxlen);
+	// (an empty value also gets a slash; checking src[src_len - 1] would read before the string)
+	if (src_len == 0 || src[src_len - 1] != '/') {
+		char *tempsrc;
 		int len = asprintf(&tempsrc, "%s/", src);
 
 		if (len == -1) {
