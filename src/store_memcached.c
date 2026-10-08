@@ -80,6 +80,11 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	memcached_return_t rc;
 	char * buf_raw;
 
+	if (m == NULL) {
+		snprintf(log_msg, 1024, "Failed to allocate memory for metatile header\n");
+		return -1;
+	}
+
 	mask = METATILE - 1;
 	meta_offset = (x & mask) * METATILE + (y & mask);
 
