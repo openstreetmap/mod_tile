@@ -35,7 +35,9 @@
 
 static void copy_string(const char *src, const char **dest, size_t maxlen)
 {
-	*dest = strndup(src, maxlen);
+	// Bound strndup() by the actual length: GCC's -Wstringop-overread wrongly flags
+	// strndup() bounds that exceed the length of string literal arguments
+	*dest = strndup(src, strnlen(src, maxlen));
 
 	if (*dest == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "copy_string: strndup error");

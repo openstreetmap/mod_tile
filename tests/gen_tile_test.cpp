@@ -563,7 +563,7 @@ TEST_CASE("renderd", "tile generation")
 
 	SECTION("rx_request/bad", "should return cmdNotDone") {
 		int pipefd[2];
-		pipe(pipefd);
+		REQUIRE(pipe(pipefd) == 0);
 		struct protocol *req = (struct protocol *)malloc(sizeof(struct protocol));
 		std::string expected_mimetype = "image/png", expected_options = "", expected_xmlname = XMLCONFIG_DEFAULT;
 
