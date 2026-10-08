@@ -31,7 +31,7 @@ static int calcHashKey(struct request_queue *queue, struct item *item)
 	uint64_t xmlnameHash = 0;
 	uint64_t key;
 
-	for (int i = 0; (item->req.xmlname[i] != 0) && (i < sizeof(item->req.xmlname)); i++) {
+	for (int i = 0; (i < (int)sizeof(item->req.xmlname)) && (item->req.xmlname[i] != 0); i++) {
 		xmlnameHash += item->req.xmlname[i];
 	}
 
