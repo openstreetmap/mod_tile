@@ -73,8 +73,6 @@ void g_logger(int log_level, const char *format, ...)
 		g_error("ERROR: asprintf failed in g_logger");
 	}
 
-	const GLogField log_fields_prefixed[] = {{"MESSAGE", log_message_prefixed, -1}};
-
 	if (foreground == 1) {
 		switch (log_level) {
 			// Levels >= G_LOG_LEVEL_ERROR will terminate the program
@@ -110,27 +108,27 @@ void g_logger(int log_level, const char *format, ...)
 
 		switch (log_level) {
 			case G_LOG_LEVEL_ERROR:
-				syslog(LOG_ERR, log_message_prefixed, NULL);
+				syslog(LOG_ERR, "%s", log_message_prefixed);
 				break;
 
 			case G_LOG_LEVEL_CRITICAL:
-				syslog(LOG_CRIT, log_message_prefixed, NULL);
+				syslog(LOG_CRIT, "%s", log_message_prefixed);
 				break;
 
 			case G_LOG_LEVEL_WARNING:
-				syslog(LOG_WARNING, log_message_prefixed, NULL);
+				syslog(LOG_WARNING, "%s", log_message_prefixed);
 				break;
 
 			case G_LOG_LEVEL_MESSAGE:
-				syslog(LOG_INFO, log_message_prefixed, NULL);
+				syslog(LOG_INFO, "%s", log_message_prefixed);
 				break;
 
 			case G_LOG_LEVEL_INFO:
-				syslog(LOG_INFO, log_message_prefixed, NULL);
+				syslog(LOG_INFO, "%s", log_message_prefixed);
 				break;
 
 			case G_LOG_LEVEL_DEBUG:
-				syslog(LOG_DEBUG, log_message_prefixed, NULL);
+				syslog(LOG_DEBUG, "%s", log_message_prefixed);
 				break;
 		}
 	}

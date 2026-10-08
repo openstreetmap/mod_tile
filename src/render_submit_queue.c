@@ -78,7 +78,7 @@ static void check_load(void)
 
 	while (avg >= maxLoad) {
 		int seconds = 5;
-		g_logger(G_LOG_LEVEL_DEBUG, "Load average %d, sleeping %is", avg, seconds);
+		g_logger(G_LOG_LEVEL_DEBUG, "Load average %.2f, sleeping %is", avg, seconds);
 		sleep(seconds);
 		avg = get_load_avg();
 	}

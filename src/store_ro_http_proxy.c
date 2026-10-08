@@ -289,7 +289,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 	pthread_mutex_lock(&qLock);
 
 	if (!done_global_init) {
-		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: Global init of curl", connection_string);
+		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: Global init of curl");
 		res = curl_global_init(CURL_GLOBAL_DEFAULT);
 		done_global_init = 1;
 	} else {

@@ -1366,7 +1366,7 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		std::string message = expected_output + " FOREGROUND TEST";
 		start_capture();
 		foreground = 1;
-		g_logger(log_level, message.c_str());
+		g_logger(log_level, "%s", message.c_str());
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 		foreground = 0;
 
@@ -1400,7 +1400,7 @@ TEST_CASE("g_logger", "Test g_logger.c")
 	SECTION("g_logger foreground debug: " + expected_output, "should log the expected string") {
 		std::string message = expected_output + " FOREGROUND DEBUG TEST";
 		start_capture(1);
-		g_logger(log_level, message.c_str());
+		g_logger(log_level, "%s", message.c_str());
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
 		found_err = err_log_lines.find(message);

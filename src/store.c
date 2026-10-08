@@ -52,7 +52,7 @@ struct storage_backend * init_storage_backend(const char * options)
 			store = init_storage_file(options);
 			return store;
 		} else {
-			g_logger(G_LOG_LEVEL_ERROR, "init_storage_backend: %s is not a directory", options, strerror(errno));
+			g_logger(G_LOG_LEVEL_ERROR, "init_storage_backend: %s is not a directory", options);
 			return NULL;
 		}
 	}
