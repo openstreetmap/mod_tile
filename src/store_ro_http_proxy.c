@@ -152,19 +152,31 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 			case 404: {
 				if (ctx->cache.tile != NULL) {
 					free(ctx->cache.tile);
+					ctx->cache.tile = NULL;
 				}
 
+				free(chunk.memory);
 				ctx->cache.st_stat.size = -1;
 				ctx->cache.st_stat.expired = 0;
 				break;
 			}
-		}
 
+			default: {
+				// Do not cache anything for unexpected responses, otherwise the previously
+				// cached tile would be served for these coordinates
+				g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: unexpected HTTP response code %li", httpCode);
+				free(chunk.memory);
+				ctx->cache.x = -1;
+				ctx->cache.y = -1;
+				ctx->cache.z = -1;
+				return -1;
+			}
+		}
 
 		ctx->cache.x = x;
 		ctx->cache.y = y;
 		ctx->cache.z = z;
-		strcpy(ctx->cache.xmlname, xmlconfig);
+		snprintf(ctx->cache.xmlname, sizeof(ctx->cache.xmlname), "%s", xmlconfig);
 		return 1;
 	}
 }
@@ -174,7 +186,12 @@ static int ro_http_proxy_tile_read(struct storage_backend * store, const char *x
 	struct ro_http_proxy_ctx * ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
 
 	if (ro_http_proxy_tile_retrieve(store, xmlconfig, options, x, y, z) > 0) {
-		if (ctx->cache.st_stat.size > sz) {
+		if (ctx->cache.st_stat.size < 0) {
+			// Cached 404
+			return -1;
+		}
+
+		if ((size_t)ctx->cache.st_stat.size > sz) {
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %lu %li", sz, ctx->cache.st_stat.size);
 			return -1;
 		}
