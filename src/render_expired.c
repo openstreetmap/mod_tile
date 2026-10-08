@@ -38,10 +38,28 @@
 // we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
 // levels) - this saves us the hassle of working with a tree structure.
 
-#define TILE_REQUESTED(z, x, y) \
-	(tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] >> (((x) * twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
-#define SET_TILE_REQUESTED(z, x, y) \
-	tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01u << (((x) * twopow[z] + (y)) % (8 * sizeof(int))));
+// Set of metatiles already requested, so each is only queued once.
+// Keys are (z, x, y) packed into a gint64; this only uses memory for tiles actually
+// seen, unlike a per-zoom bitmap (which needed ~2 GiB at --max-zoom 20).
+static GHashTable *tile_requested;
+
+static gint64 tile_key(int z, int x, int y)
+{
+	return ((gint64)z << 48) | ((gint64)(x & 0xFFFFFF) << 24) | (gint64)(y & 0xFFFFFF);
+}
+
+static int tile_is_requested(int z, int x, int y)
+{
+	gint64 key = tile_key(z, x, y);
+	return g_hash_table_contains(tile_requested, &key);
+}
+
+static void set_tile_requested(int z, int x, int y)
+{
+	gint64 *key = g_new(gint64, 1);
+	*key = tile_key(z, x, y);
+	g_hash_table_add(tile_requested, key);
+}
 
 #ifndef METATILE
 #warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
@@ -54,11 +72,9 @@ int main(int argc, char **argv)
 #else
 
 // tile marking arrays
-unsigned int **tile_requested;
 
 // "two raised to the power of [...]" - don't trust pow() to be efficient
 // for base 2
-unsigned long long twopow[MAX_ZOOM];
 
 void display_rate(struct timeval start, struct timeval end, int num)
 {
@@ -308,21 +324,7 @@ int main(int argc, char **argv)
 
 	// initialise arrays for tile markings
 
-	tile_requested = (unsigned int **)malloc((max_zoom - excess_zoomlevels + 1) * sizeof(unsigned int *));
-
-	for (int i = 0; i <= max_zoom - excess_zoomlevels; i++) {
-		// initialize twopow array
-		twopow[i] = (i == 0) ? 1 : twopow[i - 1] * 2;
-		unsigned long long fourpow = twopow[i] * twopow[i];
-		// one bit per (meta)tile, stored in unsigned ints (see TILE_REQUESTED / SET_TILE_REQUESTED)
-		unsigned long long words = (fourpow + (8 * sizeof(unsigned int)) - 1) / (8 * sizeof(unsigned int));
-		tile_requested[i] = (unsigned int *)calloc(words, sizeof(unsigned int));
-
-		if (NULL == tile_requested[i]) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "not enough memory available");
-			return 1;
-		}
-	}
+	tile_requested = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
 
 	store = init_storage_backend(tile_dir);
 
@@ -422,7 +424,7 @@ int main(int argc, char **argv)
 			// renderd does keep a list internally to avoid enqueuing the same tile
 			// twice but in case it has already rendered the tile we don't want to
 			// cause extra work.
-			if (TILE_REQUESTED(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels)) {
+			if (tile_is_requested(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels)) {
 				if (verbose) {
 					g_logger(G_LOG_LEVEL_MESSAGE, "Already requested metatile containing '%d/%d/%d', moving on to next input line", z, x, y);
 				}
@@ -437,7 +439,7 @@ int main(int argc, char **argv)
 			// mark tile as requested. (do this even if, below, the tile is not
 			// actually requested due to not being present on disk, to avoid
 			// unnecessary later stat'ing).
-			SET_TILE_REQUESTED(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels);
+			set_tile_requested(z - excess_zoomlevels, x >> excess_zoomlevels, y >> excess_zoomlevels);
 
 			// commented out - seems to cause problems in MT environment,
 			// trying to write to already-closed file
@@ -504,11 +506,7 @@ int main(int argc, char **argv)
 	store->close_storage(store);
 	free(store);
 
-	for (int i = 0; i <= max_zoom - excess_zoomlevels; i++) {
-		free(tile_requested[i]);
-	}
-
-	free(tile_requested);
+	g_hash_table_destroy(tile_requested);
 
 	gettimeofday(&end, NULL);
 	g_logger(G_LOG_LEVEL_MESSAGE, "Read and expanded %i tiles from list.", num_read);
