@@ -1319,6 +1319,7 @@ add_compile_definitions(
   PROJECT_BINARY_DIR="${PROJECT_BINARY_DIR}/src"
   RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf.examples"
 )
+include_directories(BEFORE ${PROJECT_BINARY_DIR}/includes)
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 link_libraries(${GLIB_LIBRARIES})
 
