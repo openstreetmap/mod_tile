@@ -116,6 +116,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 		if (res != CURLE_OK) {
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve file: %s", curl_easy_strerror(res));
+			free(chunk.memory);
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;
@@ -126,6 +127,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 		if (res != CURLE_OK) {
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to retrieve HTTP code: %s", curl_easy_strerror(res));
+			free(chunk.memory);
 			ctx->cache.x = -1;
 			ctx->cache.y = -1;
 			ctx->cache.z = -1;
@@ -300,6 +302,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 
 	if (res != CURLE_OK) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));
+		free(ctx->baseurl);
 		free(ctx);
 		free(store);
 		return NULL;
@@ -309,6 +312,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 
 	if (!ctx->ctx) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise curl");
+		free(ctx->baseurl);
 		free(ctx);
 		free(store);
 		return NULL;
