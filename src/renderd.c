@@ -174,7 +174,10 @@ void request_exit(void)
 	// This function is called from a signal handler, so only async-signal-safe
 	// functions (write(2)) may be used here — no g_logger, no strerror.
 	char c = 0;
-	(void)write(exit_pipe_fd, &c, sizeof(c));
+	// Nothing useful can be done on failure here; assign to discard (GCC ignores a (void) cast
+	// for functions declared warn_unused_result)
+	ssize_t ignored = write(exit_pipe_fd, &c, sizeof(c));
+	(void)ignored;
 }
 
 void process_loop(int listen_fd)
