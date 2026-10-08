@@ -26,7 +26,7 @@ extern "C" {
 
 extern int foreground;
 
-void g_logger(int log_level, const char *format, ...);
+void g_logger(int log_level, const char *format, ...) G_GNUC_PRINTF(2, 3);
 
 const char *g_logger_level_name(int log_level);
 
