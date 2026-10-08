@@ -217,6 +217,13 @@ configure_file(
 
 if(ENABLE_WARNINGS)
   add_compile_options(-Wall -Wextra -Wno-unused-parameter)
+  # Log messages and storage IDs are deliberately truncated to PATH_MAX-sized buffers,
+  # so GCC's -Wformat-truncation heuristic only produces false positives here.
+  include(CheckCCompilerFlag)
+  check_c_compiler_flag(-Wformat-truncation HAVE_WFORMAT_TRUNCATION)
+  if(HAVE_WFORMAT_TRUNCATION)
+    add_compile_options(-Wno-format-truncation)
+  endif()
   if(ENABLE_WERROR)
     add_compile_options(-Werror)
   endif()
