@@ -41,7 +41,7 @@
 #define TILE_REQUESTED(z, x, y) \
 	(tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] >> (((x) * twopow[z] + (y)) % (8 * sizeof(int)))) & 0x01
 #define SET_TILE_REQUESTED(z, x, y) \
-	tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01 << (((x) * twopow[z] + (y)) % (8 * sizeof(int))));
+	tile_requested[z][((x) * twopow[z] + (y)) / (8 * sizeof(int))] |= (0x01u << (((x) * twopow[z] + (y)) % (8 * sizeof(int))));
 
 #ifndef METATILE
 #warning("render_expired not implemented for non-metatile mode. Feel free to submit fix")
@@ -314,7 +314,9 @@ int main(int argc, char **argv)
 		// initialize twopow array
 		twopow[i] = (i == 0) ? 1 : twopow[i - 1] * 2;
 		unsigned long long fourpow = twopow[i] * twopow[i];
-		tile_requested[i] = (unsigned int *)calloc((fourpow / METATILE) + 1, 1);
+		// one bit per (meta)tile, stored in unsigned ints (see TILE_REQUESTED / SET_TILE_REQUESTED)
+		unsigned long long words = (fourpow + (8 * sizeof(unsigned int)) - 1) / (8 * sizeof(unsigned int));
+		tile_requested[i] = (unsigned int *)calloc(words, sizeof(unsigned int));
 
 		if (NULL == tile_requested[i]) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "not enough memory available");
