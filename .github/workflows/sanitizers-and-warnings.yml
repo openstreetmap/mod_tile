@@ -1,0 +1,113 @@
+---
+name: Sanitizers & Warnings
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  Warnings:
+    name: >-
+      ${{ matrix.image }}
+      (-Werror)
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_system:
+          - CMake
+        compiler:
+          - GNU
+          - LLVM
+        image:
+          - "ubuntu:24.04"
+      fail-fast: false
+    container:
+      env:
+        CC: ${{ matrix.compiler == 'LLVM' && 'clang' || 'gcc' }}
+        CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+        EXTRA_CMAKE_OPTIONS: -DENABLE_WARNINGS:BOOL=ON -DENABLE_WERROR:BOOL=ON
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/cmake/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/cmake/test
+
+  Sanitizers:
+    name: >-
+      ${{ matrix.name }}
+      (${{ matrix.compiler }})
+    # Run on the host rather than in a container so that `vm.mmap_rnd_bits` can be
+    # lowered, which ThreadSanitizer requires on recent kernels
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        build_system:
+          - CMake
+        compiler:
+          - GNU
+        sanitizers:
+          - address,undefined
+          - thread
+        include:
+          - sanitizers: address,undefined
+            name: ASan + UBSan
+            # Includes the Apache/renderd integration tests (the ASan runtime is preloaded into httpd)
+            test_options: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure
+          - sanitizers: thread
+            name: TSan
+            # TSan cannot be preloaded into the system httpd, so only the unit test executables are run
+            test_options: --tests-regex '_test$|^unit_tests$' --output-on-failure
+      fail-fast: false
+    env:
+      ASAN_OPTIONS: detect_leaks=0
+      BUILD_TYPE: Debug
+      CC: gcc
+      CXX: g++
+      EXTRA_CMAKE_OPTIONS: -DENABLE_SANITIZERS:STRING=${{ matrix.sanitizers }}
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1:suppressions=${{ github.workspace }}/tests/tsan.supp
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Lower `vm.mmap_rnd_bits` for ThreadSanitizer
+        run: sudo sysctl vm.mmap_rnd_bits=28
+        if: matrix.sanitizers == 'thread'
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      # Unlike in containers, installing the packages on the host starts their system services,
+      # whose default ports (e.g. memcached on 11211) collide with the test services
+      - name: Stop system `apache2` & `memcached` services
+        run: sudo systemctl stop apache2 memcached || true
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/cmake/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/cmake/test
+        with:
+          options: ${{ matrix.test_options }}
+
+      # Services started by the integration tests (httpd, renderd) report sanitizer errors to
+      # their own log files and may still exit "successfully", so check those logs too
+      - name: Check service logs for sanitizer reports
+        run: |
+          if [ ! -d build/tests/logs ]; then
+            exit 0
+          fi
+          if grep -rlaE 'ERROR: AddressSanitizer|runtime error:|WARNING: ThreadSanitizer' build/tests/logs; then
+            grep -raEA30 'ERROR: AddressSanitizer|runtime error:|WARNING: ThreadSanitizer' build/tests/logs
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}

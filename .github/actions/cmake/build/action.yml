@@ -11,7 +11,8 @@ runs:
           -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX:-/usr} \
           -DCMAKE_INSTALL_RUNSTATEDIR:PATH=${INSTALL_RUNSTATEDIR:-/run} \
           -DCMAKE_INSTALL_SYSCONFDIR:PATH=${INSTALL_SYSCONFDIR:-/etc} \
-          -DENABLE_TESTS:BOOL=ON
+          -DENABLE_TESTS:BOOL=ON \
+          ${EXTRA_CMAKE_OPTIONS:-}
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Build `mod_tile`
