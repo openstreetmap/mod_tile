@@ -2406,7 +2406,7 @@ static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int 
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *delaypool_tile_size_string, const char *top_up_tile_rate_string)
 {
 	const char *delaypool_tile_size_result, *top_up_tile_rate_result;
-	double top_up_tile_rate;
+	double top_up_tile_rate = 0;
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	delaypool_tile_size_result = arg_to_int(cmd, delaypool_tile_size_string, &scfg->delaypool_tile_size, "ModTileThrottlingTiles first");
 
@@ -2420,6 +2420,12 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 		return top_up_tile_rate_result;
 	}
 
+	// The rate is stored as whole microseconds per tile and later used as a divisor, so it
+	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
+	if (!(top_up_tile_rate > 0) || (top_up_tile_rate > APR_USEC_PER_SEC)) {
+		return "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000";
+	}
+
 	/*Convert topup rate into microseconds per tile */
 	scfg->delaypool_tile_rate = (APR_USEC_PER_SEC / top_up_tile_rate);
 	return NULL;
@@ -2428,7 +2434,7 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfig, const char *delaypool_render_size_string, const char *top_up_render_rate_string)
 {
 	const char *delaypool_render_size_result, *top_up_render_rate_result;
-	double top_up_render_rate;
+	double top_up_render_rate = 0;
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	delaypool_render_size_result = arg_to_int(cmd, delaypool_render_size_string, &scfg->delaypool_render_size, "ModTileThrottlingRenders first");
 
@@ -2440,6 +2446,12 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 
 	if (top_up_render_rate_result != NULL) {
 		return top_up_render_rate_result;
+	}
+
+	// The rate is stored as whole microseconds per render and later used as a divisor, so it
+	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
+	if (!(top_up_render_rate > 0) || (top_up_render_rate > APR_USEC_PER_SEC)) {
+		return "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000";
 	}
 
 	/*Convert topup rate into microseconds per tile */
