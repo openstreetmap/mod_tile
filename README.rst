@@ -27,7 +27,7 @@ Dependencies
     * `macOS`
 * `Supported Build Systems`
     * `CMake <https://cmake.org/>`__
-    * `GNU Autotools <https://www.gnu.org/software/software.html>`__
+    * `GNU Autotools <https://www.gnu.org/software/software.html>`__ (deprecated, use CMake)
 * `Runtime/Build Dependencies`
     * `Apache 2 HTTP webserver <https://httpd.apache.org/>`__
     * `Cairo 2D graphics library (optional) <https://cairographics.org/>`__
