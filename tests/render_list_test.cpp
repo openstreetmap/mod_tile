@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <string>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
 #include "render_config.h"
@@ -75,7 +75,7 @@ TEST_CASE("render_list common", "common testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
 	}
 }
 
@@ -89,7 +89,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
 	}
 
 	SECTION("--config with valid --map and --tile-dir with invalid path", "should return 1") {
@@ -99,8 +99,8 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to initialise storage backend " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to initialise storage backend " + tile_dir));
 	}
 
 	SECTION("--config with valid --map, --verbose and bad input lines", "should return 0") {
@@ -111,8 +111,8 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: z/x/y"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("bad line 0: x y z"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("bad line 0: z/x/y"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("bad line 0: x y z"));
 	}
 
 	SECTION("--config with valid --map, --verbose and invalid zoom input lines", "should return 0") {
@@ -123,8 +123,8 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Ignoring tile, zoom -100 outside valid range (0..20)"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Ignoring tile, zoom 100 outside valid range (0..20)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Ignoring tile, zoom -100 outside valid range (0..20)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Ignoring tile, zoom 100 outside valid range (0..20)"));
 	}
 
 	SECTION("--tile-dir with invalid option", "should return 1") {
@@ -133,8 +133,8 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_backend: No valid storage backend found for options: " + tile_dir));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to initialise storage backend " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_backend: No valid storage backend found for options: " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to initialise storage backend " + tile_dir));
 	}
 
 	SECTION("--tile-dir with invalid path", "should return 1") {
@@ -143,8 +143,8 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to initialise storage backend " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to initialise storage backend " + tile_dir));
 	}
 
 	SECTION("--num-threads subceeds minimum of 1", "should return 1") {
@@ -152,7 +152,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid number of threads, must be >= 1 (0 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid number of threads, must be >= 1 (0 was provided)"));
 	}
 
 	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1") {
@@ -160,7 +160,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("zoom, must be <= 20 (21 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("zoom, must be <= 20 (21 was provided)"));
 	}
 
 	SECTION("--min-zoom exceeds --max-zoom", "should return 1") {
@@ -168,7 +168,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (2) is larger than max zoom (1)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min zoom (2) is larger than max zoom (1)."));
 	}
 
 	SECTION("--all --min-zoom not equal to --max-zoom with X/Y options", "should return 1") {
@@ -176,7 +176,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("min-zoom must be equal to max-zoom when using min-x, max-x, min-y, or max-y options"));
 	}
 
 	SECTION("--all --max-x/y options exceed maximum (2^zoom-1)", "should return 1") {
@@ -184,7 +184,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid range, x and y values must be <= 1 (2^zoom-1)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid range, x and y values must be <= 1 (2^zoom-1)"));
 	}
 
 	SECTION("--all --min-x/y options exceed maximum (2^zoom-1)", "should return 1") {
@@ -192,7 +192,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid range, x and y values must be <= 1 (2^zoom-1)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid range, x and y values must be <= 1 (2^zoom-1)"));
 	}
 
 	SECTION("--all --min-x exceeds --max-x", "should return 1") {
@@ -200,7 +200,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min-x (2) is larger than max-x (1)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min-x (2) is larger than max-x (1)."));
 	}
 
 	SECTION("--all --min-y exceeds --max-y", "should return 1") {
@@ -208,7 +208,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min-y (2) is larger than max-y (1)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min-y (2) is larger than max-y (1)."));
 	}
 
 	SECTION("--all --max-lat --max-lon --min-lat --min-lon with --min-x/y and/or --max-x/y", "should return 1") {
@@ -218,7 +218,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("min-lat, min-lon, max-lat & max-lon cannot be used together with min-x, max-x, min-y, or max-y"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("min-lat, min-lon, max-lat & max-lon cannot be used together with min-x, max-x, min-y, or max-y"));
 	}
 
 	SECTION("--all --min-lat exceeds --max-lat", "should return 1") {
@@ -226,7 +226,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min-lat (1.000000) is larger than max-lat (0.000000)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min-lat (1.000000) is larger than max-lat (0.000000)."));
 	}
 
 	SECTION("--all --min-lon exceeds --max-lon", "should return 1") {
@@ -234,7 +234,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min-lon (1.000000) is larger than max-lon (0.000000)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min-lon (1.000000) is larger than max-lon (0.000000)."));
 	}
 
 	// No renderd is listening, so the workers exit at once and only the queue (one slot per thread) holds the 4 metatiles.
@@ -244,7 +244,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Rendering all tiles for zoom 4 from (0, 0) to (8, 8)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Rendering all tiles for zoom 4 from (0, 0) to (8, 8)"));
 	}
 
 	SECTION("--all --max-lat --max-lon --min-lat --min-lon at the edges of the world stays within 2^zoom-1", "should return 0") {
@@ -252,7 +252,7 @@ TEST_CASE("render_list specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Rendering all tiles for zoom 4 from (0, 0) to (15, 15)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Rendering all tiles for zoom 4 from (0, 0) to (15, 15)"));
 	}
 }
 
@@ -272,8 +272,8 @@ TEST_CASE("render_list min/max int generator", "min/max int generator testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >="));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("(-1 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be >="));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("(-1 was provided)"));
 	}
 
 	SECTION(option + " option is float", "should return 1") {
@@ -281,7 +281,7 @@ TEST_CASE("render_list min/max int generator", "min/max int generator testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be an integer (1.23456789 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be an integer (1.23456789 was provided)"));
 	}
 
 	SECTION(option + " option is not an integer", "should return 1") {
@@ -289,7 +289,7 @@ TEST_CASE("render_list min/max int generator", "min/max int generator testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be an integer (invalid was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be an integer (invalid was provided)"));
 	}
 }
 
@@ -318,7 +318,7 @@ TEST_CASE("render_list min/max lat generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be <= 85.051100 (85.151100 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be <= 85.051100 (85.151100 was provided)"));
 	}
 
 	SECTION(option + " option is too small", "should return 1") {
@@ -326,7 +326,7 @@ TEST_CASE("render_list min/max lat generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >= -85.051100 (-85.151100 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be >= -85.051100 (-85.151100 was provided)"));
 	}
 
 	SECTION(option + " option is not a double", "should return 1") {
@@ -334,7 +334,7 @@ TEST_CASE("render_list min/max lat generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be a double (invalid was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be a double (invalid was provided)"));
 	}
 
 	SECTION(option + " option is positive with --help", "should return 0") {
@@ -384,7 +384,7 @@ TEST_CASE("render_list min/max lon generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be <= 180.000000 (180.100000 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be <= 180.000000 (180.100000 was provided)"));
 	}
 
 	SECTION(option + " option is too small", "should return 1") {
@@ -392,7 +392,7 @@ TEST_CASE("render_list min/max lon generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >= -180.000000 (-180.100000 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be >= -180.000000 (-180.100000 was provided)"));
 	}
 
 	SECTION(option + " option is not a double", "should return 1") {
@@ -400,7 +400,7 @@ TEST_CASE("render_list min/max lon generator", "min/max double generator testing
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be a double (invalid was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be a double (invalid was provided)"));
 	}
 
 	SECTION(option + " option is positive with --help", "should return 0") {

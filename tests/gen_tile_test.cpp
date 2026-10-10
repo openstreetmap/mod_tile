@@ -15,10 +15,11 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-// https://github.com/catchorg/Catch2/blob/v2.13.9/docs/own-main.md#let-catch2-take-full-control-of-args-and-config
-#define CATCH_CONFIG_RUNNER
+// This test binary provides its own main() (see bottom of file):
+// https://github.com/catchorg/Catch2/blob/v3.16.0/docs/own-main.md
 
 #include <cstdio>
+#include <fstream>
 #include <glib.h>
 #include <mapnik/version.hpp>
 #include <math.h>
@@ -40,7 +41,7 @@
 #include <mapnik/box2d.hpp>
 #endif
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
 #include "g_logger.h"

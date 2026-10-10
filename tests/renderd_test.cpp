@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
 
@@ -69,7 +69,7 @@ TEST_CASE("renderd common", "common testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
 	}
 }
 
@@ -89,6 +89,6 @@ TEST_CASE("renderd specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("must be >= 0 (-1 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("must be >= 0 (-1 was provided)"));
 	}
 }
