@@ -1,0 +1,8 @@
+# ThreadSanitizer suppressions for third-party code.
+#
+# Use with: TSAN_OPTIONS="suppressions=<path to this file>"
+
+# GDAL takes its CPL mutexes in inconsistent order while Mapnik loads the gdal
+# input plugin on renderd's main thread (single-threaded at that point).
+deadlock:CPLAcquireMutex
+deadlock:CPLCreateOrAcquireMutexEx
