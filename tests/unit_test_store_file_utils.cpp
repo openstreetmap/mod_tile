@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "render_config.h"
@@ -101,7 +101,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			int res = path_to_xyz(tilepath, path, xmlconfig, &x, &y, &z);
 
 			REQUIRE(res == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Tile path does not match settings"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Tile path does not match settings"));
 		}
 
 		SECTION("path_to_xyz handles malformed tile path structure", "should return 1")
@@ -112,7 +112,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			int res = path_to_xyz(tilepath, path, xmlconfig, &x, &y, &z);
 
 			REQUIRE(res == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to parse tile path"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to parse tile path"));
 		}
 
 		SECTION("path_to_xyz handles invalid hash component values (> 255 or < 0)", "should return 2")
@@ -124,7 +124,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			int res = path_to_xyz(tilepath, path, xmlconfig, &x, &y, &z);
 
 			REQUIRE(res == 2);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to parse tile path (invalid 300)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to parse tile path (invalid 300)"));
 		}
 
 		SECTION("path_to_xyz detects out-of-bounds zoom or tile coordinates", "should return 1")
@@ -136,7 +136,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			int res = path_to_xyz(tilepath, path, xmlconfig, &x, &y, &z);
 
 			REQUIRE(res == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("got bad co-ords"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("got bad co-ords"));
 		}
 
 		SECTION("path_to_xyz successfully parses valid hashed metatile path", "should set x, y, z and return 0")
@@ -162,7 +162,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			int res = path_to_xyz("/var/lib/mod_tile", path, xmlconfig, &x, &y, &z);
 
 			REQUIRE(res == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to parse tile path"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to parse tile path"));
 		}
 #endif
 	}
@@ -178,7 +178,7 @@ TEST_CASE("store_file_utils.c", "[store_file_utils]")
 			REQUIRE(offset == 0);
 			REQUIRE_THAT(std::string(path_buf), Catch::Matchers::StartsWith("/var/lib/mod_tile/default/0/"));
 			REQUIRE_THAT(std::string(path_buf), Catch::Matchers::EndsWith(".meta"));
-			REQUIRE(!Catch::Matchers::Contains(".myoption.meta").match(path_buf));
+			REQUIRE(!Catch::Matchers::ContainsSubstring(".myoption.meta").match(path_buf));
 		}
 
 		SECTION("xyzo_to_meta with options suffix", "should include options before .meta extension")

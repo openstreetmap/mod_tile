@@ -18,7 +18,7 @@
 #include <cstring>
 #include <sys/syscall.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "protocol.h"
@@ -159,7 +159,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 
 			struct request_queue *queue = request_queue_init();
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to create mutex for request_queue"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create mutex for request_queue"));
 
 			REQUIRE(queue == NULL);
 		}
@@ -170,7 +170,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 
 			struct request_queue *queue = request_queue_init();
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to create condition variable for request_queue"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create condition variable for request_queue"));
 
 			REQUIRE(queue == NULL);
 		}
@@ -182,7 +182,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 			struct request_queue *queue = request_queue_init();
 
 			REQUIRE(queue == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to allocate memory for request queue hash index"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to allocate memory for request queue hash index"));
 		}
 	}
 
@@ -408,7 +408,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 			}
 
 			REQUIRE(exit_status == 3);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("queue is NULL"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("queue is NULL"));
 			free(test_item);
 		}
 	}
@@ -519,7 +519,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 
 			request_queue_remove_request(queue, item, 0);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Removing request from queue, even though not on rendering queue"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Removing request from queue, even though not on rendering queue"));
 
 			free(item);
 		}

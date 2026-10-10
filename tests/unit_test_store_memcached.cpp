@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "metatile.h"
@@ -45,7 +45,7 @@ TEST_CASE("store_memcached.c", "[store_memcached]")
 		{
 			struct storage_backend *store = init_storage_memcached(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for memcached storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for memcached storage has not been compiled into this program"));
 		}
 #else
 		SECTION("handles allocation failure for store backend struct")
@@ -53,7 +53,7 @@ TEST_CASE("store_memcached.c", "[store_memcached]")
 			fail_next_malloc = true;
 			struct storage_backend *store = init_storage_memcached(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to allocate memory for storage backend"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to allocate memory for storage backend"));
 			reset_malloc_test_count();
 		}
 
@@ -135,7 +135,7 @@ TEST_CASE("store_memcached.c", "[store_memcached]")
 			fail_next_malloc = true;
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to allocate memory for metatile header"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to allocate memory for metatile header"));
 			reset_malloc_test_count();
 		}
 

@@ -15,7 +15,7 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
@@ -53,14 +53,14 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			err_log_lines.clear();
 			struct storage_backend *store = init_storage_rados("rados://tiles/nonexistent/ceph.conf");
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to read rados config file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to read rados config file"));
 		}
 #else
 		SECTION("returns NULL when HAVE_LIBRADOS is disabled")
 		{
 			struct storage_backend *store = init_storage_rados(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for rados storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for rados storage has not been compiled into this program"));
 		}
 #endif
 	}
@@ -106,7 +106,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			err_log_lines.clear();
 			char *res = read_meta_data(&store, XMLCONFIG_DEFAULT, "", 8, 16, 5);
 			REQUIRE(res == mock_buf);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Returning cached data for"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Returning cached data for"));
 		}
 	}
 
@@ -135,7 +135,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 
 			int res = rados_tile_read(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to allocate memory for metatile header"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to allocate memory for metatile header"));
 			reset_malloc_test_count();
 		}
 
@@ -155,7 +155,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 
 			int res = rados_tile_read(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -3);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to read metadata of tile"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read metadata of tile"));
 		}
 
 		SECTION("detects magic mismatch on corrupted header")
@@ -177,7 +177,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 
 			int res = rados_tile_read(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -4);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Meta file header magic mismatch"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Meta file header magic mismatch"));
 
 			free(mock_meta);
 		}
@@ -206,7 +206,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			int res = rados_tile_read(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -5);
 			REQUIRE(compressed == 1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Meta file header bad count"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Meta file header bad count"));
 
 			free(mock_meta);
 		}
@@ -237,7 +237,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			int res = rados_tile_read(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, 100, &compressed, log_msg);
 			REQUIRE(res == -6);
 			REQUIRE(compressed == 0);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Truncating tile"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Truncating tile"));
 
 			free(mock_meta);
 		}
@@ -332,7 +332,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			err_log_lines.clear();
 			int res = rados_metatile_write(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, "payload", 7);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for write buffer"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for write buffer"));
 			reset_malloc_test_count();
 		}
 
@@ -351,8 +351,8 @@ TEST_CASE("store_rados.c", "[store_rados]")
 
 			int res = rados_metatile_write(&store, XMLCONFIG_DEFAULT, "", 0, 0, 0, "payload", 7);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Trying to create and write a tile to rados://tiles/"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot write rados://tiles/"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Trying to create and write a tile to rados://tiles/"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot write rados://tiles/"));
 
 			free(ctx.pool);
 		}
@@ -373,8 +373,8 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			err_log_lines.clear();
 			int res = rados_metatile_expire(&store, XMLCONFIG_DEFAULT, 0, 0, 0);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Trying to expire a tile at rados://tiles/"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot expire rados://tiles/"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Trying to expire a tile at rados://tiles/"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot expire rados://tiles/"));
 
 			free(ctx.pool);
 		}
@@ -416,7 +416,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			int res = rados_close_storage(&store);
 			REQUIRE(res == 0);
 			REQUIRE(store.storage_ctx == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Closed rados backend"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Closed rados backend"));
 		}
 	}
 #endif

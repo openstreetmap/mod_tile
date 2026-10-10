@@ -15,7 +15,7 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
@@ -32,7 +32,7 @@ TEST_CASE("store.c", "[store]")
 		{
 			struct storage_backend *store = init_storage_backend("");
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Options string was empty"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Options string was empty"));
 		}
 
 		SECTION("handles absolute path storage options")
@@ -42,7 +42,7 @@ TEST_CASE("store.c", "[store]")
 				err_log_lines.clear();
 				struct storage_backend *store = init_storage_backend("/tmp/nonexistent_mod_tile_dir_12345");
 				REQUIRE(store == NULL);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to stat /tmp/nonexistent_mod_tile_dir_12345"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to stat /tmp/nonexistent_mod_tile_dir_12345"));
 			}
 
 			SECTION("fails when path points to a file rather than a directory")
@@ -57,7 +57,7 @@ TEST_CASE("store.c", "[store]")
 				err_log_lines.clear();
 				struct storage_backend *store = init_storage_backend(tmp_file.data());
 				REQUIRE(store == NULL);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("is not a directory"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("is not a directory"));
 
 				unlink(tmp_file.data());
 			}
@@ -69,7 +69,7 @@ TEST_CASE("store.c", "[store]")
 				err_log_lines.clear();
 				struct storage_backend *store = init_storage_backend(tile_dir.c_str());
 				REQUIRE(store != NULL);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising file storage backend at:"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising file storage backend at:"));
 
 				store->close_storage(store);
 				free(store);
@@ -78,7 +78,7 @@ TEST_CASE("store.c", "[store]")
 				err_log_lines.clear();
 				store = init_storage_backend(tile_dir_slash.c_str());
 				REQUIRE(store != NULL);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising file storage backend at:"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising file storage backend at:"));
 
 				store->close_storage(store);
 				free(store);
@@ -95,10 +95,10 @@ TEST_CASE("store.c", "[store]")
 
 #ifndef HAVE_LIBRADOS
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for rados storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for rados storage has not been compiled into this program"));
 #else
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to read rados config file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to read rados config file"));
 #endif
 		}
 
@@ -110,10 +110,10 @@ TEST_CASE("store.c", "[store]")
 
 #ifndef HAVE_LIBMEMCACHED
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for memcached storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for memcached storage has not been compiled into this program"));
 #else
 			REQUIRE(store != NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising memcached storage backend at:"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising memcached storage backend at:"));
 
 			store->close_storage(store);
 			free(store);
@@ -128,10 +128,10 @@ TEST_CASE("store.c", "[store]")
 
 #ifndef HAVE_LIBCURL
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for http proxy storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for http proxy storage has not been compiled into this program"));
 #else
 			REQUIRE(store != NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising ro_http_proxy storage backend at:"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising ro_http_proxy storage backend at:"));
 
 			store->close_storage(store);
 			free(store);
@@ -149,10 +149,10 @@ TEST_CASE("store.c", "[store]")
 
 #ifndef HAVE_CAIRO
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for compositing storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for compositing storage has not been compiled into this program"));
 #else
 			REQUIRE(store != NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising ro_composite storage backend at:"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising ro_composite storage backend at:"));
 
 			store->close_storage(store);
 			free(store);
@@ -166,7 +166,7 @@ TEST_CASE("store.c", "[store]")
 			err_log_lines.clear();
 			struct storage_backend *store = init_storage_backend("null://");
 			REQUIRE(store != NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("initialising null storage backend at:"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("initialising null storage backend at:"));
 
 			store->close_storage(store);
 			free(store);
@@ -177,7 +177,7 @@ TEST_CASE("store.c", "[store]")
 			err_log_lines.clear();
 			struct storage_backend *store = init_storage_backend("unsupported_backend_schema://localhost");
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("No valid storage backend found for options:"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("No valid storage backend found for options:"));
 		}
 	}
 }

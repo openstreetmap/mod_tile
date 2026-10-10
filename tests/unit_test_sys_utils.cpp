@@ -15,7 +15,7 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"

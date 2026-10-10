@@ -15,7 +15,7 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "metatile.h"
@@ -58,7 +58,7 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 			tiles.save(store);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to write metatile. Out of memory"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to write metatile. Out of memory"));
 		}
 
 		SECTION("metaTile::save handles mkdir failure", "should return")
@@ -67,7 +67,7 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 			tiles.save(store);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error creating directory " + metatile_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error creating directory " + metatile_path));
 		}
 
 		SECTION("metaTile::save handles open failure", "should return")
@@ -76,7 +76,7 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 			tiles.save(store);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error creating file " + metatile_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error creating file " + metatile_path));
 		}
 
 		SECTION("metaTile::save handles write failure", "should return")
@@ -85,7 +85,7 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 			tiles.save(store);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error writing file " + metatile_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error writing file " + metatile_path));
 		}
 
 		store->metatile_delete(store, xmlconfig.c_str(), 1024, 1024, 10);
@@ -130,8 +130,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			int sock = 0;
 
 			tiles.expire_tiles(sock, "host", "/uri/");
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Purging metatile via HTCP cache expiry"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Purging metatile via HTCP cache expiry"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
 		}
 
 		SECTION("metaTile::expire_tiles handles negative sock", "should return")

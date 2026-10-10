@@ -17,7 +17,7 @@
 
 #include <limits.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "store.h"
@@ -36,7 +36,7 @@ TEST_CASE("store_null.c", "[store_null]")
 			struct storage_backend *store = init_storage_null();
 
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_null: Failed to allocate memory for storage backend"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_null: Failed to allocate memory for storage backend"));
 		}
 
 		SECTION("init_storage_null creates valid storage interface", "should return initialized backend struct")

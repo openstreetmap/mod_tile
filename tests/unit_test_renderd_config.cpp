@@ -20,7 +20,7 @@
 #include <string>
 #include <sys/un.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "renderd_config.h"
@@ -55,7 +55,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 7);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("copy_string: strndup error"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("copy_string: strndup error"));
 		}
 
 		SECTION("copy_string with valid src and valid dest", "should return")
@@ -86,7 +86,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 7);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("name_with_section: invalid section (null)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("name_with_section: invalid section (null)"));
 		}
 
 		SECTION("name_with_section with invalid name and valid section", "should exit 7")
@@ -102,7 +102,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 7);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("name_with_section: invalid name (null)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("name_with_section: invalid name (null)"));
 		}
 
 		SECTION("name_with_section with valid name and valid section", "should return")
@@ -130,7 +130,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 7);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("name_with_section: asprintf error"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("name_with_section: asprintf error"));
 		}
 	}
 
@@ -170,7 +170,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be <= " + std::to_string(dmax) + " (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be <= " + std::to_string(dmax) + " (" + std::string(opt_arg) + " was provided)"));
 		}
 
 		SECTION("min_max_double_opt less than min", "should exit 1")
@@ -185,7 +185,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be >= " + std::to_string(dmin) + " (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be >= " + std::to_string(dmin) + " (" + std::string(opt_arg) + " was provided)"));
 		}
 
 		SECTION("min_max_double_opt exceeds max", "should exit 1")
@@ -200,7 +200,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be a double (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be a double (" + std::string(opt_arg) + " was provided)"));
 		}
 
 		SECTION("min_max_int_opt success", "should not exit")
@@ -230,7 +230,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be <= " + std::to_string((int)dmax) + " (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be <= " + std::to_string((int)dmax) + " (" + std::string(opt_arg) + " was provided)"));
 		}
 
 		SECTION("min_max_int_opt less than min", "should exit 1")
@@ -245,7 +245,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be >= " + std::to_string((int)dmin) + " (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be >= " + std::to_string((int)dmin) + " (" + std::string(opt_arg) + " was provided)"));
 		}
 
 		SECTION("min_max_int_opt exceeds max", "should exit 1")
@@ -260,7 +260,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid " + std::string(opt_type_name) + ", must be an integer (" + std::string(opt_arg) + " was provided)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid " + std::string(opt_type_name) + ", must be an integer (" + std::string(opt_arg) + " was provided)"));
 		}
 	}
 
@@ -279,7 +279,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Active renderd section (" + std::to_string(MAX_SLAVES) + ") must be between 0 and " + std::to_string(MAX_SLAVES - 1) + "."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Active renderd section (" + std::to_string(MAX_SLAVES) + ") must be between 0 and " + std::to_string(MAX_SLAVES - 1) + "."));
 		}
 
 		SECTION("valid renderd.conf file with nonexistent active renderd section", "should exit 1")
@@ -292,7 +292,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Active renderd section (" + std::to_string(MAX_SLAVES - 1) + ") does not exist."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Active renderd section (" + std::to_string(MAX_SLAVES - 1) + ") does not exist."));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section", "should exit 1")
@@ -305,7 +305,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_config_file): 'doesnotexist'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_config_file): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_renderd_sections)", "should exit 1")
@@ -318,7 +318,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_renderd_sections): 'doesnotexist'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_renderd_sections): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_mapnik_section)", "should exit 1")
@@ -331,7 +331,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_mapnik_section): 'doesnotexist'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_mapnik_section): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_map_sections)", "should exit 1")
@@ -344,7 +344,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to load config file (process_map_sections): 'doesnotexist'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_map_sections): 'doesnotexist'"));
 		}
 
 		SECTION("valid renderd.conf file with valid active renderd section (process_config_file)", "should not exit")
@@ -424,7 +424,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Can't handle more than " + std::to_string(XMLCONFIGS_MAX) + " map config sections"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Can't handle more than " + std::to_string(XMLCONFIGS_MAX) + " map config sections"));
 		}
 
 		SECTION("renderd.conf without map sections", "should exit 1")
@@ -441,7 +441,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 1);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("No map config sections were found in file: " + renderd_conf_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("No map config sections were found in file: " + renderd_conf_path));
 		}
 
 		SECTION("renderd.conf without mapnik section", "should exit 1")
@@ -458,7 +458,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 1);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("No mapnik config section was found in file: " + renderd_conf_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("No mapnik config section was found in file: " + renderd_conf_path));
 		}
 
 		SECTION("renderd.conf with invalid renderd sections", "should exit 7")
@@ -477,7 +477,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid renderd section name: " + renderd_conf_renderd_section_name));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid renderd section name: " + renderd_conf_renderd_section_name));
 		}
 
 		SECTION("renderd.conf with too many renderd sections", "should exit 7")
@@ -499,7 +499,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Can't handle more than " + std::to_string(MAX_SLAVES) + " renderd config sections"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Can't handle more than " + std::to_string(MAX_SLAVES) + " renderd config sections"));
 		}
 
 		SECTION("renderd.conf without renderd sections", "should exit 1")
@@ -516,7 +516,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 1);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("No renderd config sections were found in file: " + renderd_conf_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("No renderd config sections were found in file: " + renderd_conf_path));
 		}
 
 		SECTION("renderd.conf map section scale too small", "should exit 7")
@@ -534,7 +534,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified scale factor (0.000000) is too small, must be greater than or equal to 0.100000."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified scale factor (0.000000) is too small, must be greater than or equal to 0.100000."));
 		}
 
 		SECTION("renderd.conf map section scale too large", "should exit 7")
@@ -552,7 +552,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified scale factor (8.100000) is too large, must be less than or equal to 8.000000."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified scale factor (8.100000) is too large, must be less than or equal to 8.000000."));
 		}
 
 		SECTION("renderd.conf map section maxzoom too small", "should exit 7")
@@ -570,7 +570,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified max zoom (-1) is too small, must be greater than or equal to 0."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified max zoom (-1) is too small, must be greater than or equal to 0."));
 		}
 
 		SECTION("renderd.conf map section maxzoom too large", "should exit 7")
@@ -588,7 +588,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified max zoom (" + std::to_string(MAX_ZOOM + 1) + ") is too large, must be less than or equal to " + std::to_string(MAX_ZOOM) + "."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified max zoom (" + std::to_string(MAX_ZOOM + 1) + ") is too large, must be less than or equal to " + std::to_string(MAX_ZOOM) + "."));
 		}
 
 		SECTION("renderd.conf map section minzoom too small", "should exit 7")
@@ -606,7 +606,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (-1) is too small, must be greater than or equal to 0."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min zoom (-1) is too small, must be greater than or equal to 0."));
 		}
 
 		SECTION("renderd.conf map section minzoom too large", "should exit 7")
@@ -624,7 +624,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (" + std::to_string(MAX_ZOOM + 1) + ") is larger than max zoom (" + std::to_string(MAX_ZOOM) + ")."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min zoom (" + std::to_string(MAX_ZOOM + 1) + ") is larger than max zoom (" + std::to_string(MAX_ZOOM) + ")."));
 		}
 
 		SECTION("renderd.conf map section type has too few parts", "should exit 7")
@@ -644,7 +644,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified type (" + renderd_conf_map_type + ") has too few parts, there must be at least 2, e.g., 'png image/png'."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified type (" + renderd_conf_map_type + ") has too few parts, there must be at least 2, e.g., 'png image/png'."));
 		}
 
 		SECTION("renderd.conf map section type has too many parts", "should exit 7")
@@ -664,7 +664,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified type (" + renderd_conf_map_type + ") has too many parts, there must be no more than 3, e.g., 'png image/png png256'."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified type (" + renderd_conf_map_type + ") has too many parts, there must be no more than 3, e.g., 'png image/png png256'."));
 		}
 
 		SECTION("renderd.conf map section type has two parts", "should not exit")
@@ -681,10 +681,10 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read map:type: 'png image/png'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read map:type:file_extension: 'png'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read map:type:mime_type: 'image/png'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read map:type:output_format: 'png256'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read map:type: 'png image/png'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read map:type:file_extension: 'png'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read map:type:mime_type: 'image/png'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read map:type:output_format: 'png256'"));
 		}
 
 		SECTION("renderd.conf renderd section socketname is too long", "should exit 7")
@@ -705,7 +705,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified socketname (" + renderd_socketname + ") exceeds maximum allowed length of " + std::to_string(renderd_socketname_maxlen) + "."));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified socketname (" + renderd_socketname + ") exceeds maximum allowed length of " + std::to_string(renderd_socketname_maxlen) + "."));
 		}
 
 		SECTION("renderd.conf duplicate renderd section names", "should exit 7")
@@ -723,7 +723,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Duplicate renderd config section names for section 0: renderd0 & renderd"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Duplicate renderd config section names for section 0: renderd0 & renderd"));
 		}
 
 		SECTION("renderd.conf renderd section num_threads is -1", "should not exit")
@@ -740,8 +740,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(0): num_threads = '" + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) + "'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: num_threads = '" + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd(0): num_threads = '" + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd: num_threads = '" + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) + "'"));
 		}
 
 		SECTION("renderd.conf slave renderd sections' num_threads sum equals num_slave_threads", "should not exit")
@@ -758,9 +758,9 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(1): num_threads = '2'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(2): num_threads = '2'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: num_slave_threads = '4'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd(1): num_threads = '2'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd(2): num_threads = '2'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd: num_slave_threads = '4'"));
 		}
 
 		SECTION("renderd.conf renderd section not using unix socketname", "should not exit")
@@ -777,8 +777,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(0): ip socket = 'hostname:9999'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: ip socket = 'hostname:9999'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd(0): ip socket = 'hostname:9999'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("renderd: ip socket = 'hostname:9999'"));
 		}
 
 		SECTION("renderd.conf with overlapping URIs", "should return 7")
@@ -801,7 +801,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified URI path ('" + map0_uri + "' in map section 'map0') must not be the parent of any subsequent map config section's URI path, e.g., '" + map0_uri + "1/' in map section 'map1'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified URI path ('" + map0_uri + "' in map section 'map0') must not be the parent of any subsequent map config section's URI path, e.g., '" + map0_uri + "1/' in map section 'map1'"));
 		}
 
 		SECTION("renderd.conf with blank URIs", "should return 7")
@@ -823,7 +823,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 			REQUIRE(exit_status == 7);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified URI path ('/' in map section 'map1') must not be the parent of any subsequent map config section's URI path, e.g., '/2/' in map section 'map2'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified URI path ('/' in map section 'map1') must not be the parent of any subsequent map config section's URI path, e.g., '/2/' in map section 'map2'"));
 		}
 
 		std::remove(renderd_conf_path.c_str());
@@ -850,7 +850,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + (notfound ? "true" : "false") + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + (notfound ? "true" : "false") + "'"));
 		}
 
 		SECTION("process_config_double", "should not exit")
@@ -865,7 +865,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + std::to_string(notfound) + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + std::to_string(notfound) + "'"));
 		}
 
 		SECTION("process_config_int", "should not exit")
@@ -880,7 +880,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + std::to_string(notfound) + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + std::to_string(notfound) + "'"));
 		}
 
 		std::string notfound = "notfound";
@@ -895,7 +895,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + notfound + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + notfound + "'"));
 		}
 
 		SECTION("process_config_string_with_trailing_slash with trailing slash", "should not add a trailing slash and not exit")
@@ -910,8 +910,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + notfound + "'"));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Added trailing slash"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + notfound + "'"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Added trailing slash"));
 			REQUIRE(std::string(maps[0].xmluri) == notfound);
 		}
 
@@ -927,8 +927,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + notfound + "'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Added trailing slash to " + section + ":" + name + ": '" + notfound + "/'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + notfound + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Added trailing slash to " + section + ":" + name + ": '" + notfound + "/'"));
 			REQUIRE(std::string(maps[0].xmluri) == notfound + "/");
 		}
 
@@ -942,8 +942,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + notfound + "'"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Added trailing slash to " + section + ":" + name + ": '" + notfound + "/'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read " + section + ":" + name + ": '" + notfound + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Added trailing slash to " + section + ":" + name + ": '" + notfound + "/'"));
 			REQUIRE(std::string(maps[0].xmluri) == notfound + "/");
 		}
 
@@ -960,7 +960,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			}
 
 			REQUIRE(exit_status == 7);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("process_config_string_with_trailing_slash: asprintf error"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("process_config_string_with_trailing_slash: asprintf error"));
 		}
 
 		iniparser_freedict((dictionary *)ini);
