@@ -18,10 +18,10 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 	int y = 1024;
 	int z = 10;
 
-	int block = 1, fd, ret;
+	int block = 1, fd = -1, ret;
 	int pipefd[2];
-	pipe(pipefd);
-	struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
+	REQUIRE(pipe(pipefd) == 0);
+	struct protocol *cmd = (struct protocol *)calloc(1, sizeof(struct protocol));
 	struct protocol rsp;
 	bzero(&rsp, sizeof(rsp));
 

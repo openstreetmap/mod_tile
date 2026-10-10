@@ -42,8 +42,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 	SECTION("process function") {
 		int fd, ret;
 		int pipefd[2];
-		pipe(pipefd);
-		struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
+		REQUIRE(pipe(pipefd) == 0);
+		struct protocol *cmd = (struct protocol *)calloc(1, sizeof(struct protocol));
 
 		cmd->cmd = cmdRender;
 		cmd->ver = 3;

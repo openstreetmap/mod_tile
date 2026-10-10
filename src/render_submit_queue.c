@@ -265,9 +265,8 @@ int make_connection(const char *spath)
 		if (!hostname_len) {
 			hostname = strdup(RENDERD_HOST);
 		} else {
-			hostname = (char *)malloc(hostname_len + sizeof('\0'));
+			hostname = strndup(spath, hostname_len);
 			assert(hostname != NULL);
-			strncpy(hostname, spath, hostname_len);
 		}
 
 		if (d) {
