@@ -21,7 +21,7 @@ project(mod_tile
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 11 CACHE STRING "Sets the C++ standard.")
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "Sets the C++ standard (C++14 minimum; Catch2 v3 requires it).")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
@@ -60,6 +60,10 @@ find_package(LIBMAPNIK 3 REQUIRED)
 
 if(LIBMAPNIK_VERSION VERSION_GREATER_EQUAL 4)
   set(CMAKE_CXX_STANDARD 17)
+elseif(CMAKE_CXX_STANDARD LESS 14)
+  # e.g. an existing build directory whose cache still holds the old default of 11
+  message(WARNING "CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD} is too old (Catch2 v3 needs C++14), using 14")
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
 if(USE_CURL)

@@ -1,4 +1,4 @@
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "sys_utils.h"

@@ -256,6 +256,7 @@ if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 
 set(gen_tile_test_SRCS
+  $<TARGET_OBJECTS:catch2_o>
   $<TARGET_OBJECTS:catch_test_common_o>
   ${renderd_SRCS}
   ${PROJECT_SOURCE_DIR}/tests/gen_tile_test.cpp
@@ -278,6 +279,7 @@ target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
 #-----------------------------------------------------------------------------
 
 set(unit_tests_SRCS
+  $<TARGET_OBJECTS:catch2_o>
   $<TARGET_OBJECTS:catch_main_o>
   ${PROJECT_SOURCE_DIR}/tests/unit_tests.cpp
 )
