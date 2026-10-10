@@ -258,13 +258,12 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 		auto it = map->parameterized_map_cache.find(std::string(options));
 
 		if (it == map->parameterized_map_cache.end()) {
-			mapnik::Map parameterized = map->map;
-			map->parameterize_function(parameterized, options);
-			parameterized.load_fonts();
-			auto inserted = map->parameterized_map_cache.emplace(std::string(options), std::move(parameterized));
+			mapnik::Map parameterized_map = map->map;
+			map->parameterize_function(parameterized_map, options);
+			parameterized_map.load_fonts();
+			auto inserted = map->parameterized_map_cache.emplace(std::string(options), std::move(parameterized_map));
 			it = inserted.first;
-			g_logger(G_LOG_LEVEL_DEBUG, "Cached new parameterized map for options '%s' (cache size: %zu)",
-				 options, map->parameterized_map_cache.size());
+			g_logger(G_LOG_LEVEL_DEBUG, "Cached new parameterized map for options '%s' (cache size: %zu)", options, map->parameterized_map_cache.size());
 		}
 
 		render_map = &it->second;
