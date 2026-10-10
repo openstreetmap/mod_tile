@@ -322,9 +322,13 @@ extern "C" {
 
 		va_start(args, format);
 
-		vasprintf(&log_message, format, args);
+		int len = vasprintf(&log_message, format, args);
 
 		va_end(args);
+
+		if (len < 0) {
+			throw std::runtime_error("mocked_g_logger: vasprintf() failed");
+		}
 
 		err_log_lines.append(log_message);
 		err_log_lines.append("\n");
