@@ -1149,6 +1149,10 @@ set(DIRECTIVES
   "ModTileThrottlingTiles 1 string"
   "ModTileThrottlingTiles string 1"
   "ModTileVeryOldThreshold string"
+  "ModTileThrottlingRenders 1 0"
+  "ModTileThrottlingRenders 1 2000000"
+  "ModTileThrottlingTiles 1 0"
+  "ModTileThrottlingTiles 1 2000000"
 )
 set(DIRECTIVE_ERRORS
   "AddTileConfig error, URL path not defined"
@@ -1180,6 +1184,10 @@ set(DIRECTIVE_ERRORS
   "ModTileThrottlingTiles second argument must be a float"
   "ModTileThrottlingTiles first argument must be an integer"
   "ModTileVeryOldThreshold argument must be an integer"
+  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
 )
 list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
 math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")
