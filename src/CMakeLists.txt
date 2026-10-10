@@ -283,6 +283,7 @@ set(unit_tests_SRCS
 )
 set(unit_tests_LIBS
   ${COMMON_LIBRARIES}
+  ${ICU_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
 )
