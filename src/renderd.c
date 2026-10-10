@@ -385,7 +385,7 @@ void *stats_writeout_thread(void * arg)
 
 int client_socket_init(renderd_config * sConfig)
 {
-	int fd, s;
+	int fd = -1, s;
 	struct sockaddr_un * addrU;
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -732,7 +732,6 @@ int main(int argc, char **argv)
 	int active_renderd_section_num = active_renderd_section_num_default;
 
 	int config_file_name_passed = 0;
-	int active_renderd_section_num_passed = 0;
 
 	int fd, i, j, k;
 
@@ -776,7 +775,6 @@ int main(int argc, char **argv)
 
 			case 's': /* -s, --slave */
 				active_renderd_section_num = min_max_int_opt(optarg, "active renderd section", 0, -1);
-				active_renderd_section_num_passed = 1;
 				break;
 
 			case 'h': /* -h, --help */

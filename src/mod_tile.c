@@ -208,7 +208,7 @@ static int socket_init(request_rec *r)
 	struct sockaddr_un addr;
 	char portnum[16];
 	char ipstring[INET6_ADDRSTRLEN];
-	int fd, s;
+	int fd = -1, s;
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
 
 	if (scfg->renderd_socket_port > 0) {
@@ -2363,7 +2363,7 @@ static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mco
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling_xforward_string);
 	const char *enable_tile_throttling_xforward_result;
-	int enable_tile_throttling_xforward;
+	int enable_tile_throttling_xforward = 0;
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	enable_tile_throttling_xforward_result = arg_to_int(cmd, enable_tile_throttling_xforward_string, &enable_tile_throttling_xforward, cmd->directive->directive);
 
@@ -2564,7 +2564,7 @@ static const command_rec tile_cmds[] = {
 	AP_INIT_TAKE2("ModTileThrottlingTiles", mod_tile_delaypool_tiles_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
 	AP_INIT_TAKE3("AddTileMimeConfig", add_tile_mime_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and file extension to use"),
 	AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and optional key-value pairs to use"),
-	{NULL}
+	{0}
 };
 
 module AP_MODULE_DECLARE_DATA tile_module = {
@@ -2574,5 +2574,8 @@ NULL,		/* dir merger --- default is to override */
 create_tile_config, /* server config */
 merge_tile_config,	/* merge server config */
 tile_cmds,		/* command apr_table_t */
-register_hooks	/* register hooks */
+register_hooks,	/* register hooks */
+#if AP_MODULE_HAS_FLAGS(tile_module)
+AP_MODULE_FLAG_NONE	/* flags */
+#endif
 };
