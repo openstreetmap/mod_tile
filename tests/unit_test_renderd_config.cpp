@@ -844,6 +844,22 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			REQUIRE(std::string(maps[0].xmluri) == notfound);
 		}
 
+		SECTION("process_config_string_with_trailing_slash with empty string", "should add a trailing slash and not exit") {
+			notfound = "";
+
+			if (setjmp(exit_jump) == 0) {
+				process_config_string_with_trailing_slash(ini, section.c_str(), name.c_str(), &maps[0].xmluri, notfound.c_str(), PATH_MAX);
+				SUCCEED("process_config_string_with_trailing_slash did not call exit(), as expected");
+			} else {
+				FAIL("process_config_string_with_trailing_slash captured unexpected exit() call");
+			}
+
+			REQUIRE(exit_status == 0);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read " + section + ":" + name + ": '" + notfound + "'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Added trailing slash to " + section + ":" + name + ": '" + notfound + "/'"));
+			REQUIRE(std::string(maps[0].xmluri) == notfound + "/");
+		}
+
 		SECTION("process_config_string_with_trailing_slash without trailing slash", "should add a trailing slash and not exit") {
 			if (setjmp(exit_jump) == 0) {
 				process_config_string_with_trailing_slash(ini, section.c_str(), name.c_str(), &maps[0].xmluri, notfound.c_str(), PATH_MAX);
