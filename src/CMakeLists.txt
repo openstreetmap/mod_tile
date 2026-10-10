@@ -4,6 +4,8 @@
 #
 #-----------------------------------------------------------------------------
 
+# Generated config.h lives in the build tree and must be found first
+include_directories(BEFORE ${PROJECT_BINARY_DIR}/includes)
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 
 include_directories(SYSTEM
@@ -21,37 +23,14 @@ include_directories(SYSTEM
   ${LIBRADOS_INCLUDE_DIRS}
 )
 
-link_directories(${CMAKE_LIBRARY_PATH})
-
-set(COMMON_SRCS
-  g_logger.c
-  sys_utils.c
-)
 set(COMMON_LIBRARIES
   ${GLIB_LIBRARIES}
   Threads::Threads
-)
-
-set(RENDER_SRCS
-  ${COMMON_SRCS}
-  protocol_helper.c
-  renderd_config.c
 )
 set(RENDER_LIBRARIES
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${MATH_LIBRARY}
-)
-
-set(STORE_SRCS
-  store.c
-  store_file.c
-  store_file_utils.c
-  store_memcached.c
-  store_null.c
-  store_rados.c
-  store_ro_composite.c
-  store_ro_http_proxy.c
 )
 set(STORE_LIBRARIES
   ${CAIRO_LIBRARIES}
@@ -67,6 +46,82 @@ endif()
 
 #-----------------------------------------------------------------------------
 #
+#  Internal object libraries
+#
+#  Sources shared between several targets are compiled once here rather than
+#  once per target. They are built position-independent so that they can also
+#  be linked into the `mod_tile.so` Apache module.
+#
+#-----------------------------------------------------------------------------
+
+# Logging & system helpers (used by everything)
+add_library(common_objs OBJECT
+  g_logger.c
+  sys_utils.c
+)
+
+# renderd.conf parsing (used by everything)
+add_library(config_objs OBJECT
+  renderd_config.c
+)
+
+# renderd socket protocol (used by renderd and the render_* clients)
+add_library(protocol_objs OBJECT
+  protocol_helper.c
+)
+
+# Client-side render request queue (used by the render_* clients)
+add_library(submit_queue_objs OBJECT
+  render_submit_queue.c
+)
+
+# Metatile path helpers (used by render_old without the full storage layer)
+add_library(store_file_utils_objs OBJECT
+  store_file_utils.c
+)
+
+# Pluggable storage backends
+add_library(store_objs OBJECT
+  store.c
+  store_file.c
+  store_memcached.c
+  store_null.c
+  store_rados.c
+  store_ro_composite.c
+  store_ro_http_proxy.c
+)
+
+# Mapnik rendering core (everything in renderd apart from `main()`)
+add_library(renderd_core_objs OBJECT
+  cache_expire.c
+  daemon_compat.c
+  gen_tile.cpp
+  metatile.cpp
+  parameterize_style.cpp
+  request_queue.c
+)
+
+set_target_properties(
+  common_objs
+  config_objs
+  protocol_objs
+  renderd_core_objs
+  store_file_utils_objs
+  store_objs
+  submit_queue_objs
+  PROPERTIES POSITION_INDEPENDENT_CODE ON
+)
+
+set(COMMON_OBJS $<TARGET_OBJECTS:common_objs>)
+set(CONFIG_OBJS $<TARGET_OBJECTS:config_objs>)
+set(PROTOCOL_OBJS $<TARGET_OBJECTS:protocol_objs>)
+set(SUBMIT_QUEUE_OBJS $<TARGET_OBJECTS:submit_queue_objs>)
+set(RENDER_OBJS ${COMMON_OBJS} ${CONFIG_OBJS} ${PROTOCOL_OBJS})
+set(STORE_OBJS $<TARGET_OBJECTS:store_objs> $<TARGET_OBJECTS:store_file_utils_objs>)
+set(RENDERD_CORE_OBJS $<TARGET_OBJECTS:renderd_core_objs>)
+
+#-----------------------------------------------------------------------------
+#
 #  Installed targets
 #
 #-----------------------------------------------------------------------------
@@ -78,10 +133,10 @@ endif()
 #-----------------------------------------------------------------------------
 
 set(mod_tile_SRCS
-  ${COMMON_SRCS}
-  ${STORE_SRCS}
+  ${COMMON_OBJS}
+  ${CONFIG_OBJS}
+  ${STORE_OBJS}
   mod_tile.c
-  renderd_config.c
 )
 set(mod_tile_LIBS
   ${APR_LIBRARIES}
@@ -100,10 +155,10 @@ set_target_properties(mod_tile PROPERTIES PREFIX "" SUFFIX ".so")
 #-----------------------------------------------------------------------------
 
 set(render_expired_SRCS
-  ${RENDER_SRCS}
-  ${STORE_SRCS}
+  ${RENDER_OBJS}
+  ${STORE_OBJS}
+  ${SUBMIT_QUEUE_OBJS}
   render_expired.c
-  render_submit_queue.c
 )
 set(render_expired_LIBS
   ${RENDER_LIBRARIES}
@@ -119,10 +174,10 @@ target_link_libraries(render_expired ${render_expired_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_list_SRCS
-  ${RENDER_SRCS}
-  ${STORE_SRCS}
+  ${RENDER_OBJS}
+  ${STORE_OBJS}
+  ${SUBMIT_QUEUE_OBJS}
   render_list.c
-  render_submit_queue.c
 )
 set(render_list_LIBS
   ${RENDER_LIBRARIES}
@@ -138,10 +193,10 @@ target_link_libraries(render_list ${render_list_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_old_SRCS
-  ${RENDER_SRCS}
+  ${RENDER_OBJS}
+  ${SUBMIT_QUEUE_OBJS}
+  $<TARGET_OBJECTS:store_file_utils_objs>
   render_old.c
-  render_submit_queue.c
-  store_file_utils.c
 )
 set(render_old_LIBS
   ${RENDER_LIBRARIES}
@@ -156,9 +211,9 @@ target_link_libraries(render_old ${render_old_LIBS})
 #-----------------------------------------------------------------------------
 
 set(render_speedtest_SRCS
-  ${RENDER_SRCS}
+  ${RENDER_OBJS}
+  ${SUBMIT_QUEUE_OBJS}
   render_speedtest.cpp
-  render_submit_queue.c
 )
 set(render_speedtest_LIBS
   ${RENDER_LIBRARIES}
@@ -173,15 +228,10 @@ target_link_libraries(render_speedtest ${render_speedtest_LIBS})
 #-----------------------------------------------------------------------------
 
 set(renderd_SRCS
-  ${RENDER_SRCS}
-  ${STORE_SRCS}
-  cache_expire.c
-  daemon_compat.c
-  gen_tile.cpp
-  metatile.cpp
-  parameterize_style.cpp
+  ${RENDER_OBJS}
+  ${STORE_OBJS}
+  ${RENDERD_CORE_OBJS}
   renderd.c
-  request_queue.c
 )
 set(renderd_LIBS
   ${ICU_LIBRARIES}
@@ -206,6 +256,7 @@ if(ENABLE_TESTS)
 #-----------------------------------------------------------------------------
 
 set(gen_tile_test_SRCS
+  $<TARGET_OBJECTS:catch2_o>
   $<TARGET_OBJECTS:catch_test_common_o>
   ${renderd_SRCS}
   ${PROJECT_SOURCE_DIR}/tests/gen_tile_test.cpp
@@ -228,11 +279,13 @@ target_link_libraries(gen_tile_test ${gen_tile_test_LIBS})
 #-----------------------------------------------------------------------------
 
 set(unit_tests_SRCS
+  $<TARGET_OBJECTS:catch2_o>
   $<TARGET_OBJECTS:catch_main_o>
   ${PROJECT_SOURCE_DIR}/tests/unit_tests.cpp
 )
 set(unit_tests_LIBS
   ${COMMON_LIBRARIES}
+  ${ICU_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
 )

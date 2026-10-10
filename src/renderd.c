@@ -170,14 +170,14 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 
 void request_exit(void)
 {
-	// Any write to the exit pipe will trigger a graceful exit
+	// Any write to the exit pipe will trigger a graceful exit.
+	// This function is called from a signal handler, so only async-signal-safe
+	// functions (write(2)) may be used here — no g_logger, no strerror.
 	char c = 0;
-
-	g_logger(G_LOG_LEVEL_INFO, "Sending exit request");
-
-	if (write(exit_pipe_fd, &c, sizeof(c)) < 0) {
-		g_logger(G_LOG_LEVEL_ERROR, "Failed to write to the exit pipe: %s", strerror(errno));
-	}
+	// Nothing useful can be done on failure here; assign to discard (GCC ignores a (void) cast
+	// for functions declared warn_unused_result)
+	ssize_t ignored = write(exit_pipe_fd, &c, sizeof(c));
+	(void)ignored;
 }
 
 void process_loop(int listen_fd)
@@ -385,7 +385,7 @@ void *stats_writeout_thread(void * arg)
 
 int client_socket_init(renderd_config * sConfig)
 {
-	int fd, s;
+	int fd = -1, s;
 	struct sockaddr_un * addrU;
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -486,48 +486,101 @@ int client_socket_init(renderd_config * sConfig)
 	return fd;
 }
 
-int server_socket_init(renderd_config *sConfig)
+/**
+ * Create a TCP listening socket bound to all local addresses on the given port.
+ *
+ * An IPv6 socket with IPV6_V6ONLY disabled is preferred, as it accepts both
+ * IPv6 and IPv4 (mapped) connections. If the host does not support IPv6
+ * (e.g. it is disabled in the kernel or the container), fall back to IPv4.
+ */
+static int server_socket_init_tcp(renderd_config *sConfig)
 {
-	struct sockaddr_un addrU;
-	struct sockaddr_in6 addrI;
-	mode_t old;
+	const int enable = 1;
+	const int disable = 0;
+	struct sockaddr_in addrI4;
+	struct sockaddr_in6 addrI6;
 	int fd;
 
-	if (sConfig->ipport > 0) {
-		const int enable = 1;
+	fd = socket(PF_INET6, SOCK_STREAM, 0);
 
-		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
-			 sConfig->iphostname, sConfig->ipport);
-		fd = socket(PF_INET6, SOCK_STREAM, 0);
-
-		if (fd < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket");
-			exit(2);
-		}
-
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR failed for: %s:%i",
+	if (fd >= 0) {
+		// Accept IPv4 connections too, regardless of the system default (net.ipv6.bindv6only)
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &disable, sizeof(disable)) < 0) {
+			g_logger(G_LOG_LEVEL_WARNING, "setsockopt IPV6_V6ONLY failed, IPv4 clients may not be able to connect to: %s:%i",
 				 sConfig->iphostname, sConfig->ipport);
-			exit(3);
 		}
 
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEPORT failed for: %s:%i",
-				 sConfig->iphostname, sConfig->ipport);
-			exit(3);
-		}
+		memset(&addrI6, 0, sizeof(addrI6));
+		addrI6.sin6_family = AF_INET6;
+		addrI6.sin6_addr = in6addr_any;
+		addrI6.sin6_port = htons(sConfig->ipport);
 
-		bzero(&addrI, sizeof(addrI));
-		addrI.sin6_family = AF_INET6;
-		addrI.sin6_addr = in6addr_any;
-		addrI.sin6_port = htons(sConfig->ipport);
-
-		if (bind(fd, (struct sockaddr *) &addrI, sizeof(addrI)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i",
+		if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) ||
+				(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0)) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR/SO_REUSEPORT failed for: %s:%i",
 				 sConfig->iphostname, sConfig->ipport);
 			close(fd);
 			exit(3);
 		}
+
+		if (bind(fd, (struct sockaddr *) &addrI6, sizeof(addrI6)) == 0) {
+			return fd;
+		}
+
+		if (errno != EADDRNOTAVAIL && errno != EAFNOSUPPORT) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i (%s)",
+				 sConfig->iphostname, sConfig->ipport, strerror(errno));
+			close(fd);
+			exit(3);
+		}
+
+		g_logger(G_LOG_LEVEL_WARNING, "IPv6 socket bind failed for: %s:%i (%s), trying IPv4",
+			 sConfig->iphostname, sConfig->ipport, strerror(errno));
+		close(fd);
+	} else {
+		g_logger(G_LOG_LEVEL_INFO, "IPv6 not available (%s), using IPv4 only", strerror(errno));
+	}
+
+	fd = socket(PF_INET, SOCK_STREAM, 0);
+
+	if (fd < 0) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket: %s", strerror(errno));
+		exit(2);
+	}
+
+	if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) ||
+			(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0)) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR/SO_REUSEPORT failed for: %s:%i",
+			 sConfig->iphostname, sConfig->ipport);
+		close(fd);
+		exit(3);
+	}
+
+	memset(&addrI4, 0, sizeof(addrI4));
+	addrI4.sin_family = AF_INET;
+	addrI4.sin_addr.s_addr = htonl(INADDR_ANY);
+	addrI4.sin_port = htons(sConfig->ipport);
+
+	if (bind(fd, (struct sockaddr *) &addrI4, sizeof(addrI4)) < 0) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i (%s)",
+			 sConfig->iphostname, sConfig->ipport, strerror(errno));
+		close(fd);
+		exit(3);
+	}
+
+	return fd;
+}
+
+int server_socket_init(renderd_config *sConfig)
+{
+	struct sockaddr_un addrU;
+	mode_t old;
+	int fd;
+
+	if (sConfig->ipport > 0) {
+		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
+			 sConfig->iphostname, sConfig->ipport);
+		fd = server_socket_init_tcp(sConfig);
 	} else {
 		g_logger(G_LOG_LEVEL_INFO, "Initialising unix server socket on %s",
 			 sConfig->socketname);
@@ -589,7 +642,20 @@ void *slave_thread(void * arg)
 	struct protocol * req_slave;
 
 	req_slave = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (req_slave == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for req_slave");
+		return NULL;
+	}
+
 	resp = (struct protocol *)malloc(sizeof(struct protocol));
+
+	if (resp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "slave_thread: failed to allocate memory for resp");
+		free(req_slave);
+		return NULL;
+	}
+
 	bzero(req_slave, sizeof(struct protocol));
 	bzero(resp, sizeof(struct protocol));
 
@@ -670,10 +736,27 @@ void *slave_thread(void * arg)
 			retry = 10;
 
 			while ((ret_size < sizeof(struct protocol)) && (retry > 0)) {
-				ret_size = recv(pfd, resp + ret_size, (sizeof(struct protocol)
-								       - ret_size), 0);
+				ssize_t n = recv(pfd, (char *)resp + ret_size,
+						 sizeof(struct protocol) - ret_size, 0);
 
-				if ((errno == EPIPE) || ret_size == 0) {
+				if (n < 0) {
+					if (errno == EINTR) {
+						continue;
+					}
+
+					if (errno == EPIPE) {
+						close(pfd);
+						pfd = FD_INVALID;
+						ret_size = 0;
+						g_logger(G_LOG_LEVEL_ERROR, "Pipe to Renderd slave closed");
+						break;
+					}
+
+					retry--;
+					continue;
+				}
+
+				if (n == 0) {
 					close(pfd);
 					pfd = FD_INVALID;
 					ret_size = 0;
@@ -681,7 +764,7 @@ void *slave_thread(void * arg)
 					break;
 				}
 
-				retry--;
+				ret_size += n;
 			}
 
 			if (ret_size < sizeof(struct protocol)) {
@@ -732,7 +815,6 @@ int main(int argc, char **argv)
 	int active_renderd_section_num = active_renderd_section_num_default;
 
 	int config_file_name_passed = 0;
-	int active_renderd_section_num_passed = 0;
 
 	int fd, i, j, k;
 
@@ -776,7 +858,6 @@ int main(int argc, char **argv)
 
 			case 's': /* -s, --slave */
 				active_renderd_section_num = min_max_int_opt(optarg, "active renderd section", 0, -1);
-				active_renderd_section_num_passed = 1;
 				break;
 
 			case 'h': /* -h, --help */
@@ -875,6 +956,12 @@ int main(int argc, char **argv)
 
 	render_threads = (pthread_t *) malloc(sizeof(pthread_t) * config->num_threads);
 
+	if (render_threads == NULL) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for render threads");
+		close(fd);
+		return 7;
+	}
+
 	for (i = 0; i < config->num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
@@ -887,6 +974,12 @@ int main(int argc, char **argv)
 		// Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
+
+		if (slave_threads == NULL) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Failed to allocate memory for slave threads");
+			close(fd);
+			return 7;
+		}
 
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {

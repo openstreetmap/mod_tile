@@ -27,6 +27,24 @@
 
 #include "cache_expire.h"
 #include "g_logger.h"
+
+/*
+ * Write 16/32 bit values in network byte order at an arbitrary (possibly
+ * unaligned) offset. Casting &buf[idx] to uint16_t* / uint32_t* is undefined
+ * behaviour and faults on strict-alignment CPUs.
+ */
+static void put_u16(char *dst, uint16_t value)
+{
+	uint16_t net = htons(value);
+	memcpy(dst, &net, sizeof(net));
+}
+
+static void put_u32(char *dst, uint32_t value)
+{
+	uint32_t net = htonl(value);
+	memcpy(dst, &net, sizeof(net));
+}
+
 /**
  * This function sends a HTCP cache clr request for a given
  * URL.
@@ -53,7 +71,7 @@ static void cache_expire_url(int sock, char *url)
 	idx = 0;
 
 	// 16 bit: Overall length of the datagram packet, including this header
-	*((uint16_t *)(&buf[idx])) = htons(12 + 22 + url_len);
+	put_u16(&buf[idx], 12 + 22 + url_len);
 	idx += 2;
 
 	// HTCP version. Currently at 0.0
@@ -61,7 +79,7 @@ static void cache_expire_url(int sock, char *url)
 	buf[idx++] = 0; // Minor version
 
 	// Length of HTCP data, including this field
-	*((uint16_t *)(&buf[idx])) = htons(8 + 22 + url_len);
+	put_u16(&buf[idx], 8 + 22 + url_len);
 	idx += 2;
 
 	// HTCP opcode CLR=4
@@ -70,14 +88,14 @@ static void cache_expire_url(int sock, char *url)
 	buf[idx++] = 0;
 
 	// 32 bit transaction id;
-	*((uint32_t *)(&buf[idx])) = htonl(255);
+	put_u32(&buf[idx], 255);
 	idx += 4;
 
 	buf[idx++] = 0;
 	buf[idx++] = 0; // HTCP reason
 
 	// Length of the Method string
-	*((uint16_t *)(&buf[idx])) = htons(4);
+	put_u16(&buf[idx], 4);
 	idx += 2;
 
 	/// Method string
@@ -85,7 +103,7 @@ static void cache_expire_url(int sock, char *url)
 	idx += 4;
 
 	// Length of the url string
-	*((uint16_t *)(&buf[idx])) = htons(url_len);
+	put_u16(&buf[idx], url_len);
 	idx += 2;
 
 	// Url string
@@ -93,7 +111,7 @@ static void cache_expire_url(int sock, char *url)
 	idx += url_len;
 
 	// Length of version string
-	*((uint16_t *)(&buf[idx])) = htons(8);
+	put_u16(&buf[idx], 8);
 	idx += 2;
 
 	// version string
@@ -101,7 +119,7 @@ static void cache_expire_url(int sock, char *url)
 	idx += 8;
 
 	// Length of request headers. Currently 0 as we don't have any headers to send
-	*((uint16_t *)(&buf[idx])) = htons(0);
+	put_u16(&buf[idx], 0);
 
 	if (send(sock, (void *)buf, (12 + 22 + url_len), 0) < (12 + 22 + url_len)) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to send HTCP purge for %s", url);

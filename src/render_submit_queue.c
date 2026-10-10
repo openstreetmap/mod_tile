@@ -231,7 +231,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 int make_connection(const char *spath)
 {
-	int fd;
+	int fd = -1;
 
 	if (spath[0] == '/') {
 		// Create a Unix socket
@@ -260,14 +260,13 @@ int make_connection(const char *spath)
 		u_int16_t port = RENDERD_PORT;
 		char port_s[6];
 		size_t spath_len = strlen(spath);
-		size_t hostname_len = d ? d - spath : spath_len;
+		size_t hostname_len = d ? (size_t)(d - spath) : spath_len;
 
 		if (!hostname_len) {
 			hostname = strdup(RENDERD_HOST);
 		} else {
-			hostname = (char *)malloc(hostname_len + sizeof('\0'));
+			hostname = strndup(spath, hostname_len);
 			assert(hostname != NULL);
-			strncpy(hostname, spath, hostname_len);
 		}
 
 		if (d) {

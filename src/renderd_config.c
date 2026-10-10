@@ -35,7 +35,9 @@
 
 static void copy_string(const char *src, const char **dest, size_t maxlen)
 {
-	*dest = strndup(src, maxlen);
+	// Bound strndup() by the actual length: GCC's -Wstringop-overread wrongly flags
+	// strndup() bounds that exceed the length of string literal arguments
+	*dest = strndup(src, strnlen(src, maxlen));
 
 	if (*dest == NULL) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "copy_string: strndup error");
@@ -120,11 +122,13 @@ static void process_config_string_with_trailing_slash(const dictionary *ini, con
 {
 	char *key = name_with_section(section, name);
 	const char *src = iniparser_getstring(ini, key, notfound);
+	size_t src_len = strnlen(src, maxlen);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
 
-	if (src[strnlen(src, maxlen) - 1] != '/') {
-		char *tempsrc = strndup(src, maxlen);
+	// (an empty value also gets a slash; checking src[src_len - 1] would read before the string)
+	if (src_len == 0 || src[src_len - 1] != '/') {
+		char *tempsrc;
 		int len = asprintf(&tempsrc, "%s/", src);
 
 		if (len == -1) {
@@ -426,7 +430,7 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 {
 	int ini_loaded_here = 0;
 	int renderd_section_num = -1;
-	int renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
+	size_t renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
 
 	if (!ini) {
 		ini = iniparser_load(config_file_name);
@@ -486,7 +490,7 @@ void process_renderd_sections(dictionary *ini, const char *config_file_name, ren
 			}
 
 			if (strnlen(configs_dest[renderd_section_num].socketname, PATH_MAX) >= renderd_socketname_maxlen) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Specified socketname (%s) exceeds maximum allowed length of %i.", configs_dest[renderd_section_num].socketname, renderd_socketname_maxlen);
+				g_logger(G_LOG_LEVEL_CRITICAL, "Specified socketname (%s) exceeds maximum allowed length of %zu.", configs_dest[renderd_section_num].socketname, renderd_socketname_maxlen);
 				exit(7);
 			}
 		}

@@ -31,7 +31,7 @@ static int calcHashKey(struct request_queue *queue, struct item *item)
 	uint64_t xmlnameHash = 0;
 	uint64_t key;
 
-	for (int i = 0; (item->req.xmlname[i] != 0) && (i < sizeof(item->req.xmlname)); i++) {
+	for (int i = 0; (i < (int)sizeof(item->req.xmlname)) && (item->req.xmlname[i] != 0); i++) {
 		xmlnameHash += item->req.xmlname[i];
 	}
 
@@ -491,6 +491,15 @@ struct request_queue * request_queue_init()
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
 	queue->hashidxSize = HASHIDX_SIZE;
 	queue->item_hashidx = (struct item_idx *) malloc(sizeof(struct item_idx) * queue->hashidxSize);
+
+	if (queue->item_hashidx == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "Failed to allocate memory for request queue hash index");
+		pthread_cond_destroy(&(queue->qCond));
+		pthread_mutex_destroy(&(queue->qLock));
+		free(queue);
+		return NULL;
+	}
+
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;

@@ -1149,6 +1149,10 @@ set(DIRECTIVES
   "ModTileThrottlingTiles 1 string"
   "ModTileThrottlingTiles string 1"
   "ModTileVeryOldThreshold string"
+  "ModTileThrottlingRenders 1 0"
+  "ModTileThrottlingRenders 1 2000000"
+  "ModTileThrottlingTiles 1 0"
+  "ModTileThrottlingTiles 1 2000000"
 )
 set(DIRECTIVE_ERRORS
   "AddTileConfig error, URL path not defined"
@@ -1180,6 +1184,10 @@ set(DIRECTIVE_ERRORS
   "ModTileThrottlingTiles second argument must be a float"
   "ModTileThrottlingTiles first argument must be an integer"
   "ModTileVeryOldThreshold argument must be an integer"
+  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
 )
 list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
 math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")
@@ -1219,6 +1227,20 @@ endforeach()
 #  Test targets
 #
 #-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+#  catch2_o (vendored Catch2 v3 implementation, compiled once)
+#
+#-----------------------------------------------------------------------------
+
+add_library(catch2_o OBJECT
+  ${PROJECT_SOURCE_DIR}/tests/catch/catch_amalgamated.cpp
+)
+# All test binaries provide their own main() (catch_main.cpp or gen_tile_test.cpp)
+target_compile_definitions(catch2_o PUBLIC CATCH_AMALGAMATED_CUSTOM_MAIN)
+# Third-party code: do not apply the project's warning flags to it
+target_compile_options(catch2_o PRIVATE -w)
 
 #-----------------------------------------------------------------------------
 #
@@ -1262,6 +1284,7 @@ add_compile_definitions(
   PROJECT_BINARY_DIR="${PROJECT_BINARY_DIR}/src"
   RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf.examples"
 )
+include_directories(BEFORE ${PROJECT_BINARY_DIR}/includes)
 include_directories(${PROJECT_SOURCE_DIR}/includes)
 link_libraries(${GLIB_LIBRARIES})
 
@@ -1273,6 +1296,7 @@ link_libraries(${GLIB_LIBRARIES})
 
 add_executable(render_expired_test
   $<TARGET_OBJECTS:catch_main_o>
+  $<TARGET_OBJECTS:catch2_o>
   render_expired_test.cpp
 )
 
@@ -1284,6 +1308,7 @@ add_executable(render_expired_test
 
 add_executable(render_list_test
   $<TARGET_OBJECTS:catch_main_o>
+  $<TARGET_OBJECTS:catch2_o>
   render_list_test.cpp
 )
 
@@ -1295,6 +1320,7 @@ add_executable(render_list_test
 
 add_executable(render_old_test
   $<TARGET_OBJECTS:catch_main_o>
+  $<TARGET_OBJECTS:catch2_o>
   render_old_test.cpp
 )
 
@@ -1306,6 +1332,7 @@ add_executable(render_old_test
 
 add_executable(render_speedtest_test
   $<TARGET_OBJECTS:catch_main_o>
+  $<TARGET_OBJECTS:catch2_o>
   render_speedtest_test.cpp
 )
 
@@ -1317,5 +1344,45 @@ add_executable(render_speedtest_test
 
 add_executable(renderd_test
   $<TARGET_OBJECTS:catch_main_o>
+  $<TARGET_OBJECTS:catch2_o>
   renderd_test.cpp
 )
+
+#-----------------------------------------------------------------------------
+#
+#  Sanitizer runtime preloading
+#
+#  The integration tests load the instrumented `mod_tile.so` into the system's
+#  (uninstrumented) `httpd`, which ASan/TSan refuse unless their runtime is the
+#  first library loaded. Preload it for all tests when building with sanitizers.
+#
+#-----------------------------------------------------------------------------
+
+if(ENABLE_SANITIZERS)
+  set(SANITIZER_PRELOAD "")
+  # (TSan cannot be preloaded into uninstrumented processes, so only ASan is handled here;
+  #  with ENABLE_SANITIZERS=thread run only the unit test executables: ctest -R "_test$|^unit_tests$")
+  foreach(SANITIZER_RUNTIME address:asan)
+    string(REPLACE ":" ";" SANITIZER_RUNTIME "${SANITIZER_RUNTIME}")
+    list(GET SANITIZER_RUNTIME 0 SANITIZER_NAME)
+    list(GET SANITIZER_RUNTIME 1 SANITIZER_LIB)
+    if(ENABLE_SANITIZERS MATCHES "${SANITIZER_NAME}")
+      execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=lib${SANITIZER_LIB}.so
+        OUTPUT_VARIABLE SANITIZER_LIB_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      if(IS_ABSOLUTE "${SANITIZER_LIB_PATH}" AND EXISTS "${SANITIZER_LIB_PATH}")
+        list(APPEND SANITIZER_PRELOAD "${SANITIZER_LIB_PATH}")
+      else()
+        message(WARNING "Could not locate lib${SANITIZER_LIB}.so; httpd-based tests will fail with ${SANITIZER_NAME}")
+      endif()
+    endif()
+  endforeach()
+
+  if(SANITIZER_PRELOAD)
+    string(REPLACE ";" ":" SANITIZER_PRELOAD "${SANITIZER_PRELOAD}")
+    message(STATUS "Preloading '${SANITIZER_PRELOAD}' for tests")
+    get_property(ALL_TESTS DIRECTORY PROPERTY TESTS)
+    set_property(TEST ${ALL_TESTS} APPEND PROPERTY ENVIRONMENT "LD_PRELOAD=${SANITIZER_PRELOAD}")
+  endif()
+endif()
