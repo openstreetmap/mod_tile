@@ -486,48 +486,101 @@ int client_socket_init(renderd_config * sConfig)
 	return fd;
 }
 
-int server_socket_init(renderd_config *sConfig)
+/**
+ * Create a TCP listening socket bound to all local addresses on the given port.
+ *
+ * An IPv6 socket with IPV6_V6ONLY disabled is preferred, as it accepts both
+ * IPv6 and IPv4 (mapped) connections. If the host does not support IPv6
+ * (e.g. it is disabled in the kernel or the container), fall back to IPv4.
+ */
+static int server_socket_init_tcp(renderd_config *sConfig)
 {
-	struct sockaddr_un addrU;
-	struct sockaddr_in6 addrI;
-	mode_t old;
+	const int enable = 1;
+	const int disable = 0;
+	struct sockaddr_in addrI4;
+	struct sockaddr_in6 addrI6;
 	int fd;
 
-	if (sConfig->ipport > 0) {
-		const int enable = 1;
+	fd = socket(PF_INET6, SOCK_STREAM, 0);
 
-		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
-			 sConfig->iphostname, sConfig->ipport);
-		fd = socket(PF_INET6, SOCK_STREAM, 0);
-
-		if (fd < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket");
-			exit(2);
-		}
-
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR failed for: %s:%i",
+	if (fd >= 0) {
+		// Accept IPv4 connections too, regardless of the system default (net.ipv6.bindv6only)
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &disable, sizeof(disable)) < 0) {
+			g_logger(G_LOG_LEVEL_WARNING, "setsockopt IPV6_V6ONLY failed, IPv4 clients may not be able to connect to: %s:%i",
 				 sConfig->iphostname, sConfig->ipport);
-			exit(3);
 		}
 
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEPORT failed for: %s:%i",
-				 sConfig->iphostname, sConfig->ipport);
-			exit(3);
-		}
+		memset(&addrI6, 0, sizeof(addrI6));
+		addrI6.sin6_family = AF_INET6;
+		addrI6.sin6_addr = in6addr_any;
+		addrI6.sin6_port = htons(sConfig->ipport);
 
-		bzero(&addrI, sizeof(addrI));
-		addrI.sin6_family = AF_INET6;
-		addrI.sin6_addr = in6addr_any;
-		addrI.sin6_port = htons(sConfig->ipport);
-
-		if (bind(fd, (struct sockaddr *) &addrI, sizeof(addrI)) < 0) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i",
+		if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) ||
+				(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0)) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR/SO_REUSEPORT failed for: %s:%i",
 				 sConfig->iphostname, sConfig->ipport);
 			close(fd);
 			exit(3);
 		}
+
+		if (bind(fd, (struct sockaddr *) &addrI6, sizeof(addrI6)) == 0) {
+			return fd;
+		}
+
+		if (errno != EADDRNOTAVAIL && errno != EAFNOSUPPORT) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i (%s)",
+				 sConfig->iphostname, sConfig->ipport, strerror(errno));
+			close(fd);
+			exit(3);
+		}
+
+		g_logger(G_LOG_LEVEL_WARNING, "IPv6 socket bind failed for: %s:%i (%s), trying IPv4",
+			 sConfig->iphostname, sConfig->ipport, strerror(errno));
+		close(fd);
+	} else {
+		g_logger(G_LOG_LEVEL_INFO, "IPv6 not available (%s), using IPv4 only", strerror(errno));
+	}
+
+	fd = socket(PF_INET, SOCK_STREAM, 0);
+
+	if (fd < 0) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "failed to create IP socket: %s", strerror(errno));
+		exit(2);
+	}
+
+	if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) ||
+			(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) < 0)) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "setsockopt SO_REUSEADDR/SO_REUSEPORT failed for: %s:%i",
+			 sConfig->iphostname, sConfig->ipport);
+		close(fd);
+		exit(3);
+	}
+
+	memset(&addrI4, 0, sizeof(addrI4));
+	addrI4.sin_family = AF_INET;
+	addrI4.sin_addr.s_addr = htonl(INADDR_ANY);
+	addrI4.sin_port = htons(sConfig->ipport);
+
+	if (bind(fd, (struct sockaddr *) &addrI4, sizeof(addrI4)) < 0) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "socket bind failed for: %s:%i (%s)",
+			 sConfig->iphostname, sConfig->ipport, strerror(errno));
+		close(fd);
+		exit(3);
+	}
+
+	return fd;
+}
+
+int server_socket_init(renderd_config *sConfig)
+{
+	struct sockaddr_un addrU;
+	mode_t old;
+	int fd;
+
+	if (sConfig->ipport > 0) {
+		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
+			 sConfig->iphostname, sConfig->ipport);
+		fd = server_socket_init_tcp(sConfig);
 	} else {
 		g_logger(G_LOG_LEVEL_INFO, "Initialising unix server socket on %s",
 			 sConfig->socketname);
