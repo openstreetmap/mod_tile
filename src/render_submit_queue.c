@@ -231,7 +231,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 int make_connection(const char *spath)
 {
-	int fd;
+	int fd = -1;
 
 	if (spath[0] == '/') {
 		// Create a Unix socket

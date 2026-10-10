@@ -165,6 +165,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			SECTION("make_connection with unix domain socket", "should return positive") {
 				ret = make_connection(socket_path.c_str());
+				(void)ret;
 
 				// REQUIRE(ret > 0);
 			}

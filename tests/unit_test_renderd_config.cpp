@@ -112,8 +112,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 	SECTION("min_max_double_opt & min_max_int_opt functions") {
 		const char *opt_type_name = "value";
-		double dmax = 1.15;
-		double dmin = 1.10;
+		const double dmax = 1.15;
+		const double dmin = 1.10;
 
 		err_log_lines.clear();
 		exit_status = 0;
@@ -765,7 +765,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 	}
 
 	SECTION("process_config_bool, process_config_double, process_config_int, process_config_string & process_config_string_with_trailing_slash functions") {
-		dictionary *ini = iniparser_load(RENDERD_CONF);
+		dictionary *volatile ini = iniparser_load(RENDERD_CONF);
 		std::string section = "nosuchsection";
 		std::string name = "nosuchname";
 
