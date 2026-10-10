@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <string>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "protocol.h"
@@ -61,9 +61,9 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Got response"));
 		}
 
 		SECTION("process with cmdNotDone response", "should return positive after sleeping 1 second") {
@@ -76,10 +76,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret > 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Rendering not done with command"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Rendering not done with command"));
 			REQUIRE(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() >= 1);
 		}
 
@@ -93,10 +93,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret > 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got response"));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Rendering not done with command"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got response"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Rendering not done with command"));
 			REQUIRE(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1);
 		}
 	}
@@ -129,7 +129,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
 		}
 
 		// SECTION("qLen=1, work_complete=0", "should exit 1") {
@@ -150,7 +150,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		// 	// }
 
 		// 	REQUIRE(exit_status == 1);
-		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
+		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
 		// }
 	}
 
@@ -180,7 +180,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to create unix socket"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to create unix socket"));
 			}
 		}
 

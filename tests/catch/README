@@ -1,0 +1,6 @@
+Catch2 v3.16.0 amalgamated build
+Source: https://github.com/catchorg/Catch2/tree/v3.16.0/extras
+Commit: 317ac1ed4c0bb6e6b91eafc817e05c488feffcb3
+
+To update, replace catch_amalgamated.hpp/.cpp with the files from the
+extras/ directory of the desired Catch2 release tag.
