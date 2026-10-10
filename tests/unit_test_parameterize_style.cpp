@@ -9,7 +9,7 @@
 #include <boost/optional/optional_io.hpp>
 #endif
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
@@ -36,7 +36,7 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 			const char * parameter = "";
 			parameterize_map_language(map, (char *)parameter);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Internationalizing map to language parameter: "));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter: "));
 		}
 
 		SECTION("parameterize_map_language modifies 'table' parameter", "should return") {
@@ -49,7 +49,7 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 			layer = map.get_layer(0);
 			REQUIRE(layer.datasource()->params().get<std::string>("table") != std::string(",name"));
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Internationalizing map to language parameter: en,de,_"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter: en,de,_"));
 		}
 	}
 
@@ -60,21 +60,21 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 			parameterize_function_ptr response = init_parameterization_function("");
 
 			REQUIRE(response == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Parameterize_style not specified (or empty string specified)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Parameterize_style not specified (or empty string specified)"));
 		}
 
 		SECTION("init_parameterization_function with non-'language' function_name", "should return NULL") {
 			parameterize_function_ptr response = init_parameterization_function("doesnotexist");
 
 			REQUIRE(response == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("unknown parameterization function for 'doesnotexist'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("unknown parameterization function for 'doesnotexist'"));
 		}
 
 		SECTION("init_parameterization_function with 'language' function_name", "should return parameterize_map_language") {
 			parameterize_function_ptr response = init_parameterization_function("language");
 
 			REQUIRE(response == parameterize_map_language);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Loading parameterization function for 'language'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Loading parameterization function for 'language'"));
 		}
 	}
 }
