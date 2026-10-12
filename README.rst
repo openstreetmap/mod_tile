@@ -214,7 +214,7 @@ Apache file serving mechanisms to provide:
 5) Tile expiry. It estimates when the tile is next likely to be rendered and adds the appropriate HTTP cache expiry headers. This is a configurable heuristic.
 
 To avoid problems with directories becoming too large and to avoid
-too many tiny files. They store the rendered tiles in "meta tiles" in a
+too many tiny files. They store the rendered tiles in "metatiles" in a
 special hashed directory structure. These combine 8x8 actual tiles into a
 single metatile file. This is a more efficient use of disk space and inodes.
 

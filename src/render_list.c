@@ -34,16 +34,6 @@
 #include "renderd_config.h"
 #include "store.h"
 
-#ifndef METATILE
-#warning("render_list not implemented for non-metatile mode. Feel free to submit fix")
-int main(int argc, char **argv)
-{
-	fprintf(stderr, "render_list not implemented for non-metatile mode. Feel free to submit fix!\n");
-	return -1;
-}
-
-#else
-
 int lon2tilex(double lon, int z)
 {
 	return (int)(floor((lon + 180.0) / 360.0 * pow(2.0, z)));
@@ -573,5 +563,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-#endif

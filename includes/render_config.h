@@ -102,27 +102,14 @@
 // default for number of rendering threads
 #define NUM_THREADS (4)
 
-// Use this to enable meta-tiles which will render NxN tiles at once
+// Metatiles will render NxN tiles at once
 // Note: This should be a power of 2 (2, 4, 8, 16 ...)
 #define METATILE (8)
-// #undef METATILE
-
-// Fallback to standard tiles if meta tile doesn't exist
-// Legacy - not needed on new installs
-// #undef METATILEFALLBACK
 
 // Metatiles are much larger in size so we don't need big queues to handle large areas
-#ifdef METATILE
 #define QUEUE_MAX (64)
 #define REQ_LIMIT (256)
 #define DIRTY_LIMIT (8000)
-
-#else
-#define QUEUE_MAX (1024)
-#define REQ_LIMIT (512)
-#define DIRTY_LIMIT (10000)
-#define HASHIDX_SIZE 22123
-#endif
 
 // Penalty for client making an invalid request (in seconds)
 #define CLIENT_PENALTY (3)

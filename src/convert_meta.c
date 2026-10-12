@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 
 	gettimeofday(&end, NULL);
 	printf("\nTotal for all tiles converted\n");
-	printf("Meta tiles converted: ");
+	printf("Metatiles converted: ");
 	display_rate(start, end, num_render);
 	printf("Total tiles converted: ");
 	display_rate(start, end, num_render * METATILE * METATILE);
