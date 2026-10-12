@@ -35,12 +35,12 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Report `mod_tile` coverage results to `codecov.io`
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v3
       env:
         CODECOV_TOKEN: ${{ inputs.codecov-token }}
       with:
-        disable_search: true
-        file: coverage.info
+        # disable_search: true
+        files: coverage.info
 
     - name: Write `mod_tile` coverage summary to `$GITHUB_STEP_SUMMARY`
       run: |
@@ -62,7 +62,7 @@ runs:
       shell: bash --noprofile --norc -euxo pipefail {0}
 
     - name: Upload `mod_tile` coverage artifacts
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: Coverage Artifacts - ${{ env.COVERAGE_ARTIFACT_NAME }}${{ matrix.mapnik_latest && ' (Latest Mapnik)' || '' }}
         path: |

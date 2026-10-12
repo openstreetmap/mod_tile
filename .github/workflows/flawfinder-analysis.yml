@@ -20,10 +20,10 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: flawfinder_scan
-        uses: david-a-wheeler/flawfinder@2.0.19
+        uses: david-a-wheeler/flawfinder@2.0.20
         with:
           arguments: "--sarif includes src"
           output: "flawfinder_results.sarif"
