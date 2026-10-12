@@ -427,7 +427,7 @@ extern "C" {
 				} else {
 					cmd->cmd = cmdNotDone;
 				}
-				
+
 				cmd->ver = fail_next_recv_reponse_version;
 				fail_next_recv_reponse_version = (fail_next_next_recv_reponse_version != -1) ? fail_next_next_recv_reponse_version : -1;
 				fail_next_next_recv_reponse_version = -1;
