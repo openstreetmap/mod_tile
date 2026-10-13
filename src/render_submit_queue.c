@@ -347,6 +347,8 @@ int make_connection(const char *spath)
 			g_logger(G_LOG_LEVEL_CRITICAL, "cannot connect to any address for %s", hostname);
 			exit(2);
 		}
+
+		free(hostname);
 	}
 
 	return fd;
