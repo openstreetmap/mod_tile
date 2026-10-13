@@ -368,7 +368,7 @@ void *render_thread(void *arg)
 			maps[iMaxConfigs].htcphost = strndup(parentxmlconfig[iMaxConfigs].htcpip, PATH_MAX);
 			maps[iMaxConfigs].xmluri = strndup(parentxmlconfig[iMaxConfigs].xmluri, PATH_MAX);
 
-			if (strlen(maps[iMaxConfigs].htcphost) > 0) {
+			if (strnlen(maps[iMaxConfigs].htcphost, PATH_MAX) > 0) {
 				maps[iMaxConfigs].htcpsock = init_cache_expire(maps[iMaxConfigs].htcphost);
 
 				if (maps[iMaxConfigs].htcpsock > 0) {

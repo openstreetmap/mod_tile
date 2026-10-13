@@ -103,6 +103,7 @@ inputs:
       pkgconf
   freebsd-test-dependencies:
     default: >-
+      git
       jq
       lcov
       memcached
