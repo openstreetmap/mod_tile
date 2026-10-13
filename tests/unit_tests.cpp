@@ -2,7 +2,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
