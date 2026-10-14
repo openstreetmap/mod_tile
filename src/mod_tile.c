@@ -1676,8 +1676,8 @@ static int tile_handler_serve(request_rec *r)
 	gettimeofday(&start, NULL);
 
 	// FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
-	apr_pool_t *pool = create_buffer_pool(r);
-	buf = (char *)apr_pcalloc(pool, tile_max);
+	// Unzeroed and from the request pool: only the pages the tile is read into get touched, and the memory is reused by later requests
+	buf = (char *)apr_palloc(r->pool, tile_max);
 
 	if (!buf) {
 		if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
@@ -1728,8 +1728,6 @@ static int tile_handler_serve(request_rec *r)
 		incTimingCounter((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec), cmd->z, r);
 
 		if ((errstatus = ap_meets_conditions(r)) != OK) {
-			destroy_buffer_pool(pool);
-
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
 					      "Failed to increase response stats counter");
@@ -1738,7 +1736,6 @@ static int tile_handler_serve(request_rec *r)
 			return errstatus;
 		} else {
 			ap_rwrite(buf, len, r);
-			destroy_buffer_pool(pool);
 
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1749,7 +1746,6 @@ static int tile_handler_serve(request_rec *r)
 		}
 	}
 
-	destroy_buffer_pool(pool);
 	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to read tile from disk: %s", err_msg);
 
 	if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {
