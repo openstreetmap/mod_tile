@@ -278,7 +278,8 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 		render_map->set_buffer_size((map->tilesize >> 1) * map->scale);
 	}
 
-	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
+	// Zeroing is only needed without a background color, which the renderer fills the whole image with
+	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize, !render_map->background());
 
 	try {
 		mapnik::agg_renderer<mapnik::image_32> ren(*render_map, buf, map->scale);
