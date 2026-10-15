@@ -119,34 +119,6 @@ static int error_message(request_rec *r, const char *format, ...)
 	return OK;
 }
 
-static apr_pool_t *create_buffer_pool(request_rec *r)
-{
-	apr_allocator_t *allocator;
-	apr_pool_t *pool;
-
-	if (apr_allocator_create(&allocator) != APR_SUCCESS) {
-		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-			      "Failed to create buffer allocator");
-	}
-
-	apr_allocator_max_free_set(allocator, 1);
-
-	if (apr_pool_create_ex(&pool, NULL, NULL, allocator) != APR_SUCCESS) {
-		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-			      "Failed to create buffer pool");
-		apr_allocator_destroy(allocator);
-	}
-
-	apr_allocator_owner_set(allocator, pool);
-
-	return pool;
-}
-
-static void destroy_buffer_pool(apr_pool_t *pool)
-{
-	apr_pool_destroy(pool);
-}
-
 static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
 {
 	apr_status_t rs;
@@ -1449,8 +1421,7 @@ static int tile_handler_json(request_rec *r)
 		}
 	}
 
-	apr_pool_t *pool = create_buffer_pool(r);
-	buf = (char *)apr_pcalloc(pool, 8 * 1024);
+	buf = (char *)apr_pcalloc(r->pool, 8 * 1024);
 
 	snprintf(buf, 8 * 1024,
 		 "{\n"
@@ -1496,7 +1467,6 @@ static int tile_handler_json(request_rec *r)
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 	ap_rwrite(buf, len, r);
-	destroy_buffer_pool(pool);
 
 	return OK;
 }
@@ -1684,8 +1654,9 @@ static int tile_handler_serve(request_rec *r)
 	gettimeofday(&start, NULL);
 
 	// FIXME: It is a waste to do the malloc + read if we are fulfilling a HEAD or returning a 304.
-	apr_pool_t *pool = create_buffer_pool(r);
-	buf = (char *)apr_pcalloc(pool, tile_max);
+	// Plain malloc rather than an APR pool: it is unzeroed and reused across requests, and on macOS mod_tile
+	// can be linked against a different APR than httpd, which crashes when a large pool allocation reaches the allocator
+	buf = (char *)malloc(tile_max);
 
 	if (!buf) {
 		if (!incRespCounter(HTTP_INTERNAL_SERVER_ERROR, r, cmd, rdata->layerNumber)) {
@@ -1736,7 +1707,7 @@ static int tile_handler_serve(request_rec *r)
 		incTimingCounter((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec), cmd->z, r);
 
 		if ((errstatus = ap_meets_conditions(r)) != OK) {
-			destroy_buffer_pool(pool);
+			free(buf);
 
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1746,7 +1717,7 @@ static int tile_handler_serve(request_rec *r)
 			return errstatus;
 		} else {
 			ap_rwrite(buf, len, r);
-			destroy_buffer_pool(pool);
+			free(buf);
 
 			if (!incRespCounter(errstatus, r, cmd, rdata->layerNumber)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
@@ -1757,7 +1728,7 @@ static int tile_handler_serve(request_rec *r)
 		}
 	}
 
-	destroy_buffer_pool(pool);
+	free(buf);
 	ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "Failed to read tile from disk: %s", err_msg);
 
 	if (!incRespCounter(HTTP_NOT_FOUND, r, cmd, rdata->layerNumber)) {

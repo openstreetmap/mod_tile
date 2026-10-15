@@ -84,11 +84,15 @@ set(mod_tile_SRCS
   renderd_config.c
 )
 set(mod_tile_LIBS
-  ${APR_LIBRARIES}
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${STORE_LIBRARIES}
 )
+# On macOS, linking APR binds mod_tile to the APR found here (e.g. the SDK's) even when httpd runs another
+# (e.g. Homebrew's), and the two cannot share pools. Leave APR, like httpd's own symbols, to be looked up in httpd.
+if(NOT APPLE)
+  list(INSERT mod_tile_LIBS 0 ${APR_LIBRARIES})
+endif()
 add_library(mod_tile SHARED ${mod_tile_SRCS})
 target_link_libraries(mod_tile ${mod_tile_LIBS})
 set_target_properties(mod_tile PROPERTIES PREFIX "" SUFFIX ".so")
