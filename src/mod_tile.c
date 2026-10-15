@@ -1006,7 +1006,6 @@ static int tile_storage_hook(request_rec *r)
 		return DECLINED;
 	}
 
-	avg = get_load_avg();
 	state = tile_state(r, cmd);
 
 	scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
@@ -1034,7 +1033,11 @@ static int tile_storage_hook(request_rec *r)
 		case tileVeryOld:
 			if (scfg->enable_bulk_mode) {
 				return OK;
-			} else if (avg > scfg->max_load_old) {
+			}
+
+			avg = get_load_avg();
+
+			if (avg > scfg->max_load_old) {
 				// Too much load to render it now, mark dirty but return old tile
 				request_tile(r, cmd, 0);
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Load (%f) greater than max_load_old (%d). Mark dirty and deliver from cache.", avg, scfg->max_load_old);
@@ -1051,6 +1054,8 @@ static int tile_storage_hook(request_rec *r)
 			break;
 
 		case tileMissing:
+			avg = get_load_avg();
+
 			if (avg > scfg->max_load_missing) {
 				request_tile(r, cmd, 0);
 				ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Load (%f) greater than max_load_missing (%d). Return HTTP_NOT_FOUND.", avg, scfg->max_load_missing);
