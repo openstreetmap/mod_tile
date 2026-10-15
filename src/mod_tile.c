@@ -119,34 +119,6 @@ static int error_message(request_rec *r, const char *format, ...)
 	return OK;
 }
 
-static apr_pool_t *create_buffer_pool(request_rec *r)
-{
-	apr_allocator_t *allocator;
-	apr_pool_t *pool;
-
-	if (apr_allocator_create(&allocator) != APR_SUCCESS) {
-		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-			      "Failed to create buffer allocator");
-	}
-
-	apr_allocator_max_free_set(allocator, 1);
-
-	if (apr_pool_create_ex(&pool, NULL, NULL, allocator) != APR_SUCCESS) {
-		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-			      "Failed to create buffer pool");
-		apr_allocator_destroy(allocator);
-	}
-
-	apr_allocator_owner_set(allocator, pool);
-
-	return pool;
-}
-
-static void destroy_buffer_pool(apr_pool_t *pool)
-{
-	apr_pool_destroy(pool);
-}
-
 static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
 {
 	apr_status_t rs;
@@ -1441,8 +1413,7 @@ static int tile_handler_json(request_rec *r)
 		}
 	}
 
-	apr_pool_t *pool = create_buffer_pool(r);
-	buf = (char *)apr_pcalloc(pool, 8 * 1024);
+	buf = (char *)apr_pcalloc(r->pool, 8 * 1024);
 
 	snprintf(buf, 8 * 1024,
 		 "{\n"
@@ -1488,7 +1459,6 @@ static int tile_handler_json(request_rec *r)
 	apr_rfc822_date(timestr, (apr_time_from_sec(maxAge) + r->request_time));
 	apr_table_setn(t, "Expires", timestr);
 	ap_rwrite(buf, len, r);
-	destroy_buffer_pool(pool);
 
 	return OK;
 }
