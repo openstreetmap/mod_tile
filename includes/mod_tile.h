@@ -146,6 +146,7 @@ typedef struct tile_request_data {
 	struct protocol *cmd;
 	struct storage_backend *store;
 	int layerNumber;
+	int tileCurrent; // tile_storage_hook found the tile current; r->finfo holds its times
 } tile_request_data;
 
 enum tileState { tileMissing,

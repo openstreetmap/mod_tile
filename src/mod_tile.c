@@ -588,13 +588,14 @@ static void add_expiry(request_rec *r, struct protocol *cmd)
 {
 	apr_time_t holdoff;
 	apr_table_t *t = r->headers_out;
-	enum tileState state = tile_state(r, cmd);
 	apr_finfo_t *finfo = &r->finfo;
 	char *timestr;
 	long int maxAge, minCache, lastModified;
 
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
 	struct tile_request_data *rdata = (struct tile_request_data *)ap_get_module_config(r->request_config, &tile_module);
+	// tile_storage_hook only has old or missing tiles rendered, so a tile it found current still has the state and times it saw
+	enum tileState state = rdata->tileCurrent ? tileCurrent : tile_state(r, cmd);
 	tile_config_rec *tile_configs = (tile_config_rec *)scfg->configs->elts;
 	tile_config_rec *tile_config = &tile_configs[rdata->layerNumber];
 
@@ -1021,6 +1022,8 @@ static int tile_storage_hook(request_rec *r)
 
 	switch (state) {
 		case tileCurrent:
+			rdata->tileCurrent = 1;
+
 			if (!incFreshCounter(FRESH, r)) {
 				ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
 					      "Failed to increase fresh stats counter");
