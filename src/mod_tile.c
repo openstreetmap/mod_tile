@@ -2162,7 +2162,8 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 
 	xmlconfigitem maps[XMLCONFIGS_MAX];
 
-	process_map_sections(NULL, config_file_name, maps, RENDERD_TILE_DIR, 0);
+	// Maps without a TILEDIR get an empty one, which _add_tile_config replaces with ModTileTileDir
+	process_map_sections(NULL, config_file_name, maps, "", 0);
 
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
 		if (maps[i].xmlname != NULL) {
