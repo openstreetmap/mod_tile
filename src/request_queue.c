@@ -79,6 +79,15 @@ static int calcHashKey(struct request_queue *queue, struct item *item)
 	      ((uint64_t)(item->req.z) << 32) +
 	      ((uint64_t)(item->mx & 0xFFFF) << 16) +
 	      (item->my & 0xFFFF);
+	/* Avalanche every identity field into the low bits. Configurable
+	 * capacities can yield a power-of-two index size, where the modulo
+	 * keeps only the low bits; without mixing, same-row metatiles would
+	 * all land in one bucket and chain scans would turn quadratic. */
+	key ^= key >> 33;
+	key *= 0xff51afd7ed558ccdULL;
+	key ^= key >> 33;
+	key *= 0xc4ceb9fe1a85ec53ULL;
+	key ^= key >> 33;
 	return key % queue->hashidxSize;
 }
 
