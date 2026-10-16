@@ -87,6 +87,8 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			REQUIRE_THAT(err_log_lines,
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Address family for hostname not supported")
 				     ||
+				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name could not be resolved at this time")
+				     ||
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name or service not known")
 				     ||
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Temporary failure in name resolution")
