@@ -718,6 +718,57 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: ip socket = 'hostname:9999'"));
 		}
 
+		SECTION("renderd.conf renderd section request_queue_limit too small", "should exit 7") {
+			renderd_conf_file << "[mapnik]\n[map]\n";
+			renderd_conf_file << "[renderd]\nrequest_queue_limit=0\n";
+			renderd_conf_file.close();
+
+			if (setjmp(exit_jump) == 0) {
+				process_config_file(renderd_conf_path.c_str(), 0, 0);
+				FAIL("process_config_file should have called exit(), but did not");
+			} else {
+				SUCCEED("process_config_file captured expected exit() call");
+			}
+
+			REQUIRE(exit_status == 7);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified request_queue_limit (0) is too small, must be greater than or equal to 1."));
+		}
+
+		SECTION("renderd.conf renderd section dirty_queue_limit too small", "should exit 7") {
+			renderd_conf_file << "[mapnik]\n[map]\n";
+			renderd_conf_file << "[renderd]\ndirty_queue_limit=-1\n";
+			renderd_conf_file.close();
+
+			if (setjmp(exit_jump) == 0) {
+				process_config_file(renderd_conf_path.c_str(), 0, 0);
+				FAIL("process_config_file should have called exit(), but did not");
+			} else {
+				SUCCEED("process_config_file captured expected exit() call");
+			}
+
+			REQUIRE(exit_status == 7);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified dirty_queue_limit (-1) is too small, must be greater than or equal to 0."));
+		}
+
+		SECTION("renderd.conf renderd section with configured queue limits", "should not exit") {
+			renderd_conf_file << "[mapnik]\n[map]\n";
+			renderd_conf_file << "[renderd]\nrequest_queue_limit=42\ndirty_queue_limit=4242\n";
+			renderd_conf_file.close();
+
+			if (setjmp(exit_jump) == 0) {
+				process_config_file(renderd_conf_path.c_str(), 0, 0);
+				SUCCEED("process_config_file did not call exit(), as expected");
+			} else {
+				FAIL("process_config_file captured unexpected exit() call");
+			}
+
+			REQUIRE(exit_status == 0);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(0): request_queue_limit = '42'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd(0): dirty_queue_limit = '4242'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: request_queue_limit = '42'"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("renderd: dirty_queue_limit = '4242'"));
+		}
+
 		SECTION("renderd.conf with overlapping URIs", "should return 7") {
 			std::string map0_uri = GENERATE("/", "/map1/", "/map2/");
 
