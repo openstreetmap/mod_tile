@@ -563,7 +563,7 @@ TEST_CASE("renderd", "tile generation")
 
 	SECTION("rx_request/bad", "should return cmdNotDone") {
 		int pipefd[2];
-		pipe(pipefd);
+		REQUIRE(pipe(pipefd) == 0);
 		struct protocol *req = (struct protocol *)malloc(sizeof(struct protocol));
 		std::string expected_mimetype = "image/png", expected_options = "", expected_xmlname = XMLCONFIG_DEFAULT;
 
@@ -983,7 +983,6 @@ TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 {
 	int found;
 	std::string err_log_lines, out_log_lines;
-	struct storage_backend *store = NULL;
 
 #ifdef HAVE_LIBMEMCACHED
 	SECTION("memcached storage/initialise", "should not return NULL") {
@@ -1173,7 +1172,6 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 	SECTION("storage/initialise", "should return NULL") {
 		int found;
 		std::string err_log_lines, out_log_lines;
-		struct storage_backend *store = NULL;
 
 		start_capture();
 		REQUIRE(init_storage_backend("rados://") == NULL);
@@ -1190,12 +1188,11 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 
 TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 {
-	int found;
-	std::string err_log_lines, out_log_lines;
-	struct storage_backend *store = NULL;
-
 #ifndef HAVE_CAIRO
 	SECTION("storage/initialise", "should return NULL") {
+		int found;
+		std::string err_log_lines, out_log_lines;
+
 		start_capture();
 		REQUIRE(init_storage_backend("composite:{") == NULL);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
@@ -1209,10 +1206,6 @@ TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 
 TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 {
-	int found;
-	std::string err_log_lines, out_log_lines;
-	struct storage_backend *store = NULL;
-
 #ifdef HAVE_LIBCURL
 	SECTION("storage/initialise", "should return 1") {
 		struct storage_backend *store = NULL;
@@ -1225,6 +1218,9 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 
 #else
 	SECTION("storage/initialise", "should return NULL") {
+		int found;
+		std::string err_log_lines, out_log_lines;
+
 		start_capture();
 		REQUIRE(init_storage_backend("ro_http_proxy://") == NULL);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
