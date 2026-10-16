@@ -80,6 +80,11 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	memcached_return_t rc;
 	char * buf_raw;
 
+	if (m == NULL) {
+		snprintf(log_msg, 1024, "Failed to allocate memory for metatile header\n");
+		return -1;
+	}
+
 	mask = METATILE - 1;
 	meta_offset = (x & mask) * METATILE + (y & mask);
 
@@ -235,7 +240,6 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 	char * buf;
 	size_t len;
 	uint32_t flags;
-	uint64_t cas;
 	memcached_return_t rc;
 
 	//TODO: deal with options
@@ -246,11 +250,11 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 		return -1;
 	}
 
-	//cas = memcached_result_cas(&rc);
-
 	((struct stat_info *)buf)->expired = 1;
 
-	rc = memcached_cas(store->storage_ctx, meta_path, strlen(meta_path), buf, len, 0, flags, cas);
+	// memcached_get() does not return a CAS value, so a compare-and-swap cannot be used here
+	// (the previous code passed an uninitialised CAS token). Replace the existing item instead.
+	rc = memcached_replace(store->storage_ctx, meta_path, strlen(meta_path), buf, len, 0, flags);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		free(buf);

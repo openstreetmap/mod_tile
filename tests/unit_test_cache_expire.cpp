@@ -1,4 +1,4 @@
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "cache_expire.h"
@@ -27,7 +27,7 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			int sock = 0;
 
 			cache_expire_url(sock, (char *)url.c_str());
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send HTCP purge for " + url));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send HTCP purge for " + url));
 		}
 
 		SECTION("cache_expire_url handles malloc failure", "should return") {
@@ -54,14 +54,14 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			int sock = 0;
 
 			cache_expire(sock, (char *)host.c_str(), (char *)uri.c_str(), x, y, z);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
 		}
 
 		SECTION("cache_expire handles malloc failure", "should return") {
 			int sock = 0;
 
 			cache_expire(sock, (char *)host.c_str(), (char *)uri.c_str(), x, y, z);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
 		}
 
 		SECTION("cache_expire handles negative sock", "should return") {
@@ -85,13 +85,13 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			std::string htcphost("nonexistenthost");
 			init_cache_expire((char *)htcphost.c_str());
 			REQUIRE_THAT(err_log_lines,
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Address family for hostname not supported")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Address family for hostname not supported")
 				     ||
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name or service not known")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Name or service not known")
 				     ||
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Temporary failure in name resolution")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Temporary failure in name resolution")
 				     ||
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: nodename nor servname provided, or not known")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: nodename nor servname provided, or not known")
 				    );
 		}
 
@@ -111,9 +111,9 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 
 			init_cache_expire((char *)htcphost.c_str());
 			REQUIRE_THAT(err_log_lines,
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Bad value for ai_flags")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Bad value for ai_flags")
 				     ||
-				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Unknown error")
+				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Unknown error")
 				    );
 		}
 
@@ -123,7 +123,7 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			fail_next_getaddrinfo_empty_res = true;
 
 			init_cache_expire((char *)htcphost.c_str());
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to create HTCP cache socket"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create HTCP cache socket"));
 		}
 
 		SECTION("init_cache_expire with failed connect", "should return") {
