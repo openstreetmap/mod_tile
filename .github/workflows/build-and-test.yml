@@ -235,14 +235,15 @@ jobs:
       LIBRARY_PATH: /usr/local/lib
       TMPDIR: /tmp
     name: >-
-      ${{ matrix.box_freebsd }}
+      FreeBSD
+      ${{ matrix.freebsd_release }}
       (${{ matrix.build_system }})
       (${{ matrix.compiler }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        box_freebsd:
-          - freebsd-13
+        freebsd_release:
+          - 14.5
         build_system:
           - CMake
         compiler:
@@ -250,7 +251,7 @@ jobs:
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
         include:
-          - box_freebsd: freebsd-14
+          - freebsd_release: 15.1
             build_system: CMake
             compiler: LLVM
         exclude:
@@ -266,12 +267,13 @@ jobs:
           echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
 
       - name: Provision VM
-        uses: hummeltech/freebsd-vagrant-action@v4
+        uses: hummeltech/anyvm-action@v1
         with:
-          box: bento/${{ matrix.box_freebsd }}
-          cpus: ${{ env.BUILD_PARALLEL_LEVEL }}
-          memory: 4096
-          ssh_shell: sh
+          cpu: ${{ env.BUILD_PARALLEL_LEVEL }}
+          mem: 4096
+          os: freebsd
+          provision-commands: pkg install --yes bash rsync sudo;
+          release: ${{ matrix.freebsd_release }}
 
       ## In case Mapnik is not in the `quarterly` repository
       # - name: Use "latest" repository
