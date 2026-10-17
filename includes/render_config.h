@@ -108,8 +108,9 @@
 
 // Metatiles are much larger in size so we don't need big queues to handle large areas
 #define QUEUE_MAX (64)
-#define REQ_LIMIT (256)
-#define DIRTY_LIMIT (8000)
+#define DEFAULT_REQUEST_QUEUE_LIMIT (256)
+#define DEFAULT_DIRTY_QUEUE_LIMIT (8000)
+
 
 // Penalty for client making an invalid request (in seconds)
 #define CLIENT_PENALTY (3)
