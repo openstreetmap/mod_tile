@@ -228,12 +228,8 @@ jobs:
   FreeBSD:
     env:
       CFLAGS: --coverage
-      CTEST_CLIENT_HOST: ::1
-      CTEST_SERVER_HOST: localhost
       CXXFLAGS: --coverage
       INSTALL_PREFIX: /usr/local
-      LIBRARY_PATH: /usr/local/lib
-      TMPDIR: /tmp
     name: >-
       FreeBSD
       ${{ matrix.freebsd_release }}

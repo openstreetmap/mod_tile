@@ -89,6 +89,8 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 				     ||
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name could not be resolved at this time")
 				     ||
+				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name does not resolve")
+				     ||
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Name or service not known")
 				     ||
 				     Catch::Matchers::Contains("Failed to lookup HTCP cache host: Temporary failure in name resolution")
