@@ -765,7 +765,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 	}
 
 	SECTION("process_config_bool, process_config_double, process_config_int, process_config_string & process_config_string_with_trailing_slash functions") {
-		dictionary *volatile ini = iniparser_load(RENDERD_CONF);
+		const dictionary *ini = iniparser_load(RENDERD_CONF);
 		std::string section = "nosuchsection";
 		std::string name = "nosuchname";
 
@@ -888,7 +888,7 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("process_config_string_with_trailing_slash: asprintf error"));
 		}
 
-		iniparser_freedict(ini);
+		iniparser_freedict((dictionary *)ini);
 	}
 
 	SECTION("free_map_section, free_map_sections, free_renderd_section & free_renderd_sections functions") {
