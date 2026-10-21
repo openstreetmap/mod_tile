@@ -329,6 +329,7 @@ static int rados_close_storage(struct storage_backend * store)
 	free(ctx->metadata_cache.data);
 	free(ctx->pool);
 	free(ctx);
+	store->storage_ctx = NULL;
 	return 0;
 }
 

@@ -264,6 +264,7 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 static int memcached_close_storage(struct storage_backend * store)
 {
 	memcached_free(store->storage_ctx);
+	store->storage_ctx = NULL;
 	return 0;
 }
 

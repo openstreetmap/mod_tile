@@ -242,8 +242,7 @@ static int ro_http_proxy_close_storage(struct storage_backend * store)
 
 	curl_easy_cleanup(ctx->ctx);
 	free(ctx);
-	free(store);
-
+	store->storage_ctx = NULL;
 	return 0;
 }
 
