@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2024-06-06" "mod_tile v0.8.1"
+.TH RENDERD.CONF 5 "2026-10-21" "mod_tile v0.8.1"
 .\" Please adjust this date whenever revising the manpage.
 
 .SH NAME
@@ -15,6 +15,10 @@ This manual page documents briefly the \fBrenderd.conf\fR configuration file.
 The default location is \fB'/etc/renderd.conf'\fR (macro definition \fB'RENDERD_CONFIG'\fR).
 .PP
 All option names are \fBcase-insensitive\fR.
+.PP
+Any values containing semicolons must be \fBquoted\fR.
+.PP
+Any \fBdouble quoted\fR values must not contain \fBdouble quotes\fR as they cannot be escaped, only \fBsingle quotes\fR can be escaped within \fBsingle quoted\fR values.
 
 
 .SH RENDERD
@@ -115,7 +119,7 @@ The default value is \fB'1'\fR.
 .B attribution
 Specify the data attribution to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
-The default value is \fB'&copy;<a href=\\\\\\"http://www.openstreetmap.org/\\\\\\">OpenStreetMap</a> and <a href=\\\\\\"http://wiki.openstreetmap.org/wiki/Contributors\\\\\\">contributors</a>, <a href=\\\\\\"http://opendatacommons.org/licenses/odbl/\\\\\\">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
+The default value is \fB'&copy;<a href='http://www.openstreetmap.org/'>OpenStreetMap</a> and <a href='http://wiki.openstreetmap.org/wiki/Contributors'>contributors</a>, <a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
 
 .TP
 .B cors

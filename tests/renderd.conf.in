@@ -8,8 +8,8 @@ plugins_dir=@MAPNIK_PLUGINS_DIR@
 # Test Comment: Default Map Section
 ; Test Comment: Default Map Section
 [@DEFAULT_MAP_NAME@]
-ATTRIBUTION=Attribution for @DEFAULT_MAP_NAME@
-DESCRIPTION=Description for @DEFAULT_MAP_NAME@
+ATTRIBUTION="Attribution for '@DEFAULT_MAP_NAME@' &copy;"
+DESCRIPTION='Description for \'@DEFAULT_MAP_NAME@\' &copy;'
 MAXZOOM=5
 MINZOOM=0
 SERVER_ALIAS=http://alias/
