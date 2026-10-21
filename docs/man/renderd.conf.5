@@ -15,6 +15,8 @@ This manual page documents briefly the \fBrenderd.conf\fR configuration file.
 The default location is \fB'/etc/renderd.conf'\fR (macro definition \fB'RENDERD_CONFIG'\fR).
 .PP
 All option names are \fBcase-insensitive\fR.
+.PP
+Any values containing semicolons must be \fBquoted\fR, however \fBdouble quotes\fR cannot be escaped.
 
 
 .SH RENDERD
@@ -115,7 +117,7 @@ The default value is \fB'1'\fR.
 .B attribution
 Specify the data attribution to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
 Only used by \fBmod_tile\fR.
-The default value is \fB'&copy;<a href=\\\\\\"http://www.openstreetmap.org/\\\\\\">OpenStreetMap</a> and <a href=\\\\\\"http://wiki.openstreetmap.org/wiki/Contributors\\\\\\">contributors</a>, <a href=\\\\\\"http://opendatacommons.org/licenses/odbl/\\\\\\">(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
+The default value is \fB'&copy;<a href='http://www.openstreetmap.org/'>OpenStreetMap</a> and <a href='http://wiki.openstreetmap.org/wiki/Contributors'>contributors</a>, <a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>'\fR (macro definition \fB'DEFAULT_ATTRIBUTION'\fR).
 
 .TP
 .B cors

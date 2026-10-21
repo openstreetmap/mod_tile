@@ -1087,28 +1087,77 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       COMMAND ${BASH} -c "
         TILE_DEFAULT_TILEJSON_CMD=\"${CURL_CMD} ${TILE_DEFAULT_TILEJSON_URL}\"
         TILE_DEFAULT_TILEJSON_OUTPUT=$(\${TILE_DEFAULT_TILEJSON_CMD})
+
         TILE_DEFAULT_TILEJSON_ATTRIBUTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
-        if [ \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\" != \"Attribution for ${DEFAULT_MAP_NAME}\" ]; then
+        TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED=\"Attribution for '${DEFAULT_MAP_NAME}' &copy;\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\" != \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED}\" ]; then
+          echo \"Error in .attribution\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED}\";
           exit 1;
         fi
         TILE_DEFAULT_TILEJSON_DESCRIPTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
-        if [ \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION}\" != \"Description for ${DEFAULT_MAP_NAME}\" ]; then
+        TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED=\"Description for '${DEFAULT_MAP_NAME}' &copy;\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION}\" != \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED}\" ]; then
+          echo \"Error in .description\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_DESCRIPTION}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED}\";
           exit 1;
         fi
         TILE_DEFAULT_TILEJSON_NAME=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .name)
-        if [ \"\${TILE_DEFAULT_TILEJSON_NAME}\" != \"${DEFAULT_MAP_NAME}\" ]; then
+        TILE_DEFAULT_TILEJSON_NAME_EXPECTED=\"${DEFAULT_MAP_NAME}\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_NAME}\" != \"\${TILE_DEFAULT_TILEJSON_NAME_EXPECTED}\" ]; then
+          echo \"Error in .name\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_NAME}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_NAME_EXPECTED}\";
           exit 1;
         fi
         TILE_DEFAULT_TILEJSON_VERSION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tilejson)
-        if [ \"\${TILE_DEFAULT_TILEJSON_VERSION}\" != \"2.0.0\" ]; then
+        TILE_DEFAULT_TILEJSON_VERSION_EXPECTED=\"2.0.0\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_VERSION}\" != \"\${TILE_DEFAULT_TILEJSON_VERSION_EXPECTED}\" ]; then
+          echo \"Error in .tilejson\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_VERSION}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_VERSION_EXPECTED}\";
           exit 1;
         fi
         TILE_DEFAULT_TILEJSON_TILES_0=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[0])
-        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_0}\" != \"http://localhost/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\" ]; then
+        TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED=\"http://localhost/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_0}\" != \"\${TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED}\" ]; then
+          echo \"Error in .tiles[0]\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_0}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED}\";
           exit 1;
         fi
         TILE_DEFAULT_TILEJSON_TILES_1=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[1])
-        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_1}\" != \"http://alias/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\" ]; then
+        TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED=\"http://alias/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\"
+        if [ \"\${TILE_DEFAULT_TILEJSON_TILES_1}\" != \"\${TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED}\" ]; then
+          echo \"Error in .tiles[1]\";
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_1}\";
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED}\";
+          exit 1;
+        fi
+
+        TILE_TILEJSON_URL=\"${TILE_DEFAULT_TILEJSON_URL}\"
+        TILE_CORS_ALL_TILEJSON_CMD=\"${CURL_CMD} \${TILE_TILEJSON_URL/${DEFAULT_MAP_NAME}/cors_all}\"
+        TILE_CORS_ALL_TILEJSON_OUTPUT=$(\${TILE_CORS_ALL_TILEJSON_CMD})
+
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION=$(echo \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED=\"&copy;<a href='http://www.openstreetmap.org/'>OpenStreetMap</a> and \"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"<a href='http://wiki.openstreetmap.org/wiki/Contributors'>\"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"contributors</a>, \"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"<a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>\"
+        if [ \"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION}\" != \"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}\" ]; then
+          echo \"Error in .attribution\";
+          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION}\";
+          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}\";
+          exit 1;
+        fi
+        TILE_CORS_ALL_TILEJSON_DESCRIPTION=$(echo \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
+        TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED=\"\"
+        if [ \"\${TILE_CORS_ALL_TILEJSON_DESCRIPTION}\" != \"\${TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED}\" ]; then
+          echo \"Error in .description\";
+          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_DESCRIPTION}\";
+          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED}\";
           exit 1;
         fi
       "
