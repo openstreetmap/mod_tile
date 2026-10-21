@@ -210,7 +210,7 @@ static int ro_composite_close_storage(struct storage_backend * store)
 	}
 
 	free(ctx);
-	free(store);
+	store->storage_ctx = NULL;
 	return 0;
 }
 
