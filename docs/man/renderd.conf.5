@@ -16,7 +16,9 @@ The default location is \fB'/etc/renderd.conf'\fR (macro definition \fB'RENDERD_
 .PP
 All option names are \fBcase-insensitive\fR.
 .PP
-Any values containing semicolons must be \fBquoted\fR, however \fBdouble quotes\fR cannot be escaped.
+Any values containing semicolons must be \fBquoted\fR.
+.PP
+Any \fBdouble quoted\fR values must not contain \fBdouble quotes\fR as they cannot be escaped, only \fBsingle quotes\fR can be escaped within \fBsingle quoted\fR values.
 
 
 .SH RENDERD
