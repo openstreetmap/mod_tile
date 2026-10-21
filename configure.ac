@@ -9,6 +9,7 @@ AX_CONFIG_NICE
 AC_INIT([mod_tile],
         [mod_tile_version],
         [http://trac.openstreetmap.org])
+AC_DEFINE_UNQUOTED([VERSION], ["$PACKAGE_VERSION"], [Version number of project])
 AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
 AC_CONFIG_SRCDIR([src/mod_tile.c])
