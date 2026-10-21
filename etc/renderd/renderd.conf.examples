@@ -75,7 +75,7 @@ XML=/var/www/example-map/mapnik.xml
 ;MAXZOOM=22
 ;TYPE=png image/png png256 ; Values are: <extension> <mime-type> <output-format> (for more information about output format see https://github.com/mapnik/mapnik/wiki/Image-IO)
 ;DESCRIPTION=This is a description of the tile layer used in the tile json request
-;ATTRIBUTION='&copy; <a href=\'http://localhost/\'>style2</a>'
+;ATTRIBUTION="&copy; <a href='http://localhost/'>style2</a>"
 ;SERVER_ALIAS=http://localhost/
 ;CORS=*
 
@@ -91,6 +91,6 @@ XML=/var/www/example-map/mapnik.xml
 ;MAXZOOM=22
 ;TYPE=png image/png png256 ; Values are: <extension> <mime-type> <output-format> (for more information about output format see https://github.com/mapnik/mapnik/wiki/Image-IO)
 ;DESCRIPTION=This is a description of the tile layer used in the tile json request
-;ATTRIBUTION='&copy; \'<a href=\'http://localhost/\'>style3</a>\''
+;ATTRIBUTION="&copy; '<a href='http://localhost/'>style3</a>'"
 ;SERVER_ALIAS=http://localhost/
 ;CORS=*
