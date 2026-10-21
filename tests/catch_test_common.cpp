@@ -24,6 +24,7 @@
 #include <netdb.h>
 #include <setjmp.h>
 #include <stdio.h>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -46,15 +47,19 @@ captured_stdio captured_stdout;
 
 std::string read_stderr(int buffer_size)
 {
-	char buffer[buffer_size];
-	read(captured_stderr.pipes[0], buffer, buffer_size);
+	std::string buffer(buffer_size, '\0');
+	ssize_t len = read(captured_stderr.pipes[0], &buffer[0], buffer_size);
+	// Stop at the terminating zero written by get_captured_stderr()
+	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
 	return buffer;
 }
 
 std::string read_stdout(int buffer_size)
 {
-	char buffer[buffer_size];
-	read(captured_stdout.pipes[0], buffer, buffer_size);
+	std::string buffer(buffer_size, '\0');
+	ssize_t len = read(captured_stdout.pipes[0], &buffer[0], buffer_size);
+	// Stop at the terminating zero written by get_captured_stdout()
+	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
 	return buffer;
 }
 
@@ -69,7 +74,11 @@ void capture_stderr()
 
 	// Redirect stderr to a new pipe
 	int pipes[2];
-	pipe(pipes);
+
+	if (pipe(pipes) != 0) {
+		throw std::runtime_error("capture: pipe() failed");
+	}
+
 	dup2(pipes[1], fileno(stderr));
 
 	captured_stderr.temp_fd = temp_stderr;
@@ -88,7 +97,11 @@ void capture_stdout()
 
 	// Redirect stdout to a new pipe
 	int pipes[2];
-	pipe(pipes);
+
+	if (pipe(pipes) != 0) {
+		throw std::runtime_error("capture: pipe() failed");
+	}
+
 	dup2(pipes[1], fileno(stdout));
 
 	captured_stdout.temp_fd = temp_stdout;
@@ -99,7 +112,9 @@ void capture_stdout()
 std::string get_captured_stderr(bool print)
 {
 	// Terminate captured output with a zero
-	write(captured_stderr.pipes[1], "", 1);
+	if (write(captured_stderr.pipes[1], "", 1) != 1) {
+		throw std::runtime_error("capture: write() failed");
+	}
 
 	// Restore stderr
 	fflush(stderr);
@@ -118,7 +133,9 @@ std::string get_captured_stderr(bool print)
 std::string get_captured_stdout(bool print)
 {
 	// Terminate captured output with a zero
-	write(captured_stdout.pipes[1], "", 1);
+	if (write(captured_stdout.pipes[1], "", 1) != 1) {
+		throw std::runtime_error("capture: write() failed");
+	}
 
 	// Restore stdout
 	fflush(stdout);
@@ -305,9 +322,13 @@ extern "C" {
 
 		va_start(args, format);
 
-		vasprintf(&log_message, format, args);
+		int len = vasprintf(&log_message, format, args);
 
 		va_end(args);
+
+		if (len < 0) {
+			throw std::runtime_error("mocked_g_logger: vasprintf() failed");
+		}
 
 		err_log_lines.append(log_message);
 		err_log_lines.append("\n");
