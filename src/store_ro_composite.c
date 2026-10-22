@@ -202,8 +202,12 @@ static int ro_composite_metatile_expire(struct storage_backend * store, const ch
 static int ro_composite_close_storage(struct storage_backend * store)
 {
 	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
+	// close_storage() no longer frees the backend itself (#524), so free the
+	// two inner backends here, as the callers do for the outer one
 	ctx->store_primary->close_storage(ctx->store_primary);
+	free(ctx->store_primary);
 	ctx->store_secondary->close_storage(ctx->store_secondary);
+	free(ctx->store_secondary);
 
 	if (ctx->cache.tile) {
 		free(ctx->cache.tile);
@@ -226,7 +230,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	return NULL;
 #else
 	struct storage_backend * store = malloc(sizeof(struct storage_backend));
-	struct ro_composite_ctx * ctx = malloc(sizeof(struct ro_composite_ctx));
+	struct ro_composite_ctx * ctx = calloc(1, sizeof(struct ro_composite_ctx));
 	char * connection_string_primary;
 	char * connection_string_secondary;
 	char * tmp;
@@ -248,7 +252,23 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	}
 
 	connection_string_secondary = strstr(connection_string, "}{");
+
+	if (connection_string_secondary == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: malformed connection string, missing '}{' separator: %s", connection_string);
+		free(ctx);
+		free(store);
+		return NULL;
+	}
+
 	connection_string_primary = malloc(strlen(connection_string) - strlen("composite:{") - strlen(connection_string_secondary) + 1);
+
+	if (connection_string_primary == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to allocate memory for primary connection string");
+		free(ctx);
+		free(store);
+		return NULL;
+	}
+
 	memcpy(connection_string_primary, connection_string + strlen("composite:{"), strlen(connection_string) - strlen("composite:{") - strlen(connection_string_secondary));
 	connection_string_primary[strlen(connection_string) - strlen("composite:{") - strlen(connection_string_secondary)] = 0;
 	connection_string_secondary = strdup(connection_string_secondary + 2);
@@ -258,29 +278,60 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_composite: Secondary storage backend: %s", connection_string_secondary);
 
 	tmp = strstr(connection_string_primary, ",");
+
+	if (tmp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: malformed primary connection string, missing ',' separator: %s", connection_string_primary);
+		free(connection_string_primary);
+		free(connection_string_secondary);
+		free(ctx);
+		free(store);
+		return NULL;
+	}
+
 	memcpy(ctx->xmlconfig_primary, connection_string_primary, tmp - connection_string_primary);
 	ctx->xmlconfig_primary[tmp - connection_string_primary] = 0;
 	ctx->store_primary = init_storage_backend(tmp + 1);
 
 	if (ctx->store_primary == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to initialise primary storage backend");
+		free(connection_string_primary);
+		free(connection_string_secondary);
 		free(ctx);
 		free(store);
 		return NULL;
 	}
 
 	tmp = strstr(connection_string_secondary, ",");
+
+	if (tmp == NULL) {
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: malformed secondary connection string, missing ',' separator: %s", connection_string_secondary);
+		free(connection_string_primary);
+		free(connection_string_secondary);
+		ctx->store_primary->close_storage(ctx->store_primary);
+		free(ctx->store_primary);
+		free(ctx);
+		free(store);
+		return NULL;
+	}
+
 	memcpy(ctx->xmlconfig_secondary, connection_string_secondary, tmp - connection_string_secondary);
 	ctx->xmlconfig_secondary[tmp - connection_string_secondary] = 0;
 	ctx->store_secondary = init_storage_backend(tmp + 1);
 
 	if (ctx->store_secondary == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to initialise secondary storage backend");
+		free(connection_string_primary);
+		free(connection_string_secondary);
 		ctx->store_primary->close_storage(ctx->store_primary);
+		free(ctx->store_primary);
 		free(ctx);
 		free(store);
 		return NULL;
 	}
+
+	// The backends keep their own copies of what they need from these
+	free(connection_string_primary);
+	free(connection_string_secondary);
 
 	ctx->render_size = 256;
 
