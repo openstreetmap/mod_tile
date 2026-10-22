@@ -1,99 +1,107 @@
-.TH RENDER_EXPIRED "1" "2024-03-16" "mod_tile v0.8.1"
+.TH RENDER_EXPIRED "1" "2026-10-22" "mod_tile v0.8.1"
 .\" Please adjust this date whenever revising the manpage.
-.sp
 .SH NAME
 render_expired \- expires a list of map tiles so that they get re-rendered.
-.sp
 .SH SYNOPSIS
 .B render_expired
-.RI [ options ]\ <\  "expire.list"
-.sp
+.RI [ OPTIONS ]\ <\  "expire.list"
 .SH DESCRIPTION
-This manual page documents briefly the
+This manual page briefly documents the
 .B render_expired
 command.
 .PP
 .B render_expired
-is a helper utility that takes a list of map tiles from stdin and expires them such that they will get re-rendered.
-Render_expired has three potential strategies of how to expire map tiles:
-.BR
-1) Render tiles directly: Render_expired can connect to the renderd socket and submit rendering requests for expired tiles directly
-.BR
-2) Delete tiles: Render_expired can delete expired tiles from disk. The next time the tile then gets viewed it will get re-rendered, assuming a dynamic rendering setup like mod_tile is installed
-.BR
-3) Mark tiles as dirty: A dynamic tile rendering system like mod_tile decides if a tile needs re-rendering by comparing the timestamp of the tile with the time of the planet-import-complet timestamp. Render_expired can set the timestamp of a tile back many years, ensuring it is older than the db import time, thus causing the tile to be considered dirty and in need for re-render.
+is a helper utility that takes a list of map tiles from STDIN and expires them such that they will get re-rendered.
+.B render_expired
+has three potential strategies of how to expire map tiles:
+.IP "1)" 4
+Render tiles directly:
+.B render_expired
+can connect to the renderd socket and submit rendering requests for expired tiles directly.
+.IP "2)" 4
+Delete tiles:
+.B render_expired
+can delete expired tiles from disk. The next time the tile then gets viewed it will get re-rendered, assuming a dynamic rendering setup like mod_tile is installed.
+.IP "3)" 4
+Mark tiles as dirty: A dynamic tile rendering system like mod_tile decides if a tile needs re-rendering by comparing the timestamp of the tile with the time of the planet-import-complete timestamp.
+.B render_expired
+can set the timestamp of a tile back many years, ensuring it is older than the db import time, thus causing the tile to be considered dirty and in need of a re-render.
 .PP
-These three strategies can be combined and applied at different zoom levels. E.g. Zoom level 17-18 get deleted, z11 - z16 get marked dirty and z6 - z10 get rendered directly.
+These three strategies can be combined and applied at different zoom levels. E.g., zoom levels 17\-18 get deleted, z11\-z16 get marked dirty, and z6\-z10 get rendered directly.
 .PP
-Render_expired takes a list of tiles from stdin which should be expired. The format of the list is one tile per line specified as z/x/y.
-.sp 0
+.B render_expired
+takes a list of tiles from STDIN which should be expired. The format of the list is one tile per line specified as \fB"z/x/y"\fR, e.g.:
+.RS
+.PP
 1/0/1
-.sp 0
+.br
 1/1/1
-.sp 0
+.br
 1/0/0
-.sp 0
+.br
 1/1/0
+.RE
 .PP
-render_expired will automatically expand the list to cover the effected tiles at other zoom levels.
-.sp
+.B render_expired
+will automatically expand the list to cover the affected tiles at other zoom levels.
 .SH OPTIONS
 This program follows the usual GNU command line syntax, with long
 options starting with two dashes (`-').
 A summary of options is included below.
 .TP
-\fB\-c\fR|\-\-config=CONFIG
+.BI \-c " CONFIG" "\fR,\fP \-\^\-config=" CONFIG
 Specify a `renderd.conf` file from which to load various option values rather than specifying via command line.
-.sp 0
+.br
 The following options will be set (if present); however, they can be overridden if also specified:
-.sp 0
-\fB\-s\fR|\-\-socket
-.sp 0
-\fB\-n\fR|\-\-num-threads
-.sp 0
-\fB\-t\fR|\-\-tile-dir
-.sp 0
-\fB\-z\fR|\-\-min-zoom
-.sp 0
-\fB\-Z\fR|\-\-max-zoom
+.RS
 .TP
-\fB\-m\fR|\-\-map=MAP
+.BR \-s ", " \-\^\-socket
+.TP
+.BR \-n ", " \-\^\-num\-threads
+.TP
+.BR \-t ", " \-\^\-tile\-dir
+.TP
+.BR \-z ", " \-\^\-min\-zoom
+.TP
+.BR \-Z ", " \-\^\-max\-zoom
+.RE
+.TP
+.BI \-m " MAP" "\fR,\fP \-\^\-map=" MAP
 Specify the style-sheet for which to expire tiles. The default is "default".
 .TP
-\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+.BI \-s " SOCKET|HOSTNAME:PORT" "\fR,\fP \-\^\-socket=" SOCKET|HOSTNAME:PORT
 Specify the location of the renderd socket or hostname and port to connect to.
 .TP
-\fB\-n\fR|\-\-num-threads=N
-Specify the number of parallel requests to renderd. Should renderd have less threads active, requests will be queued. The default is 1.
+.BI \-n " NUM" "\fR,\fP \-\^\-num\-threads=" NUM
+Specify the number of parallel requests to renderd. Should renderd have fewer threads active, requests will be queued. The default is 1.
 .TP
-\fB\-t\fR|\-\-tile-dir=DIR
-Specify the base directory where the rendered tiles are. The default is '/var/cache/renderd/tiles'
+.BI \-t " DIR" "\fR,\fP \-\^\-tile\-dir=" DIR
+Specify the base directory where the rendered tiles are. The default is '/var/cache/renderd/tiles'.
 .TP
-\fB\-z\fR|\-\-min-zoom=ZOOM
+.BI \-z " ZOOM" "\fR,\fP \-\^\-min\-zoom=" ZOOM
 Filter input to only render tiles greater than or equal to this zoom level (default is '0').
 .TP
-\fB\-Z\fR|\-\-max-zoom=ZOOM
+.BI \-Z " ZOOM" "\fR,\fP \-\^\-max\-zoom=" ZOOM
 Filter input to only render tiles less than or equal to this zoom level (default is '20').
 .TP
-\fB\-d\fR|\-\-delete-from=ZOOM
-When expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)
+.BI \-d " ZOOM" "\fR,\fP \-\^\-delete\-from=" ZOOM
+When expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off).
 .TP
-\fB\-T\fR|\-\-touch-from=ZOOM
-When expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
+.BI \-T " ZOOM" "\fR,\fP \-\^\-touch\-from=" ZOOM
+When expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off).
 .TP
-\fB\-N\fR|\-\-no-progress
-Disable display of progress messages (default is off)
+.BR \-N ", " \-\^\-no\-progress
+Disable display of progress messages (default is off).
 .TP
-\fB\-h\fR|\-\-help
-Print out a help text for render_expired
+.BR \-h ", " \-\^\-help
+Print out a help text for \fBrender_expired\fR.
 .TP
-\fB\-V\fR|\-\-version
-Print out the version number for render_expired
-.sp
+.BR \-V ", " \-\^\-version
+Print out the version number for \fBrender_expired\fR.
 .SH SEE ALSO
-.BR renderd(1)
-.sp
+.BR renderd (1)
 .SH AUTHOR
-render_expire was written by OpenStreetMap project members.
+.B render_expired
+was written by OpenStreetMap project members.
 .PP
 This manual page was written by OpenStreetMap authors.

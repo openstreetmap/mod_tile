@@ -76,6 +76,20 @@ jobs:
             */CMakeLists.txt \
             */*.cmake
 
+  mandoc:
+    name: Lint with `mandoc -T lint -W warning`
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Provision environment
+        uses: ./.github/actions/dependencies/install/apt-get
+        with:
+          packages: mandoc
+      - name: Run linter
+        run: |
+          mandoc -T lint -W warning docs/man/*
+
   prettier:
     name: Lint with `Prettier`
     runs-on: ubuntu-latest
