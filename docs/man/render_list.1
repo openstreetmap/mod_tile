@@ -6,7 +6,7 @@ render_list \- renders a list of map tiles by sending requests to a rendering da
 .sp
 .SH SYNOPSIS
 .B render_list
-.RI [ options ]\ <\  "render.list"
+.RI [ OPTIONS ]\ <\  "render.list"
 .sp
 .SH DESCRIPTION
 This manual page briefly documents the
@@ -21,73 +21,73 @@ This program follows the usual GNU command line syntax, with long
 options starting with two dashes (`-').
 A summary of options is included below.
 .TP
-\fB\-a\fR|\-\-all
+.BR \-a ", " \-\^\-all
 Render all tiles in given zoom level range instead of reading from STDIN.
 .TP
-\fB\-c\fR|\-\-config=CONFIG
+.BI \-c " CONFIG" "\fR,\fP \-\^\-config=" CONFIG
 Specify a `renderd.conf` file from which to load various option values rather than specifying via command line.
 .sp 0
 The following options will be set (if present); however, they can be overridden if also specified:
 .sp 0
-\fB\-s\fR|\-\-socket
+.BR \-s ", " \-\^\-socket
 .sp 0
-\fB\-n\fR|\-\-num-threads
+.BR \-n ", " \-\^\-num\-threads
 .sp 0
-\fB\-t\fR|\-\-tile-dir
+.BR \-t ", " \-\^\-tile\-dir
 .sp 0
-\fB\-z\fR|\-\-min-zoom
+.BR \-z ", " \-\^\-min\-zoom
 .sp 0
-\fB\-Z\fR|\-\-max-zoom
+.BR \-Z ", " \-\^\-max\-zoom
 .TP
-\fB\-f\fR|\-\-force
+.BR \-f ", " \-\^\-force
 Render tiles even if they seem current.
 .TP
-\fB\-m\fR|\-\-map=MAP
+.BI \-m " MAP" "\fR,\fP \-\^\-map=" MAP
 Render tiles in this map (default is 'default').
 .TP
-\fB\-l\fR|\-\-max-load=LOAD
+.BI \-l " LOAD" "\fR,\fP \-\^\-max\-load=" LOAD
 Sleep if load is this high (default is '16').
 .TP
-\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+.BI \-s " SOCKET|HOSTNAME:PORT" "\fR,\fP \-\^\-socket=" SOCKET|HOSTNAME:PORT
 Unix domain socket name or hostname and port for contacting renderd (default is '/run/renderd/renderd.sock').
 .TP
-\fB\-n\fR|\-\-num-threads=N
+.BI \-n " NUM" "\fR,\fP \-\^\-num\-threads=" NUM
 The number of parallel request threads (default is '1').
 .TP
-\fB\-t\fR|\-\-tile-dir=TILE_DIR
+.BI \-t " TILE" "\fR,\fP \-\^\-tile\-dir=" TILE_DIR
 Tile cache directory (default is '/var/cache/renderd/tiles').
 .TP
-\fB\-z\fR|\-\-min-zoom=ZOOM
+.BI \-z " ZOOM" "\fR,\fP \-\^\-min\-zoom=" ZOOM
 Filter input to only render tiles greater than or equal to this zoom level (default is '0').
 .TP
-\fB\-Z\fR|\-\-max-zoom=ZOOM
+.BI \-Z " ZOOM" "\fR,\fP \-\^\-max\-zoom=" ZOOM
 Filter input to only render tiles less than or equal to this zoom level (default is '20').
 .TP
-\fB\-h\fR|\-\-help
+.BR \-h ", " \-\^\-help
 Print out a help text for render_list
 .TP
-\fB\-V\fR|\-\-version
+.BR \-V ", " \-\^\-version
 Print out the version number for render_list
 .PP
 If you are using \fB\-a\fR|\-\-all, you can restrict the tile range by adding these options:
 .sp 0
 (please note that tile coordinates must be positive integers and are not latitude and longitude values)
 .PP
-  \fB\-g\fR|\-\-min-lat=LATITUDE   minimum latitude
+  \fB\-g\fR|\-\-min\-lat=LATITUDE   minimum latitude
 .BR
-  \fB\-G\fR|\-\-max-lat=LATITUDE   maximum latitude
+  \fB\-G\fR|\-\-max\-lat=LATITUDE   maximum latitude
 .BR
-  \fB\-w\fR|\-\-min-lon=LONGITUDE  minimum longitude
+  \fB\-w\fR|\-\-min\-lon=LONGITUDE  minimum longitude
 .BR
-  \fB\-W\fR|\-\-max-lon=LONGITUDE  maximum longitude
+  \fB\-W\fR|\-\-max\-lon=LONGITUDE  maximum longitude
 .BR
-  \fB\-x\fR|\-\-min-x=X            minimum X tile coordinate
+  \fB\-x\fR|\-\-min\-x=X            minimum X tile coordinate
 .BR
-  \fB\-X\fR|\-\-max-x=X            maximum X tile coordinate
+  \fB\-X\fR|\-\-max\-x=X            maximum X tile coordinate
 .BR
-  \fB\-y\fR|\-\-min-y=Y            minimum Y tile coordinate
+  \fB\-y\fR|\-\-min\-y=Y            minimum Y tile coordinate
 .BR
-  \fB\-Y\fR|\-\-max-y=Y            maximum Y tile coordinate
+  \fB\-Y\fR|\-\-max\-y=Y            maximum Y tile coordinate
 .PP
 Without \fB\-a\fR|\-\-all, send a list of tiles to be rendered from STDIN in the format:
 .BR

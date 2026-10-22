@@ -6,7 +6,7 @@ render_expired \- expires a list of map tiles so that they get re-rendered.
 .sp
 .SH SYNOPSIS
 .B render_expired
-.RI [ options ]\ <\  "expire.list"
+.RI [ OPTIONS ]\ <\  "expire.list"
 .sp
 .SH DESCRIPTION
 This manual page documents briefly the
@@ -42,52 +42,52 @@ This program follows the usual GNU command line syntax, with long
 options starting with two dashes (`-').
 A summary of options is included below.
 .TP
-\fB\-c\fR|\-\-config=CONFIG
+.BI \-c " CONFIG" "\fR,\fP \-\^\-config=" CONFIG
 Specify a `renderd.conf` file from which to load various option values rather than specifying via command line.
 .sp 0
 The following options will be set (if present); however, they can be overridden if also specified:
 .sp 0
-\fB\-s\fR|\-\-socket
+.BR \-s ", " \-\^\-socket
 .sp 0
-\fB\-n\fR|\-\-num-threads
+.BR \-n ", " \-\^\-num\-threads
 .sp 0
-\fB\-t\fR|\-\-tile-dir
+.BR \-t ", " \-\^\-tile\-dir
 .sp 0
-\fB\-z\fR|\-\-min-zoom
+.BR \-z ", " \-\^\-min\-zoom
 .sp 0
-\fB\-Z\fR|\-\-max-zoom
+.BR \-Z ", " \-\^\-max\-zoom
 .TP
-\fB\-m\fR|\-\-map=MAP
+.BI \-m " MAP" "\fR,\fP \-\^\-map=" MAP
 Specify the style-sheet for which to expire tiles. The default is "default".
 .TP
-\fB\-s\fR|\-\-socket=SOCKET|HOSTNAME:PORT
+.BI \-s " SOCKET|HOSTNAME:PORT" "\fR,\fP \-\^\-socket=" SOCKET|HOSTNAME:PORT
 Specify the location of the renderd socket or hostname and port to connect to.
 .TP
-\fB\-n\fR|\-\-num-threads=N
+.BI \-n " NUM" "\fR,\fP \-\^\-num\-threads=" NUM
 Specify the number of parallel requests to renderd. Should renderd have less threads active, requests will be queued. The default is 1.
 .TP
-\fB\-t\fR|\-\-tile-dir=DIR
+.BI \-t " DIR" "\fR,\fP \-\^\-tile\-dir=" DIR
 Specify the base directory where the rendered tiles are. The default is '/var/cache/renderd/tiles'
 .TP
-\fB\-z\fR|\-\-min-zoom=ZOOM
+.BI \-z " ZOOM" "\fR,\fP \-\^\-min\-zoom=" ZOOM
 Filter input to only render tiles greater than or equal to this zoom level (default is '0').
 .TP
-\fB\-Z\fR|\-\-max-zoom=ZOOM
+.BI \-Z " ZOOM" "\fR,\fP \-\^\-max\-zoom=" ZOOM
 Filter input to only render tiles less than or equal to this zoom level (default is '20').
 .TP
-\fB\-d\fR|\-\-delete-from=ZOOM
+.BI \-d " ZOOM" "\fR,\fP \-\^\-delete\-from=" ZOOM
 When expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)
 .TP
-\fB\-T\fR|\-\-touch-from=ZOOM
+.BI \-T " ZOOM" "\fR,\fP \-\^\-touch\-from=" ZOOM
 When expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)
 .TP
-\fB\-N\fR|\-\-no-progress
+.BR \-N ", " \-\^\-no\-progress
 Disable display of progress messages (default is off)
 .TP
-\fB\-h\fR|\-\-help
+.BR \-h ", " \-\^\-help
 Print out a help text for render_expired
 .TP
-\fB\-V\fR|\-\-version
+.BR \-V ", " \-\^\-version
 Print out the version number for render_expired
 .sp
 .SH SEE ALSO
