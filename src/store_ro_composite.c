@@ -202,8 +202,12 @@ static int ro_composite_metatile_expire(struct storage_backend * store, const ch
 static int ro_composite_close_storage(struct storage_backend * store)
 {
 	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
+	// close_storage() no longer frees the backend itself (#524), so free the
+	// two inner backends here, as the callers do for the outer one
 	ctx->store_primary->close_storage(ctx->store_primary);
+	free(ctx->store_primary);
 	ctx->store_secondary->close_storage(ctx->store_secondary);
+	free(ctx->store_secondary);
 
 	if (ctx->cache.tile) {
 		free(ctx->cache.tile);
@@ -226,7 +230,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	return NULL;
 #else
 	struct storage_backend * store = malloc(sizeof(struct storage_backend));
-	struct ro_composite_ctx * ctx = malloc(sizeof(struct ro_composite_ctx));
+	struct ro_composite_ctx * ctx = calloc(1, sizeof(struct ro_composite_ctx));
 	char * connection_string_primary;
 	char * connection_string_secondary;
 	char * tmp;
@@ -304,6 +308,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 		free(connection_string_primary);
 		free(connection_string_secondary);
 		ctx->store_primary->close_storage(ctx->store_primary);
+		free(ctx->store_primary);
 		free(ctx);
 		free(store);
 		return NULL;
@@ -315,11 +320,18 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 
 	if (ctx->store_secondary == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to initialise secondary storage backend");
+		free(connection_string_primary);
+		free(connection_string_secondary);
 		ctx->store_primary->close_storage(ctx->store_primary);
+		free(ctx->store_primary);
 		free(ctx);
 		free(store);
 		return NULL;
 	}
+
+	// The backends keep their own copies of what they need from these
+	free(connection_string_primary);
+	free(connection_string_secondary);
 
 	ctx->render_size = 256;
 

@@ -1189,20 +1189,35 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 
 TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 {
-#ifndef HAVE_CAIRO
-	SECTION("storage/initialise", "should return NULL") {
-		int found;
-		std::string err_log_lines, out_log_lines;
+	int found;
+	std::string err_log_lines, out_log_lines;
+	std::string tile_dir = P_tmpdir;
+	std::string valid = "composite:{default," + tile_dir + "}{default," + tile_dir + "}";
 
-		start_capture();
-		REQUIRE(init_storage_backend("composite:{") == NULL);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+	start_capture();
+	struct storage_backend *store = init_storage_backend(valid.c_str());
+	std::tie(err_log_lines, out_log_lines) = end_capture();
 
+	if (store == NULL) {
+		// Composite support depends on HAVE_CAIRO as seen by the C sources, which can differ
+		// from what this C++ file sees (e.g. Autotools builds), so check at run time
 		found = err_log_lines.find("init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 		REQUIRE(found > -1);
+		return;
 	}
 
-#endif
+	// Closing must free the inner backends and not touch the (never used) tile cache
+	store->close_storage(store);
+	free(store);
+
+	start_capture();
+	// Missing "}{" separator
+	REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}").c_str()) == NULL);
+	// Primary backend fails to initialise
+	REQUIRE(init_storage_backend(("composite:{default,/does/not/exist}{default," + tile_dir + "}").c_str()) == NULL);
+	// Secondary backend fails to initialise
+	REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}{default,/does/not/exist}").c_str()) == NULL);
+	end_capture();
 }
 
 TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
