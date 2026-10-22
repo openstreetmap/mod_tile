@@ -271,7 +271,7 @@ static int socket_init(request_rec *r)
 
 static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 {
-	int fd;
+	int fd = FD_INVALID;
 	int ret = 0;
 	int retry = 1;
 	struct protocol resp;

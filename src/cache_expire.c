@@ -145,7 +145,7 @@ int init_cache_expire(const char *htcphost)
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
-	int sfd, s;
+	int sfd = -1, s;
 
 	/* Obtain address(es) matching host/port */
 

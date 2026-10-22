@@ -68,7 +68,7 @@ static int file_tile_read(struct storage_backend * store, const char *xmlconfig,
 {
 
 	char path[PATH_MAX];
-	int meta_offset, fd;
+	int meta_offset, fd = FD_INVALID;
 	unsigned int pos;
 	unsigned int header_len = sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry);
 	struct meta_layout *m = (struct meta_layout *)malloc(header_len);
@@ -215,7 +215,7 @@ static char * file_tile_storage_id(struct storage_backend * store, const char *x
 
 static int file_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
-	int fd;
+	int fd = FD_INVALID;
 	char meta_path[PATH_MAX];
 	char * tmp;
 	int res;

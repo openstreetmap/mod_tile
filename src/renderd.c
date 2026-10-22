@@ -380,7 +380,7 @@ void *stats_writeout_thread(void * arg)
 
 int client_socket_init(renderd_config * sConfig)
 {
-	int fd = -1, s;
+	int fd = FD_INVALID, s;
 	struct sockaddr_un * addrU;
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -434,7 +434,7 @@ int client_socket_init(renderd_config * sConfig)
 			if (connect(fd, rp->ai_addr, rp->ai_addrlen) != 0) {
 				g_logger(G_LOG_LEVEL_WARNING, "failed to connect to rendering daemon (%s), trying next ip", ipstring);
 				close(fd);
-				fd = -1;
+				fd = FD_INVALID;
 				continue;
 			} else {
 				break;
@@ -494,9 +494,7 @@ static int server_socket_init_tcp(renderd_config *sConfig)
 	const int disable = 0;
 	struct sockaddr_in addrI4;
 	struct sockaddr_in6 addrI6;
-	int fd;
-
-	fd = socket(PF_INET6, SOCK_STREAM, 0);
+	int fd = socket(PF_INET6, SOCK_STREAM, 0);
 
 	if (fd >= 0) {
 		// Accept IPv4 connections too, regardless of the system default (net.ipv6.bindv6only)
@@ -570,7 +568,7 @@ int server_socket_init(renderd_config *sConfig)
 {
 	struct sockaddr_un addrU;
 	mode_t old;
-	int fd;
+	int fd = FD_INVALID;
 
 	if (sConfig->ipport > 0) {
 		g_logger(G_LOG_LEVEL_INFO, "Initialising TCP/IP server socket on %s:%i",
@@ -811,7 +809,7 @@ int main(int argc, char **argv)
 
 	int config_file_name_passed = 0;
 
-	int fd, i, j, k;
+	int fd = FD_INVALID, i, j, k;
 
 	int c;
 
