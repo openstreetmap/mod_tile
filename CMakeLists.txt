@@ -4,7 +4,7 @@
 #
 #-----------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 #-----------------------------------------------------------------------------
@@ -26,12 +26,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation directory")
-set(ENABLE_MAN ON CACHE BOOL "Build man pages")
-set(ENABLE_TESTS OFF CACHE BOOL "Build test suite")
-set(USE_CAIRO ON CACHE BOOL "Add cairo support if available (for `store_ro_composite.c` backend)")
-set(USE_CURL ON CACHE BOOL "Add curl support if available (for `store_ro_http_proxy.c` backend)")
-set(USE_MEMCACHED ON CACHE BOOL "Add memcached support if available (for `store_memcached.c` backend)")
-set(USE_RADOS ON CACHE BOOL "Add rados support if available (for `store_rados.c` backend)")
+option(ENABLE_MAN "Build man pages" ON)
+option(ENABLE_TESTS "Build test suite" OFF)
+option(ENABLE_WARNINGS "Compile with extra warnings (-Wall -Wextra)" OFF)
+option(ENABLE_WERROR "Treat compiler warnings as errors (requires ENABLE_WARNINGS)" OFF)
+set(ENABLE_SANITIZERS "" CACHE STRING "Comma-separated sanitizers to build with, e.g. 'address,undefined' or 'thread'")
+option(USE_CAIRO "Add cairo support if available (for `store_ro_composite.c` backend)" ON)
+option(USE_CURL "Add curl support if available (for `store_ro_http_proxy.c` backend)" ON)
+option(USE_MEMCACHED "Add memcached support if available (for `store_memcached.c` backend)" ON)
+option(USE_RADOS "Add rados support if available (for `store_rados.c` backend)" ON)
 set(MALLOC_LIB "libc" CACHE STRING "Memory Management Library for `renderd`")
 set_property(CACHE MALLOC_LIB PROPERTY STRINGS "libc" "jemalloc" "mimalloc" "tcmalloc")
 
@@ -41,9 +44,11 @@ set_property(CACHE MALLOC_LIB PROPERTY STRINGS "libc" "jemalloc" "mimalloc" "tcm
 #
 #-----------------------------------------------------------------------------
 
+include(FeatureSummary)
 include(GNUInstallDirs)
 
 # Packages
+find_package(PkgConfig REQUIRED)
 find_package(ICU REQUIRED uc)
 find_package(Threads REQUIRED)
 
@@ -171,8 +176,12 @@ set(RENDERD_TILE_DIR "${CMAKE_INSTALL_LOCALSTATEDIR}/cache/renderd/tiles")
 set(RENDERD_PIDFILE "${RENDERD_RUN_DIR}/renderd.pid")
 set(RENDERD_SOCKET "${RENDERD_RUN_DIR}/renderd.sock")
 
-set(TILE_LOAD_DIRECTORY "${HTTPD_SYSCONFDIR}")
-set(TILE_LOAD_FILENAME "tile.load")
+if(NOT DEFINED CACHE{TILE_LOAD_DIRECTORY})
+  set(TILE_LOAD_DIRECTORY "${HTTPD_SYSCONFDIR}")
+endif()
+if(NOT DEFINED CACHE{TILE_LOAD_FILENAME})
+  set(TILE_LOAD_FILENAME "tile.load")
+endif()
 set(VERSION "${PROJECT_VERSION}")
 
 #-----------------------------------------------------------------------------
@@ -182,9 +191,10 @@ set(VERSION "${PROJECT_VERSION}")
 #-----------------------------------------------------------------------------
 
 # include/config.h.in
+# (generated into the build tree so that multiple build directories do not clobber each other)
 configure_file(
   ${PROJECT_SOURCE_DIR}/includes/config.h.in
-  ${PROJECT_SOURCE_DIR}/includes/config.h
+  ${PROJECT_BINARY_DIR}/includes/config.h
 )
 
 # etc/apache2/tile.load.in
@@ -201,6 +211,32 @@ configure_file(
 
 #-----------------------------------------------------------------------------
 #
+#  Compiler flags
+#
+#-----------------------------------------------------------------------------
+
+if(ENABLE_WARNINGS)
+  add_compile_options(-Wall -Wextra -Wno-unused-parameter)
+  # Log messages and storage IDs are deliberately truncated to PATH_MAX-sized buffers,
+  # so GCC's -Wformat-truncation heuristic only produces false positives here.
+  include(CheckCCompilerFlag)
+  check_c_compiler_flag(-Wformat-truncation HAVE_WFORMAT_TRUNCATION)
+  if(HAVE_WFORMAT_TRUNCATION)
+    add_compile_options(-Wno-format-truncation)
+  endif()
+  if(ENABLE_WERROR)
+    add_compile_options(-Werror)
+  endif()
+endif()
+
+if(ENABLE_SANITIZERS)
+  message(STATUS "Building with sanitizers: ${ENABLE_SANITIZERS}")
+  add_compile_options(-fsanitize=${ENABLE_SANITIZERS} -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=${ENABLE_SANITIZERS})
+endif()
+
+#-----------------------------------------------------------------------------
+#
 #  Build
 #
 #-----------------------------------------------------------------------------
@@ -214,7 +250,11 @@ add_subdirectory(src)
 #-----------------------------------------------------------------------------
 
 # Determine install destination for 'etc/apache2/tile.load.in'
-if(EXISTS "/etc/os-release")
+# (auto-detected from the build host unless TILE_LOAD_DIRECTORY / TILE_LOAD_FILENAME are set explicitly,
+#  which packagers and cross-compilers should do)
+if(DEFINED CACHE{TILE_LOAD_DIRECTORY} OR DEFINED CACHE{TILE_LOAD_FILENAME})
+  message(STATUS "Using user-supplied TILE_LOAD_DIRECTORY / TILE_LOAD_FILENAME")
+elseif(EXISTS "/etc/os-release")
   execute_process(COMMAND sh -c ". /etc/os-release && echo $ID"
     OUTPUT_STRIP_TRAILING_WHITESPACE
     OUTPUT_VARIABLE DISTRO_ID
@@ -320,3 +360,16 @@ if(ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
+
+#-----------------------------------------------------------------------------
+#
+#  Summary
+#
+#-----------------------------------------------------------------------------
+
+add_feature_info(cairo CAIRO_FOUND "store_ro_composite backend")
+add_feature_info(curl CURL_FOUND "store_ro_http_proxy backend")
+add_feature_info(memcached LIBMEMCACHED_FOUND "store_memcached backend")
+add_feature_info(rados LIBRADOS_FOUND "store_rados backend")
+add_feature_info(tests ENABLE_TESTS "Catch2 test suite")
+feature_summary(WHAT ENABLED_FEATURES DISABLED_FEATURES)
