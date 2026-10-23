@@ -1,14 +1,18 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-# Define mod_tile version number
-m4_define([mod_tile_version], [0.8.1])
+# NOTE: The Autotools build is deprecated; CMake is the supported build system.
+
+# mod_tile version number, taken from CMakeLists.txt so it is only defined in one place
+m4_define([mod_tile_version],
+  m4_esyscmd_s([sed -n 's/^  VERSION \([0-9][0-9.]*\)$/\1/p' CMakeLists.txt]))
+m4_if(mod_tile_version, [], [m4_fatal([Could not read the project version from CMakeLists.txt])])
 
 AC_PREREQ([2.61])
 AX_CONFIG_NICE
 AC_INIT([mod_tile],
         [mod_tile_version],
-        [http://trac.openstreetmap.org])
+        [https://github.com/openstreetmap/mod_tile/issues])
 AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
 AC_CONFIG_SRCDIR([src/mod_tile.c])
@@ -64,10 +68,15 @@ AC_CHECK_LIB(rados, rados_version, [
     LIBRADOS_LDFLAGS='-lrados'
     AC_SUBST(LIBRADOS_LDFLAGS)
 ][])
-AC_CHECK_LIB(iniparser, iniparser_load, [
-    INIPARSER_LDFLAGS='-liniparser'
+PKG_CHECK_MODULES([INIPARSER], [iniparser], [
+    INIPARSER_LDFLAGS="${INIPARSER_LIBS}"
     AC_SUBST(INIPARSER_LDFLAGS)
-], [AC_MSG_ERROR([Unable to find libiniparser])])
+], [
+    AC_CHECK_LIB(iniparser, iniparser_load, [
+        INIPARSER_LDFLAGS='-liniparser'
+        AC_SUBST(INIPARSER_LDFLAGS)
+    ], [AC_MSG_ERROR([Unable to find libiniparser])])
+])
 
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset mkdir pow select socket strchr strdup strerror strrchr strstr strtol strtoul utime],[],[AC_MSG_ERROR([One of the required functions was not found])])
 AC_CHECK_FUNCS([daemon getloadavg],[],[])
@@ -91,3 +100,9 @@ fi
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
+
+AC_MSG_WARN([
+  The Autotools build of mod_tile is deprecated and may be removed in a future
+  release. Please use CMake instead, e.g.:
+    cmake -B build -S . && cmake --build build
+  or one of the presets listed by: cmake --list-presets])
