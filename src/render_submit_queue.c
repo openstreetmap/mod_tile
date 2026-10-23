@@ -47,22 +47,6 @@ static int maxLoad = 0;
 
 static unsigned int qMaxLen;
 static unsigned int qLen;
-struct qItem {
-	char *mapname;
-	int x, y, z;
-	struct qItem *next;
-};
-
-struct speed_stat {
-	time_t time_min;
-	time_t time_max;
-	time_t time_total;
-	int noRendered;
-};
-
-struct speed_stats {
-	struct speed_stat stat[MAX_ZOOM + 1];
-};
 
 struct speed_stats performance_stats;
 
@@ -72,16 +56,50 @@ static int no_workers;
 static pthread_t *workers;
 static int work_complete;
 
-static void check_load(void)
+static struct protocol *fetch(void)
 {
-	double avg = get_load_avg();
+	pthread_mutex_lock(&qLock);
 
-	while (avg >= maxLoad) {
-		int seconds = 5;
-		g_logger(G_LOG_LEVEL_DEBUG, "Load average %.2f, sleeping %is", avg, seconds);
-		sleep(seconds);
-		avg = get_load_avg();
+	while (qLen == 0) {
+		if (work_complete) {
+			pthread_mutex_unlock(&qLock);
+			return NULL;
+		}
+
+		pthread_cond_wait(&qCondNotEmpty, &qLock);
 	}
+
+	// Fetch item from queue
+	if (!qHead) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Queue failure, null qHead with %d items in list", qLen);
+		exit(1);
+	}
+
+	struct qItem *e = qHead;
+
+	if (--qLen == 0) {
+		qHead = NULL;
+		qTail = NULL;
+	} else {
+		qHead = qHead->next;
+	}
+
+	pthread_cond_signal(&qCondNotFull);
+	pthread_mutex_unlock(&qLock);
+
+	struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
+
+	cmd->ver = 2;
+	cmd->cmd = cmdRenderBulk;
+	cmd->z = e->z;
+	cmd->x = e->x;
+	cmd->y = e->y;
+	strncpy(cmd->xmlname, e->mapname, XMLCONFIG_MAX - 1);
+
+	free(e->mapname);
+	free(e);
+
+	return cmd;
 }
 
 static int process(struct protocol *cmd, int fd)
@@ -136,99 +154,7 @@ static int process(struct protocol *cmd, int fd)
 		pthread_mutex_unlock(&qStatsLock);
 	}
 
-	if (!ret) {
-		g_logger(G_LOG_LEVEL_ERROR, "Socket send error: %s", strerror(errno));
-	}
-
 	return ret;
-}
-
-static struct protocol *fetch(void)
-{
-	pthread_mutex_lock(&qLock);
-
-	while (qLen == 0) {
-		if (work_complete) {
-			pthread_mutex_unlock(&qLock);
-			return NULL;
-		}
-
-		pthread_cond_wait(&qCondNotEmpty, &qLock);
-	}
-
-	// Fetch item from queue
-	if (!qHead) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Queue failure, null qHead with %d items in list", qLen);
-		exit(1);
-	}
-
-	struct qItem *e = qHead;
-
-	if (--qLen == 0) {
-		qHead = NULL;
-		qTail = NULL;
-	} else {
-		qHead = qHead->next;
-	}
-
-	pthread_cond_signal(&qCondNotFull);
-	pthread_mutex_unlock(&qLock);
-
-	struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
-
-	cmd->ver = 2;
-	cmd->cmd = cmdRenderBulk;
-	cmd->z = e->z;
-	cmd->x = e->x;
-	cmd->y = e->y;
-	strncpy(cmd->xmlname, e->mapname, XMLCONFIG_MAX - 1);
-
-	free(e->mapname);
-	free(e);
-
-	return cmd;
-}
-
-void enqueue(const char *xmlname, int x, int y, int z)
-{
-	g_logger(G_LOG_LEVEL_DEBUG, "Enqueueing tile (xmlname=%s x=%i y=%i z=%i)", xmlname, x, y, z);
-
-	// Add this path in the local render queue
-	struct qItem *e = (struct qItem *)malloc(sizeof(struct qItem));
-
-	e->mapname = strdup(xmlname);
-	e->x = x;
-	e->y = y;
-	e->z = z;
-	e->next = NULL;
-
-	if (!e->mapname) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Malloc failure");
-		exit(1);
-	}
-
-	pthread_mutex_lock(&qLock);
-
-	while (qLen == qMaxLen) {
-		int ret = pthread_cond_wait(&qCondNotFull, &qLock);
-
-		if (ret != 0) {
-			g_logger(G_LOG_LEVEL_WARNING, "pthread_cond_wait(qCondNotFull): %s", strerror(ret));
-		}
-	}
-
-	// Append item to end of queue
-	if (qTail) {
-		qTail->next = e;
-	} else {
-		qHead = e;
-	}
-
-	qTail = e;
-	qLen++;
-	pthread_cond_signal(&qCondNotEmpty);
-
-	pthread_mutex_unlock(&qLock);
 }
 
 int make_connection(const char *spath)
@@ -331,7 +257,7 @@ int make_connection(const char *spath)
 			int name_info = getnameinfo(rp->ai_addr, rp->ai_addrlen, resolved_addr, sizeof(resolved_addr), resolved_port, sizeof(resolved_port), NI_NUMERICHOST | NI_NUMERICSERV);
 
 			if (name_info != 0) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "cannot retrieve name info: %d", name_info);
+				g_logger(G_LOG_LEVEL_CRITICAL, "cannot retrieve name info: %s", gai_strerror(name_info));
 				exit(2);
 			}
 
@@ -354,6 +280,146 @@ int make_connection(const char *spath)
 	}
 
 	return fd;
+}
+
+void check_load(void)
+{
+	double avg = get_load_avg();
+
+	while (avg >= maxLoad) {
+		int seconds = 5;
+		g_logger(G_LOG_LEVEL_DEBUG, "Load average %.2f, sleeping %is", avg, seconds);
+		sleep(seconds);
+		avg = get_load_avg();
+	}
+}
+
+void display_rate(struct timeval start, struct timeval end, int num)
+{
+	int d_s, d_us;
+	float sec;
+
+	d_s = end.tv_sec - start.tv_sec;
+	d_us = end.tv_usec - start.tv_usec;
+
+	sec = d_s + d_us / 1000000.0;
+
+	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
+}
+
+void enqueue(const char *xmlname, int x, int y, int z)
+{
+	g_logger(G_LOG_LEVEL_DEBUG, "Enqueueing tile (xmlname=%s x=%i y=%i z=%i)", xmlname, x, y, z);
+
+	// Add this path in the local render queue
+	struct qItem *e = (struct qItem *)malloc(sizeof(struct qItem));
+
+	if (!e) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating queue item: %s", strerror(errno));
+		exit(1);
+	}
+
+	e->mapname = strdup(xmlname);
+	e->x = x;
+	e->y = y;
+	e->z = z;
+	e->next = NULL;
+
+	if (!e->mapname) {
+		free(e);
+		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating queue item mapname: %s", strerror(errno));
+		exit(1);
+	}
+
+	pthread_mutex_lock(&qLock);
+
+	while (qLen == qMaxLen) {
+		int ret = pthread_cond_wait(&qCondNotFull, &qLock);
+
+		if (ret != 0) {
+			g_logger(G_LOG_LEVEL_WARNING, "pthread_cond_wait(qCondNotFull): %s", strerror(ret));
+		}
+	}
+
+	// Append item to end of queue
+	if (qTail) {
+		qTail->next = e;
+	} else {
+		qHead = e;
+	}
+
+	qTail = e;
+	qLen++;
+	pthread_cond_signal(&qCondNotEmpty);
+
+	pthread_mutex_unlock(&qLock);
+}
+
+void finish_workers(void)
+{
+	g_logger(G_LOG_LEVEL_MESSAGE, "Waiting for rendering threads to finish");
+	pthread_mutex_lock(&qLock);
+	work_complete = 1;
+	pthread_mutex_unlock(&qLock);
+	pthread_cond_broadcast(&qCondNotEmpty);
+
+	for (int i = 0; i < no_workers; i++) {
+		pthread_join(workers[i], NULL);
+	}
+
+	free(workers);
+	no_workers = 0;
+	workers = NULL;
+}
+
+void print_statistics(void)
+{
+	int i;
+	g_logger(G_LOG_LEVEL_MESSAGE, "*****************************************************");
+
+	for (i = 0; i <= MAX_ZOOM; i++) {
+		if (performance_stats.stat[i].noRendered == 0) {
+			continue;
+		}
+
+		g_logger(G_LOG_LEVEL_MESSAGE, "Zoom %02i: min: %4.1f    avg: %4.1f     max: %4.1f     over a total of %8.1fs in %i requests",
+			 i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total / (float)performance_stats.stat[i].noRendered) / 1000.0,
+			 performance_stats.stat[i].time_max / 1000.0, performance_stats.stat[i].time_total / 1000.0, performance_stats.stat[i].noRendered);
+	}
+
+	g_logger(G_LOG_LEVEL_MESSAGE, "*****************************************************");
+}
+
+void spawn_workers(int num, const char *spath, int max_load)
+{
+	int i;
+	no_workers = num;
+	maxLoad = max_load;
+
+	// Setup request queue
+	pthread_mutex_init(&qLock, NULL);
+	pthread_mutex_init(&qStatsLock, NULL);
+	pthread_cond_init(&qCondNotEmpty, NULL);
+	pthread_cond_init(&qCondNotFull, NULL);
+
+	qMaxLen = no_workers;
+
+	g_logger(G_LOG_LEVEL_MESSAGE, "Starting %d rendering threads", no_workers);
+	workers = (pthread_t *)calloc(sizeof(pthread_t), no_workers);
+
+	if (!workers) {
+		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating worker memory: %s", strerror(errno));
+		exit(1);
+	}
+
+	for (i = 0; i < no_workers; i++) {
+		int errnum = pthread_create(&workers[i], NULL, thread_main, (void *)spath);
+
+		if (errnum) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Thread creation failed: %s", strerror(errnum));
+			exit(1);
+		}
+	}
 }
 
 void *thread_main(void *arg)
@@ -396,57 +462,6 @@ void *thread_main(void *arg)
 	return NULL;
 }
 
-void spawn_workers(int num, const char *spath, int max_load)
-{
-	int i;
-	no_workers = num;
-	maxLoad = max_load;
-
-	// Setup request queue
-	pthread_mutex_init(&qLock, NULL);
-	pthread_mutex_init(&qStatsLock, NULL);
-	pthread_cond_init(&qCondNotEmpty, NULL);
-	pthread_cond_init(&qCondNotFull, NULL);
-
-	qMaxLen = no_workers;
-
-	g_logger(G_LOG_LEVEL_MESSAGE, "Starting %d rendering threads", no_workers);
-	workers = (pthread_t *)calloc(sizeof(pthread_t), no_workers);
-
-	if (!workers) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating worker memory: %s", strerror(errno));
-		exit(1);
-	}
-
-	for (i = 0; i < no_workers; i++) {
-		int errnum = pthread_create(&workers[i], NULL, thread_main, (void *)spath);
-
-		if (errnum) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "Thread creation failed: %s", strerror(errnum));
-			exit(1);
-		}
-	}
-}
-
-void print_statistics(void)
-{
-	int i;
-	printf("*****************************************************\n");
-
-	for (i = 0; i <= MAX_ZOOM; i++) {
-		if (performance_stats.stat[i].noRendered == 0) {
-			continue;
-		}
-
-		printf("Zoom %02i: min: %4.1f    avg: %4.1f     max: %4.1f     over a total of %8.1fs in %i requests\n",
-		       i, performance_stats.stat[i].time_min / 1000.0, (performance_stats.stat[i].time_total / (float)performance_stats.stat[i].noRendered) / 1000.0,
-		       performance_stats.stat[i].time_max / 1000.0, performance_stats.stat[i].time_total / 1000.0, performance_stats.stat[i].noRendered);
-	}
-
-	printf("*****************************************************\n");
-	printf("*****************************************************\n");
-}
-
 void wait_for_empty_queue()
 {
 
@@ -457,20 +472,4 @@ void wait_for_empty_queue()
 	}
 
 	pthread_mutex_unlock(&qLock);
-}
-
-void finish_workers(void)
-{
-	g_logger(G_LOG_LEVEL_MESSAGE, "Waiting for rendering threads to finish");
-	pthread_mutex_lock(&qLock);
-	work_complete = 1;
-	pthread_mutex_unlock(&qLock);
-	pthread_cond_broadcast(&qCondNotEmpty);
-
-	for (int i = 0; i < no_workers; i++) {
-		pthread_join(workers[i], NULL);
-	}
-
-	free(workers);
-	workers = NULL;
 }

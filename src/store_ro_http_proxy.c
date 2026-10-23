@@ -38,10 +38,10 @@
 
 #ifdef HAVE_LIBCURL
 
-static pthread_mutex_t qLock;
+static pthread_mutex_t ro_http_proxy_mutex;
 static int done_global_init = 0;
 
-struct tile_cache {
+struct ro_http_proxy_tile_cache {
 	struct stat_info st_stat;
 	char * tile;
 	int x, y, z;
@@ -51,7 +51,7 @@ struct tile_cache {
 struct ro_http_proxy_ctx {
 	CURL * ctx;
 	char * baseurl;
-	struct tile_cache cache;
+	struct ro_http_proxy_tile_cache cache;
 };
 
 struct MemoryStruct {
@@ -63,12 +63,12 @@ struct MemoryStruct {
 static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp)
 {
 	size_t realsize = size * nmemb;
-	struct MemoryStruct * chunk = userp;
+	struct MemoryStruct * chunk = (struct MemoryStruct *)userp;
 
 	if (chunk->memory) {
-		chunk->memory = realloc(chunk->memory, chunk->size + realsize);
+		chunk->memory = (char *)realloc(chunk->memory, chunk->size + realsize);
 	} else {
-		chunk->memory = malloc(realsize);
+		chunk->memory = (char *)malloc(realsize);
 	}
 
 	g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: writing a chunk: Position %lu, size %lu", chunk->size, realsize);
@@ -102,7 +102,12 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 
 		chunk.memory = NULL;
 		chunk.size = 0;
-		path = malloc(PATH_MAX);
+		path = (char *)malloc(PATH_MAX);
+
+		if (!path) {
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: failed to allocate memory for path");
+			return -1;
+		}
 
 		ro_http_proxy_xyz_to_storagekey(store, x, y, z, path);
 		g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_fetch: proxing file %s", path);
@@ -274,11 +279,11 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 {
 
 #ifndef HAVE_LIBCURL
-	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: Support for http proxy storage has not been compiled into this program");
 	return NULL;
 #else
-	struct storage_backend * store = malloc(sizeof(struct storage_backend));
-	struct ro_http_proxy_ctx * ctx = malloc(sizeof(struct ro_http_proxy_ctx));
+	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	struct ro_http_proxy_ctx * ctx = (struct ro_http_proxy_ctx *)malloc(sizeof(struct ro_http_proxy_ctx));
 	CURLcode res;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: initialising proxy storage backend for %s", connection_string);
@@ -304,7 +309,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 	ctx->cache.xmlname[0] = 0;
 
 	ctx->baseurl = strdup(&(connection_string[strlen("ro_http_proxy://")]));
-	pthread_mutex_lock(&qLock);
+	pthread_mutex_lock(&ro_http_proxy_mutex);
 
 	if (!done_global_init) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: Global init of curl");
@@ -314,7 +319,7 @@ struct storage_backend * init_storage_ro_http_proxy(const char * connection_stri
 		res = CURLE_OK;
 	}
 
-	pthread_mutex_unlock(&qLock);
+	pthread_mutex_unlock(&ro_http_proxy_mutex);
 
 	if (res != CURLE_OK) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));

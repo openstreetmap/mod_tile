@@ -1,14 +1,25 @@
+/*
+ * Copyright (c) 2007 - 2026 by mod_tile contributors (see AUTHORS file)
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; If not, see http://www.gnu.org/licenses/.
+ */
+
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
 #include "metatile.h"
 #include "store.h"
-
-extern bool fail_next_malloc;
-extern bool fail_next_mkdir;
-extern bool fail_next_open;
-extern bool fail_next_write;
-extern std::string err_log_lines;
 
 TEST_CASE("metatile.cpp", "[metatile]")
 {
@@ -25,7 +36,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 	metaTile tiles(xmlconfig.c_str(), "", x, y, z);
 
-	SECTION("metaTile::save function") {
+	SECTION("metaTile::save function")
+	{
 		tile_dir = create_tile_dir("mod_tile.unit_test_metatile");
 		store = init_storage_backend(tile_dir.c_str());
 
@@ -40,7 +52,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			}
 		}
 
-		SECTION("metaTile::save handles malloc failure", "should return") {
+		SECTION("metaTile::save handles malloc failure", "should return")
+		{
 			fail_next_malloc = true;
 
 			tiles.save(store);
@@ -48,7 +61,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to write metatile. Out of memory"));
 		}
 
-		SECTION("metaTile::save handles mkdir failure", "should return") {
+		SECTION("metaTile::save handles mkdir failure", "should return")
+		{
 			fail_next_mkdir = true;
 
 			tiles.save(store);
@@ -56,7 +70,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error creating directory " + metatile_path));
 		}
 
-		SECTION("metaTile::save handles open failure", "should return") {
+		SECTION("metaTile::save handles open failure", "should return")
+		{
 			fail_next_open = true;
 
 			tiles.save(store);
@@ -64,7 +79,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error creating file " + metatile_path));
 		}
 
-		SECTION("metaTile::save handles write failure", "should return") {
+		SECTION("metaTile::save handles write failure", "should return")
+		{
 			fail_next_write = true;
 
 			tiles.save(store);
@@ -78,11 +94,12 @@ TEST_CASE("metatile.cpp", "[metatile]")
 		tiles.clear();
 	}
 
-
-	SECTION("metaTile::set function") {
+	SECTION("metaTile::set function")
+	{
 		err_log_lines.clear();
 
-		SECTION("metaTile::set", "then metaTile::get, then metaTile::clear, then metaTile::get") {
+		SECTION("metaTile::set", "then metaTile::get, then metaTile::clear, then metaTile::get")
+		{
 			for (int xx = 0; xx < METATILE; xx++) {
 				for (int yy = 0; yy < METATILE; yy++) {
 					std::string tile_set_data(tile_data_string + " " + std::to_string(xx) + " " + std::to_string(yy));
@@ -104,11 +121,12 @@ TEST_CASE("metatile.cpp", "[metatile]")
 		}
 	}
 
-
-	SECTION("metaTile::expire_tiles function") {
+	SECTION("metaTile::expire_tiles function")
+	{
 		err_log_lines.clear();
 
-		SECTION("metaTile::expire_tile", "should return") {
+		SECTION("metaTile::expire_tile", "should return")
+		{
 			int sock = 0;
 
 			tiles.expire_tiles(sock, "host", "/uri/");
@@ -116,7 +134,8 @@ TEST_CASE("metatile.cpp", "[metatile]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
 		}
 
-		SECTION("metaTile::expire_tiles handles negative sock", "should return") {
+		SECTION("metaTile::expire_tiles handles negative sock", "should return")
+		{
 			int sock = -1;
 
 			tiles.expire_tiles(sock, "host", "/uri/");
@@ -124,11 +143,12 @@ TEST_CASE("metatile.cpp", "[metatile]")
 		}
 	}
 
-
-	SECTION("metaTile::xyz_to_meta_offset function") {
+	SECTION("metaTile::xyz_to_meta_offset function")
+	{
 		err_log_lines.clear();
 
-		SECTION("metaTile::xyz_to_meta_offset", "should return") {
+		SECTION("metaTile::xyz_to_meta_offset", "should return")
+		{
 			int i = 0;
 
 			for (int xx = 0; xx < METATILE; xx++) {

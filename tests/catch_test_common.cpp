@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 - 2023 by mod_tile contributors (see AUTHORS file)
+ * Copyright (c) 2007 - 2026 by mod_tile contributors (see AUTHORS file)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,6 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <csetjmp>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <dirent.h>
 #include <errno.h>
@@ -22,21 +26,20 @@
 #include <glib.h>
 #include <iostream>
 #include <netdb.h>
-#include <setjmp.h>
-#include <stdio.h>
+#include <pthread.h>
 #include <stdexcept>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <thread>
 #include <tuple>
 #include <unistd.h>
+#include <utime.h>
+#include <vector>
 
 #include "catch_test_common.hpp"
-#include "pstreams/pstream.hpp"
-
 #include "protocol.h"
+#include "pstreams/pstream.hpp"
 
 extern int foreground;
 
@@ -49,7 +52,6 @@ std::string read_stderr(int buffer_size)
 {
 	std::string buffer(buffer_size, '\0');
 	ssize_t len = read(captured_stderr.pipes[0], &buffer[0], buffer_size);
-	// Stop at the terminating zero written by get_captured_stderr()
 	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
 	return buffer;
 }
@@ -58,21 +60,15 @@ std::string read_stdout(int buffer_size)
 {
 	std::string buffer(buffer_size, '\0');
 	ssize_t len = read(captured_stdout.pipes[0], &buffer[0], buffer_size);
-	// Stop at the terminating zero written by get_captured_stdout()
 	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
 	return buffer;
 }
 
 void capture_stderr()
 {
-	// Flush stderr first if you've previously printed something
 	fflush(stderr);
 
-	// Save stderr so it can be restored later
-	int temp_stderr;
-	temp_stderr = dup(fileno(stderr));
-
-	// Redirect stderr to a new pipe
+	int temp_stderr = dup(fileno(stderr));
 	int pipes[2];
 
 	if (pipe(pipes) != 0) {
@@ -88,14 +84,9 @@ void capture_stderr()
 
 void capture_stdout()
 {
-	// Flush stdout first if you've previously printed something
 	fflush(stdout);
 
-	// Save stdout so it can be restored later
-	int temp_stdout;
-	temp_stdout = dup(fileno(stdout));
-
-	// Redirect stdout to a new pipe
+	int temp_stdout = dup(fileno(stdout));
 	int pipes[2];
 
 	if (pipe(pipes) != 0) {
@@ -111,16 +102,13 @@ void capture_stdout()
 
 std::string get_captured_stderr(bool print)
 {
-	// Terminate captured output with a zero
 	if (write(captured_stderr.pipes[1], "", 1) != 1) {
 		throw std::runtime_error("capture: write() failed");
 	}
 
-	// Restore stderr
 	fflush(stderr);
 	dup2(captured_stderr.temp_fd, fileno(stderr));
 
-	// Save & return the captured stderr
 	std::string log_lines = read_stderr();
 
 	if (print) {
@@ -132,16 +120,13 @@ std::string get_captured_stderr(bool print)
 
 std::string get_captured_stdout(bool print)
 {
-	// Terminate captured output with a zero
 	if (write(captured_stdout.pipes[1], "", 1) != 1) {
 		throw std::runtime_error("capture: write() failed");
 	}
 
-	// Restore stdout
 	fflush(stdout);
 	dup2(captured_stdout.temp_fd, fileno(stdout));
 
-	// Save & return the captured stdout
 	std::string log_lines = read_stdout();
 
 	if (print) {
@@ -227,48 +212,38 @@ int remove_recursive(const char *path)
 {
 	struct stat st;
 
-	// 1. Get path metadata
 	if (lstat(path, &st) != 0) {
 		return -1;
 	}
 
-	// 2. If it's not a directory, just delete it (file, symlink, etc.)
 	if (!S_ISDIR(st.st_mode)) {
 		return unlink(path);
 	}
 
-	// 3. It's a directory: open it to iterate over contents
 	DIR *d = opendir(path);
-
 	if (!d) {
 		return -1;
 	}
 
 	struct dirent *entry;
-
 	int result = 0;
 
 	while ((entry = readdir(d)) != NULL) {
-		// Skip the special "." and ".." entries
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
 			continue;
 		}
 
-		// Build the full sub-path
 		char sub_path[PATH_MAX];
 		snprintf(sub_path, sizeof(sub_path), "%s/%s", path, entry->d_name);
 
-		// Recursive call
 		result = remove_recursive(sub_path);
-
 		if (result != 0) {
-			break;        // Stop early on error
+			break;
 		}
 	}
 
 	closedir(d);
 
-	// 4. Once the directory is empty, remove the directory itself
 	if (result == 0) {
 		result = rmdir(path);
 	}
@@ -285,21 +260,38 @@ extern "C" {
 	int exit_status = 0;
 	int mock_errno = 0;
 
+	bool exit_pthread = false;
+
 	bool fail_next_asprintf = false;
+	bool fail_next_calloc = false;
 	bool fail_next_connect = false;
 	bool fail_next_getaddrinfo = false;
 	bool fail_next_getaddrinfo_empty_res = false;
 	bool fail_next_getloadavg = false;
+	bool fail_next_getnameinfo = false;
+	bool fail_next_getprotobyname = false;
+	bool fail_next_gmtime_r = false;
 	bool fail_next_malloc = false;
 	bool fail_next_mkdir = false;
 	bool fail_next_open = false;
+	bool fail_next_pthread_cond_init = false;
+	bool fail_next_pthread_cond_wait = false;
+	bool fail_next_pthread_create = false;
+	bool fail_next_pthread_mutex_init = false;
+	bool fail_next_read = false;
 	bool fail_next_recv = false;
+	bool fail_next_rename = false;
 	bool fail_next_socket = false;
+	bool fail_next_strdup = false;
 	bool fail_next_strndup = false;
 	bool fail_next_strtok = false;
+	bool fail_next_utime = false;
 	bool fail_next_write = false;
 
-	bool fail_next_next_asprintf = false;
+	bool force_real_sleep = false;
+
+	bool pass_next_connect = false;
+	bool pass_next_sleep = false;
 
 	int fail_next_next_recv_reponse_size = -1;
 	int fail_next_next_recv_reponse_version = -1;
@@ -307,7 +299,26 @@ extern "C" {
 	int fail_next_recv_reponse_size = -1;
 	int fail_next_recv_reponse_version = -1;
 
+	int fail_asprintf_on_call_count = 0;
+	int fail_malloc_on_call_count = 0;
+	int fail_read_on_call_count = 0;
+
 	jmp_buf exit_jump;
+
+	void reset_asprintf_test_count(void)
+	{
+		fail_asprintf_on_call_count = 0;
+	}
+
+	void reset_malloc_test_count(void)
+	{
+		fail_malloc_on_call_count = 0;
+	}
+
+	void reset_read_call_count(void)
+	{
+		fail_read_on_call_count = 0;
+	}
 
 	void mocked_exit(int status)
 	{
@@ -317,13 +328,12 @@ extern "C" {
 
 	void mocked_g_logger(int log_level, const char *format, ...)
 	{
+		(void)log_level;
 		char *log_message;
 		va_list args;
 
 		va_start(args, format);
-
 		int len = vasprintf(&log_message, format, args);
-
 		va_end(args);
 
 		if (len < 0) {
@@ -340,13 +350,17 @@ extern "C" {
 	{
 		if (fail_next_asprintf) {
 			fail_next_asprintf = false;
+			errno = (mock_errno != 0) ? mock_errno : ENOMEM;
 			*strp = nullptr;
 			return -1;
 		}
 
-		if (fail_next_next_asprintf) {
-			fail_next_asprintf = true;
-			fail_next_next_asprintf = false;
+		if (fail_asprintf_on_call_count > 0) {
+			if (--fail_asprintf_on_call_count == 0) {
+				errno = (mock_errno != 0) ? mock_errno : ENOMEM;
+				*strp = nullptr;
+				return -1;
+			}
 		}
 
 		va_list args;
@@ -356,11 +370,28 @@ extern "C" {
 		return result;
 	}
 
+	void *mocked_calloc(size_t num, size_t size)
+	{
+		if (fail_next_calloc) {
+			fail_next_calloc = false;
+			errno = (mock_errno != 0) ? mock_errno : ENOMEM;
+			return nullptr;
+		}
+
+		return calloc(num, size);
+	}
+
 	int mocked_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	{
 		if (fail_next_connect) {
 			fail_next_connect = false;
+			errno = (mock_errno != 0) ? mock_errno : EACCES;
 			return -1;
+		}
+
+		if (pass_next_connect) {
+			pass_next_connect = false;
+			return 0;
 		}
 
 		return connect(sockfd, addr, addrlen);
@@ -392,11 +423,49 @@ extern "C" {
 		return getloadavg(loadavg, nelem);
 	}
 
+	int mocked_getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags)
+	{
+		if (fail_next_getnameinfo) {
+			fail_next_getnameinfo = false;
+			return (mock_errno != 0) ? mock_errno : EAI_AGAIN;
+		}
+
+		return getnameinfo(addr, addrlen, host, hostlen, serv, servlen, flags);
+	}
+
+	struct protoent *mocked_getprotobyname(const char *name)
+	{
+		if (fail_next_getprotobyname) {
+			fail_next_getprotobyname = false;
+			return nullptr;
+		}
+
+		return getprotobyname(name);
+	}
+
+	struct tm *mocked_gmtime_r(const time_t *timer, struct tm *tp)
+	{
+		if (fail_next_gmtime_r) {
+			fail_next_gmtime_r = false;
+			return NULL;
+		}
+
+		return gmtime_r(timer, tp);
+	}
+
 	void *mocked_malloc(size_t size)
 	{
 		if (fail_next_malloc) {
 			fail_next_malloc = false;
+			errno = (mock_errno != 0) ? mock_errno : ENOMEM;
 			return nullptr;
+		}
+
+		if (fail_malloc_on_call_count > 0) {
+			if (--fail_malloc_on_call_count == 0) {
+				errno = (mock_errno != 0) ? mock_errno : ENOMEM;
+				return nullptr;
+			}
 		}
 
 		return malloc(size);
@@ -425,6 +494,64 @@ extern "C" {
 		int result = open(pathname, flags, args);
 		va_end(args);
 		return result;
+	}
+
+	int mocked_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *cond_attr)
+	{
+		if (fail_next_pthread_cond_init) {
+			fail_next_pthread_cond_init = false;
+			return (mock_errno != 0) ? mock_errno : ENOMEM;
+		}
+
+		return pthread_cond_init(cond, cond_attr);
+	}
+
+	int mocked_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+	{
+		if (fail_next_pthread_cond_wait) {
+			fail_next_pthread_cond_wait = false;
+			return (mock_errno != 0) ? mock_errno : EINVAL;
+		}
+
+		return pthread_cond_wait(cond, mutex);
+	}
+
+	int mocked_pthread_create(pthread_t *newthread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg)
+	{
+		if (fail_next_pthread_create) {
+			fail_next_pthread_create = false;
+			return (mock_errno != 0) ? mock_errno : EAGAIN;
+		}
+
+		return pthread_create(newthread, attr, start_routine, arg);
+	}
+
+	int mocked_pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr)
+	{
+		if (fail_next_pthread_mutex_init) {
+			fail_next_pthread_mutex_init = false;
+			return (mock_errno != 0) ? mock_errno : ENOMEM;
+		}
+
+		return pthread_mutex_init(mutex, mutexattr);
+	}
+
+	ssize_t mocked_read(int fd, void *buf, size_t nbytes)
+	{
+		if (fail_next_read) {
+			fail_next_read = false;
+			errno = (mock_errno != 0) ? mock_errno : EIO;
+			return -1;
+		}
+
+		if (fail_read_on_call_count > 0) {
+			if (--fail_read_on_call_count == 0) {
+				errno = (mock_errno != 0) ? mock_errno : EIO;
+				return -1;
+			}
+		}
+
+		return read(fd, buf, nbytes);
 	}
 
 	ssize_t mocked_recv(int fd, void *buf, size_t n, int flags)
@@ -464,6 +591,36 @@ extern "C" {
 		return recv(fd, buf, n, flags);
 	}
 
+	int mocked_rename(const char *__old, const char *__new)
+	{
+		if (fail_next_rename) {
+			fail_next_rename = false;
+			errno = (mock_errno != 0) ? mock_errno : EACCES;
+			return -1;
+		}
+
+		return rename(__old, __new);
+	}
+
+	unsigned int mocked_sleep(unsigned int seconds)
+	{
+		if (force_real_sleep) {
+			return sleep(seconds);
+		}
+
+		if (exit_pthread) {
+			pthread_exit(NULL);
+		}
+
+		if (pass_next_sleep) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			return 0;
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		return 0;
+	}
+
 	int mocked_socket(int domain, int type, int protocol) noexcept
 	{
 		if (fail_next_socket) {
@@ -474,10 +631,22 @@ extern "C" {
 		return socket(domain, type, protocol);
 	}
 
+	char *mocked_strdup(const char *s)
+	{
+		if (fail_next_strdup) {
+			fail_next_strdup = false;
+			errno = (mock_errno != 0) ? mock_errno : ENOMEM;
+			return nullptr;
+		}
+
+		return strdup(s);
+	}
+
 	char *mocked_strndup(const char *s, size_t n)
 	{
 		if (fail_next_strndup) {
 			fail_next_strndup = false;
+			errno = (mock_errno != 0) ? mock_errno : ENOMEM;
 			return nullptr;
 		}
 
@@ -492,6 +661,17 @@ extern "C" {
 		}
 
 		return strtok(s, delim);
+	}
+
+	int mocked_utime(const char *file, const struct utimbuf *file_times)
+	{
+		if (fail_next_utime) {
+			fail_next_utime = false;
+			errno = (mock_errno != 0) ? mock_errno : EPERM;
+			return -1;
+		}
+
+		return utime(file, file_times);
 	}
 
 	ssize_t mocked_write(int fd, const void *buf, size_t count)

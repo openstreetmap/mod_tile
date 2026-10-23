@@ -27,10 +27,23 @@
 int send_cmd(struct protocol * cmd, int fd)
 {
 	int ret;
+	int socket_type;
+	socklen_t optlen = sizeof(socket_type);
+
+	if (fd < 0) {
+		g_logger(G_LOG_LEVEL_WARNING, "Attempted to send cmd on invalid fd %d", fd);
+		return -1;
+	}
+
 	g_logger(G_LOG_LEVEL_DEBUG, "Sending render cmd(%i %s %i/%i/%i) with protocol version %i to fd %i", cmd->cmd, cmd->xmlname, cmd->z, cmd->x, cmd->y, cmd->ver, fd);
 
 	if ((cmd->ver > 3) || (cmd->ver < 1)) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to send render cmd with unknown protocol version %i on fd %d", cmd->ver, fd);
+		return -1;
+	}
+
+	if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &socket_type, &optlen) < 0) {
+		g_logger(G_LOG_LEVEL_ERROR, "fd %d is not a valid socket: %s", fd, strerror(errno));
 		return -1;
 	}
 

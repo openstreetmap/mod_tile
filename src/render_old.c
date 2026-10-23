@@ -85,17 +85,6 @@ static time_t get_planet_time(const char *tile_dir)
 	return planet_time;
 }
 
-static void check_load(void)
-{
-	double avg = get_load_avg();
-
-	while (avg >= max_load) {
-		g_logger(G_LOG_LEVEL_MESSAGE, "Load average %f, sleeping", avg);
-		sleep(5);
-		avg = get_load_avg();
-	}
-}
-
 static void descend(const char *tile_dir, const char *search, int verbose)
 {
 	DIR *tiles = opendir(search);
