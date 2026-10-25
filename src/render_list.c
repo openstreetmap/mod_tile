@@ -450,8 +450,8 @@ int main(int argc, char **argv)
 				int min_y_tmp = lat2tiley(max_lat, z);
 				current_max_x = max_x_tmp ? max_x_tmp - 1 : max_x_tmp;
 				current_max_y = max_y_tmp;
-				min_x = min_x_tmp;
-				min_y = min_y_tmp;
+				min_x = min_x_tmp - min_x_tmp % METATILE;
+				min_y = min_y_tmp - min_y_tmp % METATILE;
 			}
 
 			g_logger(G_LOG_LEVEL_MESSAGE, "Rendering all tiles for zoom %i from (%i, %i) to (%i, %i)", z, min_x, min_y, current_max_x, current_max_y);
