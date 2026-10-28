@@ -1046,6 +1046,11 @@ static int tile_storage_hook(request_rec *r)
 
 			renderPrio = 3;
 			break;
+
+		case tileUnknown:
+		default:
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Unexpected tileState (%d) in tile_storage_hook", rdata->tileState);
+			return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
 	if (request_tile(r, cmd, renderPrio)) {
