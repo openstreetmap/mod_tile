@@ -419,8 +419,10 @@ void spawn_workers(int num, const char *spath, int max_load)
 	}
 
 	for (i = 0; i < no_workers; i++) {
-		if (pthread_create(&workers[i], NULL, thread_main, (void *)spath)) {
-			g_logger(G_LOG_LEVEL_CRITICAL, "Thread creation failed: %s", strerror(errno));
+		int errnum = pthread_create(&workers[i], NULL, thread_main, (void *)spath);
+
+		if (errnum) {
+			g_logger(G_LOG_LEVEL_CRITICAL, "Thread creation failed: %s", strerror(errnum));
 			exit(1);
 		}
 	}
