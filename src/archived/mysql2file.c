@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 		time_t created_at;
 		const char *data;
 		struct tm date;
-		int fd = -1;
+		int fd;
 		struct utimbuf utb;
 
 		assert(mysql_num_fields(res) == 5);
