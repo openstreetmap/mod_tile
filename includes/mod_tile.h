@@ -55,6 +55,13 @@
 
 #define DEFAULT_ATTRIBUTION "&copy;<a href='http://www.openstreetmap.org/'>OpenStreetMap</a> and <a href='http://wiki.openstreetmap.org/wiki/Contributors'>contributors</a>, <a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>"
 
+enum tileState { tileUnknown,
+		 tileMissing,
+		 tileOld,
+		 tileVeryOld,
+		 tileCurrent
+	       };
+
 typedef struct delaypool_entry {
 	struct in6_addr ip_addr;
 	int available_tiles;
@@ -148,13 +155,7 @@ typedef struct tile_request_data {
 	struct protocol *cmd;
 	struct storage_backend *store;
 	int layerNumber;
-	int tileCurrent; // tile_storage_hook found the tile current; r->finfo holds its times
+	enum tileState tileState;
 } tile_request_data;
-
-enum tileState { tileMissing,
-		 tileOld,
-		 tileVeryOld,
-		 tileCurrent
-	       };
 
 #endif
