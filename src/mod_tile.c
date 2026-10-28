@@ -1054,7 +1054,9 @@ static int tile_storage_hook(request_rec *r)
 	}
 
 	if (request_tile(r, cmd, renderPrio)) {
-		// TODO: update finfo
+		// Refresh finfo (mtime, atime, ctime) and update tileState for the new tile
+		rdata->tileState = tile_state(r, cmd);
+
 		if (!incFreshCounter(FRESH_RENDER, r)) {
 			ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
 				      "Failed to increase fresh stats counter");
