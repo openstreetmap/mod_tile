@@ -1,7 +1,7 @@
-.TH RENDERD.CONF 5 "2026-10-21" "mod_tile v0.8.1"
+.TH RENDERD.CONF 5 "2026-10-25" "mod_tile v0.8.1"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
-renderd.conf \- Configuration file of rendering daemon for rendering OpenStreetMap tiles.
+renderd.conf \- Configuration file for the renderd tile rendering daemon
 .SH SYNOPSIS
 renderd.conf
 .SH DESCRIPTION
@@ -21,9 +21,9 @@ Options belonging to a \fB[renderd]\fR section.
 .PP
 There must be at least one \fB[renderd]\fR section (e.g. \fB[renderd]\fR or \fB[renderd0]\fR).
 .PP
-By default, there can be up to \fB5\fR (macro definition \fB'MAX_SLAVES'\fR) \fB[renderd]\fR sections (e.g. \fB[renderd0]\fR - \fB[renderd4]\fR).
+Up to \fB5\fR (macro definition \fB'MAX_SLAVES'\fR, indexed \fB0\fP through \fB4\fP) \fB[renderd]\fR sections can be defined using section headers starting with \fBrenderd\fP (e.g. \fB[renderd1]\fR).
 .PP
-\fB[renderd]\fR section names must begin with \fB[renderd]\fR.
+\fB[renderd]\fR section names must begin with \fBrenderd\fR.
 .TP
 .B iphostname
 Specify the IP address/hostname to be used for communication with \fBrenderd\fR.
@@ -33,7 +33,7 @@ This option and \fBsocketname\fR are mutually exclusive.
 .B ipport
 Specify the port number to be used for communication with \fBrenderd\fR.
 This must be specified in combination with \fBiphostname\fR.
-This option and \fBsocketname\fR are mutually exclusive.
+This option and \fBsocketname\fR are mutually exclusive. Default value is \fB'0'\fR (disabled; uses Unix domain socket).
 .TP
 .B num_threads
 Specify the number of threads to be used for \fBrenderd\fR.
@@ -49,6 +49,7 @@ The default value is \fB'/run/renderd/renderd.pid'\fR (macro definition \fB'REND
 Specify the file path to be used as a unix domain socket for communication with \fBrenderd\fR.
 This option and \fBiphostname\fR / \fBipport\fR are mutually exclusive.
 The default value is \fB'/run/renderd/renderd.sock'\fR (macro definition \fB'RENDERD_SOCKET'\fR).
+Path length must not exceed system \fBsun_path\fR capacity (typically 108 bytes).
 .TP
 .B stats_file
 Specify the file path into which statistics will be written by \fBrenderd\fR.
@@ -76,13 +77,13 @@ The default value is \fB'false'\fR / \fB'0'\fR (macro definition \fB'MAPNIK_FONT
 Specify the directory path where input plugins are searched for by \fBlibmapnik\fR.
 The default value is the output of \fB'mapnik-config --input-plugins'\fR / \fB'pkgconf --variable=plugins_dir libmapnik'\fR (macro definition \fB'MAPNIK_PLUGINS_DIR'\fR).
 .SH MAP SECTION
-Options belonging a \fB[map]\fR section.
+Options belonging to a map layer section.
 .PP
-There must be at least one \fB[map]\fR section.
+There must be at least one map section (up to \fB100\fR sections / \fBXMLCONFIGS_MAX\fR).
 .PP
-\fB[map]\fR section names can neither begin with \fB[renderd]\fR nor be equal to \fB[mapnik]\fR.
+Any section whose header does \fBnot\fP begin with \fBrenderd\fP and is \fBnot\fP equal to \fBmapnik\fP is parsed as a map section.
 .PP
-\fB[map]\fR section names can be anything else, but they must all be unique.
+Map section names must all be unique and have unique URI prefixes.
 .TP
 .B aspectx
 Specify the X aspect to be used by \fBmod_tile\fR.
@@ -117,15 +118,16 @@ Only used by \fBrenderd\fR.
 .TP
 .B maxzoom
 Specify the maximum zoom level for this section.
-The default value is \fB'20'\fR (macro definition \fB'MAX_ZOOM'\fR).
+The default value is \fB'20'\fR (macro definition \fB'MAX_ZOOM'\fR). Must satisfy \fB0 <= maxzoom <= 20\fR.
 .TP
 .B minzoom
 Specify the minimum zoom level for this section.
-The default value is \fB'0'\fR.
+The default value is \fB'0'\fR. Must satisfy \fB0 <= minzoom <= maxzoom\fR.
 .TP
 .B parameterize_style
-Specify the parameterization style/function to be used for this section.
-The value of \fB'language'\fR seems to be the only one supported.
+Specify the parameterization function (style) to be used for this section.
+When non-empty, enables parameterization options in \fBmod_tile\fR.
+Currently, the only supported parameterization function is \fB'language'\fR.
 .TP
 .B server_alias
 Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
@@ -134,7 +136,7 @@ Only used by \fBmod_tile\fR.
 .B scale
 Specify the scale for this section.
 Only used by \fBrenderd\fR.
-The default value is \fB'1.0'\fR.
+The default value is \fB'1.0'\fR. Must satisfy \fB0.1 <= scale <= 8.0\fR.
 .TP
 .B tiledir
 Specify the directory path into which tiles will be written by \fBrenderd\fR.
@@ -146,10 +148,11 @@ Only used by \fBrenderd\fR.
 The default value is \fB'256'\fR.
 .TP
 .B type
-Specify the tile configuration (in the format \fB'<extension> <mime-type> <output-format>'\fR) for this section (e.g. \fB'png image/png png256'\fR).
+Specify the tile configuration in the format \fB'<extension> <mime-type> [output-format]'\fR for this section (e.g. \fB'png image/png png256'\fR).
+Default value is \fB'png image/png png256'\fR. Must contain 2 or 3 space-separated tokens; if \fBoutput-format\fR is omitted, it defaults to \fB'png256'\fR.
 .TP
 .B uri
-Specify the URI prefix with which tiles can be accessed for this section.
+Specify the URI prefix with which tiles can be accessed for this section. Trailing slash (\fI/\fP) is appended automatically if omitted.
 .TP
 .B xml
 Specify the file path of the Mapnik configuration XML file for this section.

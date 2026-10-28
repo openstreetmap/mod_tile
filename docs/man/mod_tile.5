@@ -1,0 +1,268 @@
+.TH MOD_TILE 5 "2026-10-25" "mod_tile v0.8.1"
+.\" Please adjust this date whenever revising the manpage.
+.SH NAME
+mod_tile \- Apache HTTPD module for serving tiles and communicating with renderd
+.SH SYNOPSIS
+Apache HTTP server configuration directives for \fBmod_tile\fR.
+.SH DESCRIPTION
+\fBmod_tile\fR is an Apache module that serves map tiles created by rendering pipelines. It communicates with the rendering daemon (\fBrenderd\fR) over UNIX or TCP sockets to request tiles on demand and manages on-disk caching, throttling, and stale tile management.
+.SH DIRECTIVES
+.SS Core Layer Configuration & Loading
+.TP
+.BI AddTileConfig " url_path renderd_config_name " [ key=value\ ... ]
+Configures a tile layer mapping by defining a URL path, target renderd.conf map section, and optional key-value settings.
+.RS
+.PP
+.B Supported Key-Value Options:
+.TP
+.BI minzoom= integer
+Minimum zoom level for this layer. Must be non-negative (\fBminzoom >= 0\fP). [Default: \fB0\fP]
+.TP
+.BI maxzoom= integer
+Maximum zoom level for this layer. Must not exceed \fB30\fP (\fBMAX_ZOOM_SERVER\fP). [Default: \fB20\fP (\fBMAX_ZOOM\fP)]
+.TP
+.BI extension= string
+File extension for served tiles. [Default: \fBpng\fP]
+.TP
+.BI mimetype= string
+MIME content type header returned for tile responses. [Default: \fBimage/png\fP]
+.TP
+.BI tile_dir= path
+Custom storage directory path for this layer's tile cache. [Default: empty string, falls back to global \fBModTileTileDir\fP]
+.PP
+.B Validation:
+An error is returned if \fBminzoom < 0\fP or \fBmaxzoom > 30\fP (\fBMAX_ZOOM_SERVER\fP).
+.RE
+.TP
+.BI AddTileMimeConfig " url_path renderd_config_name file_extension"
+Legacy directive to configure tile layer mapping with explicit file extension handling.
+.RS
+.PP
+.B Zoom Defaults:
+Defaults \fBminzoom\fP to \fB0\fP and \fBmaxzoom\fP to \fB20\fP (\fBMAX_ZOOM\fP).
+.RE
+.TP
+.BI LoadTileConfigFile " config_file_name"
+Loads an entire \fBrenderd.conf\fP configuration file into Apache.
+.RS
+.PP
+.B Capacity Limit:
+Processes up to \fB100\fP map sections (\fBXMLCONFIGS_MAX\fP).
+.RE
+.TP
+.BI ModTileTileDir " directory_path"
+Sets the global default file system directory where cached rendered tiles are stored on disk.
+.RS
+.PP
+.B Default:
+\fI/var/cache/renderd/tiles\fP (\fBRENDERD_TILE_DIR\fP)
+.RE
+.TP
+.BI ModTileBulkMode " On|Off"
+Enables bulk rendering mode for requests sent to \fBrenderd\fP.
+.RS
+.PP
+.B Default:
+\fBOff\fP (\fB0\fP)
+.PP
+.B Description:
+Forces all requests sent to \fBrenderd\fP to run with bulk rendering priority and prevents tiles from being marked dirty.
+.RE
+.SS Caching & Expiration Control
+.TP
+.BI ModTileCacheDurationMinimum " seconds"
+Sets the baseline minimum cache expiry duration for served tiles.
+.RS
+.PP
+.B Default:
+\fB10800\fP seconds (3 hours)
+.RE
+.TP
+.BI ModTileCacheDurationMax " seconds"
+Sets the absolute maximum cache expiry duration for served tiles.
+.RS
+.PP
+.B Default:
+\fB604800\fP seconds (7 days)
+.RE
+.TP
+.BI ModTileCacheDurationDirty " seconds"
+Sets the cache expiry duration applied when serving dirty (stale) tiles.
+.RS
+.PP
+.B Default:
+\fB900\fP seconds (15 minutes)
+.RE
+.TP
+.BI ModTileCacheDurationLowZoom " zoom_level duration_seconds"
+Sets the cache threshold level and duration for low zoom tiles.
+.RS
+.PP
+.B Default Duration:
+\fB518400\fP seconds (6 days)
+.PP
+.B Default Level:
+\fB0\fP
+.RE
+.TP
+.BI ModTileCacheDurationMediumZoom " zoom_level duration_seconds"
+Sets the cache threshold level and duration for medium zoom tiles.
+.RS
+.PP
+.B Default Duration:
+\fB86400\fP seconds (24 hours)
+.PP
+.B Default Level:
+\fB0\fP
+.RE
+.TP
+.BI ModTileCacheLastModifiedFactor " factor"
+Sets the multiplier factor by which the last-modified timestamp determines dynamic cache expiration. Accepts a float.
+.RS
+.PP
+.B Default:
+\fB0.0\fP
+.RE
+.TP
+.BI ModTileVeryOldThreshold " microseconds"
+Sets the age threshold (in microseconds) beyond which an outdated tile is considered "very old" and rendered with elevated priority.
+.RS
+.PP
+.B Default:
+\fB31536000000000\fP microseconds (365 days) (\fBVERYOLD_THRESHOLD\fP)
+.RE
+.TP
+.BI ModTileCacheExtendedDuration " seconds"
+Sets the length of time for extended period caching.
+.RS
+.PP
+.B Default:
+\fB0\fP
+.RE
+.TP
+.BI ModTileCacheExtendedHostName " hostname"
+Sets the hostname used for extended period caching requests.
+.RS
+.PP
+.B Default:
+Empty string (\fI""\fP)
+.RE
+.SS Daemon & Server Communication
+.TP
+.BI ModTileRenderdSocketName " socket_path"
+Sets the path to the Unix domain socket used to communicate with the rendering daemon (\fBrenderd\fP).
+.RS
+.PP
+.B Default:
+\fI/run/renderd/renderd.sock\fP (\fBRENDERD_SOCKET\fP)
+.RE
+.TP
+.BI ModTileRenderdSocketAddr " host_or_ip port"
+Configures a TCP socket host address and port for connecting to \fBrenderd\fP.
+.RS
+.PP
+.B Default Port:
+\fB0\fP (disabled, defaults to Unix domain socket)
+.RE
+.TP
+.BI ModTileRequestTimeout " seconds"
+Sets the timeout limit in seconds on standard tile requests to renderd.
+.RS
+.PP
+.B Default:
+\fB3\fP seconds (\fBREQUEST_TIMEOUT\fP)
+.RE
+.TP
+.BI ModTileMissingRequestTimeout " seconds"
+Sets the timeout limit in seconds on priority rendering requests for missing tiles.
+.RS
+.PP
+.B Default:
+\fB3\fP seconds (\fBREQUEST_TIMEOUT\fP)
+.RE
+.TP
+.BI ModTileMaxLoadMissing " system_load"
+Sets the maximum system load average threshold above which missing tiles will not be rendered on demand.
+.RS
+.PP
+.B Default:
+\fB50\fP (\fBMAX_LOAD_MISSING\fP)
+.RE
+.TP
+.BI ModTileMaxLoadOld " system_load"
+Sets the maximum system load average threshold above which outdated tiles will not be re-rendered.
+.RS
+.PP
+.B Default:
+\fB16\fP (\fBMAX_LOAD_OLD\fP)
+.RE
+.SS Endpoint Options
+.TP
+.BI ModTileEnableDirtyURL " On|Off"
+Enables or disables handling of \fI.../dirty\fP requests to manually force tile re-rendering.
+.RS
+.PP
+.B Default:
+\fBOn\fP (\fB1\fP)
+.RE
+.TP
+.BI ModTileEnableStatusURL " On|Off"
+Enables or disables handling of \fI.../status\fP monitoring endpoints.
+.RS
+.PP
+.B Default:
+\fBOn\fP (\fB1\fP)
+.RE
+.TP
+.BI ModTileEnableStats " On|Off"
+Enables or disables keeping global statistics about tile serving metrics.
+.RS
+.PP
+.B Default:
+\fBOn\fP (\fB1\fP)
+.RE
+.SS Throttling & Rate Limiting
+.TP
+.BI ModTileEnableTileThrottling " On|Off"
+Enables or disables IP-based rate limiting for tile downloads.
+.RS
+.PP
+.B Default:
+\fBOff\fP (\fB0\fP)
+.RE
+.TP
+.BI ModTileEnableTileThrottlingXForward " mode"
+Controls extraction of client IP from \fBX-Forwarded-For\fP header for rate limiting.
+.RS
+.PP
+.B Values:
+.IP \(bu 2
+\fB0\fP: Off (Default). Uses direct client connection IP.
+.IP \(bu 2
+\fB1\fP: Use the first entry (originating client IP).
+.IP \(bu 2
+\fB2\fP: Use the last entry in the proxy chain.
+.RE
+.TP
+.BI ModTileThrottlingTiles " bucket_size top_up_rate"
+Configures token bucket capacity (integer tile count) and top-up rate (microseconds) for total tile downloads per IP.
+.RS
+.PP
+.B Defaults:
+Bucket size: \fB5000\fP (\fBAVAILABLE_TILE_BUCKET_SIZE\fP), Top-up rate: \fB1000000\fP \(mus (\fBTILE_TOPUP_RATE\fP)
+.RE
+.TP
+.BI ModTileThrottlingRenders " bucket_size top_up_rate"
+Configures token bucket capacity (integer render count) and top-up rate (microseconds) for rendering requests per IP.
+.RS
+.PP
+.B Defaults:
+Bucket size: \fB65\fP (\fBAVAILABLE_RENDER_BUCKET_SIZE\fP), Top-up rate: \fB5000000\fP \(mus (\fBRENDER_TOPUP_RATE\fP)
+.RE
+.SH SEE ALSO
+.BR renderd(1),
+.BR renderd.conf(5)
+.SH AUTHOR
+mod_tile was written by Jon Burgess, and other OpenStreetMap project members.
+.PP
+This manual page was written by OpenStreetMap authors.
