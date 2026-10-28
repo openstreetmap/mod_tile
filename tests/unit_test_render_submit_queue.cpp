@@ -504,6 +504,19 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		}
 	}
 
+	SECTION("display_rate function")
+	{
+		err_log_lines.clear();
+
+		struct timeval start = {1, 0}, end = {2, 500000};
+
+		SECTION("display_rate", "should return")
+		{
+			display_rate(start, end, 100);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("100 in 1.50 seconds (66.67/s)"));
+		}
+	}
+
 	SECTION("enqueue function")
 	{
 		err_log_lines.clear();

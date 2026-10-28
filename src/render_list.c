@@ -45,19 +45,6 @@ int lat2tiley(double lat, int z)
 	return (int)(floor((1.0 - log(tan(latrad) + (1.0 / cos(latrad))) / M_PI) / 2.0 * pow(2.0, z)));
 }
 
-void display_rate(struct timeval start, struct timeval end, int num)
-{
-	int d_s, d_us;
-	float sec;
-
-	d_s = end.tv_sec - start.tv_sec;
-	d_us = end.tv_usec - start.tv_usec;
-
-	sec = d_s + d_us / 1000000.0;
-
-	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
-}
-
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

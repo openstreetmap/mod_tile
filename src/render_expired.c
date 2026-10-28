@@ -54,19 +54,6 @@ static void set_tile_requested(int z, int x, int y)
 	g_hash_table_add(tile_requested, key);
 }
 
-void display_rate(struct timeval start, struct timeval end, int num)
-{
-	int d_s, d_us;
-	float sec;
-
-	d_s = end.tv_sec - start.tv_sec;
-	d_us = end.tv_usec - start.tv_usec;
-
-	sec = d_s + d_us / 1000000.0;
-
-	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
-}
-
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

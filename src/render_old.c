@@ -41,19 +41,6 @@ static int max_load;
 static time_t planet_timestamp = 0;
 static struct timeval start, end;
 
-void display_rate(struct timeval start, struct timeval end, int num)
-{
-	int d_s, d_us;
-	float sec;
-
-	d_s = end.tv_sec - start.tv_sec;
-	d_us = end.tv_usec - start.tv_usec;
-
-	sec = d_s + d_us / 1000000.0;
-
-	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
-}
-
 static time_t get_planet_time(const char *tile_dir)
 {
 	static time_t last_check;

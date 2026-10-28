@@ -45,6 +45,7 @@ struct speed_stats {
 
 int make_connection(const char *spath);
 void check_load(void);
+void display_rate(struct timeval start, struct timeval end, int num);
 void enqueue(const char *xmlname, int x, int y, int z);
 void finish_workers(void);
 void print_statistics(void);
