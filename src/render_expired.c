@@ -32,15 +32,8 @@
 #include "renderd_config.h"
 #include "store.h"
 
-// macros handling our tile marking arrays (these are essentially bit arrays
-// that have one bit for each tile on the respective zoom level; since we only
-// need them for metatile levels, even if someone were to render level 20,
-// we'd still only use 4^17 bits = 2 GB RAM (plus a little for the lower zoom
-// levels) - this saves us the hassle of working with a tree structure.
-
 // Set of metatiles already requested, so each is only queued once.
-// Keys are (z, x, y) packed into a gint64; this only uses memory for tiles actually
-// seen, unlike a per-zoom bitmap (which needed ~2 GiB at --max-zoom 20).
+// Keys are (z, x, y) packed into a gint64, so memory is only used for tiles actually seen.
 static GHashTable *tile_requested;
 
 static gint64 tile_key(int z, int x, int y)
@@ -60,11 +53,6 @@ static void set_tile_requested(int z, int x, int y)
 	*key = tile_key(z, x, y);
 	g_hash_table_add(tile_requested, key);
 }
-
-// tile marking arrays
-
-// "two raised to the power of [...]" - don't trust pow() to be efficient
-// for base 2
 
 void display_rate(struct timeval start, struct timeval end, int num)
 {
@@ -311,8 +299,6 @@ int main(int argc, char **argv)
 			tile_dir_passed = 1;
 		}
 	}
-
-	// initialise arrays for tile markings
 
 	tile_requested = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
 

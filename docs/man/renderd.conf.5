@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2026-10-25" "mod_tile v0.8.1"
+.TH RENDERD.CONF 5 "2026-10-29" "mod_tile v0.8.1"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 renderd.conf \- Configuration file for the renderd tile rendering daemon
@@ -15,7 +15,8 @@ All option names are \fBcase-insensitive\fR.
 .PP
 Any values containing semicolons must be \fBquoted\fR.
 .PP
-Any \fBdouble quoted\fR values must not contain \fBdouble quotes\fR as they cannot be escaped, only \fBsingle quotes\fR can be escaped within \fBsingle quoted\fR values.
+Quoted values should not contain the kind of quote they are quoted with, as escaping it with a backslash needs \fBiniparser\fR 4.2 or later.
+Use the other kind of quote inside them instead, e.g. \fBATTRIBUTION="<a href='https://example.com/'>Example</a>"\fR.
 .SH RENDERD
 Options belonging to a \fB[renderd]\fR section.
 .PP
