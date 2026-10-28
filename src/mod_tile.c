@@ -2404,7 +2404,7 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 	// The rate is stored as whole microseconds per tile and later used as a divisor, so it
 	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
 	if (top_up_tile_rate <= top_up_tile_rate_min || top_up_tile_rate > APR_USEC_PER_SEC) {
-		return apr_psprintf(cmd->pool, "ModTileThrottlingTiles second argument (top up rate) must be greater than %i and at most %ld", top_up_tile_rate_min, APR_USEC_PER_SEC);
+		return apr_psprintf(cmd->pool, "ModTileThrottlingTiles second argument (top up rate in tiles per second) must be greater than %i and at most %ld", top_up_tile_rate_min, APR_USEC_PER_SEC);
 	}
 
 	/* Convert topup rate into microseconds per tile */
@@ -2433,10 +2433,10 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 	// The rate is stored as whole microseconds per render and later used as a divisor, so it
 	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
 	if (top_up_render_rate <= top_up_render_rate_min || top_up_render_rate > APR_USEC_PER_SEC) {
-		return apr_psprintf(cmd->pool, "ModTileThrottlingRenders second argument (top up rate) must be greater than %i and at most %ld", top_up_render_rate_min, APR_USEC_PER_SEC);
+		return apr_psprintf(cmd->pool, "ModTileThrottlingRenders second argument (top up rate in renders per second) must be greater than %i and at most %ld", top_up_render_rate_min, APR_USEC_PER_SEC);
 	}
 
-	/* Convert topup rate into microseconds per tile */
+	/* Convert topup rate into microseconds per render request */
 	scfg->delaypool_render_rate = (APR_USEC_PER_SEC / top_up_render_rate);
 	return NULL;
 }
@@ -2554,7 +2554,7 @@ static const command_rec tile_cmds[] = {
 	AP_INIT_TAKE2("ModTileCacheDurationLowZoom", mod_tile_cache_duration_low_config, NULL, OR_OPTIONS, "Set the minimum cache duration and zoom level for low zoom tiles"),
 	AP_INIT_TAKE2("ModTileCacheDurationMediumZoom", mod_tile_cache_duration_medium_config, NULL, OR_OPTIONS, "Set the minimum cache duration and zoom level for medium zoom tiles"),
 	AP_INIT_TAKE2("ModTileRenderdSocketAddr", mod_tile_renderd_socket_address_config, NULL, OR_OPTIONS, "Set address and port of the TCP socket for connecting to rendering daemon"),
-	AP_INIT_TAKE2("ModTileThrottlingRenders", mod_tile_delaypool_render_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
+	AP_INIT_TAKE2("ModTileThrottlingRenders", mod_tile_delaypool_render_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of render requests) and top up rate (render requests per second) for throttling render requests per IP"),
 	AP_INIT_TAKE2("ModTileThrottlingTiles", mod_tile_delaypool_tiles_config, NULL, OR_OPTIONS, "Set the initial bucket size (number of tiles) and top up rate (tiles per second) for throttling tile request per IP"),
 	AP_INIT_TAKE3("AddTileMimeConfig", add_tile_mime_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and file extension to use"),
 	AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and optional key-value pairs to use"),

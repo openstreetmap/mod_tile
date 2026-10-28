@@ -1233,10 +1233,10 @@ set(DIRECTIVE_ERRORS
   "ModTileThrottlingTiles second argument must be a float"
   "ModTileThrottlingTiles first argument must be an integer"
   "ModTileVeryOldThreshold argument must be an integer"
-  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
-  "ModTileThrottlingRenders second argument (top up rate) must be greater than 0 and at most 1000000"
-  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
-  "ModTileThrottlingTiles second argument (top up rate) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingRenders second argument (top up rate in renders per second) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingRenders second argument (top up rate in renders per second) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate in tiles per second) must be greater than 0 and at most 1000000"
+  "ModTileThrottlingTiles second argument (top up rate in tiles per second) must be greater than 0 and at most 1000000"
 )
 list(LENGTH DIRECTIVES DIRECTIVES_LENGTH)
 math(EXPR DIRECTIVES_LENGTH "${DIRECTIVES_LENGTH} - 1")

@@ -28,11 +28,13 @@
 #define DELAY_HASHTABLE_WHITELIST_SIZE 13
 /*Number of tiles in the bucket */
 #define AVAILABLE_TILE_BUCKET_SIZE 5000
-/*Number of render request in the bucket */
+/*Number of render requests in the bucket */
 #define AVAILABLE_RENDER_BUCKET_SIZE 65
-/*Number of microseconds per render request. Currently set at no more than 1 render request per 5 seconds on average */
+/*Default render top-up interval, in microseconds per render request (not a rate): 1 render request per 5 seconds on average.
+ * Equivalent to "ModTileThrottlingRenders <size> 0.2", whose second argument is in render requests per second. */
 #define RENDER_TOPUP_RATE 5000000l
-/*Number of microseconds per render request. Currently set at no more than 1 request per second on average */
+/*Default tile top-up interval, in microseconds per tile request (not a rate): 1 tile request per second on average.
+ * Equivalent to "ModTileThrottlingTiles <size> 1", whose second argument is in tile requests per second. */
 #define TILE_TOPUP_RATE 1000000l
 
 #define INILINE_MAX 256
