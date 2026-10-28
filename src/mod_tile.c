@@ -1377,8 +1377,8 @@ static int tile_handler_status(request_rec *r)
 	apr_ctime(atime_str, r->finfo.atime);
 
 	return error_message(r, "Tile is %s. Last rendered at %s. Last accessed at %s. Stored in %s\n\n"
-			     "(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
-			     " Access times might not be updated on all file systems)\n",
+				"(Dates might not be accurate. Rendering time might be reset to an old date for tile expiry."
+				" Access times might not be updated on all file systems)\n",
 			     (state == tileOld || state == tileVeryOld) ? "due to be rendered" : "clean", mtime_str, atime_str,
 			     rdata->store->tile_storage_id(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z, storage_id));
 }

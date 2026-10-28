@@ -343,14 +343,16 @@ void *render_thread(void *arg)
 			try {
 				mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
 
-				if (!maps[iMaxConfigs].parameterize_function) {
+				if (!maps[iMaxConfigs].parameterize_function)
+				{
 					maps[iMaxConfigs].map.load_fonts();
 				}
 
 				/* If we have more than 10 rendering threads configured, we need to fix
 				 * up the mapnik datasources to support larger postgres connection pools
 				 */
-				if (parentxmlconfig[iMaxConfigs].num_threads > 10) {
+				if (parentxmlconfig[iMaxConfigs].num_threads > 10)
+				{
 					g_logger(G_LOG_LEVEL_DEBUG, "Updating max_connection parameter for mapnik layers to reflect thread count");
 					parameterize_map_max_connections(maps[iMaxConfigs].map, parentxmlconfig[iMaxConfigs].num_threads);
 				}
