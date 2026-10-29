@@ -51,7 +51,7 @@ daemon(nochdir, noclose)
 int nochdir, noclose;
 {
 	struct sigaction osa, sa;
-	int fd;
+	int fd = -1;
 	pid_t newgrp;
 	int oerrno;
 	int osa_ok;

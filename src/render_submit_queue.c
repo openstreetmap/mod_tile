@@ -233,7 +233,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 int make_connection(const char *spath)
 {
-	int fd = -1;
+	int fd = FD_INVALID;
 
 	if (spath[0] == '/') {
 		// Create a Unix socket
@@ -252,7 +252,7 @@ int make_connection(const char *spath)
 
 		if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 			close(fd);
-			return -1;
+			return FD_INVALID;
 		}
 
 	} else {
@@ -377,7 +377,7 @@ void *thread_main(void *arg)
 		while (process(cmd, fd) < 1) {
 			g_logger(G_LOG_LEVEL_ERROR, "connection to renderd lost");
 			close(fd);
-			fd = -1;
+			fd = FD_INVALID;
 
 			while (fd < 0) {
 				int seconds = 30;
