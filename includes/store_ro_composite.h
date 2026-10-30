@@ -22,7 +22,36 @@
 extern "C" {
 #endif
 
+#include "config.h"
+
+#ifdef HAVE_CAIRO
+#include <cairo/cairo.h>
+
+#include "protocol.h"
 #include "store.h"
+
+struct store_ro_composite_tile_cache {
+	struct stat_info st_stat;
+	char * tile;
+	int x, y, z;
+	char xmlname[XMLCONFIG_MAX];
+};
+
+struct ro_composite_ctx {
+	struct storage_backend * store_primary;
+	char xmlconfig_primary[XMLCONFIG_MAX];
+	struct storage_backend * store_secondary;
+	char xmlconfig_secondary[XMLCONFIG_MAX];
+	struct store_ro_composite_tile_cache cache;
+	int render_size;
+};
+
+typedef struct {
+	char *data;
+	unsigned int max_size;
+	unsigned int pos;
+} png_stream_to_byte_array_closure_t;
+#endif
 
 struct storage_backend *init_storage_ro_composite(const char *connection_string);
 

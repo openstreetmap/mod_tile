@@ -16,49 +16,25 @@
  */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
-#include <sys/types.h>
-#include <pthread.h>
+#include "g_logger.h"
 
+//TODO: need to create an appropriate configure check.
 #ifdef HAVE_LIBCURL
 #include <curl/curl.h>
 #include <curl/easy.h>
-#endif
+#include <limits.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "store.h"
 #include "store_ro_http_proxy.h"
-#include "render_config.h"
-#include "protocol.h"
-#include "g_logger.h"
-
-
-#ifdef HAVE_LIBCURL
 
 static pthread_mutex_t ro_http_proxy_mutex;
 static int done_global_init = 0;
-
-struct ro_http_proxy_tile_cache {
-	struct stat_info st_stat;
-	char * tile;
-	int x, y, z;
-	char xmlname[XMLCONFIG_MAX];
-};
-
-struct ro_http_proxy_ctx {
-	CURL * ctx;
-	char * baseurl;
-	struct ro_http_proxy_tile_cache cache;
-};
-
-struct MemoryStruct {
-	char *memory;
-	size_t size;
-};
-
 
 static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp)
 {

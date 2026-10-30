@@ -16,50 +16,16 @@
  */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+#include "g_logger.h"
 
 //TODO: need to create an appropriate configure check.
 #ifdef HAVE_CAIRO
-#define WANT_STORE_COMPOSITE
-#endif
-
-#ifdef WANT_STORE_COMPOSITE
 #include <cairo/cairo.h>
-#endif
+#include <stdio.h>
+#include <unistd.h>
 
 #include "store.h"
 #include "store_ro_composite.h"
-#include "render_config.h"
-#include "protocol.h"
-#include "g_logger.h"
-
-
-#ifdef WANT_STORE_COMPOSITE
-
-struct store_ro_composite_tile_cache {
-	struct stat_info st_stat;
-	char * tile;
-	int x, y, z;
-	char xmlname[XMLCONFIG_MAX];
-};
-
-struct ro_composite_ctx {
-	struct storage_backend * store_primary;
-	char xmlconfig_primary[XMLCONFIG_MAX];
-	struct storage_backend * store_secondary;
-	char xmlconfig_secondary[XMLCONFIG_MAX];
-	struct store_ro_composite_tile_cache cache;
-	int render_size;
-};
-
-typedef struct {
-	char *data;
-	unsigned int max_size;
-	unsigned int pos;
-} png_stream_to_byte_array_closure_t;
 
 static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const unsigned char *data, unsigned int length)
 {
@@ -233,14 +199,14 @@ static int ro_composite_close_storage(struct storage_backend * store)
 	return 0;
 }
 
-#endif //WANT_COMPOSITE
+#endif // HAVE_CAIRO
 
 
 
 struct storage_backend * init_storage_ro_composite(const char * connection_string)
 {
 
-#ifndef WANT_STORE_COMPOSITE
+#ifndef HAVE_CAIRO
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 	return NULL;
 #else

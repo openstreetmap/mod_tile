@@ -18,6 +18,7 @@
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
+#include "config.h"
 #include "store.h"
 
 TEST_CASE("store.c", "[store]")
@@ -146,7 +147,7 @@ TEST_CASE("store.c", "[store]")
 			err_log_lines.clear();
 			struct storage_backend *store = init_storage_backend(comp_opts.c_str());
 
-#ifndef WANT_STORE_COMPOSITE
+#ifndef HAVE_CAIRO
 			REQUIRE(store == NULL);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for compositing storage has not been compiled into this program"));
 #else

@@ -24,26 +24,22 @@
  */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
+#include "g_logger.h"
 
 #ifdef HAVE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
-#endif
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "store.h"
 #include "metatile.h"
 #include "render_config.h"
-#include "protocol.h"
-#include "g_logger.h"
 
-
-#ifdef HAVE_LIBMEMCACHED
 static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key)
 {
 	int mask;

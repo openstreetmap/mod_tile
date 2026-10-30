@@ -28,6 +28,7 @@
  */
 
 #include "config.h"
+
 #ifndef HAVE_DAEMON
 
 #ifdef HAVE_SYS_CDEFS_H
@@ -39,9 +40,11 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+
 #ifdef HAVE_PATHS_H
 #include <paths.h>
 #endif
+
 #ifndef _PATH_DEVNULL
 #define _PATH_DEVNULL "/dev/null"
 #endif

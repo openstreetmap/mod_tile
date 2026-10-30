@@ -24,31 +24,22 @@
  */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
-#include <errno.h>
-#include <pthread.h>
-
-#ifdef HAVE_LIBRADOS
-#include <rados/librados.h>
-#endif
-
-#include "store.h"
-#include "store_rados.h"
-#include "metatile.h"
-#include "render_config.h"
-#include "protocol.h"
 #include "g_logger.h"
 
-
 #ifdef HAVE_LIBRADOS
+#include <limits.h>
+#include <pthread.h>
+#include <rados/librados.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-static pthread_mutex_t rados_qLock;
+#include "metatile.h"
+#include "protocol.h"
+#include "store.h"
+#include "store_rados.h"
+
+static pthread_mutex_t rados_mutex;
 
 struct metadata_cache {
 	char * data;
@@ -429,9 +420,9 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 		return NULL;
 	}
 
-	pthread_mutex_lock(&rados_qLock);
+	pthread_mutex_lock(&rados_mutex);
 	err = rados_connect(ctx->cluster);
-	pthread_mutex_unlock(&rados_qLock);
+	pthread_mutex_unlock(&rados_mutex);
 
 	if (err < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: failed to connect to rados cluster: %s", strerror(-err));
