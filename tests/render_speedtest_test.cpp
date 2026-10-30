@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
 #include "render_config.h"
@@ -74,7 +74,7 @@ TEST_CASE("render_speedtest common", "common testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
 	}
 }
 
@@ -88,7 +88,7 @@ TEST_CASE("render_speedtest specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
 	}
 
 	SECTION("--num-threads subceeds minimum of 1", "should return 1") {
@@ -96,7 +96,7 @@ TEST_CASE("render_speedtest specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid number of threads, must be >= 1 (0 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid number of threads, must be >= 1 (0 was provided)"));
 	}
 
 	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1") {
@@ -104,7 +104,7 @@ TEST_CASE("render_speedtest specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("zoom, must be <= 20 (21 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("zoom, must be <= 20 (21 was provided)"));
 	}
 
 	SECTION("--min-zoom exceeds --max-zoom", "should return 1") {
@@ -112,7 +112,7 @@ TEST_CASE("render_speedtest specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (2) is larger than max zoom (1)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min zoom (2) is larger than max zoom (1)."));
 	}
 }
 
