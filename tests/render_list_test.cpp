@@ -261,16 +261,18 @@ TEST_CASE("render_list specific", "specific testing")
 
 	// No renderd is listening, so the workers exit at once and only the queue (one slot per thread) holds the 4 metatiles.
 	// --force skips stat'ing tiles, but the file storage backend still needs an absolute directory.
-	SECTION("--all --max-lat --max-lon --min-lat --min-lon includes the tiles containing max-lon and min-lat", "should return 0") {
-		std::vector<std::string> argv = {"--all", "--force", "--max-lat", "1", "--max-lon", "1", "--max-zoom", "4", "--min-lat", "-1", "--min-lon", "-1", "--min-zoom", "4", "--num-threads", "4", "--socket", "/nonexistent/renderd.sock", "--tile-dir", "/tmp"};
+	SECTION("--all --max-lat --max-lon --min-lat --min-lon includes the tiles containing max-lon and min-lat", "should return 0")
+	{
+		std::vector<std::string> argv = {"--all", "--force", "--max-lat", "1", "--max-lon", "1", "--max-zoom", "4", "--min-lat", "-1", "--min-lon", "-1", "--min-zoom", "4", "--num-threads", "4", "--socket", "/nonexistent/renderd.sock", "--tile-dir", P_tmpdir};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Rendering all tiles for zoom 4 from (0, 0) to (8, 8)"));
 	}
 
-	SECTION("--all --max-lat --max-lon --min-lat --min-lon at the edges of the world stays within 2^zoom-1", "should return 0") {
-		std::vector<std::string> argv = {"--all", "--force", "--max-lat", "85.0511", "--max-lon", "180", "--max-zoom", "4", "--min-lat", "-85.0511", "--min-lon", "-180", "--min-zoom", "4", "--num-threads", "4", "--socket", "/nonexistent/renderd.sock", "--tile-dir", "/tmp"};
+	SECTION("--all --max-lat --max-lon --min-lat --min-lon at the edges of the world stays within 2^zoom-1", "should return 0")
+	{
+		std::vector<std::string> argv = {"--all", "--force", "--max-lat", "85.0511", "--max-lon", "180", "--max-zoom", "4", "--min-lat", "-85.0511", "--min-lon", "-180", "--min-zoom", "4", "--num-threads", "4", "--socket", "/nonexistent/renderd.sock", "--tile-dir", P_tmpdir};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);

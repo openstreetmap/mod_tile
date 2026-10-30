@@ -46,17 +46,19 @@ TEST_CASE("store.c", "[store]")
 
 			SECTION("fails when path points to a file rather than a directory")
 			{
-				char tmp_file[] = "/tmp/mod_tile_regular_file_XXXXXX";
-				int fd = mkstemp(tmp_file);
+				std::string tmpl = std::string(P_tmpdir) + "/mod_tile_regular_file_XXXXXX";
+				std::vector<char> tmp_file(tmpl.begin(), tmpl.end());
+				tmp_file.push_back('\0');
+				int fd = mkstemp(tmp_file.data());
 				REQUIRE(fd >= 0);
 				close(fd);
 
 				err_log_lines.clear();
-				struct storage_backend *store = init_storage_backend(tmp_file);
+				struct storage_backend *store = init_storage_backend(tmp_file.data());
 				REQUIRE(store == NULL);
 				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("is not a directory"));
 
-				unlink(tmp_file);
+				unlink(tmp_file.data());
 			}
 
 			SECTION("initializes file storage backend when path is a valid directory")
