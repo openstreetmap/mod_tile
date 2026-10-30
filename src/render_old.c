@@ -34,10 +34,8 @@
 #include "render_submit_queue.h"
 #include "renderd_config.h"
 #include "store_file_utils.h"
-#include "sys_utils.h"
 
 static int num_render = 0, num_all = 0;
-static int max_load;
 static time_t planet_timestamp = 0;
 static struct timeval start, end;
 
@@ -154,7 +152,7 @@ int main(int argc, char **argv)
 	const char *mapname = mapname_default;
 	const char *socketname = socketname_default;
 	const char *tile_dir = tile_dir_default;
-	max_load = max_load_default;
+	int max_load = max_load_default;
 	int max_zoom = max_zoom_default;
 	int min_zoom = min_zoom_default;
 	int num_threads = num_threads_default;
