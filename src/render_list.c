@@ -448,8 +448,9 @@ int main(int argc, char **argv)
 				int max_y_tmp = lat2tiley(min_lat, z);
 				int min_x_tmp = lon2tilex(min_lon, z);
 				int min_y_tmp = lat2tiley(max_lat, z);
-				current_max_x = max_x_tmp ? max_x_tmp - 1 : max_x_tmp;
-				current_max_y = max_y_tmp;
+				// The tiles containing max_lon and min_lat are in the box, but max_lon = 180 is one past the last tile
+				current_max_x = MIN(max_x_tmp, (1 << z) - 1);
+				current_max_y = MIN(max_y_tmp, (1 << z) - 1);
 				min_x = min_x_tmp - min_x_tmp % METATILE;
 				min_y = min_y_tmp - min_y_tmp % METATILE;
 			}
