@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = foreign
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS)
+AM_CPPFLAGS = $(PTHREAD_CFLAGS) $(GLIB_CFLAGS) $(INIPARSER_CFLAGS)
 
 STORE_SOURCES = \
 	src/g_logger.c \
@@ -98,7 +98,9 @@ render_speedtest_LDADD = $(PTHREAD_CFLAGS) $(GLIB_LIBS) $(INIPARSER_LDFLAGS)
 
 #convert_meta_SOURCES = src/dir_utils.c src/store.c src/convert_meta.c
 
-noinst_LIBRARIES = catch_main.o catch_test_common.o
+noinst_LIBRARIES = catch2.o catch_main.o catch_test_common.o
+catch2_o_SOURCES = tests/catch/catch_amalgamated.cpp
+catch2_o_CPPFLAGS = -DCATCH_AMALGAMATED_CUSTOM_MAIN
 catch_main_o_SOURCES = tests/catch_main.cpp
 catch_test_common_o_SOURCES = tests/catch_test_common.cpp
 
@@ -107,32 +109,32 @@ gen_tile_test_SOURCES = \
 	$(renderd_SOURCES)
 gen_tile_test_CFLAGS = -DMAIN_ALREADY_DEFINED
 gen_tile_test_CXXFLAGS = $(renderd_CXXFLAGS)
-gen_tile_test_LDADD = $(renderd_LDADD) catch_test_common.o
+gen_tile_test_LDADD = $(renderd_LDADD) catch_test_common.o catch2.o
 
 renderd_test_SOURCES = \
 	tests/renderd_test.cpp
-renderd_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+renderd_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o catch2.o
 
 render_expired_test_SOURCES = \
 	tests/render_expired_test.cpp
-render_expired_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+render_expired_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o catch2.o
 
 render_list_test_SOURCES = \
 	tests/render_list_test.cpp
-render_list_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+render_list_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o catch2.o
 
 render_old_test_SOURCES = \
 	tests/render_old_test.cpp
-render_old_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+render_old_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o catch2.o
 
 render_speedtest_test_SOURCES = \
 	tests/render_speedtest_test.cpp
-render_speedtest_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
+render_speedtest_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o catch2.o
 
 unit_tests_SOURCES = \
 	tests/unit_tests.cpp
 unit_tests_CXXFLAGS = -Isrc
-unit_tests_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) $(MAPNIK_LDFLAGS) $(PTHREAD_CFLAGS) catch_main.o catch_test_common.o
+unit_tests_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) $(MAPNIK_LDFLAGS) $(PTHREAD_CFLAGS) catch_main.o catch_test_common.o catch2.o
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 
