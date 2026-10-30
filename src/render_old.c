@@ -39,37 +39,6 @@ static int num_render = 0, num_all = 0;
 static time_t planet_timestamp = 0;
 static struct timeval start, end;
 
-static time_t get_planet_time(const char *tile_dir)
-{
-	static time_t last_check;
-	static time_t planet_time;
-	time_t now = time(NULL);
-	struct stat buf;
-	char filename[PATH_MAX];
-
-	snprintf(filename, PATH_MAX - 1, "%s/%s", tile_dir, PLANET_TIMESTAMP);
-
-	// Only check for updates periodically
-	if (now < last_check + 300) {
-		return planet_time;
-	}
-
-	last_check = now;
-
-	if (stat(filename, &buf)) {
-		g_logger(G_LOG_LEVEL_MESSAGE, "Planet timestamp file (%s) is missing", filename);
-		// Make something up
-		planet_time = now - 3 * 24 * 60 * 60;
-	} else {
-		if (buf.st_mtime != planet_time) {
-			g_logger(G_LOG_LEVEL_MESSAGE, "Planet file updated at %s", strtok(ctime(&buf.st_mtime), "\n"));
-			planet_time = buf.st_mtime;
-		}
-	}
-
-	return planet_time;
-}
-
 static void descend(const char *tile_dir, const char *search, int verbose)
 {
 	DIR *tiles = opendir(search);
@@ -350,9 +319,16 @@ int main(int argc, char **argv)
 	}
 
 	if (planet_timestamp == 0) {
-		planet_timestamp = get_planet_time(tile_dir);
+		planet_timestamp = get_planet_time(tile_dir, mapname_passed ? mapname : NULL);
+		char time_buf[26];
+		ctime_r(&planet_timestamp, time_buf);
+		time_buf[strcspn(time_buf, "\n")] = '\0';
+		g_logger(G_LOG_LEVEL_MESSAGE, "Planet file updated at %s", time_buf);
 	} else {
-		g_logger(G_LOG_LEVEL_MESSAGE, "Overwriting planet file update to %s", strtok(ctime(&planet_timestamp), "\n"));
+		char time_buf[26];
+		ctime_r(&planet_timestamp, time_buf);
+		time_buf[strcspn(time_buf, "\n")] = '\0';
+		g_logger(G_LOG_LEVEL_MESSAGE, "Overwriting planet file update to %s", time_buf);
 	}
 
 	gettimeofday(&start, NULL);

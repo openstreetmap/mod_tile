@@ -563,6 +563,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      PASS_REGULAR_EXPRESSION "Overwriting planet file update to Mon Jan  1 00:00:00 2024"
       TIMEOUT 60
     )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}

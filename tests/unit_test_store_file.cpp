@@ -400,7 +400,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		xyzo_to_meta(meta_path, sizeof(meta_path), (char *)store->storage_ctx, XMLCONFIG_DEFAULT, "", 0, 0, 0);
 
 		char planet_file[PATH_MAX];
-		snprintf(planet_file, sizeof(planet_file), "%s/%s%s", tmp_dir.c_str(), XMLCONFIG_DEFAULT, PLANET_TIMESTAMP);
+		snprintf(planet_file, sizeof(planet_file), "%s/%s/%s", tmp_dir.c_str(), XMLCONFIG_DEFAULT, PLANET_TIMESTAMP);
 
 		SECTION("stat non-existent file", "should return size -1")
 		{

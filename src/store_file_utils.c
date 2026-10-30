@@ -28,6 +28,31 @@
 #include "store_file_utils.h"
 #include "g_logger.h"
 
+time_t get_planet_time(const char *tile_dir, const char *xmlname)
+{
+	struct stat st_stat;
+	char filename[PATH_MAX];
+
+	/* Use map-specific timestamp file */
+	if (xmlname && xmlname[0] != '\0') {
+		snprintf(filename, sizeof(filename), "%s/%s/%s", tile_dir, xmlname, PLANET_TIMESTAMP);
+
+		if (stat(filename, &st_stat) == 0) {
+			return st_stat.st_mtime;
+		}
+	}
+
+	/* Fallback to global timestamp file */
+	snprintf(filename, sizeof(filename), "%s/%s", tile_dir, PLANET_TIMESTAMP);
+
+	if (stat(filename, &st_stat) == 0) {
+		return st_stat.st_mtime;
+	}
+
+	/* Default to 3 days ago on missing timestamp file*/
+	return time(NULL) - (3 * 24 * 60 * 60);
+}
+
 // Build parent directories for the specified file name
 // Note: the part following the trailing / is ignored
 // e.g. mkdirp("/a/b/foo.png") == shell mkdir -p /a/b

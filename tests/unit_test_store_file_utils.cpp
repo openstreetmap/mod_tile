@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <utime.h>
 
 #include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
@@ -27,8 +28,93 @@
 
 extern std::string err_log_lines;
 
+// Helper function to touch a test file with an explicit mtime
+static void create_test_file(const std::string &path, time_t mtime)
+{
+	FILE *f = fopen(path.c_str(), "w");
+	REQUIRE(f != nullptr);
+	fputs("test", f);
+	fclose(f);
+
+	struct utimbuf new_times;
+	new_times.actime = mtime;
+	new_times.modtime = mtime;
+	REQUIRE(utime(path.c_str(), &new_times) == 0);
+}
+
 TEST_CASE("store_file_utils.c", "[store_file_utils]")
 {
+	SECTION("get_planet_time function")
+	{
+		err_log_lines.clear();
+		std::string base_dir = create_tile_dir("get_planet_time_test");
+
+		// Jan 2, 2024 00:00:00 UTC
+		time_t expected_time = 1704153600;
+
+		SECTION("returns style-specific timestamp when present")
+		{
+			std::string section_dir = base_dir + "/style_test";
+			REQUIRE(mkdir(section_dir.c_str(), 0755) == 0);
+
+			std::string style_dir = section_dir + "/default";
+			REQUIRE(mkdir(style_dir.c_str(), 0755) == 0);
+
+			std::string style_file = style_dir + "/" + PLANET_TIMESTAMP;
+			create_test_file(style_file, expected_time);
+
+			time_t result = get_planet_time(section_dir.c_str(), "default");
+			REQUIRE(result == expected_time);
+
+			unlink(style_file.c_str());
+			rmdir(style_dir.c_str());
+			rmdir(section_dir.c_str());
+		}
+
+		SECTION("falls back to global timestamp when style timestamp is missing")
+		{
+			std::string section_dir = base_dir + "/global_test";
+			REQUIRE(mkdir(section_dir.c_str(), 0755) == 0);
+
+			std::string global_file = section_dir + "/" + PLANET_TIMESTAMP;
+
+			create_test_file(global_file, expected_time);
+
+			SECTION("with non-existent style name")
+			{
+				time_t result = get_planet_time(section_dir.c_str(), "nonexistent_style");
+				REQUIRE(result == expected_time);
+			}
+
+			SECTION("with NULL style name")
+			{
+				time_t result = get_planet_time(section_dir.c_str(), nullptr);
+				REQUIRE(result == expected_time);
+			}
+
+			unlink(global_file.c_str());
+			rmdir(section_dir.c_str());
+		}
+
+		SECTION("falls back to 3 days prior when no timestamp file exists")
+		{
+			std::string section_dir = base_dir + "/missing_test";
+			REQUIRE(mkdir(section_dir.c_str(), 0755) == 0);
+
+			time_t now = time(nullptr);
+			time_t expected_approx = now - (3 * 24 * 60 * 60);
+
+			time_t result = get_planet_time(section_dir.c_str(), "nonexistent_style");
+
+			REQUIRE(result >= expected_approx - 2);
+			REQUIRE(result <= expected_approx + 2);
+
+			rmdir(section_dir.c_str());
+		}
+
+		rmdir(base_dir.c_str());
+	}
+
 	SECTION("mkdirp function")
 	{
 		err_log_lines.clear();

@@ -26,6 +26,8 @@ extern "C" {
 
 #include "render_config.h"
 
+time_t get_planet_time(const char *tile_dir, const char *xmlname);
+
 /* Build parent directories for the specified file name
  * Note: the part following the trailing / is ignored
  * e.g. mkdirp("/a/b/foo.png") == shell mkdir -p /a/b
