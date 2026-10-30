@@ -769,6 +769,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		{
 			spawn_workers(thread_num, socket_path.c_str(), maxLoad);
 			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+			finish_workers();
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Starting " + std::to_string(thread_num) + " rendering threads"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("connect failed for: " + socket_path));
 		}
