@@ -48,7 +48,7 @@
 
 #ifdef HAVE_LIBRADOS
 
-static pthread_mutex_t qLock;
+static pthread_mutex_t rados_qLock;
 
 struct metadata_cache {
 	char * data;
@@ -236,7 +236,7 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
 	char tmp[PATH_MAX];
 	struct stat_info tile_stat;
 	int sz2 = sz + sizeof(struct stat_info);
-	char * buf2 = malloc(sz2);
+	char * buf2 = (char *)malloc(sz2);
 	int err;
 
 	if (buf2 == NULL) {
@@ -256,7 +256,15 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to create and write a tile to %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
 
-	err = rados_write_full(((struct rados_ctx *)store->storage_ctx)->io, meta_path, buf2, sz2);
+	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+
+	if (!ctx || !ctx->io) {
+		g_logger(G_LOG_LEVEL_ERROR, "rados_metatile_write: cannot write %s: invalid rados io context", tmp);
+		free(buf2);
+		return -1;
+	}
+
+	err = rados_write_full(ctx->io, meta_path, buf2, sz2);
 
 	if (err < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "cannot write %s: %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp), strerror(-err));
@@ -280,8 +288,14 @@ static int rados_metatile_delete(struct storage_backend * store, const char *xml
 	//TODO: deal with options
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
+	g_logger(G_LOG_LEVEL_DEBUG, "Trying to delete a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
 
-	err =  rados_remove(ctx->io, meta_path);
+	if (!ctx || !ctx->io) {
+		g_logger(G_LOG_LEVEL_ERROR, "rados_metatile_delete: cannot delete %s: invalid rados io context", tmp);
+		return -1;
+	}
+
+	err = rados_remove(ctx->io, meta_path);
 
 	if (err < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "failed to delete %s: %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp), strerror(-err));
@@ -303,6 +317,13 @@ static int rados_metatile_expire(struct storage_backend * store, const char *xml
 	//TODO: deal with options
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
+	g_logger(G_LOG_LEVEL_DEBUG, "Trying to expire a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
+
+	if (!ctx || !ctx->io) {
+		g_logger(G_LOG_LEVEL_ERROR, "rados_metatile_expire: cannot expire %s: invalid rados io context", tmp);
+		return -1;
+	}
+
 	err = rados_read(ctx->io, meta_path, (char *)&tile_stat, sizeof(struct stat_info), 0);
 
 	if (err < 0) {
@@ -331,10 +352,21 @@ static int rados_metatile_expire(struct storage_backend * store, const char *xml
 
 static int rados_close_storage(struct storage_backend * store)
 {
+	if (!store || !store->storage_ctx) {
+		g_logger(G_LOG_LEVEL_ERROR, "rados_close_storage: cannot close storage: invalid storage context");
+		return -1;
+	}
+
 	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
 
-	rados_ioctx_destroy(ctx->io);
-	rados_shutdown(ctx->cluster);
+	if (ctx->io) {
+		rados_ioctx_destroy(ctx->io);
+	}
+
+	if (ctx->cluster) {
+		rados_shutdown(ctx->cluster);
+	}
+
 	g_logger(G_LOG_LEVEL_DEBUG, "rados_close_storage: Closed rados backend");
 	free(ctx->metadata_cache.data);
 	free(ctx->pool);
@@ -352,11 +384,11 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 {
 
 #ifndef HAVE_LIBRADOS
-	g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: Support for rados has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: Support for rados storage has not been compiled into this program");
 	return NULL;
 #else
-	struct rados_ctx * ctx = malloc(sizeof(struct rados_ctx));
-	struct storage_backend * store = malloc(sizeof(struct storage_backend));
+	struct rados_ctx * ctx = (struct rados_ctx *)malloc(sizeof(struct rados_ctx));
+	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
 	char * conf = NULL;
 	const char * tmp;
 	int err;
@@ -375,7 +407,7 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 		i++;
 	}
 
-	ctx->pool = calloc(i + 1, sizeof(char));
+	ctx->pool = (char *)calloc(i + 1, sizeof(char));
 	memcpy(ctx->pool, tmp, i * sizeof(char));
 	conf = strdup(&(tmp[i]));
 
@@ -397,9 +429,9 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 		return NULL;
 	}
 
-	pthread_mutex_lock(&qLock);
+	pthread_mutex_lock(&rados_qLock);
 	err = rados_connect(ctx->cluster);
-	pthread_mutex_unlock(&qLock);
+	pthread_mutex_unlock(&rados_qLock);
 
 	if (err < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: failed to connect to rados cluster: %s", strerror(-err));
@@ -420,7 +452,7 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_rados: Initialised rados backend for pool %s with config %s", ctx->pool, conf);
 
-	ctx->metadata_cache.data = malloc(sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry));
+	ctx->metadata_cache.data = (char *)malloc(sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry));
 
 	if (ctx->metadata_cache.data == NULL) {
 		rados_ioctx_destroy(ctx->io);

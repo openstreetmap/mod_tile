@@ -132,7 +132,7 @@ render_speedtest_test_LDADD = $(GLIB_LIBS) catch_main.o catch_test_common.o
 unit_tests_SOURCES = \
 	tests/unit_tests.cpp
 unit_tests_CXXFLAGS = -Isrc
-unit_tests_LDADD = $(GLIB_LIBS) $(INIPARSER_LDFLAGS) $(MAPNIK_LDFLAGS) $(PTHREAD_CFLAGS) catch_main.o catch_test_common.o
+unit_tests_LDADD = $(STORE_LDFLAGS) $(INIPARSER_LDFLAGS) $(MAPNIK_LDFLAGS) $(PTHREAD_CFLAGS) catch_main.o catch_test_common.o
 
 CLEANFILES=*.slo mod_tile.la stderr.out src/*.slo src/*.lo src/.libs/* src/*.la
 

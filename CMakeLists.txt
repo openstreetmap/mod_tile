@@ -106,6 +106,11 @@ if(NOT MALLOC_LIB STREQUAL "libc")
   endif()
 endif()
 
+# Use /usr/local/lib for FreeBSD
+if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+  link_directories(/usr/local/lib)
+endif()
+
 #-----------------------------------------------------------------------------
 #
 #  Set variables

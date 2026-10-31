@@ -239,6 +239,7 @@ set(unit_tests_LIBS
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${LIBMAPNIK_LIBRARIES}
+  ${STORE_LIBRARIES}
 )
 add_executable(unit_tests ${unit_tests_SRCS})
 set_target_properties(unit_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests)

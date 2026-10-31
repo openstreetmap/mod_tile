@@ -32,7 +32,7 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
   ModTileEnableStatusURL On
   ModTileEnableTileThrottling Off
   ModTileEnableTileThrottlingXForward 0
-  ModTileMissingRequestTimeout 2
+  ModTileMissingRequestTimeout 10
   ModTileRenderdSocketName @RENDERD0_SOCKET@
   ModTileRequestTimeout 3
   ModTileThrottlingRenders 128 0.2
@@ -97,10 +97,13 @@ Redirect /renderd-example-map/leaflet/leaflet.min.js https://unpkg.com/leaflet/d
 CustomLog @HTTPD_LOG_ACCESS@ "%A:%p %t \"%r\" %>s %b"
 ErrorLog @HTTPD_LOG_ERROR@
 Group @WWW_GROUP_NAME@
+KeepAlive On
+KeepAliveTimeout 5
 Listen @HTTPD0_HOST@:@HTTPD0_PORT@
 Listen @HTTPD1_HOST@:@HTTPD1_PORT@
 Listen @HTTPD2_HOST@:@HTTPD2_PORT@
 LogLevel debug
+MaxKeepAliveRequests 500
 PidFile @HTTPD_PID@
 ServerName localhost
 ServerRoot @PROJECT_BINARY_DIR@/tests

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 - 2023 by mod_tile contributors (see AUTHORS file)
+ * Copyright (c) 2007 - 2026 by mod_tile contributors (see AUTHORS file)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -116,13 +116,15 @@ void *fetch_thread(void *arg)
 
 TEST_CASE("renderd/queueing", "request queueing")
 {
-	SECTION("renderd/queueing/initialisation", "test the initialisation of the request queue") {
+	SECTION("renderd/queueing/initialisation", "test the initialisation of the request queue")
+	{
 		request_queue *queue = request_queue_init();
 		REQUIRE(queue != NULL);
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/simple request add", "test the addition of a single request") {
+	SECTION("renderd/queueing/simple request add", "test the addition of a single request")
+	{
 		request_queue *queue = request_queue_init();
 		struct item *item = init_render_request(cmdRender);
 
@@ -132,7 +134,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/simple request add priority", "test the addition of requests with different priorities") {
+	SECTION("renderd/queueing/simple request add priority", "test the addition of requests with different priorities")
+	{
 		struct item *item;
 		enum protoCmd res;
 		request_queue *queue = request_queue_init();
@@ -188,7 +191,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/simple request fetch", "test the fetching of a single request") {
+	SECTION("renderd/queueing/simple request fetch", "test the fetching of a single request")
+	{
 		request_queue *queue = request_queue_init();
 
 		struct item *item = init_render_request(cmdRender);
@@ -229,7 +233,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/simple request fetch priority", "test the fetching of requests with different priorities and their ordering") {
+	SECTION("renderd/queueing/simple request fetch priority", "test the fetching of requests with different priorities and their ordering")
+	{
 		struct item *item2;
 
 		request_queue *queue = request_queue_init();
@@ -275,7 +280,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/pending requests", "test if de-duplication of requests work") {
+	SECTION("renderd/queueing/pending requests", "test if de-duplication of requests work")
+	{
 		enum protoCmd res;
 		struct item *item;
 		request_queue *queue = request_queue_init();
@@ -352,7 +358,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/overflow requests", "test if requests correctly overflow from one request priority to the next") {
+	SECTION("renderd/queueing/overflow requests", "test if requests correctly overflow from one request priority to the next")
+	{
 		enum protoCmd res;
 		struct item *item;
 		request_queue *queue = request_queue_init();
@@ -385,13 +392,15 @@ TEST_CASE("renderd/queueing", "request queueing")
 		request_queue_close(queue);
 	}
 
-	SECTION("renderd/queueing/multithreading request addition", "test if there are any issues with multithreading") {
+	SECTION("renderd/queueing/multithreading request addition", "test if there are any issues with multithreading")
+	{
 		pthread_t *addition_threads;
 		request_queue *queue;
 
 		REQUIRE((NO_THREADS * NO_QUEUE_REQUESTS) < DIRTY_LIMIT);
 
-		for (int j = 0; j < NO_TEST_REPEATS; j++) { // As we are looking for race conditions, repeat this test many times
+		for (int j = 0; j < NO_TEST_REPEATS; j++) {
+			// As we are looking for race conditions, repeat this test many times
 			addition_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));
 			queue = request_queue_init();
 			void *status;
@@ -416,12 +425,14 @@ TEST_CASE("renderd/queueing", "request queueing")
 		}
 	}
 
-	SECTION("renderd/queueing/multithreading request fetch", "test if there are any issues with multithreading") {
+	SECTION("renderd/queueing/multithreading request fetch", "test if there are any issues with multithreading")
+	{
 		pthread_t *fetch_threads;
 		struct request_queue *queue;
 		struct item *item;
 
-		for (int j = 0; j < NO_TEST_REPEATS; j++) { // As we are looking for race conditions, repeat this test many times
+		for (int j = 0; j < NO_TEST_REPEATS; j++) {
+			// As we are looking for race conditions, repeat this test many times
 			fetch_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));
 			queue = request_queue_init();
 			void *status;
@@ -453,12 +464,14 @@ TEST_CASE("renderd/queueing", "request queueing")
 		}
 	}
 
-	SECTION("renderd/queueing/multithreading request fetch on empty queue", "test if there are any issues with multithreading") {
+	SECTION("renderd/queueing/multithreading request fetch on empty queue", "test if there are any issues with multithreading")
+	{
 		pthread_t *fetch_threads;
 		pthread_t *addition_threads;
 		struct request_queue *queue;
 
-		for (int j = 0; j < NO_TEST_REPEATS; j++) { // As we are looking for race conditions, repeat this test many times
+		for (int j = 0; j < NO_TEST_REPEATS; j++) {
+			// As we are looking for race conditions, repeat this test many times
 			fetch_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));
 			addition_threads = (pthread_t *)calloc(NO_THREADS, sizeof(pthread_t));
 			queue = request_queue_init();
@@ -494,7 +507,8 @@ TEST_CASE("renderd/queueing", "request queueing")
 		}
 	}
 
-	SECTION("renderd/queueing/clear fd", "Test if the clearing of fd work for queues") {
+	SECTION("renderd/queueing/clear fd", "Test if the clearing of fd work for queues")
+	{
 		struct request_queue *queue = request_queue_init();
 		struct item *item;
 
@@ -552,7 +566,8 @@ TEST_CASE("renderd", "tile generation")
 	int found, ret;
 	std::string err_log_lines, out_log_lines;
 
-	SECTION("render_init", "should throw nice error if paths are invalid") {
+	SECTION("render_init", "should throw nice error if paths are invalid")
+	{
 		start_capture();
 		render_init("doesnotexist", "doesnotexist", 1);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
@@ -561,7 +576,8 @@ TEST_CASE("renderd", "tile generation")
 		REQUIRE(found > -1);
 	}
 
-	SECTION("rx_request/bad", "should return cmdNotDone") {
+	SECTION("rx_request/bad", "should return cmdNotDone")
+	{
 		int pipefd[2];
 		REQUIRE(pipe(pipefd) == 0);
 		struct protocol *req = (struct protocol *)malloc(sizeof(struct protocol));
@@ -621,7 +637,8 @@ TEST_CASE("renderd", "tile generation")
 		free(req);
 	}
 
-	SECTION("send_response", "should complete") {
+	SECTION("send_response", "should complete")
+	{
 		auto rsp = GENERATE(cmdRender, cmdRenderPrio, cmdRenderLow, cmdRenderBulk);
 
 		render_request_queue = request_queue_init();
@@ -645,7 +662,8 @@ TEST_CASE("storage-backend", "Tile storage backend router")
 	int found;
 	std::string err_log_lines, out_log_lines, tile_dir = create_tile_dir();
 
-	SECTION("storage/initialise", "should return NULL") {
+	SECTION("storage/initialise", "should return NULL")
+	{
 		start_capture();
 
 		// empty string
@@ -698,7 +716,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 	std::string tile_dir = create_tile_dir();
 	std::string xmlconfig(XMLCONFIG_DEFAULT);
 
-	SECTION("storage/initialise", "should return tile_dir storage_ctx") {
+	SECTION("storage/initialise", "should return tile_dir storage_ctx")
+	{
 		struct storage_backend *store = NULL;
 
 		store = init_storage_backend(tile_dir.c_str());
@@ -708,7 +727,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/stat/non existent", "should return 0 size") {
+	SECTION("storage/stat/non existent", "should return 0 size")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -721,7 +741,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/read/non existent", "should return 0 size") {
+	SECTION("storage/read/non existent", "should return 0 size")
+	{
 		struct storage_backend *store = NULL;
 		int size;
 		char *buf = (char *)malloc(10000);
@@ -739,7 +760,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		free(err_msg);
 	}
 
-	SECTION("storage/write/full metatile", "should complete") {
+	SECTION("storage/write/full metatile", "should complete")
+	{
 		struct storage_backend *store = NULL;
 
 		store = init_storage_backend(tile_dir.c_str());
@@ -763,7 +785,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		SUCCEED();
 	}
 
-	SECTION("storage/stat/full metatile", "should complete") {
+	SECTION("storage/stat/full metatile", "should complete")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -803,7 +826,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		SUCCEED();
 	}
 
-	SECTION("storage/read/full metatile", "should complete") {
+	SECTION("storage/read/full metatile", "should complete")
+	{
 		struct storage_backend *store = NULL;
 		char *buf;
 		char *buf_tmp;
@@ -850,7 +874,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		SUCCEED();
 	}
 
-	SECTION("storage/read/partial metatile", "should return correct data") {
+	SECTION("storage/read/partial metatile", "should return correct data")
+	{
 		struct storage_backend *store = NULL;
 		char *buf;
 		char *buf_tmp;
@@ -901,7 +926,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		free(buf_tmp);
 	}
 
-	SECTION("storage/expire metatile", "should expire the tile") {
+	SECTION("storage/expire metatile", "should expire the tile")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -934,7 +960,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/delete metatile", "should delete the tile") {
+	SECTION("storage/delete metatile", "should delete the tile")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -963,7 +990,8 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/tile_storage_id", "should return -1") {
+	SECTION("storage/tile_storage_id", "should return -1")
+	{
 		struct storage_backend *store = NULL;
 		char *string = (char *)malloc(PATH_MAX - 1);
 
@@ -985,7 +1013,8 @@ TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 	std::string err_log_lines, out_log_lines;
 
 #ifdef HAVE_LIBMEMCACHED
-	SECTION("memcached storage/initialise", "should not return NULL") {
+	SECTION("memcached storage/initialise", "should not return NULL")
+	{
 		start_capture(1);
 		REQUIRE(init_storage_backend("memcached://") != NULL);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
@@ -995,12 +1024,13 @@ TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 	}
 
 #else
-	SECTION("memcached storage/initialise", "should return NULL") {
+	SECTION("memcached storage/initialise", "should return NULL")
+	{
 		start_capture();
 		REQUIRE(init_storage_backend("memcached://") == NULL);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		found = err_log_lines.find("init_storage_memcached: Support for memcached has not been compiled into this program");
+		found = err_log_lines.find("init_storage_memcached: Support for memcached storage has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
 
@@ -1011,7 +1041,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 {
 	std::string xmlconfig(XMLCONFIG_DEFAULT);
 
-	SECTION("storage/initialise", "should return NULL storage_ctx") {
+	SECTION("storage/initialise", "should return NULL storage_ctx")
+	{
 		struct storage_backend *store = NULL;
 
 		store = init_storage_backend("null://");
@@ -1021,7 +1052,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/stat", "should return -1") {
+	SECTION("storage/stat", "should return -1")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -1038,7 +1070,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/read", "should return -1") {
+	SECTION("storage/read", "should return -1")
+	{
 		struct storage_backend *store = NULL;
 		int size;
 		char *buf = (char *)malloc(10000);
@@ -1056,7 +1089,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		free(err_msg);
 	}
 
-	SECTION("storage/write/full metatile", "should complete") {
+	SECTION("storage/write/full metatile", "should complete")
+	{
 		struct storage_backend *store = NULL;
 
 		store = init_storage_backend("null://");
@@ -1077,7 +1111,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		SUCCEED();
 	}
 
-	SECTION("storage/expire metatile", "should return 0") {
+	SECTION("storage/expire metatile", "should return 0")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -1115,7 +1150,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/delete metatile", "should return 0") {
+	SECTION("storage/delete metatile", "should return 0")
+	{
 		struct storage_backend *store = NULL;
 		struct stat_info sinfo;
 
@@ -1153,7 +1189,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 		store->close_storage(store);
 	}
 
-	SECTION("storage/tile_storage_id", "should return -1") {
+	SECTION("storage/tile_storage_id", "should return -1")
+	{
 		struct storage_backend *store = NULL;
 		char *string = (char *)malloc(PATH_MAX - 1);
 
@@ -1169,7 +1206,8 @@ TEST_CASE("null storage-backend", "NULL Tile storage backend")
 
 TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 {
-	SECTION("storage/initialise", "should return NULL") {
+	SECTION("storage/initialise", "should return NULL")
+	{
 		int found;
 		std::string err_log_lines, out_log_lines;
 
@@ -1180,7 +1218,7 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 #ifdef HAVE_LIBRADOS
 		found = err_log_lines.find("init_storage_rados: failed to read rados config file");
 #else
-		found = err_log_lines.find("init_storage_rados: Support for rados has not been compiled into this program");
+		found = err_log_lines.find("init_storage_rados: Support for rados storage has not been compiled into this program");
 #endif
 		REQUIRE(found > -1);
 	}
@@ -1222,7 +1260,8 @@ TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 {
 #ifdef HAVE_LIBCURL
-	SECTION("storage/initialise", "should return 1") {
+	SECTION("storage/initialise", "should return 1")
+	{
 		struct storage_backend *store = NULL;
 
 		store = init_storage_backend("ro_http_proxy://");
@@ -1232,7 +1271,8 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 	}
 
 #else
-	SECTION("storage/initialise", "should return NULL") {
+	SECTION("storage/initialise", "should return NULL")
+	{
 		int found;
 		std::string err_log_lines, out_log_lines;
 
@@ -1240,7 +1280,7 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 		REQUIRE(init_storage_backend("ro_http_proxy://") == NULL);
 		std::tie(err_log_lines, out_log_lines) = end_capture();
 
-		found = err_log_lines.find("init_storage_ro_http_proxy: Support for curl and therefore the http proxy storage has not been compiled into this program");
+		found = err_log_lines.find("init_storage_ro_http_proxy: Support for http proxy storage has not been compiled into this program");
 		REQUIRE(found > -1);
 	}
 
@@ -1249,7 +1289,8 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 
 TEST_CASE("projections", "Test projections")
 {
-	SECTION("projections/bounds/spherical", "should return 1") {
+	SECTION("projections/bounds/spherical", "should return 1")
+	{
 		const char *projection_srs;
 		int x_multiplier, y_multiplier;
 		double expected_minx, expected_miny, expected_maxx, expected_maxy;
@@ -1257,27 +1298,26 @@ TEST_CASE("projections", "Test projections")
 		mapnik::box2d<double> bbox;
 
 		std::tie(projection_srs, x_multiplier, y_multiplier, expected_minx, expected_miny, expected_maxx, expected_maxy, expected_rounded_minx, expected_rounded_miny, expected_rounded_maxx, expected_rounded_maxy) =
-		GENERATE(table<const char *, int, int, double, double, double, double, double, double, double, double>({
-			// 313086.06785625 = 2*20037508.3428 / (2^10 / 8)
-			std::make_tuple("+proj=merc +a=6378137 +b=6378137",
-					1, 1,
-					-20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
-					19724422.0, 19724422.0, -19724422.0, -19724422.0),
-			// 156543.033928125 = 2*20037508.3428 / (2^10 / 8 * 2)
-			std::make_tuple("+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs",
-					2, 1,
-					-20037508.3428, -10018754.1714, 20037508.3428, 10018754.1714,
-					19880965.0, 9862211.0, -19880965.0, -9862211.0),
-			// 5468.75 = 700000 / (2^10 / 8)
-			std::make_tuple("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs",
-					1, 2,
-					0.0, 0.0, 700000.0, 1400000.0,
-					694531.0, 1394531.0, 5469.0, 5469.0),
-			// 313086.06785625 = 2*20037508.3428 / (2^10 / 8)
-			std::make_tuple("",
-					1, 1,
-					-20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
-					19724422.0, 19724422.0, -19724422.0, -19724422.0)}));
+		    GENERATE(table<const char *, int, int, double, double, double, double, double, double, double, double>({// 313086.06785625 = 2*20037508.3428 / (2^10 / 8)
+															    std::make_tuple("+proj=merc +a=6378137 +b=6378137",
+																	    1, 1,
+																	    -20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
+																	    19724422.0, 19724422.0, -19724422.0, -19724422.0),
+															    // 156543.033928125 = 2*20037508.3428 / (2^10 / 8 * 2)
+															    std::make_tuple("+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs",
+																	    2, 1,
+																	    -20037508.3428, -10018754.1714, 20037508.3428, 10018754.1714,
+																	    19880965.0, 9862211.0, -19880965.0, -9862211.0),
+															    // 5468.75 = 700000 / (2^10 / 8)
+															    std::make_tuple("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs",
+																	    1, 2,
+																	    0.0, 0.0, 700000.0, 1400000.0,
+																	    694531.0, 1394531.0, 5469.0, 5469.0),
+															    // 313086.06785625 = 2*20037508.3428 / (2^10 / 8)
+															    std::make_tuple("",
+																	    1, 1,
+																	    -20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
+																	    19724422.0, 19724422.0, -19724422.0, -19724422.0)}));
 
 		struct projectionconfig *prj = get_projection(projection_srs);
 
@@ -1309,22 +1349,23 @@ TEST_CASE("g_logger", "Test g_logger.c")
 	std::string err_log_lines, out_log_lines, expected_output;
 
 	std::tie(log_level, expected_output) =
-	GENERATE(table<int, std::string>({
-		std::make_tuple(G_LOG_LEVEL_ERROR, "ERROR"),
-		std::make_tuple(G_LOG_LEVEL_CRITICAL, "CRITICAL"),
-		std::make_tuple(G_LOG_LEVEL_WARNING, "WARNING"),
-		std::make_tuple(G_LOG_LEVEL_MESSAGE, "MESSAGE"),
-		std::make_tuple(G_LOG_LEVEL_INFO, "INFO"),
-		std::make_tuple(G_LOG_LEVEL_DEBUG, "DEBUG"),
-		std::make_tuple(0, "UNKNOWN")}));
+	    GENERATE(table<int, std::string>({std::make_tuple(G_LOG_LEVEL_ERROR, "ERROR"),
+					      std::make_tuple(G_LOG_LEVEL_CRITICAL, "CRITICAL"),
+					      std::make_tuple(G_LOG_LEVEL_WARNING, "WARNING"),
+					      std::make_tuple(G_LOG_LEVEL_MESSAGE, "MESSAGE"),
+					      std::make_tuple(G_LOG_LEVEL_INFO, "INFO"),
+					      std::make_tuple(G_LOG_LEVEL_DEBUG, "DEBUG"),
+					      std::make_tuple(0, "UNKNOWN")}));
 
-	SECTION("g_logger_level_name: " + expected_output, "should return the expected string") {
+	SECTION("g_logger_level_name: " + expected_output, "should return the expected string")
+	{
 		std::string result;
 		result = g_logger_level_name(log_level);
 		REQUIRE(result == expected_output);
 	}
 
-	SECTION("g_logger background: " + expected_output, "should log the expected string") {
+	SECTION("g_logger background: " + expected_output, "should log the expected string")
+	{
 		start_capture();
 		g_logger(log_level, "BACKGROUND TEST");
 		std::tie(err_log_lines, out_log_lines) = end_capture();
@@ -1335,25 +1376,26 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_out = out_log_lines.find(expected_output);
 
 		switch (log_level) {
-			case 0:
-				// BACKGROUND UNKNOWN messages do not log
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out == -1);
-				break;
+		case 0:
+			// BACKGROUND UNKNOWN messages do not log
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out == -1);
+			break;
 
-			case G_LOG_LEVEL_DEBUG:
-				// BACKGROUND DEBUG messages do not log
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out == -1);
-				break;
+		case G_LOG_LEVEL_DEBUG:
+			// BACKGROUND DEBUG messages do not log
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out == -1);
+			break;
 
-			default:
-				REQUIRE(found_err > -1);
-				REQUIRE(found_out == -1);
+		default:
+			REQUIRE(found_err > -1);
+			REQUIRE(found_out == -1);
 		}
 	}
 
-	SECTION("g_logger foreground: " + expected_output, "should log the expected string") {
+	SECTION("g_logger foreground: " + expected_output, "should log the expected string")
+	{
 		std::string message = expected_output + " FOREGROUND TEST";
 		start_capture();
 		foreground = 1;
@@ -1365,30 +1407,31 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_out = out_log_lines.find(message);
 
 		switch (log_level) {
-			case 0:
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out == -1);
-				break;
+		case 0:
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out == -1);
+			break;
 
-			case G_LOG_LEVEL_INFO:
-				// FOREGROUND INFO messages log to stdout
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out > -1);
-				break;
+		case G_LOG_LEVEL_INFO:
+			// FOREGROUND INFO messages log to stdout
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out > -1);
+			break;
 
-			case G_LOG_LEVEL_DEBUG:
-				// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out == -1);
-				break;
+		case G_LOG_LEVEL_DEBUG:
+			// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out == -1);
+			break;
 
-			default:
-				REQUIRE(found_err > -1);
-				REQUIRE(found_out == -1);
+		default:
+			REQUIRE(found_err > -1);
+			REQUIRE(found_out == -1);
 		}
 	}
 
-	SECTION("g_logger foreground debug: " + expected_output, "should log the expected string") {
+	SECTION("g_logger foreground debug: " + expected_output, "should log the expected string")
+	{
 		std::string message = expected_output + " FOREGROUND DEBUG TEST";
 		start_capture(1);
 		g_logger(log_level, "%s", message.c_str());
@@ -1398,33 +1441,34 @@ TEST_CASE("g_logger", "Test g_logger.c")
 		found_out = out_log_lines.find(message);
 
 		switch (log_level) {
-			case 0:
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out == -1);
-				break;
+		case 0:
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out == -1);
+			break;
 
-			case G_LOG_LEVEL_INFO:
-				// FOREGROUND INFO messages log to stdout
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out > -1);
-				break;
+		case G_LOG_LEVEL_INFO:
+			// FOREGROUND INFO messages log to stdout
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out > -1);
+			break;
 
-			case G_LOG_LEVEL_DEBUG:
-				// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-				REQUIRE(found_err == -1);
-				REQUIRE(found_out > -1);
-				break;
+		case G_LOG_LEVEL_DEBUG:
+			// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
+			REQUIRE(found_err == -1);
+			REQUIRE(found_out > -1);
+			break;
 
-			default:
-				REQUIRE(found_err > -1);
-				REQUIRE(found_out == -1);
+		default:
+			REQUIRE(found_err > -1);
+			REQUIRE(found_out == -1);
 		}
 	}
 }
 
 TEST_CASE("metatile", "Test metatile.cpp")
 {
-	SECTION("metatile/get & set", "should return the same string") {
+	SECTION("metatile/get & set", "should return the same string")
+	{
 		metaTile tiles("", "", 1024, 1024, 10);
 
 		for (int yy = 0; yy < METATILE; yy++) {

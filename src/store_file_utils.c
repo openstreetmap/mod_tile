@@ -59,7 +59,10 @@ int mkdirp(const char *path)
 	p = tmp;
 
 	if (!*p) {
+		// This seems to be unreachable
+		/* LCOV_EXCL_START */
 		return 0;
+		/* LCOV_EXCL_STOP */
 	}
 
 	p++; // Ignore leading /

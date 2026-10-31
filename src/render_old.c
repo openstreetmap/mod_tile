@@ -34,25 +34,10 @@
 #include "render_submit_queue.h"
 #include "renderd_config.h"
 #include "store_file_utils.h"
-#include "sys_utils.h"
 
 static int num_render = 0, num_all = 0;
-static int max_load;
 static time_t planet_timestamp = 0;
 static struct timeval start, end;
-
-void display_rate(struct timeval start, struct timeval end, int num)
-{
-	int d_s, d_us;
-	float sec;
-
-	d_s = end.tv_sec - start.tv_sec;
-	d_us = end.tv_usec - start.tv_usec;
-
-	sec = d_s + d_us / 1000000.0;
-
-	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
-}
 
 static time_t get_planet_time(const char *tile_dir)
 {
@@ -83,17 +68,6 @@ static time_t get_planet_time(const char *tile_dir)
 	}
 
 	return planet_time;
-}
-
-static void check_load(void)
-{
-	double avg = get_load_avg();
-
-	while (avg >= max_load) {
-		g_logger(G_LOG_LEVEL_MESSAGE, "Load average %f, sleeping", avg);
-		sleep(5);
-		avg = get_load_avg();
-	}
 }
 
 static void descend(const char *tile_dir, const char *search, int verbose)
@@ -178,7 +152,7 @@ int main(int argc, char **argv)
 	const char *mapname = mapname_default;
 	const char *socketname = socketname_default;
 	const char *tile_dir = tile_dir_default;
-	max_load = max_load_default;
+	int max_load = max_load_default;
 	int max_zoom = max_zoom_default;
 	int min_zoom = min_zoom_default;
 	int num_threads = num_threads_default;

@@ -283,7 +283,7 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 	req = &(item->req);
 
 	if (queue == NULL) {
-		g_logger(G_LOG_LEVEL_CRITICAL, "queue os NULL");
+		g_logger(G_LOG_LEVEL_CRITICAL, "queue is NULL");
 		exit(3);
 	}
 
@@ -352,7 +352,10 @@ enum protoCmd request_queue_add_request(struct request_queue * queue, struct ite
 
 		pthread_cond_signal(&queue->qCond);
 	} else {
+		// This seems to be unreachable
+		/* LCOV_EXCL_START */
 		free(item);
+		/* LCOV_EXCL_STOP */
 	}
 
 	pthread_mutex_unlock(&queue->qLock);
@@ -453,7 +456,7 @@ void request_queue_copy_stats(struct request_queue * queue, stats_struct * stats
 struct request_queue * request_queue_init()
 {
 	int res;
-	struct request_queue * queue = calloc(1, sizeof(struct request_queue));
+	struct request_queue * queue = (struct request_queue *)calloc(1, sizeof(struct request_queue));
 
 	if (queue == NULL) {
 		return NULL;

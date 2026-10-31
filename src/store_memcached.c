@@ -89,7 +89,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	meta_offset = (x & mask) * METATILE + (y & mask);
 
 	memcached_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
-	buf_raw = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
+	buf_raw = memcached_get((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		free(m);
@@ -149,7 +149,7 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
 	offset = (x & mask) * METATILE + (y & mask);
 
 	memcached_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
-	buf = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
+	buf = memcached_get((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		tile_stat.size = -1;
@@ -184,7 +184,7 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
 	char tmp[PATH_MAX];
 	struct stat_info tile_stat;
 	int sz2 = sz + sizeof(struct stat_info);
-	char * buf2 = malloc(sz2);
+	char * buf2 = (char *)malloc(sz2);
 	memcached_return_t rc;
 
 	if (buf2 == NULL) {
@@ -204,14 +204,14 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
 
 	snprintf(meta_path, PATH_MAX - 1, "%s/%d/%d/%d.meta", xmlconfig, x, y, z);
 
-	rc = memcached_set(store->storage_ctx, meta_path, strlen(meta_path), buf2, sz2, (time_t)0, (uint32_t)0);
+	rc = memcached_set((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), buf2, sz2, (time_t)0, (uint32_t)0);
 	free(buf2);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		return -1;
 	}
 
-	memcached_flush_buffers(store->storage_ctx);
+	memcached_flush_buffers((memcached_st *)store->storage_ctx);
 	return sz;
 }
 
@@ -224,7 +224,7 @@ static int memcached_metatile_delete(struct storage_backend * store, const char 
 	//TODO: deal with options
 	memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
 
-	rc = memcached_delete(store->storage_ctx, meta_path, strlen(meta_path), 0);
+	rc = memcached_delete((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), 0);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		return -1;
@@ -244,7 +244,7 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 
 	//TODO: deal with options
 	memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
-	buf = memcached_get(store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
+	buf = memcached_get((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		return -1;
@@ -254,7 +254,7 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 
 	// memcached_get() does not return a CAS value, so a compare-and-swap cannot be used here
 	// (the previous code passed an uninitialised CAS token). Replace the existing item instead.
-	rc = memcached_replace(store->storage_ctx, meta_path, strlen(meta_path), buf, len, 0, flags);
+	rc = memcached_replace((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), buf, len, 0, flags);
 
 	if (rc != MEMCACHED_SUCCESS) {
 		free(buf);
@@ -267,7 +267,7 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 
 static int memcached_close_storage(struct storage_backend * store)
 {
-	memcached_free(store->storage_ctx);
+	memcached_free((memcached_st *)store->storage_ctx);
 	store->storage_ctx = NULL;
 	return 0;
 }
@@ -278,10 +278,10 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 {
 
 #ifndef HAVE_LIBMEMCACHED
-	g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Support for memcached has not been compiled into this program");
+	g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Support for memcached storage has not been compiled into this program");
 	return NULL;
 #else
-	struct storage_backend * store = malloc(sizeof(struct storage_backend));
+	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
 	memcached_st * ctx;
 	char * connection_str = "--server=localhost";
 
@@ -292,7 +292,7 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 
 	if (strcmp(connection_string, "memcached://")) {
 		int connection_string_len = strnlen(connection_string, PATH_MAX);
-		connection_str = malloc(sizeof(char) * connection_string_len);
+		connection_str = (char *)malloc(sizeof(char) * connection_string_len);
 		// The length of the string "memcached://" is 12
 		snprintf(connection_str, connection_string_len - 2, "--server=%.*s", connection_string_len - 12, connection_string + 12);
 	}

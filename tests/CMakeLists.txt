@@ -39,6 +39,9 @@ find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 if(DEFINED ENV{CTEST_SERVER_HOST})
   # To the value of environment variable "CTEST_SERVER_HOST"
   set(CTEST_SERVER_HOST "$ENV{CTEST_SERVER_HOST}")
+elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+  # To localhost on FreeBSD
+  set(CTEST_SERVER_HOST "localhost")
 else()
   # Or to 0.0.0.0 by default
   set(CTEST_SERVER_HOST "0.0.0.0")
@@ -440,6 +443,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      PASS_REGULAR_EXPRESSION "\t24 in [0-9.]+ seconds"
       TIMEOUT 90
     )
     add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
@@ -447,19 +451,20 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         $<TARGET_FILE:render_list> \
           --all \
           --config ${RENDERD_CONF} \
-          --max-lat 85.0511 \
-          --max-lon 180 \
-          --max-zoom 5 \
-          --min-lat -85.0511 \
-          --min-lon -180 \
-          --min-zoom 5
+          --max-lat 49.4 \
+          --max-lon -66.9 \
+          --max-zoom 8 \
+          --min-lat 24.4 \
+          --min-lon -125.0 \
+          --min-zoom 0
       "
       WORKING_DIRECTORY tests
     )
     set_tests_properties(render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
+      PASS_REGULAR_EXPRESSION "\t47 in [0-9.]+ seconds"
+      TIMEOUT 90
     )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
@@ -478,11 +483,13 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      PASS_REGULAR_EXPRESSION "\t10 in [0-9.]+ seconds"
       TIMEOUT 90
     )
     add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         echo '0 0 0' | $<TARGET_FILE:render_list> \
+          --force \
           --config ${RENDERD_CONF} \
           --verbose
       "
@@ -491,6 +498,23 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      PASS_REGULAR_EXPRESSION "\t1 in [0-9.]+ seconds"
+      TIMEOUT 60
+    )
+    add_test(NAME render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      COMMAND ${BASH} -c "
+        ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
+        echo '0 0 0' | $<TARGET_FILE:render_list> \
+          --config ${RENDERD_CONF} \
+          --verbose
+      "
+      WORKING_DIRECTORY tests
+    )
+    set_tests_properties(render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+      DEPENDS render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      PASS_REGULAR_EXPRESSION "Tile .+/0/0/0.meta is clean, ignoring"
+      RUN_SERIAL TRUE
       TIMEOUT 60
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
@@ -511,6 +535,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_old_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      RUN_SERIAL TRUE
       TIMEOUT 90
     )
     add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
@@ -524,6 +549,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set_tests_properties(render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
       DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      RUN_SERIAL TRUE
       TIMEOUT 60
     )
     add_test(NAME render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND}
@@ -785,6 +811,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
     set_tests_properties(tile_expired_${MAP_NAME}_${STORAGE_BACKEND} PROPERTIES
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+      RUN_SERIAL TRUE
     )
   endforeach()
 
@@ -1320,7 +1347,7 @@ add_compile_definitions(
   RENDERD_CONF="${PROJECT_SOURCE_DIR}/etc/renderd/renderd.conf.examples"
 )
 include_directories(${PROJECT_SOURCE_DIR}/includes)
-link_libraries(${GLIB_LIBRARIES})
+link_libraries(${GLIB_LIBRARIES} Threads::Threads)
 
 #-----------------------------------------------------------------------------
 #

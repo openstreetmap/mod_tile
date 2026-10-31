@@ -39,7 +39,7 @@
 
 #ifdef WANT_STORE_COMPOSITE
 
-struct tile_cache {
+struct store_ro_composite_tile_cache {
 	struct stat_info st_stat;
 	char * tile;
 	int x, y, z;
@@ -51,7 +51,7 @@ struct ro_composite_ctx {
 	char xmlconfig_primary[XMLCONFIG_MAX];
 	struct storage_backend * store_secondary;
 	char xmlconfig_secondary[XMLCONFIG_MAX];
-	struct tile_cache cache;
+	struct store_ro_composite_tile_cache cache;
 	int render_size;
 };
 
@@ -113,8 +113,13 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
 	closure.max_size = sz;
 	imageA = cairo_image_surface_create_from_png_stream(&read_png_stream_from_byte_array, &closure);
 
-	if (!imageA) {
+	if (!imageA || cairo_surface_status(imageA) != CAIRO_STATUS_SUCCESS) {
 		snprintf(log_msg, 1024, "ro_composite_tile_read: Failed to decode png data from primary backend\n");
+
+		if (imageA) {
+			cairo_surface_destroy(imageA);
+		}
+
 		return -1;
 	}
 
@@ -129,18 +134,28 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
 	closure.max_size = sz;
 	imageB = cairo_image_surface_create_from_png_stream(&read_png_stream_from_byte_array, &closure);
 
-	if (!imageB) {
+	if (!imageB || cairo_surface_status(imageB) != CAIRO_STATUS_SUCCESS) {
 		snprintf(log_msg, 1024, "ro_composite_tile_read: Failed to decode png data from secondary backend\n");
 		cairo_surface_destroy(imageA);
+
+		if (imageB) {
+			cairo_surface_destroy(imageB);
+		}
+
 		return -1;
 	}
 
 	imageC = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ctx->render_size, ctx->render_size);
 
-	if (!imageC) {
+	if (!imageC || cairo_surface_status(imageC) != CAIRO_STATUS_SUCCESS) {
 		snprintf(log_msg, 1024, "ro_composite_tile_read: Failed to create output png\n");
 		cairo_surface_destroy(imageA);
 		cairo_surface_destroy(imageB);
+
+		if (imageC) {
+			cairo_surface_destroy(imageC);
+		}
+
 		return -1;
 	}
 
@@ -229,8 +244,8 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 	return NULL;
 #else
-	struct storage_backend * store = malloc(sizeof(struct storage_backend));
-	struct ro_composite_ctx * ctx = calloc(1, sizeof(struct ro_composite_ctx));
+	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)calloc(1, sizeof(struct ro_composite_ctx));
 	char * connection_string_primary;
 	char * connection_string_secondary;
 	char * tmp;
@@ -251,7 +266,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 		return NULL;
 	}
 
-	connection_string_secondary = strstr(connection_string, "}{");
+	connection_string_secondary = (char *)strstr(connection_string, "}{");
 
 	if (connection_string_secondary == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: malformed connection string, missing '}{' separator: %s", connection_string);
@@ -260,7 +275,7 @@ struct storage_backend * init_storage_ro_composite(const char * connection_strin
 		return NULL;
 	}
 
-	connection_string_primary = malloc(strlen(connection_string) - strlen("composite:{") - strlen(connection_string_secondary) + 1);
+	connection_string_primary = (char *)malloc(strlen(connection_string) - strlen("composite:{") - strlen(connection_string_secondary) + 1);
 
 	if (connection_string_primary == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_composite: failed to allocate memory for primary connection string");

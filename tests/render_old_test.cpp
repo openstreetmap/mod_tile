@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 - 2023 by mod_tile contributors (see AUTHORS file)
+ * Copyright (c) 2007 - 2026 by mod_tile contributors (see AUTHORS file)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -39,28 +39,32 @@ extern std::string err_log_lines, out_log_lines;
 
 TEST_CASE("render_old common", "common testing")
 {
-	SECTION("invalid long option", "should return 1") {
+	SECTION("invalid long option", "should return 1")
+	{
 		std::vector<std::string> argv = {"--doesnotexist"};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
-	SECTION("invalid short options", "should return 1") {
+	SECTION("invalid short options", "should return 1")
+	{
 		std::vector<std::string> argv = {"-doesnotexist"};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
-	SECTION("--help", "should return 0") {
+	SECTION("--help", "should return 0")
+	{
 		std::vector<std::string> argv = {"--help"};
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
-	SECTION("--version", "should show version number") {
+	SECTION("--version", "should show version number")
+	{
 		std::vector<std::string> argv = {"--version"};
 
 		int status = run_command(test_binary, argv);
@@ -68,7 +72,8 @@ TEST_CASE("render_old common", "common testing")
 		REQUIRE(out_log_lines == VERSION);
 	}
 
-	SECTION("--config invalid file", "should return 1") {
+	SECTION("--config invalid file", "should return 1")
+	{
 		std::string renderd_conf = "/path/is/invalid";
 		std::vector<std::string> argv = {"--config", renderd_conf};
 
@@ -82,7 +87,8 @@ TEST_CASE("render_old specific", "specific testing")
 {
 	std::string renderd_conf = (std::string)RENDERD_CONF;
 
-	SECTION("--config with invalid --map", "should return 1") {
+	SECTION("--config with invalid --map", "should return 1")
+	{
 		std::string map = "invalid";
 		std::vector<std::string> argv = {"--config", renderd_conf, "--map", map};
 
@@ -91,7 +97,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
 	}
 
-	SECTION("--num-threads subceeds minimum of 1", "should return 1") {
+	SECTION("--num-threads subceeds minimum of 1", "should return 1")
+	{
 		std::vector<std::string> argv = {"--num-threads", "0"};
 
 		int status = run_command(test_binary, argv);
@@ -99,7 +106,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid number of threads, must be >= 1 (0 was provided)"));
 	}
 
-	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1") {
+	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1")
+	{
 		std::vector<std::string> argv = {GENERATE("--max-zoom", "--min-zoom"), std::to_string(MAX_ZOOM + 1)};
 
 		int status = run_command(test_binary, argv);
@@ -107,7 +115,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("zoom, must be <= 20 (21 was provided)"));
 	}
 
-	SECTION("--min-zoom exceeds --max-zoom", "should return 1") {
+	SECTION("--min-zoom exceeds --max-zoom", "should return 1")
+	{
 		std::vector<std::string> argv = {"--max-zoom", "1", "--min-zoom", "2"};
 
 		int status = run_command(test_binary, argv);
@@ -115,7 +124,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (2) is larger than max zoom (1)."));
 	}
 
-	SECTION("--timestamp is not an integer", "should return 1") {
+	SECTION("--timestamp is not an integer", "should return 1")
+	{
 		std::string timestamp = "invalid";
 		std::vector<std::string> argv = {"--timestamp", timestamp};
 
@@ -123,7 +133,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE(WEXITSTATUS(status) == 1);
 	}
 
-	SECTION("--timestamp is a date with --help", "should return 0") {
+	SECTION("--timestamp is a date with --help", "should return 0")
+	{
 		std::string timestamp = GENERATE("01/01/69", "01/01/101");
 		std::vector<std::string> argv = {"--timestamp", timestamp, "--help"};
 
@@ -131,7 +142,8 @@ TEST_CASE("render_old specific", "specific testing")
 		REQUIRE(WEXITSTATUS(status) == 0);
 	}
 
-	SECTION("--timestamp is an integer with --help", "should return 0") {
+	SECTION("--timestamp is an integer with --help", "should return 0")
+	{
 		std::string timestamp = "111";
 		std::vector<std::string> argv = {"--timestamp", timestamp, "--help"};
 
@@ -144,7 +156,8 @@ TEST_CASE("render_old min/max int generator", "min/max int generator testing")
 {
 	std::string option = GENERATE("--max-load", "--max-zoom", "--min-zoom", "--num-threads");
 
-	SECTION(option + " option is positive with --help", "should return 0") {
+	SECTION(option + " option is positive with --help", "should return 0")
+	{
 		std::vector<std::string> argv = {option, "1", "--help"};
 
 		int status = run_command(test_binary, argv);
