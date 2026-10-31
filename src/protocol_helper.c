@@ -15,14 +15,13 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include "protocol.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
-#include <stdio.h>
 #include <errno.h>
 
 #include "g_logger.h"
+#include "protocol.h"
 
 int send_cmd(struct protocol * cmd, int fd)
 {

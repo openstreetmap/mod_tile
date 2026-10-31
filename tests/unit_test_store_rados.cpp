@@ -18,6 +18,7 @@
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
+#include "config.h"
 #include "store_rados.h"
 
 TEST_CASE("store_rados.c", "[store_rados]")
@@ -29,14 +30,7 @@ TEST_CASE("store_rados.c", "[store_rados]")
 		err_log_lines.clear();
 		reset_malloc_test_count();
 
-#ifndef HAVE_LIBRADOS
-		SECTION("returns NULL when HAVE_LIBRADOS is disabled")
-		{
-			struct storage_backend *store = init_storage_rados(valid_conn.c_str());
-			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for rados storage has not been compiled into this program"));
-		}
-#else
+#ifdef HAVE_LIBRADOS
 		SECTION("handles allocation failure for context or store struct (store=NULL, ctx=NULL)")
 		{
 			fail_next_malloc = true;
@@ -60,6 +54,13 @@ TEST_CASE("store_rados.c", "[store_rados]")
 			struct storage_backend *store = init_storage_rados("rados://tiles/nonexistent/ceph.conf");
 			REQUIRE(store == NULL);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to read rados config file"));
+		}
+#else
+		SECTION("returns NULL when HAVE_LIBRADOS is disabled")
+		{
+			struct storage_backend *store = init_storage_rados(valid_conn.c_str());
+			REQUIRE(store == NULL);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for rados storage has not been compiled into this program"));
 		}
 #endif
 	}

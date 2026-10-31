@@ -18,6 +18,7 @@
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
+#include "config.h"
 #include "sys_utils.h"
 
 TEST_CASE("sys_utils.c", "[sys_utils]")

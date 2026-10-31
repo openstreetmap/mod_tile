@@ -24,9 +24,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "protocol.h"
 #include "render_config.h"
-#include "store_file.h"
 #include "store_file_utils.h"
 #include "g_logger.h"
 

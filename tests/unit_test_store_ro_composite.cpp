@@ -15,15 +15,22 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <cstring>
+#include <fcntl.h>
+#include <limits.h>
+
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
+#include "config.h"
 #include "metatile.h"
 #include "render_config.h"
+#include "store_file_utils.h"
 #include "store_ro_composite.h"
 
-#ifdef WANT_STORE_COMPOSITE
-#include <cairo/cairo.h>
+#ifdef HAVE_CAIRO
+static cairo_status_t read_png_stream_from_byte_array(void *in_closure, unsigned char *data, unsigned int length);
+static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const unsigned char *data, unsigned int length);
 
 static void create_mock_metatile_for_composite(const char *tile_dir, const char *xmlconfig, int x, int y, int z, const char *data, size_t data_len)
 {
@@ -81,14 +88,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 	{
 		err_log_lines.clear();
 
-#ifndef WANT_STORE_COMPOSITE
-		SECTION("returns NULL when WANT_STORE_COMPOSITE is disabled")
-		{
-			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
-			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for compositing storage has not been compiled into this program"));
-		}
-#else
+#ifdef HAVE_CAIRO
 		SECTION("handles allocation failure for initial store struct")
 		{
 			fail_next_malloc = true;
@@ -176,10 +176,17 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			store->close_storage(store);
 			free(store);
 		}
+#else
+		SECTION("returns NULL when HAVE_CAIRO is disabled")
+		{
+			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
+			REQUIRE(store == NULL);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for compositing storage has not been compiled into this program"));
+		}
 #endif
 	}
 
-#ifdef WANT_STORE_COMPOSITE
+#ifdef HAVE_CAIRO
 	SECTION("ro_composite_tile_read")
 	{
 		struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());

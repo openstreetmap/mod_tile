@@ -15,10 +15,21 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <cstring>
+#include <limits.h>
+
 #include "catch/catch.hpp"
 #include "catch_test_common.hpp"
 
+#include "config.h"
+#include "store.h"
 #include "store_ro_http_proxy.h"
+
+#ifdef HAVE_LIBCURL
+static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp);
+static char *ro_http_proxy_xyz_to_storagekey(struct storage_backend *store, int x, int y, int z, char *key);
+static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z);
+#endif
 
 TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 {
@@ -30,6 +41,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		reset_malloc_test_count();
 
 #ifndef HAVE_LIBCURL
+
 		SECTION("returns NULL when HAVE_LIBCURL is disabled")
 		{
 			struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
