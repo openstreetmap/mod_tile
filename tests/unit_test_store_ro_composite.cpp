@@ -316,7 +316,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			char uri_buf[PATH_MAX] = {0};
 			char *id = store->tile_storage_id(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, uri_buf);
-			REQUIRE(std::string(id) == "Coposite tile");
+			REQUIRE(std::string(id) == "Composite tile");
 		}
 
 		store->close_storage(store);

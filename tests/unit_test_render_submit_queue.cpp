@@ -701,7 +701,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			};
 
 			no_workers = 2;
-			workers = (pthread_t *)calloc(sizeof(pthread_t), no_workers);
+			workers = (pthread_t *)calloc(no_workers, sizeof(pthread_t));
 			for (int i = 0; i < no_workers; i++) {
 				pthread_create(&workers[i], NULL, slow_worker, &workers_ready);
 			}
@@ -770,6 +770,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			spawn_workers(thread_num, socket_path.c_str(), maxLoad);
 			std::this_thread::sleep_for(std::chrono::milliseconds(200));
 			finish_workers();
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Starting " + std::to_string(thread_num) + " rendering threads"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("connect failed for: " + socket_path));
 		}

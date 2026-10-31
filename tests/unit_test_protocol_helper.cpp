@@ -222,7 +222,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			cmd->ver = cmd_ver;
 			ret = send_cmd(cmd, socket_fd);
 
-			REQUIRE(ret == expected_size);
+			REQUIRE(ret == static_cast<int>(expected_size));
 
 			close(sv[0]);
 			close(sv[1]);

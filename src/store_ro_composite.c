@@ -155,8 +155,8 @@ static struct stat_info ro_composite_tile_stat(struct storage_backend * store, c
 
 static char * ro_composite_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string)
 {
-
-	return "Coposite tile";
+	const char * id = "Composite tile";
+	return (char *)id;
 }
 
 static int ro_composite_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
