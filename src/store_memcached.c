@@ -277,37 +277,44 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Support for memcached storage has not been compiled into this program");
 	return NULL;
 #else
+	const char * const default_memcached_options = "--server=localhost";
+	const char * memcached_options = default_memcached_options;
+	char * memcached_options_buf = NULL;
+
 	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
-	memcached_st * ctx;
-	char * connection_str = "--server=localhost";
 
 	if (store == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Failed to allocate memory for storage backend");
 		return NULL;
 	}
 
+	// Check if custom options were provided beyond the "memcached://" scheme prefix
 	if (strcmp(connection_string, "memcached://")) {
-		int connection_string_len = strnlen(connection_string, PATH_MAX);
-		connection_str = (char *)malloc(sizeof(char) * connection_string_len);
-		// The length of the string "memcached://" is 12
-		snprintf(connection_str, connection_string_len - 2, "--server=%.*s", connection_string_len - 12, connection_string + 12);
+		size_t connection_string_len = strnlen(connection_string, PATH_MAX);
+		memcached_options_buf = (char *)malloc(connection_string_len);
+
+		if (memcached_options_buf != NULL) {
+			// Strip "memcached://" scheme (12 chars) and prefix with "--server="
+			snprintf(memcached_options_buf, connection_string_len - 2, "--server=%.*s",
+				 (int)(connection_string_len - 12), connection_string + 12);
+			memcached_options = memcached_options_buf;
+		}
 	}
 
-	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_memcached: Creating memcached ctx with options '%s'", connection_str);
-	ctx = memcached(connection_str, strlen(connection_str));
+	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_memcached: Creating memcached ctx with options '%s'", memcached_options);
+	memcached_st * memcached_storage_ctx = memcached(memcached_options, strlen(memcached_options));
 
-	if (strcmp(connection_string, "memcached://")) {
-		free(connection_str);
+	if (memcached_options_buf != NULL) {
+		free(memcached_options_buf);
 	}
 
-	if (ctx == NULL) {
+	if (memcached_storage_ctx == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Failed to create memcached ctx");
 		free(store);
 		return NULL;
 	}
 
-	store->storage_ctx = ctx;
-
+	store->storage_ctx = memcached_storage_ctx;
 	store->tile_read = &memcached_tile_read;
 	store->tile_stat = &memcached_tile_stat;
 	store->metatile_write = &memcached_metatile_write;
