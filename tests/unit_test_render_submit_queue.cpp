@@ -184,7 +184,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			REQUIRE(ret == 0);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to read cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket read error on fd " + std::to_string(fd)));
 			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Got response"));
 		}
 
@@ -196,7 +196,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			REQUIRE(ret == 0);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd header (1 bytes) on fd " + std::to_string(fd)));
 			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Got response"));
 		}
 
