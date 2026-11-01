@@ -16,6 +16,7 @@
  */
 
 #include <arpa/inet.h>
+#include <atomic>
 #include <csetjmp>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -56,7 +57,7 @@ extern "C" {
 	extern int exit_status;
 	extern int mock_errno;
 
-	extern bool exit_pthread;
+	extern std::atomic<bool> exit_pthread; // set by the test thread, read by worker threads
 
 	extern bool fail_next_asprintf;
 	extern bool fail_next_calloc;
@@ -86,7 +87,7 @@ extern "C" {
 
 	extern bool force_real_sleep;
 
-	extern bool pass_next_connect;
+	extern std::atomic<bool> pass_next_connect; // may be consumed by worker threads
 	extern bool pass_next_sleep;
 
 	extern int fail_next_next_recv_reponse_size;

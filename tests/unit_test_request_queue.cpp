@@ -52,7 +52,12 @@ static void *async_fetch_thread(void *arg)
 static struct item *create_test_item(enum protoCmd cmd, const char *xmlname, int x, uint64_t y, int z, int fd)
 {
 	struct item *item = static_cast<struct item *>(calloc(1, sizeof(struct item)));
-	REQUIRE(item != NULL);
+
+	// Not REQUIRE(): this is also called from the producer threads, and Catch2
+	// assertions are not thread-safe
+	if (item == NULL) {
+		abort();
+	}
 
 	item->req.ver = PROTO_VER;
 	item->req.cmd = cmd;
@@ -532,7 +537,9 @@ TEST_CASE("request_queue.c", "[request_queue]")
 			struct item *fetched = request_queue_fetch_request(queue);
 			REQUIRE(fetched == item);
 
-			fetched->originatedQueue = static_cast<decltype(fetched->originatedQueue)>(999);
+			// A valid queueEnum value that the switch has no case for (an out-of-range
+			// value such as 999 is undefined behaviour, and UBSan rejects it)
+			fetched->originatedQueue = queueDuplicate;
 			request_queue_remove_request(queue, fetched, 50);
 
 			free(item);

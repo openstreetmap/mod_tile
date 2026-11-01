@@ -260,7 +260,7 @@ extern "C" {
 	int exit_status = 0;
 	int mock_errno = 0;
 
-	bool exit_pthread = false;
+	std::atomic<bool> exit_pthread{false};
 
 	bool fail_next_asprintf = false;
 	bool fail_next_calloc = false;
@@ -290,7 +290,7 @@ extern "C" {
 
 	bool force_real_sleep = false;
 
-	bool pass_next_connect = false;
+	std::atomic<bool> pass_next_connect{false};
 	bool pass_next_sleep = false;
 
 	int fail_next_next_recv_reponse_size = -1;
@@ -389,8 +389,8 @@ extern "C" {
 			return -1;
 		}
 
-		if (pass_next_connect) {
-			pass_next_connect = false;
+		// Test and clear in one step: several worker threads may connect at once
+		if (pass_next_connect.exchange(false)) {
 			return 0;
 		}
 
