@@ -71,26 +71,29 @@ int send_cmd(struct protocol * cmd, int fd)
 	return ret;
 }
 
-int recv_cmd(struct protocol * cmd, int fd,  int block)
+int recv_cmd(struct protocol * cmd, int fd, int block)
 {
 	int ret, ret2 = 0;
 	memset(cmd, 0, sizeof(*cmd));
 	ret = recv(fd, cmd, sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
 
-	if (ret < 1) {
-		g_logger(G_LOG_LEVEL_DEBUG, "Failed to read cmd on fd %i", fd);
+	if (ret == 0) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Client closed connection on fd %i", fd);
+		return -1;
+	} else if (ret < 0) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Socket read error on fd %i: %s", fd, strerror(errno));
 		return -1;
 	} else if (ret < (int)sizeof(struct protocol_v1)) {
-		g_logger(G_LOG_LEVEL_DEBUG, "Read incomplete cmd on fd %i", fd);
+		g_logger(G_LOG_LEVEL_DEBUG, "Read incomplete cmd header (%d bytes) on fd %i", ret, fd);
 		return 0;
 	}
 
 	if ((cmd->ver > 3) || (cmd->ver < 1)) {
-		g_logger(G_LOG_LEVEL_WARNING, "Failed to receive render cmd with unknown protocol version %i", cmd->ver);
+		g_logger(G_LOG_LEVEL_WARNING, "Failed to receive render cmd with unknown protocol version %i on fd %i", cmd->ver, fd);
 		return -1;
 	}
 
-	g_logger(G_LOG_LEVEL_DEBUG, "Got incoming request with protocol version %i", cmd->ver);
+	g_logger(G_LOG_LEVEL_DEBUG, "Got incoming request with protocol version %i on fd %i", cmd->ver, fd);
 
 	switch (cmd->ver) {
 		case 1:
@@ -107,7 +110,7 @@ int recv_cmd(struct protocol * cmd, int fd,  int block)
 	}
 
 	if ((cmd->ver > 1) && (ret2 < 1)) {
-		g_logger(G_LOG_LEVEL_WARNING, "Socket prematurely closed: %i", fd);
+		g_logger(G_LOG_LEVEL_WARNING, "Socket prematurely closed during protocol payload read on fd %i", fd);
 		return -1;
 	}
 
@@ -117,6 +120,6 @@ int recv_cmd(struct protocol * cmd, int fd,  int block)
 		return ret;
 	}
 
-	g_logger(G_LOG_LEVEL_WARNING, "Socket read wrong number of bytes: %i -> %li, %li", ret, sizeof(struct protocol_v2), sizeof(struct protocol));
+	g_logger(G_LOG_LEVEL_WARNING, "Socket read wrong number of bytes on fd %i: %i (expected %li or %li)", fd, ret, sizeof(struct protocol_v2), sizeof(struct protocol));
 	return 0;
 }

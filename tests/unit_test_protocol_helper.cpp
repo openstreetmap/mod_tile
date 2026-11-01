@@ -15,7 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <strings.h>
+#include <cstring>
+#include <string>
 
 #include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
@@ -50,7 +51,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to read cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket read error on fd " + std::to_string(fd)));
 		}
 
 		SECTION("recv_cmd with invalid version", "should return -1")
@@ -72,7 +73,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd header (1 bytes) on fd " + std::to_string(fd)));
 		}
 
 		SECTION("recv_cmd with invalid version and correct size response", "should return -1")
@@ -148,7 +149,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket read wrong number of bytes: " + std::to_string(expected_size)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket read wrong number of bytes on fd " + std::to_string(fd) + ": " + std::to_string(expected_size)));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
 		}
 
@@ -166,7 +167,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 
 			REQUIRE(ret == expected_size);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket prematurely closed: " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket prematurely closed during protocol payload read on fd " + std::to_string(fd)));
 		}
 	}
 
