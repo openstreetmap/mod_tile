@@ -405,7 +405,7 @@ void spawn_workers(int num, const char *spath, int max_load)
 	qMaxLen = no_workers;
 
 	g_logger(G_LOG_LEVEL_MESSAGE, "Starting %d rendering threads", no_workers);
-	workers = (pthread_t *)calloc(sizeof(pthread_t), no_workers);
+	workers = (pthread_t *)calloc(no_workers, sizeof(pthread_t));
 
 	if (!workers) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Error allocating worker memory: %s", strerror(errno));
