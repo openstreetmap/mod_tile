@@ -50,9 +50,9 @@ static void create_mock_metatile_for_composite(const char *tile_dir, const char 
 
 	int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (fd >= 0) {
-		write(fd, m, header_len);
+		REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 		if (data_len > 0 && data != NULL) {
-			write(fd, data, data_len);
+			REQUIRE(write(fd, data, data_len) == (ssize_t)(data_len));
 		}
 		close(fd);
 	}

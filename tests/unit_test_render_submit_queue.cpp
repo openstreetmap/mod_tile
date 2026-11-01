@@ -41,6 +41,14 @@ extern unsigned int qLen;
 extern unsigned int qMaxLen;
 
 static struct protocol *fetch(void);
+
+// pthread_create() needs a void *(*)(void *); calling fetch() through a cast
+// to that type is undefined (and -Wcast-function-type rejects it)
+static void *fetch_thread(void *arg)
+{
+	(void)arg;
+	return fetch();
+}
 static int process(struct protocol *cmd, int fd);
 
 TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
@@ -72,7 +80,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			work_complete = 0;
 
 			pthread_t worker;
-			pthread_create(&worker, NULL, (void *(*)(void *))fetch, NULL);
+			pthread_create(&worker, NULL, fetch_thread, NULL);
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 			pthread_mutex_lock(&qLock);
@@ -687,7 +695,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 		SECTION("finish_workers", "should return")
 		{
-			std::atomic<bool> worker_release{false};
 			std::atomic<int> workers_ready{0};
 
 			auto slow_worker = [](void *arg) -> void * {

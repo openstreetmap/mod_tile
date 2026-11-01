@@ -831,7 +831,8 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 	SECTION("process_config_bool, process_config_double, process_config_int, process_config_string & process_config_string_with_trailing_slash functions")
 	{
-		const dictionary *ini = iniparser_load(RENDERD_CONF);
+		// volatile: this test uses setjmp/longjmp to catch exit()
+		const dictionary *volatile ini = iniparser_load(RENDERD_CONF);
 		std::string section = "nosuchsection";
 		std::string name = "nosuchname";
 

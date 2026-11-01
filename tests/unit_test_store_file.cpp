@@ -47,9 +47,9 @@ static void create_mock_metatile(const char *path, bool compressed, int count, s
 
 	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (fd >= 0) {
-		write(fd, m, header_len);
+		REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 		if (tile_data_len > 0 && tile_data != NULL) {
-			write(fd, tile_data, tile_data_len);
+			REQUIRE(write(fd, tile_data, tile_data_len) == (ssize_t)(tile_data_len));
 		}
 		close(fd);
 	}
@@ -214,7 +214,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, "short", 5);
+			REQUIRE(write(fd, "short", 5) == (ssize_t)(5));
 			close(fd);
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
@@ -231,7 +231,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, bad_header, header_len);
+			REQUIRE(write(fd, bad_header, header_len) == (ssize_t)(header_len));
 			close(fd);
 			free(bad_header);
 
@@ -272,7 +272,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, m, header_len);
+			REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 			close(fd);
 			free(m);
 
@@ -293,10 +293,10 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, m, header_len);
+			REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 
 			const char short_data[] = "shortdata";
-			write(fd, short_data, 9);
+			REQUIRE(write(fd, short_data, 9) == (ssize_t)(9));
 			close(fd);
 			free(m);
 

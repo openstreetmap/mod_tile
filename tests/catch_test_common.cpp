@@ -320,7 +320,7 @@ extern "C" {
 		fail_read_on_call_count = 0;
 	}
 
-	void mocked_exit(int status)
+	[[noreturn]] void mocked_exit(int status)
 	{
 		exit_status = status;
 		longjmp(exit_jump, 1);

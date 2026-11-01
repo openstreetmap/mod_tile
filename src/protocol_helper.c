@@ -25,7 +25,7 @@
 
 int send_cmd(struct protocol * cmd, int fd)
 {
-	int ret;
+	int ret = -1;
 	int socket_type;
 	socklen_t optlen = sizeof(socket_type);
 

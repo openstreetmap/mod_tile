@@ -105,7 +105,7 @@ extern "C" {
 	void reset_malloc_test_count(void);
 	void reset_read_call_count(void);
 
-	void mocked_exit(int status);
+	[[noreturn]] void mocked_exit(int status);
 	void mocked_g_logger(int log_level, const char *format, ...);
 
 	int mocked_asprintf(char **strp, const char *fmt, ...);
