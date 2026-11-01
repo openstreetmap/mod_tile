@@ -19,7 +19,7 @@
 #include <fcntl.h>
 #include <limits.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
@@ -94,7 +94,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			fail_next_malloc = true;
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for context"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for context"));
 		}
 
 		SECTION("handles allocation failure for context struct (store allocated)")
@@ -102,7 +102,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			fail_next_calloc = true;
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for context"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for context"));
 		}
 
 		SECTION("handles allocation failure for primary connection string buffer")
@@ -112,7 +112,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for primary connection string"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for primary connection string"));
 		}
 
 		SECTION("handles allocation failure for primary storage backend")
@@ -122,7 +122,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to initialise primary storage backend"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to initialise primary storage backend"));
 		}
 
 		SECTION("handles allocation failure for secondary storage backend")
@@ -132,7 +132,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to initialise secondary storage backend"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to initialise secondary storage backend"));
 		}
 
 		SECTION("handles malformed connection string missing '}{' separator")
@@ -140,7 +140,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			std::string bad_conn = "composite:{default," + primary_dir + "}";
 			struct storage_backend *store = init_storage_ro_composite(bad_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("missing '}{' separator"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("missing '}{' separator"));
 		}
 
 		SECTION("handles malformed primary string missing ',' separator")
@@ -148,7 +148,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			std::string bad_conn = "composite:{default_no_comma}{default," + secondary_dir + "}";
 			struct storage_backend *store = init_storage_ro_composite(bad_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("malformed primary connection string, missing ',' separator"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("malformed primary connection string, missing ',' separator"));
 		}
 
 		SECTION("handles malformed secondary string missing ',' separator")
@@ -156,7 +156,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 			std::string bad_conn = "composite:{" + std::string(XMLCONFIG_DEFAULT) + "," + primary_dir + "}{secondary_no_comma}";
 			struct storage_backend *store = init_storage_ro_composite(bad_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("malformed secondary connection string, missing ',' separator"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("malformed secondary connection string, missing ',' separator"));
 		}
 
 		SECTION("initializes valid compositing storage backend")
@@ -181,7 +181,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			struct storage_backend *store = init_storage_ro_composite(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for compositing storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for compositing storage has not been compiled into this program"));
 		}
 #endif
 	}
@@ -200,7 +200,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to read tile data of primary backend"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read tile data of primary backend"));
 		}
 
 		SECTION("fails when primary backend returns invalid non-PNG tile data")
@@ -213,7 +213,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to decode png data from primary backend"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to decode png data from primary backend"));
 		}
 
 		SECTION("fails when secondary backend fails to read tile")
@@ -223,7 +223,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to read tile data of secondary backend"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read tile data of secondary backend"));
 		}
 
 		SECTION("fails when secondary backend returns invalid non-PNG tile data")
@@ -236,7 +236,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to decode png data from secondary backend"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to decode png data from secondary backend"));
 		}
 
 		SECTION("fails when output buffer is too small for output PNG")
@@ -257,7 +257,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to decode png data from primary backend"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to decode png data from primary backend"));
 		}
 
 		SECTION("fails when output surface creation fails")
@@ -272,7 +272,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to create output png"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to create output png"));
 
 			ctx->render_size = orig_size;
 		}
@@ -332,7 +332,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, "buf", 3) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);
@@ -348,7 +348,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_delete(store, XMLCONFIG_DEFAULT, 0, 0, 0) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);
@@ -364,7 +364,7 @@ TEST_CASE("store_ro_composite.c", "[store_ro_composite]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);

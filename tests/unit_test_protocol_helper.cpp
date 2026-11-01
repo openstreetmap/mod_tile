@@ -17,7 +17,7 @@
 
 #include <strings.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "protocol_helper.h"
@@ -50,7 +50,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to read cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to read cmd on fd " + std::to_string(fd)));
 		}
 
 		SECTION("recv_cmd with invalid version", "should return -1")
@@ -62,7 +62,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains(expected_message));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring(expected_message));
 		}
 
 		SECTION("recv_cmd with incomplete response", "should return 0")
@@ -72,7 +72,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read incomplete cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd on fd " + std::to_string(fd)));
 		}
 
 		SECTION("recv_cmd with invalid version and correct size response", "should return -1")
@@ -86,7 +86,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == expected_size);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to receive render cmd with unknown protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to receive render cmd with unknown protocol version " + std::to_string(expected_version)));
 		}
 
 		SECTION("recv_cmd with correct size response (v1)", "should return")
@@ -100,7 +100,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == expected_size);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got incoming request with protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
 		}
 
 		SECTION("recv_cmd with correct size response (v2)", "should return")
@@ -116,7 +116,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == expected_size);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got incoming request with protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
 		}
 
 		SECTION("recv_cmd with correct size response (v3)", "should return")
@@ -132,7 +132,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == expected_size);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got incoming request with protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
 		}
 
 		SECTION("recv_cmd with incorrect size response (v2-v3)", "should return")
@@ -148,8 +148,8 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Socket read wrong number of bytes: " + std::to_string(expected_size)));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got incoming request with protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket read wrong number of bytes: " + std::to_string(expected_size)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
 		}
 
 		SECTION("recv_cmd with incomplete second response (v2-v3)", "should return -1")
@@ -165,8 +165,8 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = recv_cmd(&rsp, fd, block);
 
 			REQUIRE(ret == expected_size);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got incoming request with protocol version " + std::to_string(expected_version)));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Socket prematurely closed: " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got incoming request with protocol version " + std::to_string(expected_version)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Socket prematurely closed: " + std::to_string(fd)));
 		}
 	}
 
@@ -182,7 +182,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = send_cmd(cmd, invalid_fd);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Attempted to send cmd on invalid fd " + std::to_string(invalid_fd)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Attempted to send cmd on invalid fd " + std::to_string(invalid_fd)));
 		}
 
 		SECTION("send_cmd with unknown protocol version", "should return -1")
@@ -192,7 +192,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = send_cmd(cmd, fd);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to send render cmd with unknown protocol version " + std::to_string(cmd->ver)));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send render cmd with unknown protocol version " + std::to_string(cmd->ver)));
 		}
 
 		SECTION("send_cmd with pipe descriptor (non-socket ENOTTY check)", "should fail socket validation")
@@ -202,7 +202,7 @@ TEST_CASE("protocol_helper.c", "[protocol_helper]")
 			ret = send_cmd(cmd, fd);
 
 			REQUIRE(ret == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("fd " + std::to_string(fd) + " is not a valid socket"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("fd " + std::to_string(fd) + " is not a valid socket"));
 		}
 
 		SECTION("send_cmd successfully sends across protocol versions 1, 2, and 3")

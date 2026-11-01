@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <string>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
 #include "render_config.h"
@@ -80,7 +80,7 @@ TEST_CASE("render_expired common", "common testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Config file '" + renderd_conf + "' does not exist, please specify a valid file"));
 	}
 }
 
@@ -95,7 +95,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Map section '" + map + "' does not exist in config file '" + renderd_conf + "'."));
 	}
 
 	SECTION("--config with valid --map and --tile-dir with invalid path", "should return 1")
@@ -106,7 +106,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to initialise storage backend " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to initialise storage backend " + tile_dir));
 	}
 
 	SECTION("--config with valid --map, --verbose and bad input lines", "should return 0")
@@ -118,8 +118,8 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: z/x/y"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read invalid line: x y z"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read invalid line: z/x/y"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read invalid line: x y z"));
 	}
 
 	SECTION("--touch-from 0 with --max-zoom 19, --verbose and overlapping input lines", "should return 0")
@@ -130,14 +130,14 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv, input);
 		REQUIRE(WEXITSTATUS(status) == 0);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Raising --min-zoom from '0' to '3'"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 16/56715/4908"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 17/113420/9816"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '15/28355/2454'"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 18/226860/19632"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '19/453720/39264'"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read valid line: 19/453726/39265"));
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Already requested metatile containing '19/453726/39265'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Raising --min-zoom from '0' to '3'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read valid line: 16/56715/4908"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read valid line: 17/113420/9816"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Already requested metatile containing '15/28355/2454'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read valid line: 18/226860/19632"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Already requested metatile containing '19/453720/39264'"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read valid line: 19/453726/39265"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Already requested metatile containing '19/453726/39265'"));
 	}
 
 	SECTION("--tile-dir with invalid option", "should return 1")
@@ -147,7 +147,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_backend: No valid storage backend found for options: " + tile_dir));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_backend: No valid storage backend found for options: " + tile_dir));
 	}
 
 	SECTION("--tile-dir with invalid path", "should return 1")
@@ -157,7 +157,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_backend: Failed to stat " + tile_dir + " with error: No such file or directory"));
 	}
 
 	SECTION("--num-threads subceeds minimum of 1", "should return 1")
@@ -166,7 +166,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Invalid number of threads, must be >= 1 (0 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Invalid number of threads, must be >= 1 (0 was provided)"));
 	}
 
 	SECTION("--min-zoom/--max-zoom exceeds maximum of MAX_ZOOM", "should return 1")
@@ -175,7 +175,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("zoom, must be <= 20 (21 was provided)"));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("zoom, must be <= 20 (21 was provided)"));
 	}
 
 	SECTION("--min-zoom exceeds --max-zoom", "should return 1")
@@ -184,7 +184,7 @@ TEST_CASE("render_expired specific", "specific testing")
 
 		int status = run_command(test_binary, argv);
 		REQUIRE(WEXITSTATUS(status) == 1);
-		REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Specified min zoom (2) is larger than max zoom (1)."));
+		REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Specified min zoom (2) is larger than max zoom (1)."));
 	}
 }
 

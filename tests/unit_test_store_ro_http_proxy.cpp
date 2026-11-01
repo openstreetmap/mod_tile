@@ -18,7 +18,7 @@
 #include <cstring>
 #include <limits.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "config.h"
@@ -46,7 +46,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		{
 			struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Support for http proxy storage has not been compiled into this program"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Support for http proxy storage has not been compiled into this program"));
 		}
 #else
 		SECTION("handles allocation failure for initial store struct (store=NULL, ctx=NULL)")
@@ -54,7 +54,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			fail_next_malloc = true;
 			struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for context"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for context"));
 			reset_malloc_test_count();
 		}
 
@@ -65,7 +65,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 
 			struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for context"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for context"));
 			reset_malloc_test_count();
 		}
 
@@ -76,7 +76,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 
 			struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
 			if (store == NULL) {
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to initialise curl"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to initialise curl"));
 			} else {
 				store->close_storage(store);
 				free(store);
@@ -171,7 +171,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			err_log_lines.clear();
 			int res = ro_http_proxy_tile_retrieve(store, XMLCONFIG_DEFAULT, "", 0, 0, 0);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for path"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for path"));
 
 			reset_malloc_test_count();
 			store->close_storage(store);
@@ -192,7 +192,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			err_log_lines.clear();
 			int res = ro_http_proxy_tile_retrieve(store, XMLCONFIG_DEFAULT, "", 10, 20, 5);
 			REQUIRE(res == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got a cached tile"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got a cached tile"));
 
 			store->close_storage(store);
 			free(store);
@@ -213,7 +213,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			REQUIRE(ctx->cache.x == -1);
 			REQUIRE(ctx->cache.y == -1);
 			REQUIRE(ctx->cache.z == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to retrieve file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to retrieve file"));
 
 			store->close_storage(store);
 			free(store);
@@ -344,7 +344,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			err_log_lines.clear();
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 2, 2, 2, read_buf, 100, &compressed, log_msg);
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("size was too big, overrun"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("size was too big, overrun"));
 		}
 
 		SECTION("successfully copies tile payload from cache")
@@ -429,7 +429,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, "buf", 3) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);
@@ -446,7 +446,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_delete(store, XMLCONFIG_DEFAULT, 0, 0, 0) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);
@@ -463,7 +463,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		{
 			err_log_lines.clear();
 			REQUIRE(store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0) == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Write functionality isn't implemented"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Write functionality isn't implemented"));
 		}
 
 		store->close_storage(store);

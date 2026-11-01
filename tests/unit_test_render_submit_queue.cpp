@@ -20,7 +20,7 @@
 #include <cstring>
 #include <thread>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "protocol.h"
@@ -136,7 +136,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Queue failure, null qHead with " + std::to_string(qLen) + " items in list"));
 		}
 	}
 
@@ -164,10 +164,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Failed to read cmd on fd " + std::to_string(fd)));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to read cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Got response"));
 		}
 
 		SECTION("process with incomplete response", "should return 0")
@@ -176,10 +176,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Read incomplete cmd on fd " + std::to_string(fd)));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Read incomplete cmd on fd " + std::to_string(fd)));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Got response"));
 		}
 
 		SECTION("process with cmdNotDone response", "should return positive after sleeping 1 second")
@@ -193,11 +193,11 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret > 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Rendering not done with command"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("sleeping 1s"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Rendering not done with command"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("sleeping 1s"));
 			REQUIRE(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() >= 100);
 		}
 
@@ -217,11 +217,11 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			ret = process(cmd, fd);
 
 			REQUIRE(ret > 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Sending request"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for response"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got response"));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Rendering not done with command"));
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("sleeping 1s"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Sending request"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got response"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Rendering not done with command"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("sleeping 1s"));
 			REQUIRE(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() < 100);
 
 			pthread_mutex_lock(&qStatsLock);
@@ -252,7 +252,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		{
 			ret = thread_main((void *)socket_path.c_str());
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("connect failed for: " + socket_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("connect failed for: " + socket_path));
 		}
 
 		SECTION("thread_main with passing connect", "should return")
@@ -292,9 +292,9 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			REQUIRE(qLen == 0);
 			REQUIRE(qHead == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("connection to renderd lost"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("sleeping for 30 seconds"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("attempting to reconnect"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("connection to renderd lost"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("sleeping for 30 seconds"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("attempting to reconnect"));
 		}
 
 		SECTION("thread_main with passing connect and passing process", "should return")
@@ -328,7 +328,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			REQUIRE(qLen == 0);
 			REQUIRE(qHead == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Got response"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Got response"));
 		}
 	}
 
@@ -364,7 +364,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to create unix socket"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to create unix socket"));
 			}
 		}
 
@@ -381,9 +381,9 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				ret = make_connection(socket_path.c_str());
 
 				REQUIRE(ret > 0);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Connecting to " + ip_host + ", port " + ip_port + "/tcp"));
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Trying " + socket_path));
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Connected to " + socket_path));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Connecting to " + ip_host + ", port " + ip_port + "/tcp"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Trying " + socket_path));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Connected to " + socket_path));
 			}
 
 			SECTION("Network socket with empty host uses RENDERD_HOST default", "should return positive")
@@ -393,7 +393,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				ret = make_connection(std::string(":" + ip_port).c_str());
 
 				REQUIRE(ret > 0);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Connecting to " + std::string(RENDERD_HOST) + ", port " + ip_port + "/tcp"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Connecting to " + std::string(RENDERD_HOST) + ", port " + ip_port + "/tcp"));
 			}
 
 			SECTION("Network socket with invalid port defaults to RENDERD_PORT", "should return positive")
@@ -403,7 +403,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				ret = make_connection(std::string(ip_host + ":0").c_str());
 
 				REQUIRE(ret > 0);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("port " + std::to_string(RENDERD_PORT) + "/tcp"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("port " + std::to_string(RENDERD_PORT) + "/tcp"));
 			}
 
 			SECTION("Network socket handles getaddrinfo failure", "should exit 2")
@@ -418,7 +418,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot resolve hostname"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot resolve hostname"));
 			}
 
 			SECTION("Network socket fails to create socket inside loop", "should exit 2")
@@ -434,7 +434,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot connect to any address for " + ip_host));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot connect to any address for " + ip_host));
 			}
 
 			SECTION("Network socket fails all connection attempts", "should exit 2")
@@ -449,7 +449,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot connect to any address for " + ip_host));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot connect to any address for " + ip_host));
 			}
 
 			SECTION("Network socket handles getnameinfo failure", "should exit 2")
@@ -464,7 +464,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot retrieve name info: Name could not be resolved at this time") || Catch::Matchers::Contains("cannot retrieve name info: Temporary failure in name resolution"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot retrieve name info: Name could not be resolved at this time") || Catch::Matchers::ContainsSubstring("cannot retrieve name info: Temporary failure in name resolution"));
 			}
 
 			SECTION("Network socket handles getprotobyname failure", "should exit 2")
@@ -479,7 +479,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("cannot find TCP protocol number"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot find TCP protocol number"));
 			}
 		}
 	}
@@ -500,7 +500,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			fail_next_getloadavg = true;
 			check_load();
 			REQUIRE(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() >= 100);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Load average 1000.00, sleeping 5s"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Load average 1000.00, sleeping 5s"));
 		}
 	}
 
@@ -513,7 +513,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		SECTION("display_rate", "should return")
 		{
 			display_rate(start, end, 100);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("100 in 1.50 seconds (66.67/s)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("100 in 1.50 seconds (66.67/s)"));
 		}
 	}
 
@@ -540,8 +540,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Enqueueing tile (xmlname=" + std::string(XMLCONFIG_DEFAULT) + " x=0 y=0 z=0)"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error allocating queue item: Cannot allocate memory"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Enqueueing tile (xmlname=" + std::string(XMLCONFIG_DEFAULT) + " x=0 y=0 z=0)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error allocating queue item: Cannot allocate memory"));
 		}
 
 		SECTION("enqueue handles strdup failure by exiting", "should exit 1")
@@ -556,8 +556,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Enqueueing tile (xmlname=" + std::string(XMLCONFIG_DEFAULT) + " x=0 y=0 z=0)"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error allocating queue item mapname: Cannot allocate memory"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Enqueueing tile (xmlname=" + std::string(XMLCONFIG_DEFAULT) + " x=0 y=0 z=0)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error allocating queue item mapname: Cannot allocate memory"));
 		}
 
 		SECTION("enqueue into empty queue (qTail == NULL)", "should set qHead and qTail")
@@ -666,7 +666,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			pthread_join(worker, NULL);
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("pthread_cond_wait(qCondNotFull)"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("pthread_cond_wait(qCondNotFull)"));
 
 			pthread_mutex_lock(&qLock);
 			free(first->mapname);
@@ -717,7 +717,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			REQUIRE(workers == NULL);
 			REQUIRE(no_workers == 0);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Waiting for rendering threads to finish"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Waiting for rendering threads to finish"));
 		}
 	}
 
@@ -733,7 +733,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		{
 			print_statistics();
 
-			REQUIRE_THAT(err_log_lines, !Catch::Matchers::Contains("Zoom"));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Zoom"));
 		}
 
 		SECTION("print_statistics with boundary zoom levels (0 and MAX_ZOOM)", "should return")
@@ -752,8 +752,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			print_statistics();
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Zoom 00: min:  0.2    avg:  0.2     max:  0.2     over a total of      0.2s in 1 requests"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Zoom " + std::to_string(MAX_ZOOM) + ": min:  0.1    avg:  0.5     max:  1.0     over a total of      2.5s in 5 requests"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Zoom 00: min:  0.2    avg:  0.2     max:  0.2     over a total of      0.2s in 1 requests"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Zoom " + std::to_string(MAX_ZOOM) + ": min:  0.1    avg:  0.5     max:  1.0     over a total of      2.5s in 5 requests"));
 		}
 	}
 
@@ -771,8 +771,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			std::this_thread::sleep_for(std::chrono::milliseconds(200));
 			finish_workers();
 			std::this_thread::sleep_for(std::chrono::milliseconds(200));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Starting " + std::to_string(thread_num) + " rendering threads"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("connect failed for: " + socket_path));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Starting " + std::to_string(thread_num) + " rendering threads"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("connect failed for: " + socket_path));
 		}
 
 		SECTION("spawn_workers handles calloc failure by exiting", "should exit 1")
@@ -787,8 +787,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Starting " + std::to_string(thread_num) + " rendering threads"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error allocating worker memory: Cannot allocate memory"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Starting " + std::to_string(thread_num) + " rendering threads"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error allocating worker memory: Cannot allocate memory"));
 		}
 
 		SECTION("spawn_workers handles pthread_create failure by exiting", "should exit 1")
@@ -804,8 +804,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			}
 
 			REQUIRE(exit_status == 1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Starting " + std::to_string(thread_num) + " rendering threads"));
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Thread creation failed: Resource temporarily unavailable"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Starting " + std::to_string(thread_num) + " rendering threads"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Thread creation failed: Resource temporarily unavailable"));
 		}
 	}
 

@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <utime.h>
 
-#include "catch/catch.hpp"
+#include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
 #include "metatile.h"
@@ -72,7 +72,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			struct storage_backend *store = init_storage_file(tmp_dir.c_str());
 
 			REQUIRE(store == NULL);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("init_storage_file: Failed to allocate memory"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("init_storage_file: Failed to allocate memory"));
 		}
 
 		SECTION("init_storage_file creates valid backend", "should set storage_ctx and function pointers")
@@ -104,7 +104,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		REQUIRE(res == uri_buf);
 		REQUIRE_THAT(std::string(uri_buf), Catch::Matchers::StartsWith("file://"));
-		REQUIRE_THAT(std::string(uri_buf), Catch::Matchers::Contains(tmp_dir));
+		REQUIRE_THAT(std::string(uri_buf), Catch::Matchers::ContainsSubstring(tmp_dir));
 
 		store->close_storage(store);
 		free(store);
@@ -123,7 +123,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("failed to allocate memory for temp path"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for temp path"));
 		}
 
 		SECTION("write handles open failure", "should return -1")
@@ -133,7 +133,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error creating file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error creating file"));
 		}
 
 		SECTION("write handles write failure", "should return -1")
@@ -143,7 +143,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error writing file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error writing file"));
 		}
 
 		SECTION("write handles rename failure", "should return -1")
@@ -157,7 +157,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::Contains("Error renaming temp file"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error renaming temp file"));
 
 			rmdir(meta_path);
 		}
@@ -197,7 +197,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to allocate memory for metatile header"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to allocate memory for metatile header"));
 		}
 
 		SECTION("read handles non-existent file open error", "should return -1")
@@ -207,7 +207,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -1);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Could not open metatile"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Could not open metatile"));
 		}
 
 		SECTION("read handles header too small", "should return -3")
@@ -220,7 +220,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -3);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("too small to contain header"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("too small to contain header"));
 		}
 
 		SECTION("read handles magic mismatch", "should return -4")
@@ -238,7 +238,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -4);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("header magic mismatch"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("header magic mismatch"));
 		}
 
 		SECTION("read handles bad count mismatch", "should return -5")
@@ -248,7 +248,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -5);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("header bad count"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("header bad count"));
 		}
 
 		SECTION("read handles tile_size larger than buffer", "should return -6")
@@ -258,7 +258,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, 10, &compressed, log_msg);
 
 			REQUIRE(res == -6);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Truncating tile"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Truncating tile"));
 		}
 
 		SECTION("read handles seek error on corrupted offset", "should return -7")
@@ -279,7 +279,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -7);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("seek error"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("seek error"));
 		}
 
 		SECTION("read handles premature EOF when reading tile data", "should return partial size")
@@ -372,7 +372,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -2);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to read complete header"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read complete header"));
 		}
 
 		SECTION("read handles read error during payload loop", "should return -8")
@@ -385,7 +385,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -8);
-			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::Contains("Failed to read data from file"));
+			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read data from file"));
 		}
 
 		store->close_storage(store);
