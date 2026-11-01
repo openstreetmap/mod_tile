@@ -47,9 +47,9 @@ static void create_mock_metatile(const char *path, bool compressed, int count, s
 
 	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (fd >= 0) {
-		write(fd, m, header_len);
+		REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 		if (tile_data_len > 0 && tile_data != NULL) {
-			write(fd, tile_data, tile_data_len);
+			REQUIRE(write(fd, tile_data, tile_data_len) == (ssize_t)(tile_data_len));
 		}
 		close(fd);
 	}
@@ -214,7 +214,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, "short", 5);
+			REQUIRE(write(fd, "short", 5) == (ssize_t)(5));
 			close(fd);
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
@@ -231,7 +231,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, bad_header, header_len);
+			REQUIRE(write(fd, bad_header, header_len) == (ssize_t)(header_len));
 			close(fd);
 			free(bad_header);
 
@@ -253,7 +253,8 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("read handles tile_size larger than buffer", "should return -6")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 500, "data");
+			const std::string tile_data(500, 'x');
+			create_mock_metatile(meta_path, false, METATILE * METATILE, tile_data.size(), tile_data.c_str());
 
 			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, 10, &compressed, log_msg);
 
@@ -272,7 +273,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, m, header_len);
+			REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 			close(fd);
 			free(m);
 
@@ -293,10 +294,10 @@ TEST_CASE("store_file.c", "[store_file]")
 
 			mkdirp(meta_path);
 			int fd = open(meta_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			write(fd, m, header_len);
+			REQUIRE(write(fd, m, header_len) == (ssize_t)(header_len));
 
 			const char short_data[] = "shortdata";
-			write(fd, short_data, 9);
+			REQUIRE(write(fd, short_data, 9) == (ssize_t)(9));
 			close(fd);
 			free(m);
 
@@ -330,7 +331,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("expire handles gmtime_r failure", "should fallback to default epoch time")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 			fail_next_gmtime_r = true;
 
 			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
@@ -340,7 +341,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("expire on tile with mtime prior to 2015", "should execute tm_year <= 115 branch")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			struct utimbuf old_time;
 			old_time.actime = 1262304000;
@@ -354,7 +355,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("expire handles utime error", "should return 0 despite perror logging")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 			fail_next_utime = true;
 
 			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
@@ -364,7 +365,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("read handles read error during header loop", "should return -2")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			reset_read_call_count();
 			fail_read_on_call_count = 1;
@@ -377,7 +378,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("read handles read error during payload loop", "should return -8")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			reset_read_call_count();
 			fail_read_on_call_count = 2;
@@ -414,7 +415,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("stat file expired relative to planet file", "should mark expired = 1")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			int fd = open(planet_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 			close(fd);
@@ -442,7 +443,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			planet_times.modtime = time(NULL) - 1000;
 			utime(planet_file, &planet_times);
 
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			struct stat_info info = store->tile_stat(store, XMLCONFIG_DEFAULT, "", 0, 0, 0);
 
@@ -460,7 +461,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			int fd = open(global_planet, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 			close(fd);
 
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			struct stat_info info = store->tile_stat(store, XMLCONFIG_DEFAULT, "", 0, 0, 0);
 			REQUIRE(info.size > 0);
@@ -481,7 +482,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		char meta_path[PATH_MAX];
 		xyz_to_meta(meta_path, sizeof(meta_path), (char *)store->storage_ctx, XMLCONFIG_DEFAULT, 0, 0, 0);
 
-		create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+		create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 		int res = store->metatile_delete(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
@@ -511,7 +512,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("expire on existing file sets timestamp back 20 years", "should adjust modtime")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			struct stat st_before;
 			REQUIRE(stat(meta_path, &st_before) == 0);
@@ -528,7 +529,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("expire on already expired tile", "should execute tm_year <= 115 branch")
 		{
-			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "data");
+			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);

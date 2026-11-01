@@ -41,7 +41,25 @@ extern unsigned int qLen;
 extern unsigned int qMaxLen;
 
 static struct protocol *fetch(void);
+
+// pthread_create() needs a void *(*)(void *); calling fetch() through a cast
+// to that type is undefined (and -Wcast-function-type rejects it)
+static void *fetch_thread(void *arg)
+{
+	(void)arg;
+	return fetch();
+}
 static int process(struct protocol *cmd, int fd);
+
+// Queue items are malloc()ed and free()d by render_submit_queue.c, so the tests
+// must allocate them the same way (not with new/delete)
+static qItem *make_qitem(char *mapname, int x, int y, int z, qItem *next)
+{
+	qItem *item = (qItem *)malloc(sizeof(qItem));
+	REQUIRE(item != NULL);
+	*item = qItem{mapname, x, y, z, next};
+	return item;
+}
 
 TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 {
@@ -53,8 +71,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 		err_log_lines.clear();
 		exit_status = 0;
-
-		pthread_mutex_unlock(&qLock);
 
 		SECTION("qLen=0, work_complete=1", "should return NULL")
 		{
@@ -72,7 +88,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			work_complete = 0;
 
 			pthread_t worker;
-			pthread_create(&worker, NULL, (void *(*)(void *))fetch, NULL);
+			pthread_create(&worker, NULL, fetch_thread, NULL);
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 			pthread_mutex_lock(&qLock);
@@ -88,8 +104,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		{
 			char *map1 = strdup("map1");
 			char *map2 = strdup("map2");
-			qItem *item2 = new qItem{map2, 1024, 1024, 10, NULL};
-			qHead = new qItem{map1, 1024, 1024, 10, item2};
+			qItem *item2 = make_qitem(map2, 1024, 1024, 10, NULL);
+			qHead = make_qitem(map1, 1024, 1024, 10, item2);
 			qTail = item2;
 			qLen = 2;
 			work_complete = 0;
@@ -102,13 +118,13 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			free(fetch_response);
 			free(item2->mapname);
-			delete item2;
+			free(item2);
 		}
 
 		SECTION("qHead!=NULL, qLen=1, work_complete=0", "should return popped item")
 		{
 			char *mapname = strdup("mapname");
-			qHead = new qItem{mapname, 1024, 1024, 10, NULL};
+			qHead = make_qitem(mapname, 1024, 1024, 10, NULL);
 			qTail = qHead;
 			qLen = 1;
 			work_complete = 0;
@@ -133,6 +149,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				FAIL("fetch should have called exit() but didn't");
 			} else {
 				SUCCEED("Captured expected exit() call due to null qHead failure");
+				// fetch() called exit() while holding qLock
+				pthread_mutex_unlock(&qLock);
 			}
 
 			REQUIRE(exit_status == 1);
@@ -238,7 +256,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 		err_log_lines.clear();
 		exit_status = 0;
-		pthread_mutex_unlock(&qLock);
 
 		exit_pthread = false;
 		pass_next_connect = false;
@@ -270,7 +287,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			pass_next_connect = true;
 
 			char *mapname = strdup("mapname");
-			qHead = new qItem{mapname, 1024, 1024, 10, NULL};
+			qHead = make_qitem(mapname, 1024, 1024, 10, NULL);
 			qTail = qHead;
 			qLen = 1;
 			work_complete = 0;
@@ -302,7 +319,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			pass_next_connect = true;
 
 			char *mapname = strdup("mapname");
-			qHead = new qItem{mapname, 1024, 1024, 10, NULL};
+			qHead = make_qitem(mapname, 1024, 1024, 10, NULL);
 			qTail = qHead;
 			qLen = 1;
 			work_complete = 0;
@@ -521,7 +538,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 	{
 		err_log_lines.clear();
 		exit_status = 0;
-		pthread_mutex_unlock(&qLock);
 
 		qHead = NULL;
 		qTail = NULL;
@@ -574,7 +590,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			REQUIRE(qHead->next == NULL);
 
 			free(qHead->mapname);
-			delete qHead;
+			free(qHead);
 			qHead = qTail = NULL;
 			qLen = 0;
 		}
@@ -582,7 +598,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		SECTION("enqueue into non-empty queue (qTail != NULL)", "should append to tail")
 		{
 			char *map1 = strdup("map1");
-			qItem *first = new qItem{map1, 1, 1, 1, NULL};
+			qItem *first = make_qitem(map1, 1, 1, 1, NULL);
 			qHead = first;
 			qTail = first;
 			qLen = 1;
@@ -596,9 +612,9 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			REQUIRE(std::string(qTail->mapname) == XMLCONFIG_DEFAULT);
 
 			free(first->mapname);
-			delete first;
+			free(first);
 			free(qTail->mapname);
-			delete qTail;
+			free(qTail);
 			qHead = qTail = NULL;
 			qLen = 0;
 		}
@@ -609,7 +625,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			qMaxLen = 1;
 
 			char *map1 = strdup("map1");
-			qItem *first = new qItem{map1, 1, 1, 1, NULL};
+			qItem *first = make_qitem(map1, 1, 1, 1, NULL);
 			qHead = first;
 			qTail = first;
 
@@ -631,9 +647,9 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			REQUIRE(qTail != first);
 
 			free(first->mapname);
-			delete first;
+			free(first);
 			free(qTail->mapname);
-			delete qTail;
+			free(qTail);
 			qHead = qTail = NULL;
 			qLen = 0;
 		}
@@ -645,7 +661,7 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			qMaxLen = 1;
 
 			char *map1 = strdup("map1");
-			qItem *first = new qItem{map1, 1, 1, 1, NULL};
+			qItem *first = make_qitem(map1, 1, 1, 1, NULL);
 			qHead = first;
 			qTail = first;
 			pthread_mutex_unlock(&qLock);
@@ -670,10 +686,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 			pthread_mutex_lock(&qLock);
 			free(first->mapname);
-			delete first;
+			free(first);
 			if (qTail && qTail != first) {
 				free(qTail->mapname);
-				delete qTail;
+				free(qTail);
 			}
 			qHead = qTail = NULL;
 			qLen = 0;
@@ -687,7 +703,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 
 		SECTION("finish_workers", "should return")
 		{
-			std::atomic<bool> worker_release{false};
 			std::atomic<int> workers_ready{0};
 
 			auto slow_worker = [](void *arg) -> void * {
@@ -826,8 +841,10 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			pthread_create(&worker, NULL, (void *(*)(void *))wait_for_empty_queue, NULL);
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
+			pthread_mutex_lock(&qLock);
 			qLen = 0;
 			pthread_cond_broadcast(&qCondNotFull);
+			pthread_mutex_unlock(&qLock);
 
 			pthread_join(worker, NULL);
 		}

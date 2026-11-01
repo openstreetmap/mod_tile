@@ -6,3 +6,5 @@
 # input plugin on renderd's main thread (single-threaded at that point).
 deadlock:CPLAcquireMutex
 deadlock:CPLCreateOrAcquireMutexEx
+# Distribution builds of libgdal have no symbols, so match the library too
+deadlock:libgdal.so
