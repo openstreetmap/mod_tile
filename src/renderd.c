@@ -122,12 +122,12 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 
 	// Upgrade version 1 and 2 to  version 3
 	if (req->ver == 1) {
-		strcpy(req->xmlname, XMLCONFIG_DEFAULT);
+		snprintf(req->xmlname, sizeof(req->xmlname), "%s", XMLCONFIG_DEFAULT);
 	}
 
 	if (req->ver < 3) {
-		strcpy(req->mimetype, "image/png");
-		strcpy(req->options, "");
+		snprintf(req->mimetype, sizeof(req->mimetype), "%s", "image/png");
+		req->options[0] = '\0';
 	} else if (req->ver != 3) {
 		g_logger(G_LOG_LEVEL_ERROR, "Bad protocol version %d", req->ver);
 		return cmdNotDone;
@@ -677,9 +677,9 @@ void *slave_thread(void * arg)
 			struct protocol *req = &item->req;
 			req_slave->ver = PROTO_VER;
 			req_slave->cmd = cmdRender;
-			strcpy(req_slave->xmlname, req->xmlname);
-			strcpy(req_slave->mimetype, req->mimetype);
-			strcpy(req_slave->options, req->options);
+			snprintf(req_slave->xmlname, sizeof(req_slave->xmlname), "%s", req->xmlname);
+			snprintf(req_slave->mimetype, sizeof(req_slave->mimetype), "%s", req->mimetype);
+			snprintf(req_slave->options, sizeof(req_slave->options), "%s", req->options);
 			req_slave->x = req->x;
 			req_slave->y = req->y;
 			req_slave->z = req->z;
