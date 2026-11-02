@@ -69,6 +69,8 @@ int run_command(const std::string &file, std::vector<std::string> argv = {}, con
 std::string create_tile_dir(const std::string &dir_name = "mod_tile_test", const char *tmp_dir = getenv("TMPDIR"));
 int delete_tile_dir(const std::string &tile_dir);
 
+extern std::string cli_option_memcached;
+extern std::string cli_option_ro_http_proxy;
 extern std::string err_log_lines, out_log_lines;
 
 extern "C" {
