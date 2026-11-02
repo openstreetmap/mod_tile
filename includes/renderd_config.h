@@ -31,10 +31,11 @@
 extern "C" {
 #endif
 
-int num_slave_threads;
-renderd_config *config;
-renderd_config config_slaves[MAX_SLAVES];
-xmlconfigitem maps[XMLCONFIGS_MAX];
+extern int num_maps;
+extern int num_slave_threads;
+extern renderd_config *config;
+extern renderd_config config_slaves[MAX_SLAVES];
+extern xmlconfigitem maps[XMLCONFIGS_MAX];
 
 double min_max_double_opt(const char *opt_arg, const char *opt_type_name, double minimum, double maximum);
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum);

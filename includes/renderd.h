@@ -32,6 +32,7 @@ int daemon(int nochdir, int noclose);
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
+#define STARTUP_TIMEOUT_SEC 300
 
 typedef struct {
 	const char *iphostname;
@@ -69,6 +70,7 @@ typedef struct {
 	int min_zoom;
 	int num_threads;
 	int tile_px_size;
+	int total_threads_ok;
 } xmlconfigitem;
 
 extern struct request_queue *render_request_queue;

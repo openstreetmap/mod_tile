@@ -358,6 +358,7 @@ void *render_thread(void *arg)
 				}
 
 				maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
+				__atomic_add_fetch(&parentxmlconfig[iMaxConfigs].total_threads_ok, 1, __ATOMIC_SEQ_CST);
 			} catch (std::exception const &ex) {
 				g_logger(G_LOG_LEVEL_ERROR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
 				maps[iMaxConfigs].ok = 0;
