@@ -470,6 +470,10 @@ void *render_thread(void *arg)
 
 			if (i == iMaxConfigs) {
 				g_logger(G_LOG_LEVEL_ERROR, "No map for: %s", req->xmlname);
+				// Reply and release the request, as for the other failures; otherwise
+				// the client waits for its full timeout and the request (and any later
+				// duplicates of it) stays on the render queue for good
+				send_response(item, cmdNotDone, -1);
 			}
 		} else {
 			sleep(1); // TODO: Use an event to indicate there are new requests
