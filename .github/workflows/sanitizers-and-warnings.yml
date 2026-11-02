@@ -4,6 +4,9 @@ name: Sanitizers & Warnings
 on:
   pull_request:
   push:
+    branches:
+      - develop
+      - master
 
 jobs:
   Warnings:
@@ -47,7 +50,7 @@ jobs:
       (${{ matrix.compiler }})
     # Run on the host rather than in a container so that `vm.mmap_rnd_bits` can be
     # lowered, which ThreadSanitizer requires on recent kernels
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         build_system:

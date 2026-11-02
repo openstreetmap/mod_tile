@@ -7,13 +7,11 @@ on:
     branches:
       - develop
       - master
-  schedule:
-    - cron: "44 0 * * 4"
 
 jobs:
   flawfinder:
     name: Flawfinder
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       actions: read
       contents: read
