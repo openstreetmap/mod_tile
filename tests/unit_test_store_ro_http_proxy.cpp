@@ -15,8 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <cstdlib>
 #include <cstring>
 #include <limits.h>
+#include <string>
 
 #include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
@@ -31,9 +33,27 @@ static char *ro_http_proxy_xyz_to_storagekey(struct storage_backend *store, int 
 static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z);
 #endif
 
+extern std::string cli_option_ro_http_proxy;
+
+// Helper to resolve ro_http_proxy baseurl
+static std::string get_ro_http_proxy_baseurl()
+{
+	if (!cli_option_ro_http_proxy.empty()) {
+		return cli_option_ro_http_proxy;
+	}
+
+	const char *baseurl = std::getenv("UNIT_TEST_RO_HTTP_PROXY");
+	if (baseurl && strlen(baseurl) > 0) {
+		return std::string(baseurl);
+	}
+
+	return "tile.openstreetmap.org";
+}
+
 TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 {
-	std::string valid_conn = "ro_http_proxy://tile.openstreetmap.org";
+	std::string baseurl = get_ro_http_proxy_baseurl();
+	std::string valid_conn = "ro_http_proxy://" + baseurl;
 
 	SECTION("init_storage_ro_http_proxy")
 	{
@@ -149,7 +169,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 			char key_buf[PATH_MAX] = {0};
 			char *res = ro_http_proxy_xyz_to_storagekey(store, 10, 20, 5, key_buf);
 			REQUIRE(res == key_buf);
-			REQUIRE(std::string(key_buf) == "http://tile.openstreetmap.org/5/10/20.png");
+			REQUIRE(std::string(key_buf) == "http://" + baseurl + "/5/10/20.png");
 		}
 
 		store->close_storage(store);
@@ -217,6 +237,61 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 
 			store->close_storage(store);
 			free(store);
+		}
+
+		SECTION("executes live HTTP retrieval when custom endpoint target is provided")
+		{
+			if (cli_option_ro_http_proxy.empty() && !std::getenv("UNIT_TEST_RO_HTTP_PROXY")) {
+				SKIP("No explicit --ro_http_proxy or UNIT_TEST_RO_HTTP_PROXY provided. Skipping live network retrieval.");
+			}
+
+			auto initial_cache_data = GENERATE(as<const char *>{}, nullptr, "existing_tile_data");
+
+			SECTION("valid connection string", "returns 1")
+			{
+				err_log_lines.clear();
+				struct storage_backend *store = init_storage_ro_http_proxy(valid_conn.c_str());
+				REQUIRE(store != NULL);
+
+				struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
+
+				if (initial_cache_data != nullptr) {
+					ctx->cache.tile = strdup(initial_cache_data);
+				} else {
+					ctx->cache.tile = NULL;
+				}
+
+				REQUIRE(ro_http_proxy_tile_retrieve(store, XMLCONFIG_DEFAULT, "", 0, 0, 0) == 1);
+				REQUIRE(ctx->cache.tile != NULL);
+				REQUIRE(ctx->cache.st_stat.size > 0);
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("ro_http_proxy_tile_read: Read file of size " + std::to_string(ctx->cache.st_stat.size)));
+
+				store->close_storage(store);
+				free(store);
+			}
+
+			SECTION("invalid connection string", "returns 1, clears tile memory and sets st_stat.size = -1")
+			{
+				err_log_lines.clear();
+				std::string invalid_conn = valid_conn + "/invalid";
+				struct storage_backend *store = init_storage_ro_http_proxy(invalid_conn.c_str());
+				REQUIRE(store != NULL);
+
+				struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
+
+				if (initial_cache_data != nullptr) {
+					ctx->cache.tile = strdup(initial_cache_data);
+				} else {
+					ctx->cache.tile = NULL;
+				}
+
+				REQUIRE(ro_http_proxy_tile_retrieve(store, XMLCONFIG_DEFAULT, "", 0, 0, 0) == 1);
+				REQUIRE(ctx->cache.tile == NULL);
+				REQUIRE(ctx->cache.st_stat.size == -1);
+
+				store->close_storage(store);
+				free(store);
+			}
 		}
 
 		SECTION("handles HTTP 200 response and frees previous tile cache")
@@ -412,7 +487,7 @@ TEST_CASE("store_ro_http_proxy.c", "[store_ro_http_proxy]")
 		{
 			char uri_buf[PATH_MAX] = {0};
 			char *id = store->tile_storage_id(store, XMLCONFIG_DEFAULT, "", 1, 2, 3, uri_buf);
-			REQUIRE(std::string(id) == "http://tile.openstreetmap.org/3/1/2.png");
+			REQUIRE(std::string(id) == "http://" + baseurl + "/3/1/2.png");
 		}
 
 		store->close_storage(store);

@@ -15,6 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <string>
+
 #include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 
@@ -22,7 +24,28 @@ extern "C" {
 	int foreground = 1;
 }
 
+std::string cli_option_memcached = "";
+std::string cli_option_ro_http_proxy = "";
+
 int main(int argc, char *argv[])
 {
-	return Catch::Session().run(argc, argv);
+	Catch::Session session;
+
+	// Bind custom options into Catch2 CLI parser
+	using namespace Catch::Clara;
+	auto cli = session.cli() |
+		   Opt(cli_option_memcached, "hostname:port")
+		       ["--memcached"]("Set memcached target for unit tests") |
+		   Opt(cli_option_ro_http_proxy, "hostname:port[/path]")
+		       ["--ro_http_proxy"]("Set HTTP proxy target for unit tests");
+
+	session.cli(cli);
+
+	// Apply command line options first to validate inputs
+	int returnCode = session.applyCommandLine(argc, argv);
+	if (returnCode != 0) {
+		return returnCode;
+	}
+
+	return session.run();
 }
