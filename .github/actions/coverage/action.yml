@@ -31,6 +31,7 @@ runs:
           --remove coverage.info \
           "${GITHUB_WORKSPACE}/includes/*" \
           "${GITHUB_WORKSPACE}/tests/*" \
+          "/opt/*" \
           "/usr/*"
       shell: bash --noprofile --norc -euxo pipefail {0}
 

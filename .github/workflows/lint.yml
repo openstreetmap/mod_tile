@@ -22,7 +22,7 @@ jobs:
         --unpad-paren
         includes/*.h includes/*.hpp src/*.c src/*.cpp
     name: Lint with `Artistic Style`
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04 # Use 26.04 until slim also resolves to 26.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -63,7 +63,7 @@ jobs:
 
   cmakelint:
     name: Lint with `CMakeLint`
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
 
   mandoc:
     name: Lint with `mandoc -T lint -W warning`
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -92,7 +92,7 @@ jobs:
 
   prettier:
     name: Lint with `Prettier`
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
