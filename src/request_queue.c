@@ -227,7 +227,7 @@ void request_queue_clear_requests_by_fd(struct request_queue * queue, int fd)
 	 */
 	pthread_mutex_lock(&(queue->qLock));
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 5; i++) {
 		switch (i) {
 			case 0: {
 				queueHead = &(queue->reqHead);
@@ -246,6 +246,11 @@ void request_queue_clear_requests_by_fd(struct request_queue * queue, int fd)
 
 			case 3: {
 				queueHead = &(queue->reqBulkHead);
+				break;
+			}
+
+			case 4: {
+				queueHead = &(queue->reqLowHead);
 				break;
 			}
 		}

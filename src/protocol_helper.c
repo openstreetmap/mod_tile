@@ -27,6 +27,7 @@ int send_cmd(struct protocol * cmd, int fd)
 {
 	int ret = -1;
 	int socket_type;
+	size_t expected_len = 0;
 	socklen_t optlen = sizeof(socket_type);
 
 	if (fd < 0) {
@@ -48,19 +49,21 @@ int send_cmd(struct protocol * cmd, int fd)
 
 	switch (cmd->ver) {
 		case 1:
-			ret = send(fd, cmd, sizeof(struct protocol_v1), 0);
+			expected_len = sizeof(struct protocol_v1);
 			break;
 
 		case 2:
-			ret = send(fd, cmd, sizeof(struct protocol_v2), 0);
+			expected_len = sizeof(struct protocol_v2);
 			break;
 
 		case 3:
-			ret = send(fd, cmd, sizeof(struct protocol), 0);
+			expected_len = sizeof(struct protocol);
 			break;
 	}
 
-	if ((ret != sizeof(struct protocol)) && (ret != sizeof(struct protocol_v2)) && (ret != sizeof(struct protocol_v1))) {
+	ret = send(fd, cmd, expected_len, 0);
+
+	if (ret < 0 || (size_t)ret != expected_len) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to send render cmd on fd %i", fd);
 		g_logger(G_LOG_LEVEL_ERROR, "send error: %s", strerror(errno));
 	}
