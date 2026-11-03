@@ -32,7 +32,7 @@ int daemon(int nochdir, int noclose);
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
-#define STARTUP_TIMEOUT_SEC 300
+#define RENDER_THREAD_STARTUP_TIMEOUT_SEC 20
 
 typedef struct {
 	const char *iphostname;
