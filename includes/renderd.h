@@ -22,13 +22,12 @@
 extern "C" {
 #endif
 
+#include "config.h"
+#include "gen_tile.h"
+
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
 #endif
-
-#include "gen_tile.h"
-#include "protocol.h"
-#include <limits.h>
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
