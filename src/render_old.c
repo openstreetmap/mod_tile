@@ -319,7 +319,7 @@ int main(int argc, char **argv)
 	}
 
 	if (planet_timestamp == 0) {
-		planet_timestamp = get_planet_time(tile_dir, mapname_passed ? mapname : NULL);
+		planet_timestamp = get_planet_time(tile_dir, mapname);
 		char time_buf[26];
 		ctime_r(&planet_timestamp, time_buf);
 		time_buf[strcspn(time_buf, "\n")] = '\0';
