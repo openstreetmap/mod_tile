@@ -27,6 +27,7 @@
 #include "g_logger.h"
 
 #ifdef HAVE_LIBRADOS
+#include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <rados/librados.h>
