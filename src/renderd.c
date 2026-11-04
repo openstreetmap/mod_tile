@@ -181,9 +181,13 @@ void process_loop(int listen_fd)
 	int num_conns = 0;
 	int pipefds[2];
 	int exit_pipe_read;
-	struct pollfd pfd[MAX_CONNECTIONS + 2];
+	struct pollfd pfd[MAX_CONNECTIONS + PFD_SPECIAL_COUNT];
 
-	bzero(pfd, sizeof(pfd));
+	for (int i = 0; i < MAX_CONNECTIONS + PFD_SPECIAL_COUNT; i++) {
+		pfd[i].fd = FD_INVALID;
+		pfd[i].events = 0;
+		pfd[i].revents = 0;
+	}
 
 	// A pipe is used to allow the render threads to request an exit by the main process
 	if (pipe(pipefds)) {
@@ -228,7 +232,7 @@ void process_loop(int listen_fd)
 
 					// Search for unused slot
 					for (i = 0; i < num_cslots; i++) {
-						if (pfd[i + PFD_SPECIAL_COUNT].fd < 0) {
+						if (pfd[i + PFD_SPECIAL_COUNT].fd == FD_INVALID) {
 							add = 1;
 							break;
 						}
@@ -271,7 +275,7 @@ void process_loop(int listen_fd)
 						g_logger(G_LOG_LEVEL_DEBUG, "Connection %d, fd %d closed, now %d left, total slots %d", i, fd, num_conns, num_cslots);
 						request_queue_clear_requests_by_fd(render_request_queue, fd);
 						close(fd);
-						pfd[i + PFD_SPECIAL_COUNT].fd = -1;
+						pfd[i + PFD_SPECIAL_COUNT].fd = FD_INVALID;
 					} else  {
 						enum protoCmd rsp = rx_request(&cmd, fd);
 
