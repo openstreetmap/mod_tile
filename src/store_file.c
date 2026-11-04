@@ -43,26 +43,6 @@
 #include "store_file_utils.h"
 #include "g_logger.h"
 
-
-static time_t getPlanetTime(const char * tile_dir, const char * xmlname)
-{
-	struct stat st_stat;
-	char filename[PATH_MAX];
-
-	snprintf(filename, PATH_MAX - 1, "%s/%s%s", tile_dir, xmlname, PLANET_TIMESTAMP);
-
-	if (stat(filename, &st_stat) < 0) {
-		snprintf(filename, PATH_MAX - 1, "%s/%s", tile_dir, PLANET_TIMESTAMP);
-
-		if (stat(filename, &st_stat) < 0) {
-			// Make something up
-			return time(NULL) - (3 * 24 * 60 * 60);
-		}
-	}
-
-	return st_stat.st_mtime;
-}
-
 static int file_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg)
 {
 
@@ -193,7 +173,7 @@ static struct stat_info file_tile_stat(struct storage_backend * store, const cha
 		tile_stat.ctime = st_stat.st_ctime;
 	}
 
-	if (tile_stat.mtime < getPlanetTime((char *)(store->storage_ctx), xmlconfig)) {
+	if (tile_stat.mtime < get_planet_time((const char *)(store->storage_ctx), xmlconfig)) {
 		tile_stat.expired = 1;
 	} else {
 		tile_stat.expired = 0;
