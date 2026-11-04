@@ -33,6 +33,12 @@
 #include <iniparser.h>
 #endif
 
+int num_maps = 0;
+int num_slave_threads = 0;
+renderd_config *config;
+renderd_config config_slaves[MAX_SLAVES];
+xmlconfigitem maps[XMLCONFIGS_MAX];
+
 static void copy_string(const char *src, const char **dest, size_t maxlen)
 {
 	*dest = strndup(src, strnlen(src, maxlen));
@@ -383,6 +389,8 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 			}
 		}
 	}
+
+	num_maps = map_section_num + 1;
 }
 
 void process_mapnik_section(const dictionary *ini, const char *config_file_name, renderd_config *config_dest)
@@ -506,12 +514,6 @@ void process_renderd_sections(const dictionary *ini, const char *config_file_nam
 
 void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level)
 {
-	extern int num_slave_threads;
-
-	extern renderd_config *config;
-	extern renderd_config config_slaves[MAX_SLAVES];
-	extern xmlconfigitem maps[XMLCONFIGS_MAX];
-
 	num_slave_threads = 0;
 
 	if (active_renderd_section_num < 0 || active_renderd_section_num >= MAX_SLAVES) {

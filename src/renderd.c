@@ -817,6 +817,10 @@ int main(int argc, char **argv)
 
 	int c;
 
+	int total_maps_ok = 0;
+
+	time_t start_time = time(NULL);
+
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
@@ -926,7 +930,7 @@ int main(int argc, char **argv)
 
 	/* unless the command line said to run in foreground mode, fork and detach from terminal */
 	if (foreground) {
-		g_logger(G_LOG_LEVEL_INFO, "Running in foreground mode...");
+		g_logger(G_LOG_LEVEL_INFO, "Running in foreground mode");
 	} else {
 		if (daemon(0, 0) != 0) {
 			g_logger(G_LOG_LEVEL_ERROR, "can't daemonize: %s", strerror(errno));
@@ -959,6 +963,8 @@ int main(int argc, char **argv)
 		return 7;
 	}
 
+	g_logger(G_LOG_LEVEL_INFO, "Spawning %i render threads...", config->num_threads);
+
 	for (i = 0; i < config->num_threads; i++) {
 		if (pthread_create(&render_threads[i], NULL, render_thread, (void *)maps)) {
 			g_logger(G_LOG_LEVEL_CRITICAL, "Could not spawn rendering thread");
@@ -967,7 +973,9 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (active_renderd_section_num == 0) {
+	g_logger(G_LOG_LEVEL_INFO, "Spawned %i render threads, now initialising...", config->num_threads);
+
+	if (active_renderd_section_num == 0 && num_slave_threads > 0) {
 		// Only the master renderd opens connections to its slaves
 		k = 0;
 		slave_threads = (pthread_t *) malloc(sizeof(pthread_t) * num_slave_threads);
@@ -978,6 +986,8 @@ int main(int argc, char **argv)
 			return 7;
 		}
 
+		g_logger(G_LOG_LEVEL_INFO, "Spawning %i slave threads...", num_slave_threads);
+
 		for (i = 1; i < MAX_SLAVES; i++) {
 			for (j = 0; j < config_slaves[i].num_threads; j++) {
 				if (pthread_create(&slave_threads[k++], NULL, slave_thread, (void *) &config_slaves[i])) {
@@ -987,6 +997,8 @@ int main(int argc, char **argv)
 				}
 			}
 		}
+
+		g_logger(G_LOG_LEVEL_INFO, "Spawned %i slave threads", k);
 	} else {
 		for (i = 0; i < MAX_SLAVES; i++) {
 			if (active_renderd_section_num != i && config_slaves[i].num_threads != 0) {
@@ -995,6 +1007,31 @@ int main(int argc, char **argv)
 			}
 		}
 	}
+
+	while (total_maps_ok < num_maps) {
+		total_maps_ok = 0;
+
+		for (int i = 0; i < num_maps; i++) {
+			if ((__atomic_load_n(&maps[i].total_threads_ok, __ATOMIC_SEQ_CST)) == config->num_threads) {
+				total_maps_ok++;
+				g_logger(G_LOG_LEVEL_DEBUG, "All render threads for '%s' have been marked OK (%i/%i)", maps[i].xmlname, maps[i].total_threads_ok, config->num_threads);
+			} else {
+				g_logger(G_LOG_LEVEL_DEBUG, "Not all render threads for '%s' have been marked OK yet (%i/%i)", maps[i].xmlname, maps[i].total_threads_ok, config->num_threads);
+			}
+		}
+
+		if (total_maps_ok < num_maps) {
+			if (time(NULL) - start_time >= RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Timed out after %d seconds waiting for render threads to initialise!", RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads);
+				return 7;
+			}
+
+			sleep(1);
+		}
+	}
+
+	g_logger(G_LOG_LEVEL_INFO, "Spawned render thread initialisation has completed (%i threads, %i maps)", config->num_threads, num_maps);
+	g_logger(G_LOG_LEVEL_INFO, "Ready, starting process_loop");
 
 	process_loop(fd);
 

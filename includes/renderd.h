@@ -22,16 +22,16 @@
 extern "C" {
 #endif
 
+#include "config.h"
+#include "gen_tile.h"
+
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
 #endif
 
-#include "gen_tile.h"
-#include "protocol.h"
-#include <limits.h>
-
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
+#define RENDER_THREAD_STARTUP_TIMEOUT_SEC 20
 
 typedef struct {
 	const char *iphostname;
@@ -69,6 +69,7 @@ typedef struct {
 	int min_zoom;
 	int num_threads;
 	int tile_px_size;
+	int total_threads_ok;
 } xmlconfigitem;
 
 extern struct request_queue *render_request_queue;
