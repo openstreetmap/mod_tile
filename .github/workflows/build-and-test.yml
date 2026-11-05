@@ -315,12 +315,19 @@ jobs:
     strategy:
       matrix:
         openbsd_release:
-          - "7.9"
-          - "8.0"
+          - 7.9
         build_system:
           - CMake
         compiler:
           - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+        include:
+          - openbsd_release: "8.0"
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
       fail-fast: false
     steps:
       - name: Checkout code
