@@ -19,6 +19,7 @@
 #include <atomic>
 #include <csetjmp>
 #include <cstring>
+#include <memory>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string>
@@ -30,94 +31,37 @@
 #ifndef CATCH_TEST_COMMON_HPP
 #define CATCH_TEST_COMMON_HPP
 
+struct FileCloser {
+	void operator()(FILE *fp) const
+	{
+		if (fp) {
+			fclose(fp);
+		}
+	}
+};
+
 class LogCapture
 {
       private:
 	struct FDCapture {
 		int target_fd;
 		int saved_fd{-1};
-		FILE *temp_file{nullptr};
+		std::unique_ptr<FILE, FileCloser> temp_file{nullptr};
 
-		explicit FDCapture(int fd) : target_fd(fd)
-		{
-			// 1. Flush standard streams before redirecting
-			fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
-
-			// 2. Save the original file descriptor
-			saved_fd = dup(target_fd);
-
-			// 3. Create an anonymous temporary file (auto-deletes on close)
-			temp_file = tmpfile();
-
-			// 4. Overwrite the standard stream with the temp file
-			if (temp_file && saved_fd != -1) {
-				dup2(fileno(temp_file), target_fd);
-			}
-		}
-
-		~FDCapture()
-		{
-			if (saved_fd != -1) {
-				// Restore original standard stream
-				fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
-				dup2(saved_fd, target_fd);
-				close(saved_fd);
-			}
-			if (temp_file) {
-				fclose(temp_file);
-			}
-		}
-
-		std::string read()
-		{
-			if (!temp_file)
-				return "";
-
-			// Flush buffered C writes to ensure they land in the temp file
-			fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
-
-			std::string content;
-			char buffer[1024];
-
-			// Rewind to the start of the temp file to read everything
-			rewind(temp_file);
-			while (fgets(buffer, sizeof(buffer), temp_file)) {
-				content += buffer;
-			}
-
-			// Seek back to the end so subsequent logs append correctly
-			fseek(temp_file, 0, SEEK_END);
-			return content;
-		}
+		explicit FDCapture(int fd);
+		~FDCapture();
+		std::string read();
 	};
 
-	FDCapture err_cap{STDERR_FILENO};
-	FDCapture out_cap{STDOUT_FILENO};
+	FDCapture err_cap;
+	FDCapture out_cap;
 
       public:
-	LogCapture(bool debug = false)
-	{
-		if (debug) {
-			setenv("G_MESSAGES_DEBUG", "all", 1);
-#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
-			// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
-			const gchar *domains[] = {"all", NULL};
-			g_log_writer_default_set_debug_domains(domains);
-#endif
-		}
-	}
+	explicit LogCapture(bool debug = false);
+	~LogCapture();
 
-	~LogCapture()
-	{
-		setenv("G_MESSAGES_DEBUG", "", 1);
-#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
-		// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
-		g_log_writer_default_set_debug_domains(NULL);
-#endif
-	}
-
-	std::string get_stderr() { return err_cap.read(); }
-	std::string get_stdout() { return out_cap.read(); }
+	std::string get_stderr();
+	std::string get_stdout();
 };
 
 int run_command(const std::string &file, std::vector<std::string> argv = {}, const std::string &input = "");

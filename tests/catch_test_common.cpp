@@ -32,7 +32,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <thread>
-#include <tuple>
 #include <unistd.h>
 #include <utime.h>
 #include <vector>
@@ -44,6 +43,70 @@
 extern int foreground;
 
 std::string err_log_lines, out_log_lines;
+
+LogCapture::FDCapture::FDCapture(int fd) : target_fd(fd)
+{
+	fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
+	saved_fd = dup(target_fd);
+	temp_file.reset(tmpfile());
+
+	if (temp_file && saved_fd != -1) {
+		dup2(fileno(temp_file.get()), target_fd);
+	}
+}
+
+LogCapture::FDCapture::~FDCapture()
+{
+	if (saved_fd != -1) {
+		fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
+		dup2(saved_fd, target_fd);
+		close(saved_fd);
+	}
+}
+
+std::string LogCapture::FDCapture::read()
+{
+	if (!temp_file)
+		return "";
+
+	fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
+
+	std::string content;
+	char buffer[1024];
+
+	rewind(temp_file.get());
+	while (fgets(buffer, sizeof(buffer), temp_file.get())) {
+		content += buffer;
+	}
+
+	fseek(temp_file.get(), 0, SEEK_END);
+	return content;
+}
+
+LogCapture::LogCapture(bool debug)
+    : err_cap(STDERR_FILENO), out_cap(STDOUT_FILENO)
+{
+	if (debug) {
+		setenv("G_MESSAGES_DEBUG", "all", 1);
+#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
+		// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
+		const gchar *domains[] = {"all", NULL};
+		g_log_writer_default_set_debug_domains(domains);
+#endif
+	}
+}
+
+LogCapture::~LogCapture()
+{
+	setenv("G_MESSAGES_DEBUG", "", 1);
+#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
+	// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
+	g_log_writer_default_set_debug_domains(NULL);
+#endif
+}
+
+std::string LogCapture::get_stderr() { return err_cap.read(); }
+std::string LogCapture::get_stdout() { return out_cap.read(); }
 
 int run_command(const std::string &file, std::vector<std::string> argv, const std::string &input)
 {
