@@ -48,7 +48,6 @@
 #include "gen_tile.h"
 #include "metatile.h"
 #include "protocol.h"
-#include "protocol_helper.h"
 #include "render_config.h"
 #include "renderd.h"
 #include "request_queue.h"
@@ -85,7 +84,7 @@ void *addition_thread(void *arg)
 	uint64_t threadid;
 #ifdef __MACH__ // Mac OS X does not support SYS_gettid
 	pthread_threadid_np(NULL, &threadid);
-#elif __FreeBSD__ // FreeBSD does not support SYS_getid either
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) // FreeBSD/OpenBSD do not support SYS_getid either
 	threadid = (uint64_t)pthread_self();
 #else
 	threadid = syscall(SYS_gettid);
@@ -564,17 +563,18 @@ TEST_CASE("renderd/queueing", "request queueing")
 
 TEST_CASE("renderd", "tile generation")
 {
-	int found, ret;
-	std::string err_log_lines, out_log_lines;
+	int ret;
+	std::string err_log, out_log;
 
 	SECTION("render_init", "should throw nice error if paths are invalid")
 	{
-		start_capture();
-		render_init("doesnotexist", "doesnotexist", 1);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			render_init("doesnotexist", "doesnotexist", 1);
+			err_log = capture.get_stderr();
+		}
 
-		found = err_log_lines.find("Unable to open font directory: doesnotexist");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("Unable to open font directory: doesnotexist"));
 	}
 
 	SECTION("rx_request/bad", "should return cmdNotDone")
@@ -597,13 +597,14 @@ TEST_CASE("renderd", "tile generation")
 		// Invalid version
 		req->ver = 4;
 
-		start_capture();
-		ret = rx_request(req, pipefd[1]);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			ret = rx_request(req, pipefd[1]);
+			err_log = capture.get_stderr();
+		}
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Bad protocol version " + std::to_string(req->ver));
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("Bad protocol version " + std::to_string(req->ver)));
 
 		// Valid version
 		req->ver = 1;
@@ -612,28 +613,30 @@ TEST_CASE("renderd", "tile generation")
 		REQUIRE((std::string)req->options != expected_options);
 		REQUIRE((std::string)req->xmlname != expected_xmlname);
 
-		start_capture();
-		ret = rx_request(req, pipefd[1]);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			ret = rx_request(req, pipefd[1]);
+			err_log = capture.get_stderr();
+		}
 
 		REQUIRE((std::string)req->mimetype == expected_mimetype);
 		REQUIRE((std::string)req->options == expected_options);
 		REQUIRE((std::string)req->xmlname == expected_xmlname);
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Ignoring invalid command Unknown fd(" + std::to_string(pipefd[1]));
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("Ignoring invalid command Unknown fd(" + std::to_string(pipefd[1])));
 
 		// Valid command
 		req->cmd = cmdNotDone;
 
-		start_capture();
-		ret = rx_request(req, pipefd[1]);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			ret = rx_request(req, pipefd[1]);
+			err_log = capture.get_stderr();
+		}
 
 		REQUIRE(ret == cmdNotDone);
-		found = err_log_lines.find("Ignoring invalid command NotDone fd(" + std::to_string(pipefd[1]));
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("Ignoring invalid command NotDone fd(" + std::to_string(pipefd[1])));
 
 		free(req);
 	}
@@ -646,12 +649,15 @@ TEST_CASE("renderd", "tile generation")
 		struct item *item = init_render_request(rsp);
 		request_queue_add_request(render_request_queue, item);
 
-		start_capture(1);
-		send_response(item, rsp, -1);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture(true);
+			foreground = 1;
+			send_response(item, rsp, -1);
+			out_log = capture.get_stdout();
+			foreground = 0;
+		}
 
-		found = out_log_lines.find("Sending message Render");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(out_log, Catch::Matchers::ContainsSubstring("Sending message Render"));
 
 		request_queue_close(render_request_queue);
 		SUCCEED();
@@ -660,53 +666,49 @@ TEST_CASE("renderd", "tile generation")
 
 TEST_CASE("storage-backend", "Tile storage backend router")
 {
-	int found;
-	std::string err_log_lines, out_log_lines, tile_dir = create_tile_dir();
+	std::string err_log, out_log, tile_dir = create_tile_dir();
 
 	SECTION("storage/initialise", "should return NULL")
 	{
-		start_capture();
+		{
+			LogCapture capture;
+
+			// empty string
+			std::string empty;
+			REQUIRE(init_storage_backend(empty.c_str()) == NULL);
+
+			// invalid path
+			std::string tile_dir_invalid;
+			tile_dir_invalid = tile_dir + "/" + "invalid";
+			REQUIRE(init_storage_backend(tile_dir_invalid.c_str()) == NULL);
+
+			// file
+			std::string file_name;
+			file_name = tile_dir + "/" + "file";
+			std::ofstream file{file_name};
+			REQUIRE(init_storage_backend(file_name.c_str()) == NULL);
+			std::remove(file_name.c_str());
+
+			// non-existent backend
+			char non_existent_backend[] = "non-existent backend";
+			REQUIRE(init_storage_backend(non_existent_backend) == NULL);
+
+			// Check log output
+			err_log = capture.get_stderr();
+		}
 
 		// empty string
-		std::string empty;
-		REQUIRE(init_storage_backend(empty.c_str()) == NULL);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_backend: Options string was empty"));
 
 		// invalid path
-		std::string tile_dir_invalid;
-		tile_dir_invalid = tile_dir + "/" + "invalid";
-		REQUIRE(init_storage_backend(tile_dir_invalid.c_str()) == NULL);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_backend: Failed to stat"));
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("No such file or directory"));
 
 		// file
-		std::string file_name;
-		file_name = tile_dir + "/" + "file";
-		std::ofstream file{file_name};
-		REQUIRE(init_storage_backend(file_name.c_str()) == NULL);
-		std::remove(file_name.c_str());
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("is not a directory"));
 
 		// non-existent backend
-		char non_existent_backend[] = "non-existent backend";
-		REQUIRE(init_storage_backend(non_existent_backend) == NULL);
-
-		// Check log output
-		std::tie(err_log_lines, out_log_lines) = end_capture();
-
-		// empty string
-		found = err_log_lines.find("init_storage_backend: Options string was empty");
-		REQUIRE(found > -1);
-
-		// invalid path
-		found = err_log_lines.find("init_storage_backend: Failed to stat");
-		REQUIRE(found > -1);
-		found = err_log_lines.find("No such file or directory");
-		REQUIRE(found > -1);
-
-		// file
-		found = err_log_lines.find("is not a directory");
-		REQUIRE(found > -1);
-
-		// non-existent backend
-		found = err_log_lines.find("init_storage_backend: No valid storage backend found for options: non-existent backend");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_backend: No valid storage backend found for options: non-existent backend"));
 	}
 
 	delete_tile_dir(tile_dir);
@@ -1010,29 +1012,32 @@ TEST_CASE("file storage-backend", "File Tile storage backend")
 
 TEST_CASE("memcached storage-backend", "MemcacheD Tile storage backend")
 {
-	int found;
-	std::string err_log_lines, out_log_lines;
+	std::string err_log, out_log;
 
 #ifdef HAVE_LIBMEMCACHED
 	SECTION("memcached storage/initialise", "should not return NULL")
 	{
-		start_capture(1);
-		REQUIRE(init_storage_backend("memcached://") != NULL);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture(true);
+			foreground = 1;
+			REQUIRE(init_storage_backend("memcached://") != NULL);
+			out_log = capture.get_stdout();
+			foreground = 0;
+		}
 
-		found = out_log_lines.find("init_storage_memcached: Creating memcached ctx with options");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(out_log, Catch::Matchers::ContainsSubstring("init_storage_memcached: Creating memcached ctx with options"));
 	}
 
 #else
 	SECTION("memcached storage/initialise", "should return NULL")
 	{
-		start_capture();
-		REQUIRE(init_storage_backend("memcached://") == NULL);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			REQUIRE(init_storage_backend("memcached://") == NULL);
+			err_log = capture.get_stderr();
+		}
 
-		found = err_log_lines.find("init_storage_memcached: Support for memcached storage has not been compiled into this program");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_memcached: Support for memcached storage has not been compiled into this program"));
 	}
 
 #endif
@@ -1209,38 +1214,39 @@ TEST_CASE("rados storage-backend", "RADOS Tile storage backend")
 {
 	SECTION("storage/initialise", "should return NULL")
 	{
-		int found;
-		std::string err_log_lines, out_log_lines;
+		std::string err_log, out_log;
 
-		start_capture();
-		REQUIRE(init_storage_backend("rados://") == NULL);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			REQUIRE(init_storage_backend("rados://") == NULL);
+			err_log = capture.get_stderr();
+		}
 
 #ifdef HAVE_LIBRADOS
-		found = err_log_lines.find("init_storage_rados: failed to read rados config file");
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_rados: failed to read rados config file"));
 #else
-		found = err_log_lines.find("init_storage_rados: Support for rados storage has not been compiled into this program");
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_rados: Support for rados storage has not been compiled into this program"));
 #endif
-		REQUIRE(found > -1);
 	}
 }
 
 TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 {
-	int found;
-	std::string err_log_lines, out_log_lines;
+	std::string err_log, out_log;
 	std::string tile_dir = P_tmpdir;
 	std::string valid = "composite:{default," + tile_dir + "}{default," + tile_dir + "}";
+	struct storage_backend *store;
 
-	start_capture();
-	struct storage_backend *store = init_storage_backend(valid.c_str());
-	std::tie(err_log_lines, out_log_lines) = end_capture();
+	{
+		LogCapture capture;
+		store = init_storage_backend(valid.c_str());
+		err_log = capture.get_stderr();
+	}
 
 	if (store == NULL) {
 		// Composite support depends on HAVE_CAIRO as seen by the C sources, which can differ
 		// from what this C++ file sees (e.g. Autotools builds), so check at run time
-		found = err_log_lines.find("init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_ro_coposite: Support for compositing storage has not been compiled into this program"));
 		return;
 	}
 
@@ -1248,14 +1254,15 @@ TEST_CASE("ro_composite storage-backend", "RO Composite Tile storage backend")
 	store->close_storage(store);
 	free(store);
 
-	start_capture();
-	// Missing "}{" separator
-	REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}").c_str()) == NULL);
-	// Primary backend fails to initialise
-	REQUIRE(init_storage_backend(("composite:{default,/does/not/exist}{default," + tile_dir + "}").c_str()) == NULL);
-	// Secondary backend fails to initialise
-	REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}{default,/does/not/exist}").c_str()) == NULL);
-	end_capture();
+	{
+		LogCapture capture;
+		// Missing "}{" separator
+		REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}").c_str()) == NULL);
+		// Primary backend fails to initialise
+		REQUIRE(init_storage_backend(("composite:{default,/does/not/exist}{default," + tile_dir + "}").c_str()) == NULL);
+		// Secondary backend fails to initialise
+		REQUIRE(init_storage_backend(("composite:{default," + tile_dir + "}{default,/does/not/exist}").c_str()) == NULL);
+	}
 }
 
 TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
@@ -1274,15 +1281,15 @@ TEST_CASE("ro_http_proxy storage-backend", "RO HTTP Proxy Tile storage backend")
 #else
 	SECTION("storage/initialise", "should return NULL")
 	{
-		int found;
-		std::string err_log_lines, out_log_lines;
+		std::string err_log, out_log;
 
-		start_capture();
-		REQUIRE(init_storage_backend("ro_http_proxy://") == NULL);
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			REQUIRE(init_storage_backend("ro_http_proxy://") == NULL);
+			err_log = capture.get_stderr();
+		}
 
-		found = err_log_lines.find("init_storage_ro_http_proxy: Support for http proxy storage has not been compiled into this program");
-		REQUIRE(found > -1);
+		REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring("init_storage_ro_http_proxy: Support for http proxy storage has not been compiled into this program"));
 	}
 
 #endif
@@ -1297,6 +1304,7 @@ TEST_CASE("projections", "Test projections")
 		double expected_minx, expected_miny, expected_maxx, expected_maxy;
 		double expected_rounded_minx, expected_rounded_miny, expected_rounded_maxx, expected_rounded_maxy;
 		mapnik::box2d<double> bbox;
+		struct projectionconfig *prj;
 
 		std::tie(projection_srs, x_multiplier, y_multiplier, expected_minx, expected_miny, expected_maxx, expected_maxy, expected_rounded_minx, expected_rounded_miny, expected_rounded_maxx, expected_rounded_maxy) =
 		    GENERATE(table<const char *, int, int, double, double, double, double, double, double, double, double>({// 313086.06785625 = 2*20037508.3428 / (2^10 / 8)
@@ -1320,7 +1328,10 @@ TEST_CASE("projections", "Test projections")
 																	    -20037508.3428, -20037508.3428, 20037508.3428, 20037508.3428,
 																	    19724422.0, 19724422.0, -19724422.0, -19724422.0)}));
 
-		struct projectionconfig *prj = get_projection(projection_srs);
+		{
+			LogCapture capture;
+			prj = get_projection(projection_srs);
+		}
 
 		bbox = tile2prjbounds(prj, 0, 0, 0);
 		REQUIRE(bbox.minx() == expected_minx);
@@ -1346,8 +1357,8 @@ TEST_CASE("projections", "Test projections")
 
 TEST_CASE("g_logger", "Test g_logger.c")
 {
-	int found_err, found_out, log_level;
-	std::string err_log_lines, out_log_lines, expected_output;
+	int log_level;
+	std::string err_log, out_log, expected_output;
 
 	std::tie(log_level, expected_output) =
 	    GENERATE(table<int, std::string>({std::make_tuple(G_LOG_LEVEL_ERROR, "ERROR"),
@@ -1367,101 +1378,104 @@ TEST_CASE("g_logger", "Test g_logger.c")
 
 	SECTION("g_logger background: " + expected_output, "should log the expected string")
 	{
-		start_capture();
-		g_logger(log_level, "BACKGROUND TEST");
-		std::tie(err_log_lines, out_log_lines) = end_capture();
+		{
+			LogCapture capture;
+			foreground = 0;
+			g_logger(log_level, "BACKGROUND TEST");
+			err_log = capture.get_stderr();
+			out_log = capture.get_stdout();
+		}
 
 		expected_output += ": BACKGROUND TEST";
-
-		found_err = err_log_lines.find(expected_output);
-		found_out = out_log_lines.find(expected_output);
 
 		switch (log_level) {
 		case 0:
 			// BACKGROUND UNKNOWN messages do not log
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		case G_LOG_LEVEL_DEBUG:
 			// BACKGROUND DEBUG messages do not log
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		default:
-			REQUIRE(found_err > -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 		}
 	}
 
 	SECTION("g_logger foreground: " + expected_output, "should log the expected string")
 	{
 		std::string message = expected_output + " FOREGROUND TEST";
-		start_capture();
-		foreground = 1;
-		g_logger(log_level, "%s", message.c_str());
-		std::tie(err_log_lines, out_log_lines) = end_capture();
-		foreground = 0;
-
-		found_err = err_log_lines.find(message);
-		found_out = out_log_lines.find(message);
+		{
+			LogCapture capture;
+			foreground = 1;
+			g_logger(log_level, "%s", message.c_str());
+			err_log = capture.get_stderr();
+			out_log = capture.get_stdout();
+			foreground = 0;
+		}
 
 		switch (log_level) {
 		case 0:
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		case G_LOG_LEVEL_INFO:
 			// FOREGROUND INFO messages log to stdout
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out > -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		case G_LOG_LEVEL_DEBUG:
 			// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		default:
-			REQUIRE(found_err > -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 		}
 	}
 
 	SECTION("g_logger foreground debug: " + expected_output, "should log the expected string")
 	{
 		std::string message = expected_output + " FOREGROUND DEBUG TEST";
-		start_capture(1);
-		g_logger(log_level, "%s", message.c_str());
-		std::tie(err_log_lines, out_log_lines) = end_capture();
-
-		found_err = err_log_lines.find(message);
-		found_out = out_log_lines.find(message);
+		{
+			LogCapture capture(true);
+			foreground = 1;
+			g_logger(log_level, "%s", message.c_str());
+			err_log = capture.get_stderr();
+			out_log = capture.get_stdout();
+			foreground = 0;
+		}
 
 		switch (log_level) {
 		case 0:
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		case G_LOG_LEVEL_INFO:
 			// FOREGROUND INFO messages log to stdout
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out > -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		case G_LOG_LEVEL_DEBUG:
 			// FOREGROUND DEBUG messages log to stdout and only when G_MESSAGES_DEBUG={all,debug}
-			REQUIRE(found_err == -1);
-			REQUIRE(found_out > -1);
+			REQUIRE_THAT(err_log, !Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, Catch::Matchers::ContainsSubstring(expected_output));
 			break;
 
 		default:
-			REQUIRE(found_err > -1);
-			REQUIRE(found_out == -1);
+			REQUIRE_THAT(err_log, Catch::Matchers::ContainsSubstring(expected_output));
+			REQUIRE_THAT(out_log, !Catch::Matchers::ContainsSubstring(expected_output));
 		}
 	}
 }
@@ -1484,11 +1498,11 @@ TEST_CASE("metatile", "Test metatile.cpp")
 
 int main(int argc, char *argv[])
 {
-	capture_stderr();
+	// capture_stderr();
 	openlog("gen_tile_test", LOG_PID | LOG_PERROR, LOG_DAEMON);
 	pthread_mutex_init(&item_counter_lock, NULL);
 	int result = Catch::Session().run(argc, argv);
 	pthread_mutex_destroy(&item_counter_lock);
-	get_captured_stderr();
+	// get_captured_stderr();
 	return result;
 }

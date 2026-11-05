@@ -25,6 +25,9 @@
 #cmakedefine RENDERD_SOCKET "@RENDERD_SOCKET@"
 #cmakedefine RENDERD_TILE_DIR "@RENDERD_TILE_DIR@"
 
+/* Define if available version of iniparser uses const dictionary */
+#cmakedefine INIPARSER_USES_CONST @INIPARSER_USES_CONST@
+
 /* Version number of project */
 #cmakedefine VERSION "@VERSION@"
 #endif

@@ -101,7 +101,7 @@ static void *producer_thread(void *arg)
 
 #ifdef __MACH__
 	pthread_threadid_np(NULL, &tid);
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) // FreeBSD/OpenBSD do not support SYS_getid either
 	tid = reinterpret_cast<uint64_t>(pthread_self());
 #else
 	tid = syscall(SYS_gettid);

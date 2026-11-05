@@ -16,14 +16,11 @@
  */
 
 #include <string>
+#include <sys/wait.h>
 
 #include "catch/catch_amalgamated.hpp"
 #include "catch_test_common.hpp"
 #include "config.h"
-
-#ifdef __FreeBSD__
-#include <sys/wait.h>
-#endif
 
 #ifndef PROJECT_BINARY_DIR
 #define PROJECT_BINARY_DIR "."

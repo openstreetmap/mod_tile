@@ -1,6 +1,6 @@
 # Building on openSUSE
 
-This document provides users with step-by-step instructions on how to compile and use`mod_tile` and `renderd`.
+This document provides users with step-by-step instructions on how to compile and use `mod_tile` and `renderd`.
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 

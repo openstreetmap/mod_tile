@@ -75,7 +75,7 @@ module AP_MODULE_DECLARE_DATA tile_module;
 
 APLOG_USE_MODULE(tile);
 
-#if (defined(__FreeBSD__) || defined(__MACH__)) && !defined(s6_addr32)
+#if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__MACH__)) && !defined(s6_addr32)
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
@@ -488,7 +488,7 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 	stat = rdata->store->tile_stat(rdata->store, cmd->xmlname, cmd->options, cmd->x, cmd->y, cmd->z);
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "tile_state: determined state of %s %i %i %i on store %pp: Tile size: %" APR_OFF_T_FMT ", expired: %i created: %li",
-		      cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, stat.mtime);
+		      cmd->xmlname, cmd->x, cmd->y, cmd->z, rdata->store, stat.size, stat.expired, (long int)(stat.mtime));
 
 	r->finfo.mtime = stat.mtime * 1000000;
 	r->finfo.atime = stat.atime * 1000000;
@@ -2409,7 +2409,7 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 	// The rate is stored as whole microseconds per tile and later used as a divisor, so it
 	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
 	if (top_up_tile_rate <= top_up_tile_rate_min || top_up_tile_rate > APR_USEC_PER_SEC) {
-		return apr_psprintf(cmd->pool, "ModTileThrottlingTiles second argument (top up rate in tiles per second) must be greater than %i and at most %ld", top_up_tile_rate_min, APR_USEC_PER_SEC);
+		return apr_psprintf(cmd->pool, "ModTileThrottlingTiles second argument (top up rate in tiles per second) must be greater than %i and at most %li", top_up_tile_rate_min, (long int)APR_USEC_PER_SEC);
 	}
 
 	/* Convert topup rate into microseconds per tile */
@@ -2438,7 +2438,7 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 	// The rate is stored as whole microseconds per render and later used as a divisor, so it
 	// must be > 0 and at most one per microsecond (a larger rate would truncate to 0)
 	if (top_up_render_rate <= top_up_render_rate_min || top_up_render_rate > APR_USEC_PER_SEC) {
-		return apr_psprintf(cmd->pool, "ModTileThrottlingRenders second argument (top up rate in renders per second) must be greater than %i and at most %ld", top_up_render_rate_min, APR_USEC_PER_SEC);
+		return apr_psprintf(cmd->pool, "ModTileThrottlingRenders second argument (top up rate in renders per second) must be greater than %i and at most %li", top_up_render_rate_min, (long int)APR_USEC_PER_SEC);
 	}
 
 	/* Convert topup rate into microseconds per render request */

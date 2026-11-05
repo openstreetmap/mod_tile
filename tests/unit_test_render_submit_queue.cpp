@@ -481,7 +481,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 				}
 
 				REQUIRE(exit_status == 2);
-				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot retrieve name info: Name could not be resolved at this time") || Catch::Matchers::ContainsSubstring("cannot retrieve name info: Temporary failure in name resolution"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("cannot retrieve name info:"));
+				REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Name could not be resolved at this time") || Catch::Matchers::ContainsSubstring("Temporary failure in name resolution") || Catch::Matchers::ContainsSubstring("temporary failure in name resolution"));
 			}
 
 			SECTION("Network socket handles getprotobyname failure", "should exit 2")

@@ -115,9 +115,14 @@ if(NOT MALLOC_LIB STREQUAL "libc")
   endif()
 endif()
 
-# Use /usr/local/lib for FreeBSD
-if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+# Use /usr/local/lib for FreeBSD & OpenBSD link directories
+if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD|OpenBSD")
   link_directories(/usr/local/lib)
+endif()
+
+# Use /usr/X11R6/lib for OpenBSD link directories
+if(CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
+  link_directories(/usr/X11R6/lib)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -286,6 +291,9 @@ elseif(EXISTS "/etc/os-release")
   endif()
 elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
   set(TILE_LOAD_DIRECTORY "${HTTPD_SYSCONFDIR}/extra")
+  set(TILE_LOAD_FILENAME "httpd-tile.conf")
+elseif(CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
+  set(TILE_LOAD_DIRECTORY "${CMAKE_INSTALL_LOCALSTATEDIR}/www/conf/modules")
   set(TILE_LOAD_FILENAME "httpd-tile.conf")
 endif()
 message(STATUS "File 'etc/apache2/tile.load.in' will be installed to '${TILE_LOAD_DIRECTORY}/${TILE_LOAD_FILENAME}'")

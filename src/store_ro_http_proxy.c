@@ -121,10 +121,16 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend * store, const cha
 					free(ctx->cache.tile);
 				}
 
+				long filemtime = -1;
 				ctx->cache.tile = chunk.memory;
 				ctx->cache.st_stat.size = chunk.size;
 				ctx->cache.st_stat.expired = 0;
-				res = curl_easy_getinfo(ctx->ctx, CURLINFO_FILETIME, &(ctx->cache.st_stat.mtime));
+				res = curl_easy_getinfo(ctx->ctx, CURLINFO_FILETIME, &filemtime);
+
+				if (res == CURLE_OK && filemtime >= 0) {
+					ctx->cache.st_stat.mtime = (time_t)filemtime;
+				}
+
 				ctx->cache.st_stat.atime = 0;
 				g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_read: Read file of size %lu", chunk.size);
 				break;
@@ -173,7 +179,7 @@ static int ro_http_proxy_tile_read(struct storage_backend * store, const char *x
 		}
 
 		if ((size_t)ctx->cache.st_stat.size > sz) {
-			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %lu %li", sz, ctx->cache.st_stat.size);
+			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_read: size was too big, overrun %lu %li", sz, (long int)(ctx->cache.st_stat.size));
 			return -1;
 		}
 
