@@ -324,7 +324,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set `BUILD_PARALLEL_LEVEL` & `TEST_PARALLEL_LEVEL`
         run: |
