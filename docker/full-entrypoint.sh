@@ -13,7 +13,8 @@ sed -i \
 if [ ! -f ${MAPNIK_XML} ]
 then
     export OPENSTREETMAP_CARTO_DIR=/opt/openstreetmap-carto
-    git clone https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1 ${OPENSTREETMAP_CARTO_DIR}
+    # git clone --depth 1 https://github.com/openstreetmap-carto/openstreetmap-carto.git ${OPENSTREETMAP_CARTO_DIR}
+    git clone --branch ArchiveOrgFallback --depth 1 https://github.com/hummeltech/openstreetmap-carto.git ${OPENSTREETMAP_CARTO_DIR}
 
     cp --archive ${OPENSTREETMAP_CARTO_DIR}/patterns ${OPENSTREETMAP_CARTO_DIR}/symbols /opt/styles/
 
@@ -22,7 +23,11 @@ then
 
     if [ ! -f ${OSM2PGSQL_DATAFILE} ]
     then
-        curl --location "${DOWNLOAD_PBF:-http://download.geofabrik.de/asia/vietnam-latest.osm.pbf}" --output ${OSM2PGSQL_DATAFILE}
+        curl \
+            --location \
+            --output ${OSM2PGSQL_DATAFILE} \
+            --silent \
+            "${DOWNLOAD_PBF:-http://download.geofabrik.de/asia/vietnam-latest.osm.pbf}"
     fi
 
     cd ${OPENSTREETMAP_CARTO_DIR}
