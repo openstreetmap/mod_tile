@@ -32,7 +32,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <thread>
-#include <tuple>
 #include <unistd.h>
 #include <utime.h>
 #include <vector>
@@ -45,101 +44,48 @@ extern int foreground;
 
 std::string err_log_lines, out_log_lines;
 
-captured_stdio captured_stderr;
-captured_stdio captured_stdout;
-
-std::string read_stderr(int buffer_size)
+LogCapture::FDCapture::FDCapture(int fd) : target_fd(fd)
 {
-	std::string buffer(buffer_size, '\0');
-	ssize_t len = read(captured_stderr.pipes[0], &buffer[0], buffer_size);
-	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
-	return buffer;
+	fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
+	saved_fd = dup(target_fd);
+	temp_file.reset(tmpfile());
+
+	if (temp_file && saved_fd != -1) {
+		dup2(fileno(temp_file.get()), target_fd);
+	}
 }
 
-std::string read_stdout(int buffer_size)
+LogCapture::FDCapture::~FDCapture()
 {
-	std::string buffer(buffer_size, '\0');
-	ssize_t len = read(captured_stdout.pipes[0], &buffer[0], buffer_size);
-	buffer.resize(len > 0 ? strnlen(buffer.c_str(), len) : 0);
-	return buffer;
+	if (saved_fd != -1) {
+		fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
+		dup2(saved_fd, target_fd);
+		close(saved_fd);
+	}
 }
 
-void capture_stderr()
+std::string LogCapture::FDCapture::read()
 {
-	fflush(stderr);
+	if (!temp_file)
+		return "";
 
-	int temp_stderr = dup(fileno(stderr));
-	int pipes[2];
+	fflush(target_fd == STDOUT_FILENO ? stdout : stderr);
 
-	if (pipe(pipes) != 0) {
-		throw std::runtime_error("capture: pipe() failed");
+	std::string content;
+	char buffer[1024];
+
+	rewind(temp_file.get());
+	while (fgets(buffer, sizeof(buffer), temp_file.get())) {
+		content += buffer;
 	}
 
-	dup2(pipes[1], fileno(stderr));
-
-	captured_stderr.temp_fd = temp_stderr;
-	captured_stderr.pipes[0] = pipes[0];
-	captured_stderr.pipes[1] = pipes[1];
+	fseek(temp_file.get(), 0, SEEK_END);
+	return content;
 }
 
-void capture_stdout()
+LogCapture::LogCapture(bool debug)
+    : err_cap(STDERR_FILENO), out_cap(STDOUT_FILENO)
 {
-	fflush(stdout);
-
-	int temp_stdout = dup(fileno(stdout));
-	int pipes[2];
-
-	if (pipe(pipes) != 0) {
-		throw std::runtime_error("capture: pipe() failed");
-	}
-
-	dup2(pipes[1], fileno(stdout));
-
-	captured_stdout.temp_fd = temp_stdout;
-	captured_stdout.pipes[0] = pipes[0];
-	captured_stdout.pipes[1] = pipes[1];
-}
-
-std::string get_captured_stderr(bool print)
-{
-	if (write(captured_stderr.pipes[1], "", 1) != 1) {
-		throw std::runtime_error("capture: write() failed");
-	}
-
-	fflush(stderr);
-	dup2(captured_stderr.temp_fd, fileno(stderr));
-
-	std::string log_lines = read_stderr();
-
-	if (print) {
-		std::cout << "err_log_lines: " << log_lines << "\n";
-	}
-
-	return log_lines;
-}
-
-std::string get_captured_stdout(bool print)
-{
-	if (write(captured_stdout.pipes[1], "", 1) != 1) {
-		throw std::runtime_error("capture: write() failed");
-	}
-
-	fflush(stdout);
-	dup2(captured_stdout.temp_fd, fileno(stdout));
-
-	std::string log_lines = read_stdout();
-
-	if (print) {
-		std::cout << "out_log_lines: " << log_lines << "\n";
-	}
-
-	return log_lines;
-}
-
-void start_capture(bool debug)
-{
-	foreground = debug ? 1 : 0;
-
 	if (debug) {
 		setenv("G_MESSAGES_DEBUG", "all", 1);
 #if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
@@ -148,22 +94,19 @@ void start_capture(bool debug)
 		g_log_writer_default_set_debug_domains(domains);
 #endif
 	}
-
-	capture_stderr();
-	capture_stdout();
 }
 
-std::tuple<std::string, std::string> end_capture(bool print)
+LogCapture::~LogCapture()
 {
 	setenv("G_MESSAGES_DEBUG", "", 1);
 #if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 79
 	// https://gitlab.gnome.org/GNOME/glib/-/merge_requests/3710
 	g_log_writer_default_set_debug_domains(NULL);
 #endif
-	foreground = 0;
-
-	return std::tuple<std::string, std::string>(get_captured_stderr(print), get_captured_stdout(print));
 }
+
+std::string LogCapture::get_stderr() { return err_cap.read(); }
+std::string LogCapture::get_stdout() { return out_cap.read(); }
 
 int run_command(const std::string &file, std::vector<std::string> argv, const std::string &input)
 {

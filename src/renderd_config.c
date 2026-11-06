@@ -33,6 +33,14 @@
 #include <iniparser.h>
 #endif
 
+#ifndef INIPARSER_USES_CONST
+#  define INIPARSER_DICT_CAST(d) ((dictionary *)(d))
+#  define INIPARSER_STR_CAST(s)  ((char *)(s))
+#else
+#  define INIPARSER_DICT_CAST(d) (d)
+#  define INIPARSER_STR_CAST(s)  (s)
+#endif
+
 int num_maps = 0;
 int num_slave_threads = 0;
 renderd_config *config;
@@ -77,7 +85,7 @@ static char *name_with_section(const char *section, const char *name)
 static void process_config_bool(const dictionary *ini, const char *section, const char *name, int *dest, int notfound)
 {
 	char *key = name_with_section(section, name);
-	int src = iniparser_getboolean(ini, key, notfound);
+	int src = iniparser_getboolean(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src ? "true" : "false");
 
@@ -89,7 +97,7 @@ static void process_config_bool(const dictionary *ini, const char *section, cons
 static void process_config_double(const dictionary *ini, const char *section, const char *name, double *dest, double notfound)
 {
 	char *key = name_with_section(section, name);
-	double src = iniparser_getdouble(ini, key, notfound);
+	double src = iniparser_getdouble(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%lf'", key, src);
 
@@ -101,7 +109,7 @@ static void process_config_double(const dictionary *ini, const char *section, co
 static void process_config_int(const dictionary *ini, const char *section, const char *name, int *dest, int notfound)
 {
 	char *key = name_with_section(section, name);
-	int src = iniparser_getint(ini, key, notfound);
+	int src = iniparser_getint(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%i'", key, src);
 
@@ -113,7 +121,7 @@ static void process_config_int(const dictionary *ini, const char *section, const
 static void process_config_string(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
 {
 	char *key = name_with_section(section, name);
-	const char *src = iniparser_getstring(ini, key, notfound);
+	const char *src = iniparser_getstring(INIPARSER_DICT_CAST(ini), key, INIPARSER_STR_CAST(notfound));
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
 
@@ -125,7 +133,7 @@ static void process_config_string(const dictionary *ini, const char *section, co
 static void process_config_string_with_trailing_slash(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
 {
 	char *key = name_with_section(section, name);
-	const char *src = iniparser_getstring(ini, key, notfound);
+	const char *src = iniparser_getstring(INIPARSER_DICT_CAST(ini), key, INIPARSER_STR_CAST(notfound));
 	size_t src_strlen = strnlen(src, maxlen);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
@@ -260,8 +268,8 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section(s)");
 
-	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
-		const char *section = iniparser_getsecname(ini, section_num);
+	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 
 		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { // this is a map config section
 			char *ini_type_copy, *ini_type_context;
@@ -410,8 +418,8 @@ void process_mapnik_section(const dictionary *ini, const char *config_file_name,
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing mapnik config section");
 
-	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
-		const char *section = iniparser_getsecname(ini, section_num);
+	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 
 		if (strcmp(section, "mapnik") == 0) { // this is a mapnik config section
 			mapnik_section_num = section_num;
@@ -452,8 +460,8 @@ void process_renderd_sections(const dictionary *ini, const char *config_file_nam
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section(s)");
 
-	for (int section_num = 0; section_num < iniparser_getnsec(ini); section_num++) {
-		const char *section = iniparser_getsecname(ini, section_num);
+	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 		int renderd_strlen = 7;
 
 		if (strncmp(section, "renderd", renderd_strlen) == 0) { // this is a renderd config section

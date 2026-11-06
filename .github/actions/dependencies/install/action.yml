@@ -125,6 +125,18 @@ inputs:
       jq
       lcov
       memcached
+  openbsd-build-dependencies:
+    default: >-
+      pcre2--
+      apache-httpd
+      coreutils
+      glib2
+      iniparser
+      mapnik
+  openbsd-test-dependencies:
+    default: >-
+      curl
+      jq
   opensuse-build-dependencies:
     default: >-
       apache2-devel
@@ -261,6 +273,16 @@ runs:
           ${{ matrix.compiler == 'GNU' && 'gcc' || '' }}
       if: github.job == 'macOS'
 
+    - name: Install Dependencies (OpenBSD)
+      uses: ./.github/actions/dependencies/install/pkg_add
+      with:
+        packages: >-
+          ${{ inputs.openbsd-build-dependencies }}
+          ${{ inputs.openbsd-test-dependencies }}
+          ${{ matrix.build_system == 'CMake' && 'cmake' || 'autoconf automake' }}
+          ${{ matrix.compiler == 'GNU' && 'gcc' || '' }}
+      if: github.job == 'OpenBSD'
+
     - name: Install Dependencies (openSUSE)
       uses: ./.github/actions/dependencies/install/zypper
       with:
@@ -284,7 +306,7 @@ runs:
           ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
       if: |
         startsWith(matrix.image, 'ubuntu:') ||
-        (!matrix.image && github.job != 'FreeBSD' && runner.os == 'Linux')
+        (!matrix.image && github.job != 'FreeBSD' && github.job != 'OpenBSD' && runner.os == 'Linux')
 
     - name: Link `gcc`/`g++` (openSUSE)
       run: |

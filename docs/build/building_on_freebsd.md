@@ -1,6 +1,6 @@
 # Building on FreeBSD
 
-This document provides users with step-by-step instructions on how to compile and use`mod_tile` and `renderd`.
+This document provides users with step-by-step instructions on how to compile and use `mod_tile` and `renderd`.
 
 Please see our [Continuous Integration script](/.github/workflows/build-and-test.yml) for more details.
 
@@ -34,7 +34,6 @@ sudo pkg install --yes \
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(sysctl -n hw.ncpu)
-export LIBRARY_PATH="/usr/local/lib"
 rm -rf /tmp/mod_tile_src /tmp/mod_tile_build
 mkdir /tmp/mod_tile_src /tmp/mod_tile_build
 cd /tmp/mod_tile_src

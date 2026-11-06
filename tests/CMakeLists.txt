@@ -29,7 +29,7 @@ find_program(ID_EXECUTABLE NAMES id REQUIRED)
 find_program(JQ_EXECUTABLE NAMES jq)
 find_program(KILL_EXECUTABLE NAMES kill REQUIRED)
 find_program(MEMCACHED_EXECUTABLE NAMES memcached)
-find_program(MKDIR_EXECUTABLE NAMES mkdir REQUIRED)
+find_program(MKDIR_EXECUTABLE NAMES gmkdir mkdir REQUIRED)
 find_program(PS_EXECUTABLE NAMES ps REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
 find_program(SLEEP_EXECUTABLE NAMES sleep REQUIRED)
@@ -39,8 +39,8 @@ find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 if(DEFINED ENV{CTEST_SERVER_HOST})
   # To the value of environment variable "CTEST_SERVER_HOST"
   set(CTEST_SERVER_HOST "$ENV{CTEST_SERVER_HOST}")
-elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
-  # To localhost on FreeBSD
+elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD|OpenBSD")
+  # To localhost on FreeBSD and OpenBSD
   set(CTEST_SERVER_HOST "localhost")
 else()
   # Or to 0.0.0.0 by default

@@ -18,6 +18,8 @@
 #include <arpa/inet.h>
 #include <atomic>
 #include <csetjmp>
+#include <cstring>
+#include <memory>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string>
@@ -29,22 +31,38 @@
 #ifndef CATCH_TEST_COMMON_HPP
 #define CATCH_TEST_COMMON_HPP
 
-typedef struct _captured_stdio {
-	int temp_fd;
-	int pipes[2];
-} captured_stdio;
+struct FileCloser {
+	void operator()(FILE *fp) const
+	{
+		if (fp) {
+			fclose(fp);
+		}
+	}
+};
 
-std::string read_stderr(int buffer_size = 16384);
-std::string read_stdout(int buffer_size = 16384);
+class LogCapture
+{
+      private:
+	struct FDCapture {
+		int target_fd;
+		int saved_fd{-1};
+		std::unique_ptr<FILE, FileCloser> temp_file{nullptr};
 
-void capture_stderr();
-void capture_stdout();
+		explicit FDCapture(int fd);
+		~FDCapture();
+		std::string read();
+	};
 
-std::string get_captured_stderr(bool print = false);
-std::string get_captured_stdout(bool print = false);
+	FDCapture err_cap;
+	FDCapture out_cap;
 
-void start_capture(bool debug = false);
-std::tuple<std::string, std::string> end_capture(bool print = false);
+      public:
+	explicit LogCapture(bool debug = false);
+	~LogCapture();
+
+	std::string get_stderr();
+	std::string get_stdout();
+};
 
 int run_command(const std::string &file, std::vector<std::string> argv = {}, const std::string &input = "");
 

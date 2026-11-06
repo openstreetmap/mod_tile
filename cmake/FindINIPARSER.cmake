@@ -4,6 +4,7 @@
 #  INIPARSER_FOUND
 #  INIPARSER_INCLUDE_DIRS
 #  INIPARSER_LIBRARIES
+#  INIPARSER_USES_CONST
 
 find_package(PkgConfig QUIET)
 pkg_check_modules(INIPARSER QUIET iniparser)
@@ -45,6 +46,17 @@ if(INIPARSER_FOUND)
   find_package_handle_standard_args(INIPARSER
     REQUIRED_VARS INIPARSER_FOUND INIPARSER_INCLUDE_DIRS INIPARSER_LIBRARIES
   )
+
+  include(CheckCSourceCompiles)
+
+  check_c_source_compiles("
+      #include <iniparser.h>
+      int main(void) {
+          const dictionary *d = NULL;
+          iniparser_getnsec(d);
+          return 0;
+      }
+  " INIPARSER_USES_CONST)
 else()
   find_package_handle_standard_args(INIPARSER
     REQUIRED_VARS INIPARSER_FOUND

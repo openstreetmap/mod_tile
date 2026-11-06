@@ -74,6 +74,8 @@ using namespace mapnik;
 #define image_data_32 image_rgba8
 #define image_32 image_rgba8
 
+static pthread_mutex_t map_load_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct projectionconfig {
 	double bound_x0;
 	double bound_y0;
@@ -341,12 +343,15 @@ void *render_thread(void *arg)
 			maps[iMaxConfigs].map.resize(RENDER_SIZE, RENDER_SIZE);
 
 			try {
+				pthread_mutex_lock(&map_load_mutex);
 				mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
 
 				if (!maps[iMaxConfigs].parameterize_function)
 				{
 					maps[iMaxConfigs].map.load_fonts();
 				}
+
+				pthread_mutex_unlock(&map_load_mutex);
 
 				/* If we have more than 10 rendering threads configured, we need to fix
 				 * up the mapnik datasources to support larger postgres connection pools
@@ -360,9 +365,11 @@ void *render_thread(void *arg)
 				maps[iMaxConfigs].prj = get_projection(maps[iMaxConfigs].map.srs().c_str());
 				__atomic_add_fetch(&parentxmlconfig[iMaxConfigs].total_threads_ok, 1, __ATOMIC_SEQ_CST);
 			} catch (std::exception const &ex) {
+				pthread_mutex_unlock(&map_load_mutex);
 				g_logger(G_LOG_LEVEL_ERROR, "An error occurred while loading the map layer '%s': %s", maps[iMaxConfigs].xmlname, ex.what());
 				maps[iMaxConfigs].ok = 0;
 			} catch (...) {
+				pthread_mutex_unlock(&map_load_mutex);
 				g_logger(G_LOG_LEVEL_ERROR, "An unknown error occurred while loading the map layer '%s'", maps[iMaxConfigs].xmlname);
 				maps[iMaxConfigs].ok = 0;
 			}

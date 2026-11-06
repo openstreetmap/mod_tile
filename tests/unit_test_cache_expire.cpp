@@ -107,13 +107,15 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 		{
 			std::string htcphost("nonexistenthost");
 			init_cache_expire((char *)htcphost.c_str());
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host:"));
 			REQUIRE_THAT(err_log_lines,
-				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Address family for hostname not supported") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Name could not be resolved at this time") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Name does not resolve") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Name or service not known") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Temporary failure in name resolution") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: nodename nor servname provided, or not known"));
+				     Catch::Matchers::ContainsSubstring("Address family for hostname not supported") ||
+					 Catch::Matchers::ContainsSubstring("Name could not be resolved at this time") ||
+					 Catch::Matchers::ContainsSubstring("Name does not resolve") ||
+					 Catch::Matchers::ContainsSubstring("Name or service not known") ||
+					 Catch::Matchers::ContainsSubstring("Temporary failure in name resolution") ||
+					 Catch::Matchers::ContainsSubstring("no address associated with name") ||
+					 Catch::Matchers::ContainsSubstring("nodename nor servname provided, or not known"));
 		}
 
 		SECTION("init_cache_expire with failed socket", "should return")
@@ -133,9 +135,11 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 			fail_next_getaddrinfo = true;
 
 			init_cache_expire((char *)htcphost.c_str());
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host:"));
 			REQUIRE_THAT(err_log_lines,
-				     Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Bad value for ai_flags") ||
-					 Catch::Matchers::ContainsSubstring("Failed to lookup HTCP cache host: Unknown error"));
+				     Catch::Matchers::ContainsSubstring("Bad value for ai_flags") ||
+					 Catch::Matchers::ContainsSubstring("invalid value for ai_flags") ||
+					 Catch::Matchers::ContainsSubstring("Unknown error"));
 		}
 
 		SECTION("init_cache_expire with empty getaddrinfo response", "should return")

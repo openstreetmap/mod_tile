@@ -302,3 +302,62 @@ jobs:
 
       - name: Install `mod_tile`
         uses: ./.github/actions/install
+
+  OpenBSD:
+    env:
+      INSTALL_PREFIX: /usr/local
+    name: >-
+      OpenBSD
+      ${{ matrix.openbsd_release }}
+      (${{ matrix.build_system }})
+      (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        openbsd_release:
+          - 7.9
+        build_system:
+          - CMake
+        compiler:
+          - LLVM
+        on_default_branch:
+          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+        include:
+          - openbsd_release: "8.0"
+            build_system: CMake
+            compiler: LLVM
+        exclude:
+          - on_default_branch: false
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set `BUILD_PARALLEL_LEVEL` & `TEST_PARALLEL_LEVEL`
+        run: |
+          echo "BUILD_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
+          echo "TEST_PARALLEL_LEVEL=$(nproc)" >> ${GITHUB_ENV}
+
+      - name: Provision VM
+        uses: hummeltech/anyvm-action@v1
+        with:
+          cpu: ${{ env.BUILD_PARALLEL_LEVEL }}
+          mem: 4096
+          os: openbsd
+          provision-commands: pkg_add -Iv bash rsync-- sudo--;
+          release: ${{ matrix.openbsd_release }}
+
+      - name: Install dependencies
+        uses: ./.github/actions/dependencies/install
+
+      - name: Build `mod_tile`
+        uses: ./.github/actions/build
+
+      - name: Test `mod_tile`
+        uses: ./.github/actions/test
+
+      - name: Package `mod_tile`
+        uses: ./.github/actions/cmake/package
+
+      - name: Install `mod_tile`
+        uses: ./.github/actions/install
