@@ -34,8 +34,8 @@ jobs:
           - archlinux
           - debian-12
           - debian-13
-          - fedora-43
           - fedora-44
+          - fedora-45
           - opensuse-leap-16
           - ubuntu-24.04
           - ubuntu-26.04
