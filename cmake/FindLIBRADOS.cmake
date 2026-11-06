@@ -1,66 +1,87 @@
 # - Find LIBRADOS
 # Find the LIBRADOS includes and libraries.
 # This module defines:
-#  LIBRADOS_FOUND
-#  LIBRADOS_INCLUDE_DIRS
-#  LIBRADOS_LIBRARIES
+#  LIBRADOS_FOUND        - True if LIBRADOS is found
+#  LIBRADOS_INCLUDE_DIRS - Include directories for LIBRADOS
+#  LIBRADOS_LIBRARIES    - Libraries to link against for LIBRADOS
+#  LIBRADOS_LIBRARY_DIRS - Library search directories for LIBRADOS
+#  LIBRADOS_VERSION      - Version of LIBRADOS found
 
 find_package(PkgConfig QUIET)
-pkg_check_modules(LIBRADOS QUIET rados)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(PC_LIBRADOS QUIET rados librados)
+endif()
 
+# Search for main header (rados/librados.h or librados.h)
 find_path(LIBRADOS_INCLUDE_DIR
-  NAMES librados.h
-  PATHS ${LIBRADOS_INCLUDE_DIRS}
+  NAMES rados/librados.h librados.h
+  HINTS ${PC_LIBRADOS_INCLUDE_DIRS}
   PATH_SUFFIXES rados
 )
 
-if((NOT LIBRADOS_INCLUDE_DIRS) AND (LIBRADOS_INCLUDE_DIR))
-  set(LIBRADOS_INCLUDE_DIRS ${LIBRADOS_INCLUDE_DIR})
-elseif(LIBRADOS_INCLUDE_DIRS AND LIBRADOS_INCLUDE_DIR)
-  list(APPEND LIBRADOS_INCLUDE_DIRS ${LIBRADOS_INCLUDE_DIR})
-endif()
-
+# Search for library binary
 find_library(LIBRADOS_LIBRARY
-  NAMES ${LIBRADOS_LIBRARIES} rados
+  NAMES rados librados
+  HINTS ${PC_LIBRADOS_LIBRARY_DIRS}
 )
 
-if((NOT LIBRADOS_LIBRARIES) AND (LIBRADOS_LIBRARY))
-  set(LIBRADOS_LIBRARIES ${LIBRADOS_LIBRARY})
-elseif(LIBRADOS_LIBRARIES AND LIBRADOS_LIBRARY)
-  list(APPEND LIBRADOS_LIBRARIES ${LIBRADOS_LIBRARY})
+# Assemble include and library lists
+set(LIBRADOS_INCLUDE_DIRS ${LIBRADOS_INCLUDE_DIR})
+if(PC_LIBRADOS_INCLUDE_DIRS)
+  list(APPEND LIBRADOS_INCLUDE_DIRS ${PC_LIBRADOS_INCLUDE_DIRS})
+endif()
+if(LIBRADOS_INCLUDE_DIRS)
+  list(REMOVE_DUPLICATES LIBRADOS_INCLUDE_DIRS)
 endif()
 
-message(VERBOSE "LIBRADOS_INCLUDE_DIRS=${LIBRADOS_INCLUDE_DIRS}")
-message(VERBOSE "LIBRADOS_INCLUDE_DIR=${LIBRADOS_INCLUDE_DIR}")
-message(VERBOSE "LIBRADOS_LIBRARIES=${LIBRADOS_LIBRARIES}")
-message(VERBOSE "LIBRADOS_LIBRARY=${LIBRADOS_LIBRARY}")
-
-if((NOT LIBRADOS_FOUND) AND (LIBRADOS_INCLUDE_DIRS) AND (LIBRADOS_LIBRARIES))
-  set(LIBRADOS_FOUND True)
+set(LIBRADOS_LIBRARIES ${LIBRADOS_LIBRARY})
+if(PC_LIBRADOS_LIBRARIES AND NOT LIBRADOS_LIBRARY)
+  set(LIBRADOS_LIBRARIES ${PC_LIBRADOS_LIBRARIES})
 endif()
 
-if((NOT LIBRADOS_VERSION) AND (LIBRADOS_FOUND))
-  file(STRINGS "${LIBRADOS_INCLUDE_DIR}/librados.h" _contents REGEX "#define LIBRADOS_VER_[A-Z]+[ \t]+")
-  if(_contents)
-    string(REGEX REPLACE ".*#define LIBRADOS_VER_MAJOR[ \t]+([0-9]+).*" "\\1" LIBRADOS_MAJOR_VERSION "${_contents}")
-    string(REGEX REPLACE ".*#define LIBRADOS_VER_MINOR[ \t]+([0-9]+).*" "\\1" LIBRADOS_MINOR_VERSION "${_contents}")
-    string(REGEX REPLACE ".*#define LIBRADOS_VER_EXTRA[ \t]+([0-9]+).*" "\\1" LIBRADOS_EXTRA_VERSION "${_contents}")
+# Extract library search directories for linker safety
+set(LIBRADOS_LIBRARY_DIRS ${PC_LIBRADOS_LIBRARY_DIRS})
+if(LIBRADOS_LIBRARY)
+  get_filename_component(LIBRADOS_LIB_DIR "${LIBRADOS_LIBRARY}" DIRECTORY)
+  list(APPEND LIBRADOS_LIBRARY_DIRS "${LIBRADOS_LIB_DIR}")
+endif()
+if(LIBRADOS_LIBRARY_DIRS)
+  list(REMOVE_DUPLICATES LIBRADOS_LIBRARY_DIRS)
+endif()
 
-    set(LIBRADOS_VERSION ${LIBRADOS_MAJOR_VERSION}.${LIBRADOS_MINOR_VERSION}.${LIBRADOS_EXTRA_VERSION})
+# Version detection
+if(LIBRADOS_INCLUDE_DIR)
+  set(_rados_h "")
+  if(EXISTS "${LIBRADOS_INCLUDE_DIR}/rados/librados.h")
+    set(_rados_h "${LIBRADOS_INCLUDE_DIR}/rados/librados.h")
+  elseif(EXISTS "${LIBRADOS_INCLUDE_DIR}/librados.h")
+    set(_rados_h "${LIBRADOS_INCLUDE_DIR}/librados.h")
+  endif()
+
+  if(_rados_h)
+    file(STRINGS "${_rados_h}" _rados_major_str REGEX "#define[ \t]+LIBRADOS_VER_MAJOR[ \t]+[0-9]+")
+    file(STRINGS "${_rados_h}" _rados_minor_str REGEX "#define[ \t]+LIBRADOS_VER_MINOR[ \t]+[0-9]+")
+    file(STRINGS "${_rados_h}" _rados_extra_str REGEX "#define[ \t]+LIBRADOS_VER_EXTRA[ \t]+[0-9]+")
+
+    if(_rados_major_str AND _rados_minor_str AND _rados_extra_str)
+      string(REGEX REPLACE ".*#define[ \t]+LIBRADOS_VER_MAJOR[ \t]+([0-9]+).*" "\\1" LIBRADOS_MAJOR_VERSION "${_rados_major_str}")
+      string(REGEX REPLACE ".*#define[ \t]+LIBRADOS_VER_MINOR[ \t]+([0-9]+).*" "\\1" LIBRADOS_MINOR_VERSION "${_rados_minor_str}")
+      string(REGEX REPLACE ".*#define[ \t]+LIBRADOS_VER_EXTRA[ \t]+([0-9]+).*" "\\1" LIBRADOS_EXTRA_VERSION "${_rados_extra_str}")
+
+      set(LIBRADOS_VERSION "${LIBRADOS_MAJOR_VERSION}.${LIBRADOS_MINOR_VERSION}.${LIBRADOS_EXTRA_VERSION}")
+    endif()
   endif()
 endif()
 
-include(FindPackageHandleStandardArgs)
-
-if(LIBRADOS_FOUND)
-  find_package_handle_standard_args(LIBRADOS
-    REQUIRED_VARS LIBRADOS_FOUND LIBRADOS_INCLUDE_DIRS LIBRADOS_LIBRARIES
-    VERSION_VAR LIBRADOS_VERSION
-  )
-else()
-  find_package_handle_standard_args(LIBRADOS
-    REQUIRED_VARS LIBRADOS_FOUND
-  )
+if(NOT LIBRADOS_VERSION AND PC_LIBRADOS_VERSION)
+  set(LIBRADOS_VERSION ${PC_LIBRADOS_VERSION})
 endif()
+
+# Standard validation check
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(LIBRADOS
+  REQUIRED_VARS LIBRADOS_LIBRARY LIBRADOS_INCLUDE_DIR
+  VERSION_VAR LIBRADOS_VERSION
+)
 
 mark_as_advanced(LIBRADOS_INCLUDE_DIR LIBRADOS_LIBRARY)

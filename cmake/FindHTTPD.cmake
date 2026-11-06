@@ -1,53 +1,55 @@
 # - Find HTTPD
-# Find the HTTPD includes and libraries.
+# Find the HTTPD includes and header paths.
 # This module defines:
-#  HTTPD_FOUND
-#  HTTPD_INCLUDE_DIRS
+#  HTTPD_FOUND        - True if HTTPD headers are found
+#  HTTPD_INCLUDE_DIRS - Include directories for HTTPD
+#  HTTPD_VERSION      - Version of HTTPD found (parsed from ap_release.h)
 
 find_package(PkgConfig QUIET)
-pkg_check_modules(HTTPD QUIET httpd)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(PC_HTTPD QUIET httpd)
+endif()
 
+# Search for main header (httpd.h)
 find_path(HTTPD_INCLUDE_DIR
   NAMES httpd.h
-  PATHS ${HTTPD_INCLUDE_DIRS}
+  HINTS ${PC_HTTPD_INCLUDE_DIRS}
   PATH_SUFFIXES apache2 apache24 httpd
 )
 
-if((NOT HTTPD_INCLUDE_DIRS) AND (HTTPD_INCLUDE_DIR))
-  set(HTTPD_INCLUDE_DIRS ${HTTPD_INCLUDE_DIR})
-elseif(HTTPD_INCLUDE_DIRS AND HTTPD_INCLUDE_DIR)
-  list(APPEND HTTPD_INCLUDE_DIRS ${HTTPD_INCLUDE_DIR})
+# Assemble include list
+set(HTTPD_INCLUDE_DIRS ${HTTPD_INCLUDE_DIR})
+if(PC_HTTPD_INCLUDE_DIRS)
+  list(APPEND HTTPD_INCLUDE_DIRS ${PC_HTTPD_INCLUDE_DIRS})
+endif()
+if(HTTPD_INCLUDE_DIRS)
+  list(REMOVE_DUPLICATES HTTPD_INCLUDE_DIRS)
 endif()
 
-message(VERBOSE "HTTPD_INCLUDE_DIRS=${HTTPD_INCLUDE_DIRS}")
-message(VERBOSE "HTTPD_INCLUDE_DIR=${HTTPD_INCLUDE_DIR}")
+# Version detection
+if(HTTPD_INCLUDE_DIR AND EXISTS "${HTTPD_INCLUDE_DIR}/ap_release.h")
+  file(STRINGS "${HTTPD_INCLUDE_DIR}/ap_release.h" _ap_major_str REGEX "#define[ \t]+AP_SERVER_MAJORVERSION_NUMBER[ \t]+[0-9]+")
+  file(STRINGS "${HTTPD_INCLUDE_DIR}/ap_release.h" _ap_minor_str REGEX "#define[ \t]+AP_SERVER_MINORVERSION_NUMBER[ \t]+[0-9]+")
+  file(STRINGS "${HTTPD_INCLUDE_DIR}/ap_release.h" _ap_patch_str REGEX "#define[ \t]+AP_SERVER_PATCHLEVEL_NUMBER[ \t]+[0-9]+")
 
-if((NOT HTTPD_FOUND) AND (HTTPD_INCLUDE_DIRS))
-  set(HTTPD_FOUND True)
-endif()
+  if(_ap_major_str AND _ap_minor_str AND _ap_patch_str)
+    string(REGEX REPLACE ".*#define[ \t]+AP_SERVER_MAJORVERSION_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_MAJOR_VERSION "${_ap_major_str}")
+    string(REGEX REPLACE ".*#define[ \t]+AP_SERVER_MINORVERSION_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_MINOR_VERSION "${_ap_minor_str}")
+    string(REGEX REPLACE ".*#define[ \t]+AP_SERVER_PATCHLEVEL_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_PATCH_VERSION "${_ap_patch_str}")
 
-if((NOT HTTPD_VERSION) AND (HTTPD_FOUND))
-  file(STRINGS "${HTTPD_INCLUDE_DIR}/ap_release.h" _contents REGEX "#define AP_SERVER_[A-Z]+_NUMBER[ \t]+")
-  if(_contents)
-    string(REGEX REPLACE ".*#define AP_SERVER_MAJORVERSION_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_MAJOR_VERSION "${_contents}")
-    string(REGEX REPLACE ".*#define AP_SERVER_MINORVERSION_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_MINOR_VERSION "${_contents}")
-    string(REGEX REPLACE ".*#define AP_SERVER_PATCHLEVEL_NUMBER[ \t]+([0-9]+).*" "\\1" HTTPD_PATCH_VERSION "${_contents}")
-
-    set(HTTPD_VERSION ${HTTPD_MAJOR_VERSION}.${HTTPD_MINOR_VERSION}.${HTTPD_PATCH_VERSION})
+    set(HTTPD_VERSION "${HTTPD_MAJOR_VERSION}.${HTTPD_MINOR_VERSION}.${HTTPD_PATCH_VERSION}")
   endif()
 endif()
 
-include(FindPackageHandleStandardArgs)
-
-if(HTTPD_FOUND)
-  find_package_handle_standard_args(HTTPD
-    REQUIRED_VARS HTTPD_FOUND HTTPD_INCLUDE_DIRS
-    VERSION_VAR HTTPD_VERSION
-  )
-else()
-  find_package_handle_standard_args(HTTPD
-    REQUIRED_VARS HTTPD_FOUND
-  )
+if(NOT HTTPD_VERSION AND PC_HTTPD_VERSION)
+  set(HTTPD_VERSION ${PC_HTTPD_VERSION})
 endif()
+
+# Standard validation check
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(HTTPD
+  REQUIRED_VARS HTTPD_INCLUDE_DIR
+  VERSION_VAR HTTPD_VERSION
+)
 
 mark_as_advanced(HTTPD_INCLUDE_DIR)
