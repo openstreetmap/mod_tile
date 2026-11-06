@@ -25,8 +25,8 @@ jobs:
         image:
           - "debian:12"
           - "debian:13"
-          - "fedora:43"
           - "fedora:44"
+          - "fedora:45"
           - "opensuse/leap:16"
           - "ubuntu:24.04"
         on_default_branch:
