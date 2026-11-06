@@ -10,34 +10,45 @@ include_directories(${PROJECT_SOURCE_DIR}/includes)
 
 include_directories(SYSTEM
   ${APR_INCLUDE_DIRS}
-  ${CAIRO_INCLUDE_DIRS}
-  ${CURL_INCLUDE_DIRS}
   ${GLIB_INCLUDE_DIRS}
   ${HTTPD_INCLUDE_DIRS}
-)
-include_directories(SYSTEM
   ${ICU_INCLUDE_DIRS}
   ${INIPARSER_INCLUDE_DIRS}
   ${LIBMAPNIK_INCLUDE_DIRS}
-  ${LIBMEMCACHED_INCLUDE_DIRS}
-  ${LIBRADOS_INCLUDE_DIRS}
 )
 
 set(COMMON_LIBRARIES
   ${GLIB_LIBRARIES}
   Threads::Threads
 )
+
 set(RENDER_LIBRARIES
   ${COMMON_LIBRARIES}
   ${INIPARSER_LIBRARIES}
   ${MATH_LIBRARY}
 )
-set(STORE_LIBRARIES
-  ${CAIRO_LIBRARIES}
-  ${CURL_LIBRARIES}
-  ${LIBMEMCACHED_LIBRARIES}
-  ${LIBRADOS_LIBRARIES}
-)
+
+set(STORE_LIBRARIES)
+
+if(CAIRO_FOUND)
+  include_directories(SYSTEM ${CAIRO_INCLUDE_DIRS})
+  list(APPEND STORE_LIBRARIES ${CAIRO_LIBRARIES})
+endif()
+
+if(CURL_FOUND)
+  include_directories(SYSTEM ${CURL_INCLUDE_DIRS})
+  list(APPEND STORE_LIBRARIES ${CURL_LIBRARIES})
+endif()
+
+if(LIBMEMCACHED_FOUND)
+  include_directories(SYSTEM ${LIBMEMCACHED_INCLUDE_DIRS})
+  list(APPEND STORE_LIBRARIES ${LIBMEMCACHED_LIBRARIES})
+endif()
+
+if(LIBRADOS_FOUND)
+  include_directories(SYSTEM ${LIBRADOS_INCLUDE_DIRS})
+  list(APPEND STORE_LIBRARIES ${LIBRADOS_LIBRARIES})
+endif()
 
 if(NOT MALLOC_LIB STREQUAL "libc")
   message(STATUS "Prepending '${MALLOC_LIBRARY}' to RENDER_LIBRARIES")
@@ -115,10 +126,11 @@ set_target_properties(
 set(COMMON_OBJS $<TARGET_OBJECTS:common_objs>)
 set(CONFIG_OBJS $<TARGET_OBJECTS:config_objs>)
 set(PROTOCOL_OBJS $<TARGET_OBJECTS:protocol_objs>)
-set(SUBMIT_QUEUE_OBJS $<TARGET_OBJECTS:submit_queue_objs>)
-set(RENDER_OBJS ${COMMON_OBJS} ${CONFIG_OBJS} ${PROTOCOL_OBJS})
-set(STORE_OBJS $<TARGET_OBJECTS:store_objs> $<TARGET_OBJECTS:store_file_utils_objs>)
 set(RENDERD_CORE_OBJS $<TARGET_OBJECTS:renderd_core_objs>)
+set(RENDER_OBJS ${COMMON_OBJS} ${CONFIG_OBJS} ${PROTOCOL_OBJS})
+set(STORE_FILE_UTILS_OBJS $<TARGET_OBJECTS:store_file_utils_objs>)
+set(STORE_OBJS $<TARGET_OBJECTS:store_objs> ${STORE_FILE_UTILS_OBJS})
+set(SUBMIT_QUEUE_OBJS $<TARGET_OBJECTS:submit_queue_objs>)
 
 #-----------------------------------------------------------------------------
 #
@@ -198,8 +210,8 @@ target_link_libraries(render_list ${render_list_LIBS})
 
 set(render_old_SRCS
   ${RENDER_OBJS}
+  ${STORE_FILE_UTILS_OBJS}
   ${SUBMIT_QUEUE_OBJS}
-  $<TARGET_OBJECTS:store_file_utils_objs>
   render_old.c
 )
 set(render_old_LIBS
