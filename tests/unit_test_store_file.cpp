@@ -114,13 +114,13 @@ TEST_CASE("store_file.c", "[store_file]")
 	{
 		struct storage_backend *store = init_storage_file(tmp_dir.c_str());
 		const char test_payload[] = "metatile_payload_data";
-		int payload_len = sizeof(test_payload);
+		int payload_len = sizeof(test_payload), res = -1;
 
 		SECTION("write handles malloc failure", "should return -1")
 		{
 			fail_next_malloc = true;
 
-			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
+			res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("failed to allocate memory for temp path"));
@@ -130,7 +130,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			fail_next_open = true;
 
-			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
+			res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error creating file"));
@@ -140,7 +140,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			fail_next_write = true;
 
-			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
+			res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error writing file"));
@@ -154,7 +154,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			mkdirp(meta_path);
 			mkdir(meta_path, 0755);
 
-			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
+			res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error renaming temp file"));
@@ -164,7 +164,7 @@ TEST_CASE("store_file.c", "[store_file]")
 
 		SECTION("write successfully creates and renames metatile", "should return written size")
 		{
-			int res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
+			res = store->metatile_write(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, test_payload, payload_len);
 
 			REQUIRE(res == payload_len);
 
@@ -185,7 +185,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		struct storage_backend *store = init_storage_file(tmp_dir.c_str());
 		char log_msg[PATH_MAX] = {0};
 		char read_buf[256] = {0};
-		int compressed = -1;
+		int compressed = -1, res = -1;
 
 		char meta_path[PATH_MAX];
 		xyzo_to_meta(meta_path, sizeof(meta_path), (char *)store->storage_ctx, XMLCONFIG_DEFAULT, "", 0, 0, 0);
@@ -194,7 +194,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			fail_next_malloc = true;
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to allocate memory for metatile header"));
@@ -204,7 +204,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			unlink(meta_path);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -1);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Could not open metatile"));
@@ -217,7 +217,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			REQUIRE(write(fd, "short", 5) == (ssize_t)(5));
 			close(fd);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -3);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("too small to contain header"));
@@ -235,7 +235,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			close(fd);
 			free(bad_header);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -4);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("header magic mismatch"));
@@ -245,7 +245,7 @@ TEST_CASE("store_file.c", "[store_file]")
 		{
 			create_mock_metatile(meta_path, false, 10, 0, NULL);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -5);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("header bad count"));
@@ -256,7 +256,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			const std::string tile_data(500, 'x');
 			create_mock_metatile(meta_path, false, METATILE * METATILE, tile_data.size(), tile_data.c_str());
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, 10, &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, 10, &compressed, log_msg);
 
 			REQUIRE(res == -6);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Truncating tile"));
@@ -277,7 +277,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			close(fd);
 			free(m);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -7);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("seek error"));
@@ -301,7 +301,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			close(fd);
 			free(m);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == 9);
 		}
@@ -311,7 +311,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			const char tile_content[] = "png_tile_binary_stream";
 			create_mock_metatile(meta_path, false, METATILE * METATILE, strlen(tile_content), tile_content);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == static_cast<int>(strlen(tile_content)));
 			REQUIRE(compressed == 0);
@@ -323,7 +323,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			const char tile_content[] = "compressed_stream";
 			create_mock_metatile(meta_path, true, METATILE * METATILE, strlen(tile_content), tile_content);
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == static_cast<int>(strlen(tile_content)));
 			REQUIRE(compressed == 1);
@@ -334,7 +334,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 			fail_next_gmtime_r = true;
 
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 			REQUIRE(res == 0);
 		}
@@ -348,18 +348,25 @@ TEST_CASE("store_file.c", "[store_file]")
 			old_time.modtime = 1262304000;
 			utime(meta_path, &old_time);
 
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 			REQUIRE(res == 0);
 		}
 
 		SECTION("expire handles utime error", "should return 0 despite perror logging")
 		{
+			std::string captured_stderr;
 			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 			fail_next_utime = true;
 
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			{
+				LogCapture capture;
+				res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
+				captured_stderr = capture.get_stderr();
+			}
+
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::ContainsSubstring("modifying timestamp failed: Operation not permitted"));
 			REQUIRE(res == 0);
 		}
 
@@ -370,7 +377,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			reset_read_call_count();
 			fail_read_on_call_count = 1;
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -2);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read complete header"));
@@ -383,7 +390,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			reset_read_call_count();
 			fail_read_on_call_count = 2;
 
-			int res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
+			res = store->tile_read(store, XMLCONFIG_DEFAULT, "", 0, 0, 0, read_buf, sizeof(read_buf), &compressed, log_msg);
 
 			REQUIRE(res == -8);
 			REQUIRE_THAT(std::string(log_msg), Catch::Matchers::ContainsSubstring("Failed to read data from file"));
@@ -499,13 +506,14 @@ TEST_CASE("store_file.c", "[store_file]")
 	{
 		struct storage_backend *store = init_storage_file(tmp_dir.c_str());
 		char meta_path[PATH_MAX];
+		int res = -1;
 		xyz_to_meta(meta_path, sizeof(meta_path), (char *)store->storage_ctx, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 		SECTION("expire on missing file", "should return 0")
 		{
 			unlink(meta_path);
 
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 			REQUIRE(res == 0);
 		}
@@ -517,7 +525,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			struct stat st_before;
 			REQUIRE(stat(meta_path, &st_before) == 0);
 
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 			REQUIRE(res == 0);
 
@@ -532,7 +540,7 @@ TEST_CASE("store_file.c", "[store_file]")
 			create_mock_metatile(meta_path, false, METATILE * METATILE, 10, "0123456789");
 
 			store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
-			int res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
+			res = store->metatile_expire(store, XMLCONFIG_DEFAULT, 0, 0, 0);
 
 			REQUIRE(res == 0);
 		}

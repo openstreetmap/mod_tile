@@ -297,53 +297,81 @@ TEST_CASE("renderd_config.c", "[renderd_config]")
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section", "should exit 1")
 		{
-			if (setjmp(exit_jump) == 0) {
-				process_config_file("doesnotexist", 0, 0);
-				FAIL("process_config_file should have called exit(), but did not");
-			} else {
-				SUCCEED("process_config_file captured expected exit() call");
+			std::string captured_stderr;
+			{
+				LogCapture capture;
+				if (setjmp(exit_jump) == 0) {
+					process_config_file("doesnotexist", 0, 0);
+					FAIL("process_config_file should have called exit(), but did not");
+				} else {
+					SUCCEED("process_config_file captured expected exit() call");
+				}
+
+				captured_stderr = capture.get_stderr();
 			}
 
 			REQUIRE(exit_status == 1);
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::ContainsSubstring("iniparser: cannot open doesnotexist"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_config_file): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_renderd_sections)", "should exit 1")
 		{
-			if (setjmp(exit_jump) == 0) {
-				process_renderd_sections(NULL, "doesnotexist", config_slaves);
-				FAIL("process_renderd_sections should have called exit(), but did not");
-			} else {
-				SUCCEED("process_renderd_sections captured expected exit() call");
+			std::string captured_stderr;
+			{
+				LogCapture capture;
+				if (setjmp(exit_jump) == 0) {
+					process_renderd_sections(NULL, "doesnotexist", config_slaves);
+					FAIL("process_renderd_sections should have called exit(), but did not");
+				} else {
+					SUCCEED("process_renderd_sections captured expected exit() call");
+				}
+
+				captured_stderr = capture.get_stderr();
 			}
 
 			REQUIRE(exit_status == 1);
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::ContainsSubstring("iniparser: cannot open doesnotexist"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_renderd_sections): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_mapnik_section)", "should exit 1")
 		{
-			if (setjmp(exit_jump) == 0) {
-				process_mapnik_section(NULL, "doesnotexist", config_slaves);
-				FAIL("process_mapnik_section should have called exit(), but did not");
-			} else {
-				SUCCEED("process_mapnik_section captured expected exit() call");
+			std::string captured_stderr;
+			{
+				LogCapture capture;
+				if (setjmp(exit_jump) == 0) {
+					process_mapnik_section(NULL, "doesnotexist", config_slaves);
+					FAIL("process_mapnik_section should have called exit(), but did not");
+				} else {
+					SUCCEED("process_mapnik_section captured expected exit() call");
+				}
+
+				captured_stderr = capture.get_stderr();
 			}
 
 			REQUIRE(exit_status == 1);
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::ContainsSubstring("iniparser: cannot open doesnotexist"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_mapnik_section): 'doesnotexist'"));
 		}
 
 		SECTION("nonexistent renderd.conf file with valid active renderd section (process_map_sections)", "should exit 1")
 		{
-			if (setjmp(exit_jump) == 0) {
-				process_map_sections(NULL, "doesnotexist", maps, "", 0);
-				FAIL("process_map_sections should have called exit(), but did not");
-			} else {
-				SUCCEED("process_map_sections captured expected exit() call");
+			std::string captured_stderr;
+			{
+				LogCapture capture;
+				if (setjmp(exit_jump) == 0) {
+					process_map_sections(NULL, "doesnotexist", maps, "", 0);
+					FAIL("process_map_sections should have called exit(), but did not");
+				} else {
+					SUCCEED("process_map_sections captured expected exit() call");
+				}
+
+				captured_stderr = capture.get_stderr();
 			}
 
 			REQUIRE(exit_status == 1);
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::ContainsSubstring("iniparser: cannot open doesnotexist"));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to load config file (process_map_sections): 'doesnotexist'"));
 		}
 

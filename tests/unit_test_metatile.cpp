@@ -63,10 +63,18 @@ TEST_CASE("metatile.cpp", "[metatile]")
 
 		SECTION("metaTile::save handles mkdir failure", "should return")
 		{
-			fail_next_mkdir = true;
+			std::string captured_stderr;
 
-			tiles.save(store);
+			{
+				LogCapture capture;
+				fail_next_mkdir = true;
 
+				tiles.save(store);
+
+				captured_stderr = capture.get_stderr();
+			}
+
+			REQUIRE_THAT(captured_stderr, Catch::Matchers::StartsWith(tile_dir));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Error creating directory " + metatile_path));
 		}
 
