@@ -24,13 +24,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
-#include <iostream>
 #include <netdb.h>
 #include <pthread.h>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <utime.h>
@@ -38,7 +38,6 @@
 
 #include "catch_test_common.hpp"
 #include "protocol.h"
-#include "pstreams/pstream.hpp"
 
 extern int foreground;
 
@@ -108,33 +107,87 @@ LogCapture::~LogCapture()
 std::string LogCapture::get_stderr() { return err_cap.read(); }
 std::string LogCapture::get_stdout() { return out_cap.read(); }
 
+static void read_fd_to_string(int fd, std::string &dest)
+{
+	dest.clear();
+	char buffer[1024];
+	ssize_t bytes_read;
+	while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
+		dest.append(buffer, static_cast<size_t>(bytes_read));
+	}
+
+	// Trim trailing newlines/whitespace to match std::getline() behavior
+	while (!dest.empty() && (dest.back() == '\n' || dest.back() == '\r')) {
+		dest.pop_back();
+	}
+}
+
 int run_command(const std::string &file, std::vector<std::string> argv, const std::string &input)
 {
-	auto mode = redi::pstreams::pstdout | redi::pstreams::pstderr | redi::pstreams::pstdin;
+	int pipe_stdin[2] = {-1, -1};
+	int pipe_stdout[2] = {-1, -1};
+	int pipe_stderr[2] = {-1, -1};
 
-	argv.insert(argv.begin(), file);
+	if (pipe(pipe_stdin) != 0 || pipe(pipe_stdout) != 0 || pipe(pipe_stderr) != 0) {
+		return -1;
+	}
 
-	redi::pstream proc(file, argv, mode);
+	pid_t pid = fork();
+	if (pid < 0) {
+		close(pipe_stdin[0]);
+		close(pipe_stdin[1]);
+		close(pipe_stdout[0]);
+		close(pipe_stdout[1]);
+		close(pipe_stderr[0]);
+		close(pipe_stderr[1]);
+		return -1;
+	}
 
-	std::string line;
-	err_log_lines = "";
-	out_log_lines = "";
+	if (pid == 0) {
+		dup2(pipe_stdin[0], STDIN_FILENO);
+		dup2(pipe_stdout[1], STDOUT_FILENO);
+		dup2(pipe_stderr[1], STDERR_FILENO);
+
+		close(pipe_stdin[0]);
+		close(pipe_stdin[1]);
+		close(pipe_stdout[0]);
+		close(pipe_stdout[1]);
+		close(pipe_stderr[0]);
+		close(pipe_stderr[1]);
+
+		std::vector<char *> c_argv;
+		c_argv.push_back(const_cast<char *>(file.c_str()));
+		for (const auto &arg : argv) {
+			c_argv.push_back(const_cast<char *>(arg.c_str()));
+		}
+		c_argv.push_back(nullptr);
+
+		execvp(file.c_str(), c_argv.data());
+		_exit(127);
+	}
+
+	close(pipe_stdin[0]);
+	close(pipe_stdout[1]);
+	close(pipe_stderr[1]);
 
 	if (!input.empty()) {
-		proc << input << redi::peof;
+		ssize_t written = write(pipe_stdin[1], input.data(), input.size());
+		(void)written;
+	}
+	close(pipe_stdin[1]);
+
+	read_fd_to_string(pipe_stdout[0], out_log_lines);
+	read_fd_to_string(pipe_stderr[0], err_log_lines);
+
+	close(pipe_stdout[0]);
+	close(pipe_stderr[0]);
+
+	int status = 0;
+	if (waitpid(pid, &status, 0) == -1) {
+		return -1;
 	}
 
-	while (std::getline(proc.err(), line)) {
-		err_log_lines += line;
-	}
-
-	proc.clear();
-
-	while (std::getline(proc.out(), line)) {
-		out_log_lines += line;
-	}
-
-	return proc.close();
+	return status;
 }
 
 std::string create_tile_dir(const std::string &dir_name, const char *tmp_dir)
