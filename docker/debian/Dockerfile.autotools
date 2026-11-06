@@ -15,6 +15,12 @@ ARG debian_version
 RUN --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/cache/apt,target=/var/cache/apt \
     --mount=type=cache,sharing=locked,id=debian:${debian_version}-/var/lib/apt,target=/var/lib/apt \
     export DEBIAN_FRONTEND=noninteractive && \
+    if [ "${debian_version}" -lt "12" ]; then \
+        sed \
+        --expression 's#deb.debian.org/debian#archive.debian.org/debian#g' \
+        --in-place \
+        /etc/apt/sources.list; \
+    fi && \
     apt-get --yes update && \
     apt-get --yes upgrade
 
