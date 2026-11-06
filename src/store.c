@@ -17,26 +17,23 @@
 
 // wrapper for storage engines
 
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
 #include <errno.h>
-#include <stdarg.h>
-#include <sys/types.h>
+#include <glib.h>
+#include <string.h>
 #include <sys/stat.h>
+
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
 
-
+#include "g_logger.h"
 #include "store.h"
 #include "store_file.h"
 #include "store_memcached.h"
-#include "store_rados.h"
-#include "store_ro_http_proxy.h"
-#include "store_ro_composite.h"
 #include "store_null.h"
-#include "g_logger.h"
+#include "store_rados.h"
+#include "store_ro_composite.h"
+#include "store_ro_http_proxy.h"
 
 /*
  * In Apache 2.4, we call the init_storage_backend once per thread, and therefore each thread has its own storage context to work with.

@@ -23,25 +23,26 @@
  * utilisation of disk space.
  */
 
+#include <errno.h>
+#include <fcntl.h>
+#include <glib.h>
+#include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 #include <utime.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <errno.h>
-#include <pthread.h>
 
-#include "store.h"
+#include "g_logger.h"
 #include "metatile.h"
 #include "render_config.h"
+#include "store.h"
 #include "store_file.h"
 #include "store_file_utils.h"
-#include "g_logger.h"
+
 
 static int file_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg)
 {

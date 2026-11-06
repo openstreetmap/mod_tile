@@ -15,15 +15,18 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <string.h>
+#include <glib.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 
+#include "g_logger.h"
+#include "gen_tile.h"
+#include "protocol.h"
 #include "render_config.h"
 #include "request_queue.h"
-#include "g_logger.h"
 
 static int calcHashKey(struct request_queue *queue, struct item *item)
 {
