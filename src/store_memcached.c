@@ -23,22 +23,24 @@
  * utilisation of disk space.
  */
 
+#include <glib.h>
+#include <stdio.h>
+
 #include "config.h"
 #include "g_logger.h"
+#include "store_memcached.h"
 
 #ifdef HAVE_LIBMEMCACHED
 #include <libmemcached/memcached.h>
 #include <limits.h>
-#include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <time.h>
-#include <unistd.h>
 
-#include "store.h"
 #include "metatile.h"
 #include "render_config.h"
+#include "store.h"
 
 static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key)
 {

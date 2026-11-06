@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "g_logger.h"
+#include "protocol.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
 #include "renderd_config.h"

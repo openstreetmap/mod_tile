@@ -15,14 +15,17 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <glib.h>
+#include <stdio.h>
+
 #include "config.h"
 #include "g_logger.h"
 
 //TODO: need to create an appropriate configure check.
 #ifdef HAVE_CAIRO
 #include <cairo/cairo.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "store.h"
 #include "store_ro_composite.h"

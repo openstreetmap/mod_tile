@@ -15,18 +15,19 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <cmath>
+#include <cstdio>
+#include <cstring>
 #include <getopt.h>
 #include <glib.h>
 #include <limits.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 
 #include "config.h"
 #include "g_logger.h"
+#include "protocol.h"
 #include "render_config.h"
 #include "render_submit_queue.h"
 #include "renderd_config.h"

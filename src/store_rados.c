@@ -23,6 +23,9 @@
  * utilisation of disk space.
  */
 
+#include <glib.h>
+#include <stdio.h>
+
 #include "config.h"
 #include "g_logger.h"
 
@@ -31,12 +34,13 @@
 #include <limits.h>
 #include <pthread.h>
 #include <rados/librados.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 #include "metatile.h"
 #include "protocol.h"
+#include "render_config.h"
 #include "store.h"
 #include "store_rados.h"
 

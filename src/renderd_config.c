@@ -19,11 +19,18 @@
 #define _GNU_SOURCE
 #endif
 
+#include <glib.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 #include "config.h"
 #include "g_logger.h"
+#include "protocol.h"
 #include "render_config.h"
 #include "renderd.h"
 

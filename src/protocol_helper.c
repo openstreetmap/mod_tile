@@ -15,10 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <string.h>
 #include <errno.h>
+#include <glib.h>
+#include <string.h>
+#include <sys/socket.h>
 
 #include "g_logger.h"
 #include "protocol.h"

@@ -15,18 +15,17 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <errno.h>
+#include <glib.h>
+#include <limits.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 
+#include "g_logger.h"
 #include "render_config.h"
 #include "store_file_utils.h"
-#include "g_logger.h"
 
 time_t get_planet_time(const char *tile_dir, const char *xmlname)
 {

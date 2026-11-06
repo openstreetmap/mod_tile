@@ -15,12 +15,16 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <cstdlib>
+#include <cstring>
+#include <glib.h>
 #include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/layer.hpp>
 #include <mapnik/map.hpp>
 #include <mapnik/params.hpp>
 #include <mapnik/version.hpp>
+#include <string>
 
 #if MAPNIK_MAJOR_VERSION < 4
 #include <boost/optional.hpp>
