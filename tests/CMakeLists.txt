@@ -1098,6 +1098,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
             echo 'Request being rejected';
             exit 0;
           fi
+          sleep 0.25
         done
         echo 'Request was never rejected';
         exit 1;
