@@ -132,11 +132,13 @@ inputs:
       coreutils
       glib2
       iniparser
+      libmemcached
       mapnik
   openbsd-test-dependencies:
     default: >-
       curl
       jq
+      memcached--
   opensuse-build-dependencies:
     default: >-
       apache2-devel
