@@ -30,26 +30,26 @@ extern "C" {
 #include "protocol.h"
 #include "store.h"
 
-struct ro_http_proxy_tile_cache {
-	struct stat_info st_stat;
-	char * tile;
-	int x, y, z;
-	char xmlname[XMLCONFIG_MAX];
-};
+	struct ro_http_proxy_tile_cache {
+		struct stat_info st_stat;
+		char *tile;
+		int x, y, z;
+		char xmlname[XMLCONFIG_MAX];
+	};
 
-struct ro_http_proxy_ctx {
-	CURL * ctx;
-	char * baseurl;
-	struct ro_http_proxy_tile_cache cache;
-};
+	struct ro_http_proxy_ctx {
+		CURL *ctx;
+		char *baseurl;
+		struct ro_http_proxy_tile_cache cache;
+	};
 
-struct MemoryStruct {
-	char *memory;
-	size_t size;
-};
+	struct MemoryStruct {
+		char *memory;
+		size_t size;
+	};
 #endif
 
-struct storage_backend *init_storage_ro_http_proxy(const char *connection_string);
+	struct storage_backend *init_storage_ro_http_proxy(const char *connection_string);
 
 #ifdef __cplusplus
 }

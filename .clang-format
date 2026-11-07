@@ -1,0 +1,13 @@
+---
+# Taken from "style similar to the Linux Kernel style":
+# https://clang.llvm.org/docs/ClangFormatStyleOptions.html#examples
+BasedOnStyle: LLVM
+
+AllowShortIfStatementsOnASingleLine: false
+BreakBeforeBraces: Linux
+ColumnLimit: 0
+IndentCaseLabels: false
+IndentExternBlock: Indent
+IndentWidth: 8
+InsertNewlineAtEOF: true
+UseTab: Always

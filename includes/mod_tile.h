@@ -60,7 +60,7 @@ enum tileState { tileUnknown,
 		 tileOld,
 		 tileVeryOld,
 		 tileCurrent
-	       };
+};
 
 typedef struct delaypool_entry {
 	struct in6_addr ip_addr;

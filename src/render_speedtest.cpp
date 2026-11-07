@@ -67,7 +67,7 @@ class GoogleProjection
 {
 	double *Ac, *Bc, *Cc, *zc;
 
-public:
+      public:
 	GoogleProjection(int levels = 18)
 	{
 		Ac = new double[levels];
@@ -136,17 +136,16 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config",      required_argument, 0, 'c'},
-			{"map",         required_argument, 0, 'm'},
-			{"max-zoom",    required_argument, 0, 'Z'},
-			{"min-zoom",    required_argument, 0, 'z'},
-			{"num-threads", required_argument, 0, 'n'},
-			{"socket",      required_argument, 0, 's'},
+		    {"config", required_argument, 0, 'c'},
+		    {"map", required_argument, 0, 'm'},
+		    {"max-zoom", required_argument, 0, 'Z'},
+		    {"min-zoom", required_argument, 0, 'z'},
+		    {"num-threads", required_argument, 0, 'n'},
+		    {"socket", required_argument, 0, 's'},
 
-			{"help",        no_argument,       0, 'h'},
-			{"version",     no_argument,       0, 'V'},
-			{0, 0, 0, 0}
-		};
+		    {"help", no_argument, 0, 'h'},
+		    {"version", no_argument, 0, 'V'},
+		    {0, 0, 0, 0}};
 
 		int c = getopt_long(argc, argv, "c:m:Z:z:n:s:hV", long_options, &option_index);
 
@@ -155,64 +154,64 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'c': /* -c, --config */
-				config_file_name = strndup(optarg, PATH_MAX);
-				config_file_name_passed = 1;
+		case 'c': /* -c, --config */
+			config_file_name = strndup(optarg, PATH_MAX);
+			config_file_name_passed = 1;
 
-				struct stat buffer;
+			struct stat buffer;
 
-				if (stat(config_file_name, &buffer) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
-					return 1;
-				}
-
-				break;
-
-			case 'm': /* -m, --map */
-				mapname = strndup(optarg, XMLCONFIG_MAX);
-				mapname_passed = 1;
-				break;
-
-			case 'Z': /* -Z, --max-zoom */
-				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
-				max_zoom_passed = 1;
-				break;
-
-			case 'z': /* -z, --min-zoom */
-				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
-				min_zoom_passed = 1;
-				break;
-
-			case 'n': /* -n, --num-threads */
-				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
-				num_threads_passed = 1;
-				break;
-
-			case 's': /* -s, --socket */
-				socketname = strndup(optarg, PATH_MAX);
-				socketname_passed = 1;
-				break;
-
-			case 'h': /* -h, --help */
-				fprintf(stderr, "Usage: render_speedtest [OPTION] ...\n");
-				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
-				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help                        display this help and exit\n");
-				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				return 0;
-
-			case 'V': /* -V, --version */
-				fprintf(stdout, "%s\n", VERSION);
-				return 0;
-
-			default:
-				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			if (stat(config_file_name, &buffer) != 0) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 				return 1;
+			}
+
+			break;
+
+		case 'm': /* -m, --map */
+			mapname = strndup(optarg, XMLCONFIG_MAX);
+			mapname_passed = 1;
+			break;
+
+		case 'Z': /* -Z, --max-zoom */
+			max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+			max_zoom_passed = 1;
+			break;
+
+		case 'z': /* -z, --min-zoom */
+			min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+			min_zoom_passed = 1;
+			break;
+
+		case 'n': /* -n, --num-threads */
+			num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+			num_threads_passed = 1;
+			break;
+
+		case 's': /* -s, --socket */
+			socketname = strndup(optarg, PATH_MAX);
+			socketname_passed = 1;
+			break;
+
+		case 'h': /* -h, --help */
+			fprintf(stderr, "Usage: render_speedtest [OPTION] ...\n");
+			fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
+			fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+			fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
+			fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+			fprintf(stderr, "  -Z, --max-zoom=ZOOM               only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+			fprintf(stderr, "  -z, --min-zoom=ZOOM               only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
+			fprintf(stderr, "\n");
+			fprintf(stderr, "  -h, --help                        display this help and exit\n");
+			fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+			return 0;
+
+		case 'V': /* -V, --version */
+			fprintf(stdout, "%s\n", VERSION);
+			return 0;
+
+		default:
+			g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			return 1;
 		}
 	}
 

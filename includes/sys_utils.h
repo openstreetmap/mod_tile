@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-double get_load_avg(void);
+	double get_load_avg(void);
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,7 @@
 #include "metatile.h"
 #include "render_config.h"
 
-static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key)
+static char *memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char *key)
 {
 	int mask;
 
@@ -59,12 +59,12 @@ static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *op
 	return key;
 }
 
-static char * memcached_xyz_to_storagekey(const char *xmlconfig, int x, int y, int z, char * key)
+static char *memcached_xyz_to_storagekey(const char *xmlconfig, int x, int y, int z, char *key)
 {
 	return memcached_xyzo_to_storagekey(xmlconfig, "", x, y, z, key);
 }
 
-static int memcached_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg)
+static int memcached_tile_read(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int *compressed, char *log_msg)
 {
 
 	char meta_path[PATH_MAX];
@@ -76,7 +76,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	uint32_t flags;
 	size_t len;
 	memcached_return_t rc;
-	char * buf_raw;
+	char *buf_raw;
 
 	if (m == NULL) {
 		snprintf(log_msg, 1024, "Failed to allocate memory for metatile header\n");
@@ -116,7 +116,7 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	}
 
 	file_offset = m->index[meta_offset].offset + sizeof(struct stat_info);
-	tile_size   = m->index[meta_offset].size;
+	tile_size = m->index[meta_offset].size;
 
 	free(m);
 
@@ -131,13 +131,13 @@ static int memcached_tile_read(struct storage_backend * store, const char *xmlco
 	return tile_size;
 }
 
-static struct stat_info memcached_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z)
+static struct stat_info memcached_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
 	struct stat_info tile_stat;
 	char meta_path[PATH_MAX];
 	unsigned int header_len = sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry);
 	struct meta_layout *m = (struct meta_layout *)malloc(header_len);
-	char * buf;
+	char *buf;
 	size_t len;
 	uint32_t flags;
 	memcached_return_t rc;
@@ -168,21 +168,20 @@ static struct stat_info memcached_tile_stat(struct storage_backend * store, cons
 	return tile_stat;
 }
 
-
-static char * memcached_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string)
+static char *memcached_tile_storage_id(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *string)
 {
 
 	snprintf(string, PATH_MAX - 1, "memcached:///%s/%d/%d/%d.meta", xmlconfig, x, y, z);
 	return string;
 }
 
-static int memcached_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
+static int memcached_metatile_write(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
 	char meta_path[PATH_MAX];
 	char tmp[PATH_MAX];
 	struct stat_info tile_stat;
 	int sz2 = sz + sizeof(struct stat_info);
-	char * buf2 = (char *)malloc(sz2);
+	char *buf2 = (char *)malloc(sz2);
 	memcached_return_t rc;
 
 	if (buf2 == NULL) {
@@ -213,13 +212,12 @@ static int memcached_metatile_write(struct storage_backend * store, const char *
 	return sz;
 }
 
-
-static int memcached_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int memcached_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 	char meta_path[PATH_MAX];
 	memcached_return_t rc;
 
-	//TODO: deal with options
+	// TODO: deal with options
 	memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
 
 	rc = memcached_delete((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), 0);
@@ -231,16 +229,16 @@ static int memcached_metatile_delete(struct storage_backend * store, const char 
 	return 0;
 }
 
-static int memcached_metatile_expire(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int memcached_metatile_expire(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 
 	char meta_path[PATH_MAX];
-	char * buf;
+	char *buf;
 	size_t len;
 	uint32_t flags;
 	memcached_return_t rc;
 
-	//TODO: deal with options
+	// TODO: deal with options
 	memcached_xyz_to_storagekey(xmlconfig, x, y, z, meta_path);
 	buf = memcached_get((memcached_st *)store->storage_ctx, meta_path, strlen(meta_path), &len, &flags, &rc);
 
@@ -263,27 +261,27 @@ static int memcached_metatile_expire(struct storage_backend * store, const char 
 	return 0;
 }
 
-static int memcached_close_storage(struct storage_backend * store)
+static int memcached_close_storage(struct storage_backend *store)
 {
 	memcached_free((memcached_st *)store->storage_ctx);
 	store->storage_ctx = NULL;
 	return 0;
 }
 
-#endif //Have memcached
+#endif // Have memcached
 
-struct storage_backend * init_storage_memcached(const char * connection_string)
+struct storage_backend *init_storage_memcached(const char *connection_string)
 {
 
 #ifndef HAVE_LIBMEMCACHED
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Support for memcached storage has not been compiled into this program");
 	return NULL;
 #else
-	const char * const default_memcached_options = "--server=localhost";
-	const char * memcached_options = default_memcached_options;
-	char * memcached_options_buf = NULL;
+	const char *const default_memcached_options = "--server=localhost";
+	const char *memcached_options = default_memcached_options;
+	char *memcached_options_buf = NULL;
 
-	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	struct storage_backend *store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
 
 	if (store == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_memcached: Failed to allocate memory for storage backend");
@@ -304,7 +302,7 @@ struct storage_backend * init_storage_memcached(const char * connection_string)
 	}
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_memcached: Creating memcached ctx with options '%s'", memcached_options);
-	memcached_st * memcached_storage_ctx = memcached(memcached_options, strlen(memcached_options));
+	memcached_st *memcached_storage_ctx = memcached(memcached_options, strlen(memcached_options));
 
 	if (memcached_options_buf != NULL) {
 		free(memcached_options_buf);

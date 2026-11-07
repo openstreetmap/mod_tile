@@ -145,21 +145,20 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config",      required_argument, 0, 'c'},
-			{"map",         required_argument, 0, 'm'},
-			{"max-load",    required_argument, 0, 'l'},
-			{"max-zoom",    required_argument, 0, 'Z'},
-			{"min-zoom",    required_argument, 0, 'z'},
-			{"num-threads", required_argument, 0, 'n'},
-			{"socket",      required_argument, 0, 's'},
-			{"tile-dir",    required_argument, 0, 't'},
-			{"timestamp",   required_argument, 0, 'T'},
-			{"verbose",     no_argument,       0, 'v'},
+		    {"config", required_argument, 0, 'c'},
+		    {"map", required_argument, 0, 'm'},
+		    {"max-load", required_argument, 0, 'l'},
+		    {"max-zoom", required_argument, 0, 'Z'},
+		    {"min-zoom", required_argument, 0, 'z'},
+		    {"num-threads", required_argument, 0, 'n'},
+		    {"socket", required_argument, 0, 's'},
+		    {"tile-dir", required_argument, 0, 't'},
+		    {"timestamp", required_argument, 0, 'T'},
+		    {"verbose", no_argument, 0, 'v'},
 
-			{"help",        no_argument,       0, 'h'},
-			{"version",     no_argument,       0, 'V'},
-			{0, 0, 0, 0}
-		};
+		    {"help", no_argument, 0, 'h'},
+		    {"version", no_argument, 0, 'V'},
+		    {0, 0, 0, 0}};
 
 		int c = getopt_long(argc, argv, "c:m:l:Z:z:n:s:t:T:vhV", long_options, &option_index);
 
@@ -168,106 +167,106 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'c': /* -c, --config */
-				config_file_name = strndup(optarg, PATH_MAX);
-				config_file_name_passed = 1;
+		case 'c': /* -c, --config */
+			config_file_name = strndup(optarg, PATH_MAX);
+			config_file_name_passed = 1;
 
-				struct stat buffer;
+			struct stat buffer;
 
-				if (stat(config_file_name, &buffer) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
-					return 1;
-				}
-
-				break;
-
-			case 'm': /* -m, --map */
-				mapname = strndup(optarg, XMLCONFIG_MAX);
-				mapname_passed = 1;
-				break;
-
-			case 'l': /* -l, --max-load */
-				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
-				max_load_passed = 1;
-				break;
-
-			case 'Z': /* -Z, --max-zoom */
-				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
-				max_zoom_passed = 1;
-				break;
-
-			case 'z': /* -z, --min-zoom */
-				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
-				min_zoom_passed = 1;
-				break;
-
-			case 'n': /* -n, --num-threads */
-				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
-				num_threads_passed = 1;
-				break;
-
-			case 's': /* -s, --socket */
-				socketname = strndup(optarg, PATH_MAX);
-				socketname_passed = 1;
-				break;
-
-			case 't': /* -t, --tile-dir */
-				tile_dir = strndup(optarg, PATH_MAX);
-				tile_dir_passed = 1;
-				break;
-
-			case 'T':
-				if (sscanf(optarg, "%d/%d/%d", &dd, &mm, &yy) == 3) {
-					if (yy > 100) {
-						yy -= 1900;
-					}
-
-					if (yy < 70) {
-						yy += 100;
-					}
-
-					memset(&tm, 0, sizeof(tm));
-					tm.tm_mday = dd;
-					tm.tm_mon = mm - 1;
-					tm.tm_year = yy;
-					planet_timestamp = mktime(&tm);
-				} else if (sscanf(optarg, "%d", &dd) == 1) {
-					planet_timestamp = dd;
-				} else {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Invalid planet timestamp, must be a unix timestamp or in the format dd/mm/yyyy");
-					return 1;
-				}
-
-				break;
-
-			case 'v': /* -v, --verbose */
-				verbose = 1;
-				break;
-
-			case 'h': /* -h, --help */
-				fprintf(stderr, "Usage: render_old [OPTION] ...\n");
-				fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
-				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is '%s')\n", config_file_name_default);
-				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
-				fprintf(stderr, "  -m, --map=STYLE                   Instead of going through all styles of CONFIG, only use a specific map-style\n");
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
-				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
-				fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
-				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help                        display this help and exit\n");
-				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				return 0;
-
-			case 'V': /* -V, --version */
-				fprintf(stdout, "%s\n", VERSION);
-				return 0;
-
-			default:
-				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			if (stat(config_file_name, &buffer) != 0) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 				return 1;
+			}
+
+			break;
+
+		case 'm': /* -m, --map */
+			mapname = strndup(optarg, XMLCONFIG_MAX);
+			mapname_passed = 1;
+			break;
+
+		case 'l': /* -l, --max-load */
+			max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
+			max_load_passed = 1;
+			break;
+
+		case 'Z': /* -Z, --max-zoom */
+			max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+			max_zoom_passed = 1;
+			break;
+
+		case 'z': /* -z, --min-zoom */
+			min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+			min_zoom_passed = 1;
+			break;
+
+		case 'n': /* -n, --num-threads */
+			num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+			num_threads_passed = 1;
+			break;
+
+		case 's': /* -s, --socket */
+			socketname = strndup(optarg, PATH_MAX);
+			socketname_passed = 1;
+			break;
+
+		case 't': /* -t, --tile-dir */
+			tile_dir = strndup(optarg, PATH_MAX);
+			tile_dir_passed = 1;
+			break;
+
+		case 'T':
+			if (sscanf(optarg, "%d/%d/%d", &dd, &mm, &yy) == 3) {
+				if (yy > 100) {
+					yy -= 1900;
+				}
+
+				if (yy < 70) {
+					yy += 100;
+				}
+
+				memset(&tm, 0, sizeof(tm));
+				tm.tm_mday = dd;
+				tm.tm_mon = mm - 1;
+				tm.tm_year = yy;
+				planet_timestamp = mktime(&tm);
+			} else if (sscanf(optarg, "%d", &dd) == 1) {
+				planet_timestamp = dd;
+			} else {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Invalid planet timestamp, must be a unix timestamp or in the format dd/mm/yyyy");
+				return 1;
+			}
+
+			break;
+
+		case 'v': /* -v, --verbose */
+			verbose = 1;
+			break;
+
+		case 'h': /* -h, --help */
+			fprintf(stderr, "Usage: render_old [OPTION] ...\n");
+			fprintf(stderr, "Search the rendered tiles and re-render tiles which are older then the last planet import\n");
+			fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is '%s')\n", config_file_name_default);
+			fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+			fprintf(stderr, "  -m, --map=STYLE                   Instead of going through all styles of CONFIG, only use a specific map-style\n");
+			fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
+			fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+			fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
+			fprintf(stderr, "  -T, --timestamp=DD/MM/YY          Overwrite the assumed data of the planet import\n");
+			fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+			fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
+			fprintf(stderr, "\n");
+			fprintf(stderr, "  -h, --help                        display this help and exit\n");
+			fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+			return 0;
+
+		case 'V': /* -V, --version */
+			fprintf(stdout, "%s\n", VERSION);
+			return 0;
+
+		default:
+			g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			return 1;
 		}
 	}
 

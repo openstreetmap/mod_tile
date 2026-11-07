@@ -37,8 +37,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #ifdef HAVE_PATHS_H
@@ -49,8 +49,7 @@
 #define _PATH_DEVNULL "/dev/null"
 #endif
 
-int
-daemon(nochdir, noclose)
+int daemon(nochdir, noclose)
 int nochdir, noclose;
 {
 	struct sigaction osa, sa;
@@ -66,14 +65,14 @@ int nochdir, noclose;
 	osa_ok = sigaction(SIGHUP, &sa, &osa);
 
 	switch (fork()) {
-		case -1:
-			return (-1);
+	case -1:
+		return (-1);
 
-		case 0:
-			break;
+	case 0:
+		break;
 
-		default:
-			exit(0);
+	default:
+		exit(0);
 	}
 
 	newgrp = setsid();

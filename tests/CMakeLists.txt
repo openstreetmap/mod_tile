@@ -1090,15 +1090,17 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     add_test(NAME throttling_xforward_${STORAGE_BACKEND}
       COMMAND ${BASH} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
-        for i in {0..20}; do
-          RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_SERVER_HOST}, ${CTEST_CLIENT_HOST}\" \
-            http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\$i/0/0.webp)
-          echo \"Response code: '\${RESPONSE_CODE}'\"
-          if [ \"\${RESPONSE_CODE}\" = \"503\" ]; then
-            echo 'Request being rejected';
-            exit 0;
-          fi
-          ${SLEEP_EXECUTABLE} 0.25
+        for i in {0..5}; do
+          for z in {0..20}; do
+            RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_SERVER_HOST}, ${CTEST_CLIENT_HOST}\" \
+              http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\$z/0/0.webp)
+            echo \"Response code: '\${RESPONSE_CODE}'\"
+            if [ \"\${RESPONSE_CODE}\" = \"503\" ]; then
+              echo 'Request being rejected';
+              exit 0;
+            fi
+            ${SLEEP_EXECUTABLE} 0.05
+          done
         done
         echo 'Request was never rejected';
         exit 1;

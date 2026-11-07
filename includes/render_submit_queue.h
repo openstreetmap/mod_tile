@@ -26,32 +26,32 @@
 extern "C" {
 #endif
 
-struct qItem {
-	char *mapname;
-	int x, y, z;
-	struct qItem *next;
-};
+	struct qItem {
+		char *mapname;
+		int x, y, z;
+		struct qItem *next;
+	};
 
-struct speed_stat {
-	time_t time_min;
-	time_t time_max;
-	time_t time_total;
-	int noRendered;
-};
+	struct speed_stat {
+		time_t time_min;
+		time_t time_max;
+		time_t time_total;
+		int noRendered;
+	};
 
-struct speed_stats {
-	struct speed_stat stat[MAX_ZOOM + 1];
-};
+	struct speed_stats {
+		struct speed_stat stat[MAX_ZOOM + 1];
+	};
 
-int make_connection(const char *spath);
-void check_load(void);
-void display_rate(struct timeval start, struct timeval end, int num);
-void enqueue(const char *xmlname, int x, int y, int z);
-void finish_workers(void);
-void print_statistics(void);
-void spawn_workers(int num, const char *socketpath, int maxLoad);
-void *thread_main(void *arg);
-void wait_for_empty_queue(void);
+	int make_connection(const char *spath);
+	void check_load(void);
+	void display_rate(struct timeval start, struct timeval end, int num);
+	void enqueue(const char *xmlname, int x, int y, int z);
+	void finish_workers(void);
+	void print_statistics(void);
+	void spawn_workers(int num, const char *socketpath, int maxLoad);
+	void *thread_main(void *arg);
+	void wait_for_empty_queue(void);
 
 #ifdef __cplusplus
 }
