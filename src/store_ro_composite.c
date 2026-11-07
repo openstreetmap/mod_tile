@@ -20,15 +20,14 @@
 
 #include "config.h"
 #include "g_logger.h"
+#include "store.h"
+#include "store_ro_composite.h"
 
 //TODO: need to create an appropriate configure check.
 #ifdef HAVE_CAIRO
 #include <cairo/cairo.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "store.h"
-#include "store_ro_composite.h"
 
 static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const unsigned char *data, unsigned int length)
 {

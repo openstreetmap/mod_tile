@@ -28,6 +28,8 @@
 
 #include "config.h"
 #include "g_logger.h"
+#include "store.h"
+#include "store_rados.h"
 
 #ifdef HAVE_LIBRADOS
 #include <errno.h>
@@ -41,8 +43,6 @@
 #include "metatile.h"
 #include "protocol.h"
 #include "render_config.h"
-#include "store.h"
-#include "store_rados.h"
 
 static pthread_mutex_t rados_mutex;
 

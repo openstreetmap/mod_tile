@@ -28,6 +28,7 @@
 
 #include "config.h"
 #include "g_logger.h"
+#include "store.h"
 #include "store_memcached.h"
 
 #ifdef HAVE_LIBMEMCACHED
@@ -40,7 +41,6 @@
 
 #include "metatile.h"
 #include "render_config.h"
-#include "store.h"
 
 static char * memcached_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key)
 {

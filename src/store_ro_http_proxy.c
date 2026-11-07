@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "g_logger.h"
+#include "store.h"
+#include "store_ro_http_proxy.h"
 
 //TODO: need to create an appropriate configure check.
 #ifdef HAVE_LIBCURL
@@ -29,9 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#include "store.h"
-#include "store_ro_http_proxy.h"
 
 static pthread_mutex_t ro_http_proxy_mutex;
 static int done_global_init = 0;
