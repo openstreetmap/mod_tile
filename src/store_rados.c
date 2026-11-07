@@ -47,19 +47,19 @@
 static pthread_mutex_t rados_mutex;
 
 struct metadata_cache {
-	char * data;
+	char *data;
 	int x, y, z;
 	char xmlname[XMLCONFIG_MAX];
 };
 
 struct rados_ctx {
-	char * pool;
+	char *pool;
 	rados_t cluster;
 	rados_ioctx_t io;
 	struct metadata_cache metadata_cache;
 };
 
-static char * rados_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char * key)
+static char *rados_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char *key)
 {
 	int mask;
 
@@ -76,12 +76,12 @@ static char * rados_xyzo_to_storagekey(const char *xmlconfig, const char *option
 	return key;
 }
 
-static char * read_meta_data(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z)
+static char *read_meta_data(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
 	int mask;
 	int err;
 	char meta_path[PATH_MAX];
-	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 	unsigned int header_len = sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry);
 
 	mask = METATILE - 1;
@@ -117,8 +117,7 @@ static char * read_meta_data(struct storage_backend * store, const char *xmlconf
 	}
 }
 
-
-static int rados_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg)
+static int rados_tile_read(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int *compressed, char *log_msg)
 {
 
 	char meta_path[PATH_MAX];
@@ -128,7 +127,7 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
 	size_t file_offset, tile_size;
 	int mask;
 	int err;
-	char * buf_raw;
+	char *buf_raw;
 
 	if (m == NULL) {
 		snprintf(log_msg, 1024, "Failed to allocate memory for metatile header\n");
@@ -170,7 +169,7 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
 	}
 
 	file_offset = m->index[meta_offset].offset + sizeof(struct stat_info);
-	tile_size   = m->index[meta_offset].size;
+	tile_size = m->index[meta_offset].size;
 
 	free(m);
 
@@ -190,10 +189,10 @@ static int rados_tile_read(struct storage_backend * store, const char *xmlconfig
 	return tile_size;
 }
 
-static struct stat_info rados_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z)
+static struct stat_info rados_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
 	struct stat_info tile_stat;
-	char * buf;
+	char *buf;
 	int offset, mask;
 
 	mask = METATILE - 1;
@@ -216,8 +215,7 @@ static struct stat_info rados_tile_stat(struct storage_backend * store, const ch
 	return tile_stat;
 }
 
-
-static char * rados_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string)
+static char *rados_tile_storage_id(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *string)
 {
 	char meta_path[PATH_MAX];
 
@@ -226,13 +224,13 @@ static char * rados_tile_storage_id(struct storage_backend * store, const char *
 	return string;
 }
 
-static int rados_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
+static int rados_metatile_write(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
 	char meta_path[PATH_MAX];
 	char tmp[PATH_MAX];
 	struct stat_info tile_stat;
 	int sz2 = sz + sizeof(struct stat_info);
-	char * buf2 = (char *)malloc(sz2);
+	char *buf2 = (char *)malloc(sz2);
 	int err;
 
 	if (buf2 == NULL) {
@@ -252,7 +250,7 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to create and write a tile to %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
 
-	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 
 	if (!ctx || !ctx->io) {
 		g_logger(G_LOG_LEVEL_ERROR, "rados_metatile_write: cannot write %s: invalid rados io context", tmp);
@@ -273,15 +271,14 @@ static int rados_metatile_write(struct storage_backend * store, const char *xmlc
 	return sz;
 }
 
-
-static int rados_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int rados_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
-	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 	char meta_path[PATH_MAX];
 	char tmp[PATH_MAX];
 	int err;
 
-	//TODO: deal with options
+	// TODO: deal with options
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to delete a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
@@ -301,16 +298,16 @@ static int rados_metatile_delete(struct storage_backend * store, const char *xml
 	return 0;
 }
 
-static int rados_metatile_expire(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int rados_metatile_expire(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 
 	struct stat_info tile_stat;
-	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 	char meta_path[PATH_MAX];
 	char tmp[PATH_MAX];
 	int err;
 
-	//TODO: deal with options
+	// TODO: deal with options
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to expire a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
@@ -345,15 +342,14 @@ static int rados_metatile_expire(struct storage_backend * store, const char *xml
 	return 0;
 }
 
-
-static int rados_close_storage(struct storage_backend * store)
+static int rados_close_storage(struct storage_backend *store)
 {
 	if (!store || !store->storage_ctx) {
 		g_logger(G_LOG_LEVEL_ERROR, "rados_close_storage: cannot close storage: invalid storage context");
 		return -1;
 	}
 
-	struct rados_ctx * ctx = (struct rados_ctx *)store->storage_ctx;
+	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 
 	if (ctx->io) {
 		rados_ioctx_destroy(ctx->io);
@@ -371,22 +367,19 @@ static int rados_close_storage(struct storage_backend * store)
 	return 0;
 }
 
+#endif // Have rados
 
-#endif //Have rados
-
-
-
-struct storage_backend * init_storage_rados(const char * connection_string)
+struct storage_backend *init_storage_rados(const char *connection_string)
 {
 
 #ifndef HAVE_LIBRADOS
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: Support for rados storage has not been compiled into this program");
 	return NULL;
 #else
-	struct rados_ctx * ctx = (struct rados_ctx *)malloc(sizeof(struct rados_ctx));
-	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
-	char * conf = NULL;
-	const char * tmp;
+	struct rados_ctx *ctx = (struct rados_ctx *)malloc(sizeof(struct rados_ctx));
+	struct storage_backend *store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	char *conf = NULL;
+	const char *tmp;
 	int err;
 	int i;
 
@@ -464,7 +457,6 @@ struct storage_backend * init_storage_rados(const char * connection_string)
 	ctx->metadata_cache.y = -1;
 	ctx->metadata_cache.z = -1;
 	ctx->metadata_cache.xmlname[0] = 0;
-
 
 	store->storage_ctx = ctx;
 

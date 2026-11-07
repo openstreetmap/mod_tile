@@ -23,7 +23,7 @@
 #include "store.h"
 #include "store_ro_composite.h"
 
-//TODO: need to create an appropriate configure check.
+// TODO: need to create an appropriate configure check.
 #ifdef HAVE_CAIRO
 #include <cairo/cairo.h>
 #include <stdlib.h>
@@ -31,7 +31,7 @@
 
 static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const unsigned char *data, unsigned int length)
 {
-	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *) in_closure;
+	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *)in_closure;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "ro_composite_tile: writing to byte array: pos: %i, length: %i", closure->pos, length);
 
@@ -47,7 +47,7 @@ static cairo_status_t write_png_stream_to_byte_array(void *in_closure, const uns
 
 static cairo_status_t read_png_stream_from_byte_array(void *in_closure, unsigned char *data, unsigned int length)
 {
-	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *) in_closure;
+	png_stream_to_byte_array_closure_t *closure = (png_stream_to_byte_array_closure_t *)in_closure;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "ro_composite_tile: reading from byte array: pos: %i, length: %i", closure->pos, length);
 
@@ -61,10 +61,9 @@ static cairo_status_t read_png_stream_from_byte_array(void *in_closure, unsigned
 	return CAIRO_STATUS_SUCCESS;
 }
 
-
-static int ro_composite_tile_read(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int * compressed, char * log_msg)
+static int ro_composite_tile_read(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int *compressed, char *log_msg)
 {
-	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
+	struct ro_composite_ctx *ctx = (struct ro_composite_ctx *)(store->storage_ctx);
 	cairo_surface_t *imageA;
 	cairo_surface_t *imageB;
 	cairo_surface_t *imageC;
@@ -127,7 +126,7 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
 		return -1;
 	}
 
-	//Create the cairo context
+	// Create the cairo context
 	cr = cairo_create(imageC);
 	cairo_set_source_surface(cr, imageA, 0, 0);
 	cairo_paint(cr);
@@ -148,43 +147,40 @@ static int ro_composite_tile_read(struct storage_backend * store, const char *xm
 	return closure.pos;
 }
 
-static struct stat_info ro_composite_tile_stat(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z)
+static struct stat_info ro_composite_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
-	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
+	struct ro_composite_ctx *ctx = (struct ro_composite_ctx *)(store->storage_ctx);
 	return ctx->store_primary->tile_stat(ctx->store_primary, ctx->xmlconfig_primary, options, x, y, z);
 }
 
-
-static char * ro_composite_tile_storage_id(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, char * string)
+static char *ro_composite_tile_storage_id(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *string)
 {
-	const char * id = "Composite tile";
+	const char *id = "Composite tile";
 	return (char *)id;
 }
 
-static int ro_composite_metatile_write(struct storage_backend * store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
+static int ro_composite_metatile_write(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
 	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
-
-static int ro_composite_metatile_delete(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int ro_composite_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
-static int ro_composite_metatile_expire(struct storage_backend * store, const char *xmlconfig, int x, int y, int z)
+static int ro_composite_metatile_expire(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 
 	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
-
-static int ro_composite_close_storage(struct storage_backend * store)
+static int ro_composite_close_storage(struct storage_backend *store)
 {
-	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)(store->storage_ctx);
+	struct ro_composite_ctx *ctx = (struct ro_composite_ctx *)(store->storage_ctx);
 	// close_storage() no longer frees the backend itself (#524), so free the
 	// two inner backends here, as the callers do for the outer one
 	ctx->store_primary->close_storage(ctx->store_primary);
@@ -203,20 +199,18 @@ static int ro_composite_close_storage(struct storage_backend * store)
 
 #endif // HAVE_CAIRO
 
-
-
-struct storage_backend * init_storage_ro_composite(const char * connection_string)
+struct storage_backend *init_storage_ro_composite(const char *connection_string)
 {
 
 #ifndef HAVE_CAIRO
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_coposite: Support for compositing storage has not been compiled into this program");
 	return NULL;
 #else
-	struct storage_backend * store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
-	struct ro_composite_ctx * ctx = (struct ro_composite_ctx *)calloc(1, sizeof(struct ro_composite_ctx));
-	char * connection_string_primary;
-	char * connection_string_secondary;
-	char * tmp;
+	struct storage_backend *store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	struct ro_composite_ctx *ctx = (struct ro_composite_ctx *)calloc(1, sizeof(struct ro_composite_ctx));
+	char *connection_string_primary;
+	char *connection_string_secondary;
+	char *tmp;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_composite: initialising compositing storage backend for %s", connection_string);
 

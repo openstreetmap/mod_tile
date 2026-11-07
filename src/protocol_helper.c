@@ -23,7 +23,7 @@
 #include "g_logger.h"
 #include "protocol.h"
 
-int send_cmd(struct protocol * cmd, int fd)
+int send_cmd(struct protocol *cmd, int fd)
 {
 	int ret = -1;
 	int socket_type;
@@ -48,17 +48,17 @@ int send_cmd(struct protocol * cmd, int fd)
 	}
 
 	switch (cmd->ver) {
-		case 1:
-			expected_len = sizeof(struct protocol_v1);
-			break;
+	case 1:
+		expected_len = sizeof(struct protocol_v1);
+		break;
 
-		case 2:
-			expected_len = sizeof(struct protocol_v2);
-			break;
+	case 2:
+		expected_len = sizeof(struct protocol_v2);
+		break;
 
-		case 3:
-			expected_len = sizeof(struct protocol);
-			break;
+	case 3:
+		expected_len = sizeof(struct protocol);
+		break;
 	}
 
 	ret = send(fd, cmd, expected_len, 0);
@@ -71,7 +71,7 @@ int send_cmd(struct protocol * cmd, int fd)
 	return ret;
 }
 
-int recv_cmd(struct protocol * cmd, int fd,  int block)
+int recv_cmd(struct protocol *cmd, int fd, int block)
 {
 	int ret, ret2 = 0;
 	memset(cmd, 0, sizeof(*cmd));
@@ -93,17 +93,17 @@ int recv_cmd(struct protocol * cmd, int fd,  int block)
 	g_logger(G_LOG_LEVEL_DEBUG, "Got incoming request with protocol version %i", cmd->ver);
 
 	switch (cmd->ver) {
-		case 1:
-			ret2 = 0;
-			break;
+	case 1:
+		ret2 = 0;
+		break;
 
-		case 2:
-			ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
-			break;
+	case 2:
+		ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol_v2) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
+		break;
 
-		case 3:
-			ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
-			break;
+	case 3:
+		ret2 = recv(fd, ((char *)cmd) + sizeof(struct protocol_v1), sizeof(struct protocol) - sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
+		break;
 	}
 
 	if ((cmd->ver > 1) && (ret2 < 1)) {

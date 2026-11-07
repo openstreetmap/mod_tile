@@ -6,59 +6,43 @@ on:
   push:
 
 jobs:
-  astyle:
+  clang-format:
     env:
-      ASTYLE_CMD: >-
-        astyle
-        --break-blocks
-        --indent-switches
-        --indent=force-tab=8
-        --lineend=linux
-        --options=none
-        --pad-header
-        --pad-oper
-        --style=1tbs
-        --suffix=none
-        --unpad-paren
-        includes/*.h includes/*.hpp src/*.c src/*.cpp
-    name: Lint with `Artistic Style`
-    runs-on: ubuntu-26.04 # Use 26.04 until slim also resolves to 26.04
+      ANALYSIS_TARGETS: includes/*.h includes/*.hpp src/*.c src/*.cpp tests/*.cpp tests/*.hpp
+    name: Lint with `ClangFormat`
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Provision environment
         uses: ./.github/actions/dependencies/install/apt-get
         with:
-          packages: astyle
-      - name: Check if any modifications were made by `astyle`
+          packages: clang-format
+      - name: Run `clang-format` in `--dry-run` mode
         run: |
-          ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
-          if [ -n "$(echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged")" ]; then
-            echo "The following files are in need of formatting:"
-            echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "`"$2"`"}'
-            echo ""
-            echo "Run the following command before submitting a pull request:"
-            echo '`'"${ASTYLE_CMD}"'`'
-            exit 1
-          fi
-      - name: Write `$ASTYLE_OUTPUT` to `$GITHUB_STEP_SUMMARY`
+          clang-format \
+            --dry-run \
+            --Werror \
+            --style=file \
+            ${ANALYSIS_TARGETS}
+      - name: Run `clang-format` in `-i` mode if `--dry-run` mode had any changes
         run: |
-          ASTYLE_OUTPUT=$(${ASTYLE_CMD} --dry-run)
-          echo "### The following files are in need of formatting:" >> ${GITHUB_STEP_SUMMARY}
-          echo "${ASTYLE_OUTPUT}" | grep -v "Unchanged" | awk '{print "- `"$2"`"}' >> ${GITHUB_STEP_SUMMARY}
-          echo "### Run the following command before submitting a pull request:" >> ${GITHUB_STEP_SUMMARY}
-          echo -e '```shell\n'"${ASTYLE_CMD}"'\n```' >> ${GITHUB_STEP_SUMMARY}
+          clang-format \
+            --Werror \
+            --style=file \
+            -i \
+            ${ANALYSIS_TARGETS}
         if: failure()
-      - name: Generate `ArtisticStyleFormattingFixes.patch` file
+      - name: Generate `ClangFormat.patch` file
         run: |
           ${ASTYLE_CMD}
-          git diff --patch > ArtisticStyleFormattingFixes.patch
+          git diff --patch > ClangFormat.patch
         if: failure()
-      - name: Upload `ArtisticStyleFormattingFixes.patch` file
+      - name: Upload `ClangFormat.patch` file
         uses: actions/upload-artifact@v7
         with:
-          name: ArtisticStyleFormattingFixes.patch
-          path: ArtisticStyleFormattingFixes.patch
+          name: ClangFormat.patch
+          path: ClangFormat.patch
         if: failure()
 
   cmakelint:

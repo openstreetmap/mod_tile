@@ -41,11 +41,11 @@
 #endif
 
 #ifndef INIPARSER_USES_CONST
-#  define INIPARSER_DICT_CAST(d) ((dictionary *)(d))
-#  define INIPARSER_STR_CAST(s)  ((char *)(s))
+#define INIPARSER_DICT_CAST(d) ((dictionary *)(d))
+#define INIPARSER_STR_CAST(s) ((char *)(s))
 #else
-#  define INIPARSER_DICT_CAST(d) (d)
-#  define INIPARSER_STR_CAST(s)  (s)
+#define INIPARSER_DICT_CAST(d) (d)
+#define INIPARSER_STR_CAST(s) (s)
 #endif
 
 int num_maps = 0;
@@ -342,21 +342,21 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 
 			for (ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_context); ini_type_part; ini_type_part = strtok_r(NULL, " ", &ini_type_context)) {
 				switch (ini_type_part_num) {
-					case 0:
-						copy_string(ini_type_part, &maps_dest[map_section_num].file_extension, ini_type_part_maxlen);
-						break;
+				case 0:
+					copy_string(ini_type_part, &maps_dest[map_section_num].file_extension, ini_type_part_maxlen);
+					break;
 
-					case 1:
-						copy_string(ini_type_part, &maps_dest[map_section_num].mime_type, ini_type_part_maxlen);
-						break;
+				case 1:
+					copy_string(ini_type_part, &maps_dest[map_section_num].mime_type, ini_type_part_maxlen);
+					break;
 
-					case 2:
-						copy_string(ini_type_part, &maps_dest[map_section_num].output_format, ini_type_part_maxlen);
-						break;
+				case 2:
+					copy_string(ini_type_part, &maps_dest[map_section_num].output_format, ini_type_part_maxlen);
+					break;
 
-					default:
-						g_logger(G_LOG_LEVEL_CRITICAL, "Specified type (%s) has too many parts, there must be no more than 3, e.g., 'png image/png png256'.", ini_type);
-						exit(7);
+				default:
+					g_logger(G_LOG_LEVEL_CRITICAL, "Specified type (%s) has too many parts, there must be no more than 3, e.g., 'png image/png png256'.", ini_type);
+					exit(7);
 				}
 
 				ini_type_part_num++;

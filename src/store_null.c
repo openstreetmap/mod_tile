@@ -24,18 +24,18 @@
 #include "store.h"
 #include "store_null.h"
 
-static int tile_read(struct storage_backend * store,
+static int tile_read(struct storage_backend *store,
 		     const char *xmlconfig,
 		     const char *options,
 		     int x, int y, int z,
 		     char *buf, size_t sz,
-		     int * compressed, char * err_msg)
+		     int *compressed, char *err_msg)
 {
 	snprintf(err_msg, PATH_MAX - 1, "Cannot read from NULL storage.");
 	return -1;
 }
 
-static struct stat_info tile_stat(struct storage_backend * store,
+static struct stat_info tile_stat(struct storage_backend *store,
 				  const char *xmlconfig,
 				  const char *options,
 				  int x, int y, int z)
@@ -49,7 +49,7 @@ static struct stat_info tile_stat(struct storage_backend * store,
 	return tile_stat;
 }
 
-static int metatile_write(struct storage_backend * store,
+static int metatile_write(struct storage_backend *store,
 			  const char *xmlconfig,
 			  const char *options,
 			  int x, int y, int z,
@@ -59,38 +59,38 @@ static int metatile_write(struct storage_backend * store,
 	return sz;
 }
 
-static int metatile_delete(struct storage_backend * store,
+static int metatile_delete(struct storage_backend *store,
 			   const char *xmlconfig,
 			   int x, int y, int z)
 {
 	return 0;
 }
 
-static int metatile_expire(struct storage_backend * store,
+static int metatile_expire(struct storage_backend *store,
 			   const char *xmlconfig,
 			   int x, int y, int z)
 {
 	return 0;
 }
 
-static char * tile_storage_id(struct storage_backend * store,
-			      const char *xmlconfig,
-			      const char *options,
-			      int x, int y, int z,
-			      char * string)
+static char *tile_storage_id(struct storage_backend *store,
+			     const char *xmlconfig,
+			     const char *options,
+			     int x, int y, int z,
+			     char *string)
 {
 	snprintf(string, PATH_MAX - 1, "null://");
 	return string;
 }
 
-static int close_storage(struct storage_backend * store)
+static int close_storage(struct storage_backend *store)
 {
 	return 0;
 }
 
 struct storage_backend *init_storage_null()
 {
-	struct storage_backend *store = (struct storage_backend *)malloc(sizeof * store);
+	struct storage_backend *store = (struct storage_backend *)malloc(sizeof *store);
 
 	if (store == NULL) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_null: Failed to allocate memory for storage backend");

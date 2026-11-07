@@ -114,23 +114,22 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"config",      required_argument, 0, 'c'},
-			{"delete-from", required_argument, 0, 'd'},
-			{"map",         required_argument, 0, 'm'},
-			{"max-load",    required_argument, 0, 'l'},
-			{"max-zoom",    required_argument, 0, 'Z'},
-			{"min-zoom",    required_argument, 0, 'z'},
-			{"no-progress", no_argument,       0, 'N'},
-			{"num-threads", required_argument, 0, 'n'},
-			{"socket",      required_argument, 0, 's'},
-			{"tile-dir",    required_argument, 0, 't'},
-			{"touch-from",  required_argument, 0, 'T'},
-			{"verbose",     no_argument,       0, 'v'},
+		    {"config", required_argument, 0, 'c'},
+		    {"delete-from", required_argument, 0, 'd'},
+		    {"map", required_argument, 0, 'm'},
+		    {"max-load", required_argument, 0, 'l'},
+		    {"max-zoom", required_argument, 0, 'Z'},
+		    {"min-zoom", required_argument, 0, 'z'},
+		    {"no-progress", no_argument, 0, 'N'},
+		    {"num-threads", required_argument, 0, 'n'},
+		    {"socket", required_argument, 0, 's'},
+		    {"tile-dir", required_argument, 0, 't'},
+		    {"touch-from", required_argument, 0, 'T'},
+		    {"verbose", no_argument, 0, 'v'},
 
-			{"help",        no_argument,       0, 'h'},
-			{"version",     no_argument,       0, 'V'},
-			{0, 0, 0, 0}
-		};
+		    {"help", no_argument, 0, 'h'},
+		    {"version", no_argument, 0, 'V'},
+		    {0, 0, 0, 0}};
 
 		int c = getopt_long(argc, argv, "c:d:m:l:Z:z:Nn:s:t:T:vhV", long_options, &option_index);
 
@@ -139,106 +138,106 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'c': /* -c, --config */
-				config_file_name = strndup(optarg, PATH_MAX);
-				config_file_name_passed = 1;
+		case 'c': /* -c, --config */
+			config_file_name = strndup(optarg, PATH_MAX);
+			config_file_name_passed = 1;
 
-				struct stat buffer;
+			struct stat buffer;
 
-				if (stat(config_file_name, &buffer) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
-					return 1;
-				}
-
-				break;
-
-			case 'd': /* -d, --delete-from */
-				delete_from = min_max_int_opt(optarg, "delete-from", 0, MAX_ZOOM);
-				delete_from_passed = 1;
-				break;
-
-			case 'm': /* -m, --map */
-				mapname = strndup(optarg, XMLCONFIG_MAX);
-				mapname_passed = 1;
-				break;
-
-			case 'l': /* -l, --max-load */
-				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
-				max_load_passed = 1;
-				break;
-
-			case 'Z': /* -Z, --max-zoom */
-				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
-				max_zoom_passed = 1;
-				break;
-
-			case 'z': /* -z, --min-zoom */
-				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
-				min_zoom_passed = 1;
-				break;
-
-			case 'N': /* -N, --no-progress */
-				progress = 0;
-				break;
-
-			case 'n': /* -n, --num-threads */
-				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
-				num_threads_passed = 1;
-				break;
-
-			case 's': /* -s, --socket */
-				socketname = strndup(optarg, PATH_MAX);
-				socketname_passed = 1;
-				break;
-
-			case 't': /* -t, --tile-dir */
-				tile_dir = strndup(optarg, PATH_MAX);
-				tile_dir_passed = 1;
-				break;
-
-			case 'T': /* -T, --touch-from */
-				touch_from = min_max_int_opt(optarg, "touch-from", 0, MAX_ZOOM);
-				touch_from_passed = 1;
-				break;
-
-			case 'v': /* -v, --verbose */
-				verbose = 1;
-				break;
-
-			case 'h': /* -h, --help */
-				fprintf(stderr, "Usage: render_expired [OPTION] ...\n");
-				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
-				fprintf(stderr, "  -d, --delete-from=ZOOM            when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
-				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
-				fprintf(stderr, "  -N, --no-progress                 disable display of progress messages (default is off)\n");
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
-				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
-				fprintf(stderr, "  -T, --touch-from=ZOOM             when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
-				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help                        display this help and exit\n");
-				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				fprintf(stderr, "\n");
-				fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
-				fprintf(stderr, "  z/x/y\n");
-				fprintf(stderr, "e.g.\n");
-				fprintf(stderr, "  1/0/1\n");
-				fprintf(stderr, "  1/1/1\n");
-				fprintf(stderr, "  1/0/0\n");
-				fprintf(stderr, "  1/1/0\n");
-				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-				return 0;
-
-			case 'V': /* -V, --version */
-				fprintf(stdout, "%s\n", VERSION);
-				return 0;
-
-			default:
-				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			if (stat(config_file_name, &buffer) != 0) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 				return 1;
+			}
+
+			break;
+
+		case 'd': /* -d, --delete-from */
+			delete_from = min_max_int_opt(optarg, "delete-from", 0, MAX_ZOOM);
+			delete_from_passed = 1;
+			break;
+
+		case 'm': /* -m, --map */
+			mapname = strndup(optarg, XMLCONFIG_MAX);
+			mapname_passed = 1;
+			break;
+
+		case 'l': /* -l, --max-load */
+			max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
+			max_load_passed = 1;
+			break;
+
+		case 'Z': /* -Z, --max-zoom */
+			max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+			max_zoom_passed = 1;
+			break;
+
+		case 'z': /* -z, --min-zoom */
+			min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+			min_zoom_passed = 1;
+			break;
+
+		case 'N': /* -N, --no-progress */
+			progress = 0;
+			break;
+
+		case 'n': /* -n, --num-threads */
+			num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+			num_threads_passed = 1;
+			break;
+
+		case 's': /* -s, --socket */
+			socketname = strndup(optarg, PATH_MAX);
+			socketname_passed = 1;
+			break;
+
+		case 't': /* -t, --tile-dir */
+			tile_dir = strndup(optarg, PATH_MAX);
+			tile_dir_passed = 1;
+			break;
+
+		case 'T': /* -T, --touch-from */
+			touch_from = min_max_int_opt(optarg, "touch-from", 0, MAX_ZOOM);
+			touch_from_passed = 1;
+			break;
+
+		case 'v': /* -v, --verbose */
+			verbose = 1;
+			break;
+
+		case 'h': /* -h, --help */
+			fprintf(stderr, "Usage: render_expired [OPTION] ...\n");
+			fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
+			fprintf(stderr, "  -d, --delete-from=ZOOM            when expiring tiles of ZOOM or higher, delete them instead of re-rendering (default is off)\n");
+			fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+			fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+			fprintf(stderr, "  -N, --no-progress                 disable display of progress messages (default is off)\n");
+			fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%d')\n", num_threads_default);
+			fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+			fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
+			fprintf(stderr, "  -T, --touch-from=ZOOM             when expiring tiles of ZOOM or higher, touch them instead of re-rendering (default is off)\n");
+			fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+			fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
+			fprintf(stderr, "\n");
+			fprintf(stderr, "  -h, --help                        display this help and exit\n");
+			fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "Send a list of tiles to be rendered from STDIN in the format:\n");
+			fprintf(stderr, "  z/x/y\n");
+			fprintf(stderr, "e.g.\n");
+			fprintf(stderr, "  1/0/1\n");
+			fprintf(stderr, "  1/1/1\n");
+			fprintf(stderr, "  1/0/0\n");
+			fprintf(stderr, "  1/1/0\n");
+			fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
+			return 0;
+
+		case 'V': /* -V, --version */
+			fprintf(stdout, "%s\n", VERSION);
+			return 0;
+
+		default:
+			g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			return 1;
 		}
 	}
 

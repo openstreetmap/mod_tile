@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-struct storage_backend *init_storage_null();
+	struct storage_backend *init_storage_null();
 
 #ifdef __cplusplus
 }

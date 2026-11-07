@@ -112,30 +112,29 @@ int main(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"all",         no_argument,       0, 'a'},
-			{"config",      required_argument, 0, 'c'},
-			{"force",       no_argument,       0, 'f'},
-			{"map",         required_argument, 0, 'm'},
-			{"max-lat",     required_argument, 0, 'G'},
-			{"max-load",    required_argument, 0, 'l'},
-			{"max-lon",     required_argument, 0, 'W'},
-			{"max-x",       required_argument, 0, 'X'},
-			{"max-y",       required_argument, 0, 'Y'},
-			{"max-zoom",    required_argument, 0, 'Z'},
-			{"min-lat",     required_argument, 0, 'g'},
-			{"min-lon",     required_argument, 0, 'w'},
-			{"min-x",       required_argument, 0, 'x'},
-			{"min-y",       required_argument, 0, 'y'},
-			{"min-zoom",    required_argument, 0, 'z'},
-			{"num-threads", required_argument, 0, 'n'},
-			{"socket",      required_argument, 0, 's'},
-			{"tile-dir",    required_argument, 0, 't'},
-			{"verbose",     no_argument,       0, 'v'},
+		    {"all", no_argument, 0, 'a'},
+		    {"config", required_argument, 0, 'c'},
+		    {"force", no_argument, 0, 'f'},
+		    {"map", required_argument, 0, 'm'},
+		    {"max-lat", required_argument, 0, 'G'},
+		    {"max-load", required_argument, 0, 'l'},
+		    {"max-lon", required_argument, 0, 'W'},
+		    {"max-x", required_argument, 0, 'X'},
+		    {"max-y", required_argument, 0, 'Y'},
+		    {"max-zoom", required_argument, 0, 'Z'},
+		    {"min-lat", required_argument, 0, 'g'},
+		    {"min-lon", required_argument, 0, 'w'},
+		    {"min-x", required_argument, 0, 'x'},
+		    {"min-y", required_argument, 0, 'y'},
+		    {"min-zoom", required_argument, 0, 'z'},
+		    {"num-threads", required_argument, 0, 'n'},
+		    {"socket", required_argument, 0, 's'},
+		    {"tile-dir", required_argument, 0, 't'},
+		    {"verbose", no_argument, 0, 'v'},
 
-			{"help",        no_argument,       0, 'h'},
-			{"version",     no_argument,       0, 'V'},
-			{0, 0, 0, 0}
-		};
+		    {"help", no_argument, 0, 'h'},
+		    {"version", no_argument, 0, 'V'},
+		    {0, 0, 0, 0}};
 
 		int c = getopt_long(argc, argv, "ac:fm:G:l:W:X:Y:Z:g:w:x:y:z:n:s:t:vhV", long_options, &option_index);
 
@@ -144,150 +143,150 @@ int main(int argc, char **argv)
 		}
 
 		switch (c) {
-			case 'a': /* -a, --all */
-				all = 1;
-				break;
+		case 'a': /* -a, --all */
+			all = 1;
+			break;
 
-			case 'c': /* -c, --config */
-				config_file_name = strndup(optarg, PATH_MAX);
-				config_file_name_passed = 1;
+		case 'c': /* -c, --config */
+			config_file_name = strndup(optarg, PATH_MAX);
+			config_file_name_passed = 1;
 
-				struct stat buffer;
+			struct stat buffer;
 
-				if (stat(config_file_name, &buffer) != 0) {
-					g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
-					return 1;
-				}
-
-				break;
-
-			case 'f': /* -f, --force */
-				force = 1;
-				break;
-
-			case 'm': /* -m, --map */
-				mapname = strndup(optarg, XMLCONFIG_MAX);
-				mapname_passed = 1;
-				break;
-
-			case 'G': /* -G, --max-lat */
-				max_lat = min_max_double_opt(optarg, "maximum latitude", -85.0511, 85.0511);
-				max_lat_passed = 1;
-				break;
-
-			case 'l': /* -l, --max-load */
-				max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
-				max_load_passed = 1;
-				break;
-
-			case 'W': /* -W, --max-lon */
-				max_lon = min_max_double_opt(optarg, "maximum longitude", -180, 180);
-				max_lon_passed = 1;
-				break;
-
-			case 'X': /* -X, --max-x */
-				max_x = min_max_int_opt(optarg, "maximum X tile coordinate", 0, -1);
-				max_x_passed = 1;
-				break;
-
-			case 'Y': /* -Y, --max-y */
-				max_y = min_max_int_opt(optarg, "maximum Y tile coordinate", 0, -1);
-				max_y_passed = 1;
-				break;
-
-			case 'Z': /* -Z, --max-zoom */
-				max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
-				max_zoom_passed = 1;
-				break;
-
-			case 'g': /* -g, --min-lat */
-				min_lat = min_max_double_opt(optarg, "minimum latitude", -85.0511, 85.0511);
-				min_lat_passed = 1;
-				break;
-
-			case 'w': /* -w, --min-lon */
-				min_lon = min_max_double_opt(optarg, "minimum longitude", -180, 180);
-				min_lon_passed = 1;
-				break;
-
-			case 'x': /* -x, --min-x */
-				min_x = min_max_int_opt(optarg, "minimum X tile coordinate", 0, -1);
-				min_x_passed = 1;
-				break;
-
-			case 'y': /* -y, --min-y */
-				min_y = min_max_int_opt(optarg, "minimum Y tile coordinate", 0, -1);
-				min_y_passed = 1;
-				break;
-
-			case 'z': /* -z, --min-zoom */
-				min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
-				min_zoom_passed = 1;
-				break;
-
-			case 'n': /* -n, --num-threads */
-				num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
-				num_threads_passed = 1;
-				break;
-
-			case 's': /* -s, --socket */
-				socketname = strndup(optarg, PATH_MAX);
-				socketname_passed = 1;
-				break;
-
-			case 't': /* -t, --tile-dir */
-				tile_dir = strndup(optarg, PATH_MAX);
-				tile_dir_passed = 1;
-				break;
-
-			case 'v': /* -v, --verbose */
-				verbose = 1;
-				break;
-
-			case 'h': /* -h, --help */
-				fprintf(stderr, "Usage: render_list [OPTION] ...\n");
-				fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
-				fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
-				fprintf(stderr, "  -f, --force                       render tiles even if they seem current\n");
-				fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
-				fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
-				fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%i')\n", num_threads_default);
-				fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
-				fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
-				fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
-				fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
-				fprintf(stderr, "\n");
-				fprintf(stderr, "  -h, --help                        display this help and exit\n");
-				fprintf(stderr, "  -V, --version                     display the version number and exit\n");
-				fprintf(stderr, "\n");
-				fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
-				fprintf(stderr, "(please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
-				fprintf(stderr, "  -G, --max-lat=LATITUDE            maximum latitude\n");
-				fprintf(stderr, "  -g, --min-lat=LATITUDE            minimum latitude\n");
-				fprintf(stderr, "  -W, --max-lon=LONGITUDE           maximum longitude\n");
-				fprintf(stderr, "  -w, --min-lon=LONGITUDE           minimum longitude\n");
-				fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
-				fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
-				fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
-				fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
-				fprintf(stderr, "\n");
-				fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
-				fprintf(stderr, "  X Y Z\n");
-				fprintf(stderr, "e.g.\n");
-				fprintf(stderr, "  0 0 1\n");
-				fprintf(stderr, "  0 1 1\n");
-				fprintf(stderr, "  1 0 1\n");
-				fprintf(stderr, "  1 1 1\n");
-				fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
-				return 0;
-
-			case 'V': /* -V, --version */
-				fprintf(stdout, "%s\n", VERSION);
-				return 0;
-
-			default:
-				g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			if (stat(config_file_name, &buffer) != 0) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Config file '%s' does not exist, please specify a valid file", config_file_name);
 				return 1;
+			}
+
+			break;
+
+		case 'f': /* -f, --force */
+			force = 1;
+			break;
+
+		case 'm': /* -m, --map */
+			mapname = strndup(optarg, XMLCONFIG_MAX);
+			mapname_passed = 1;
+			break;
+
+		case 'G': /* -G, --max-lat */
+			max_lat = min_max_double_opt(optarg, "maximum latitude", -85.0511, 85.0511);
+			max_lat_passed = 1;
+			break;
+
+		case 'l': /* -l, --max-load */
+			max_load = min_max_int_opt(optarg, "maximum load", 0, -1);
+			max_load_passed = 1;
+			break;
+
+		case 'W': /* -W, --max-lon */
+			max_lon = min_max_double_opt(optarg, "maximum longitude", -180, 180);
+			max_lon_passed = 1;
+			break;
+
+		case 'X': /* -X, --max-x */
+			max_x = min_max_int_opt(optarg, "maximum X tile coordinate", 0, -1);
+			max_x_passed = 1;
+			break;
+
+		case 'Y': /* -Y, --max-y */
+			max_y = min_max_int_opt(optarg, "maximum Y tile coordinate", 0, -1);
+			max_y_passed = 1;
+			break;
+
+		case 'Z': /* -Z, --max-zoom */
+			max_zoom = min_max_int_opt(optarg, "maximum zoom", 0, MAX_ZOOM);
+			max_zoom_passed = 1;
+			break;
+
+		case 'g': /* -g, --min-lat */
+			min_lat = min_max_double_opt(optarg, "minimum latitude", -85.0511, 85.0511);
+			min_lat_passed = 1;
+			break;
+
+		case 'w': /* -w, --min-lon */
+			min_lon = min_max_double_opt(optarg, "minimum longitude", -180, 180);
+			min_lon_passed = 1;
+			break;
+
+		case 'x': /* -x, --min-x */
+			min_x = min_max_int_opt(optarg, "minimum X tile coordinate", 0, -1);
+			min_x_passed = 1;
+			break;
+
+		case 'y': /* -y, --min-y */
+			min_y = min_max_int_opt(optarg, "minimum Y tile coordinate", 0, -1);
+			min_y_passed = 1;
+			break;
+
+		case 'z': /* -z, --min-zoom */
+			min_zoom = min_max_int_opt(optarg, "minimum zoom", 0, MAX_ZOOM);
+			min_zoom_passed = 1;
+			break;
+
+		case 'n': /* -n, --num-threads */
+			num_threads = min_max_int_opt(optarg, "number of threads", 1, -1);
+			num_threads_passed = 1;
+			break;
+
+		case 's': /* -s, --socket */
+			socketname = strndup(optarg, PATH_MAX);
+			socketname_passed = 1;
+			break;
+
+		case 't': /* -t, --tile-dir */
+			tile_dir = strndup(optarg, PATH_MAX);
+			tile_dir_passed = 1;
+			break;
+
+		case 'v': /* -v, --verbose */
+			verbose = 1;
+			break;
+
+		case 'h': /* -h, --help */
+			fprintf(stderr, "Usage: render_list [OPTION] ...\n");
+			fprintf(stderr, "  -a, --all                         render all tiles in given zoom level range instead of reading from STDIN\n");
+			fprintf(stderr, "  -c, --config=CONFIG               specify the renderd config file (default is off)\n");
+			fprintf(stderr, "  -f, --force                       render tiles even if they seem current\n");
+			fprintf(stderr, "  -l, --max-load=LOAD               sleep if load is this high (default is '%d')\n", max_load_default);
+			fprintf(stderr, "  -m, --map=MAP                     render tiles in this map (default is '%s')\n", mapname_default);
+			fprintf(stderr, "  -n, --num-threads=N               the number of parallel request threads (default is '%i')\n", num_threads_default);
+			fprintf(stderr, "  -s, --socket=SOCKET|HOSTNAME:PORT unix domain socket name or hostname and port for contacting renderd (default is '%s')\n", socketname_default);
+			fprintf(stderr, "  -t, --tile-dir=TILE_DIR           tile cache directory (default is '%s')\n", tile_dir_default);
+			fprintf(stderr, "  -Z, --max-zoom=ZOOM               filter input to only render tiles less than or equal to this zoom level (default is '%d')\n", max_zoom_default);
+			fprintf(stderr, "  -z, --min-zoom=ZOOM               filter input to only render tiles greater than or equal to this zoom level (default is '%d')\n", min_zoom_default);
+			fprintf(stderr, "\n");
+			fprintf(stderr, "  -h, --help                        display this help and exit\n");
+			fprintf(stderr, "  -V, --version                     display the version number and exit\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "If you are using --all, you can restrict the tile range by adding these options:\n");
+			fprintf(stderr, "(please note that tile coordinates must be positive integers and are not latitude and longitude values)\n");
+			fprintf(stderr, "  -G, --max-lat=LATITUDE            maximum latitude\n");
+			fprintf(stderr, "  -g, --min-lat=LATITUDE            minimum latitude\n");
+			fprintf(stderr, "  -W, --max-lon=LONGITUDE           maximum longitude\n");
+			fprintf(stderr, "  -w, --min-lon=LONGITUDE           minimum longitude\n");
+			fprintf(stderr, "  -X, --max-x=X                     maximum X tile coordinate\n");
+			fprintf(stderr, "  -x, --min-x=X                     minimum X tile coordinate\n");
+			fprintf(stderr, "  -Y, --max-y=Y                     maximum Y tile coordinate\n");
+			fprintf(stderr, "  -y, --min-y=Y                     minimum Y tile coordinate\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "Without --all, send a list of tiles to be rendered from STDIN in the format:\n");
+			fprintf(stderr, "  X Y Z\n");
+			fprintf(stderr, "e.g.\n");
+			fprintf(stderr, "  0 0 1\n");
+			fprintf(stderr, "  0 1 1\n");
+			fprintf(stderr, "  1 0 1\n");
+			fprintf(stderr, "  1 1 1\n");
+			fprintf(stderr, "The above would cause all 4 tiles at zoom 1 to be rendered\n");
+			return 0;
+
+		case 'V': /* -V, --version */
+			fprintf(stdout, "%s\n", VERSION);
+			return 0;
+
+		default:
+			g_logger(G_LOG_LEVEL_CRITICAL, "unhandled char '%c'", c);
+			return 1;
 		}
 	}
 

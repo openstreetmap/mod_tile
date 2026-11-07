@@ -28,48 +28,48 @@ extern "C" {
 
 #define HASHIDX_SIZE 2213
 
-typedef struct {
-	long noDirtyRender;
-	long noReqRender;
-	long noReqPrioRender;
-	long noReqLowRender;
-	long noReqBulkRender;
-	long noReqDroped;
-	long noZoomRender[MAX_ZOOM + 1];
-	long timeReqRender;
-	long timeReqPrioRender;
-	long timeReqLowRender;
-	long timeReqBulkRender;
-	long timeReqDirty;
-	long timeZoomRender[MAX_ZOOM + 1];
-} stats_struct;
+	typedef struct {
+		long noDirtyRender;
+		long noReqRender;
+		long noReqPrioRender;
+		long noReqLowRender;
+		long noReqBulkRender;
+		long noReqDroped;
+		long noZoomRender[MAX_ZOOM + 1];
+		long timeReqRender;
+		long timeReqPrioRender;
+		long timeReqLowRender;
+		long timeReqBulkRender;
+		long timeReqDirty;
+		long timeZoomRender[MAX_ZOOM + 1];
+	} stats_struct;
 
-struct item_idx {
-	struct item_idx *next;
-	struct item *item;
-};
+	struct item_idx {
+		struct item_idx *next;
+		struct item *item;
+	};
 
-struct request_queue {
-	int hashidxSize;
-	struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
-	struct item_idx *item_hashidx;
-	int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
-	pthread_mutex_t qLock;
-	pthread_cond_t qCond;
-	stats_struct stats;
-};
+	struct request_queue {
+		int hashidxSize;
+		struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
+		struct item_idx *item_hashidx;
+		int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
+		pthread_mutex_t qLock;
+		pthread_cond_t qCond;
+		stats_struct stats;
+	};
 
-struct request_queue *request_queue_init();
-void request_queue_close(struct request_queue *queue);
+	struct request_queue *request_queue_init();
+	void request_queue_close(struct request_queue *queue);
 
-struct item *request_queue_fetch_request(struct request_queue *queue);
-enum protoCmd request_queue_add_request(struct request_queue *queue, struct item *request);
+	struct item *request_queue_fetch_request(struct request_queue *queue);
+	enum protoCmd request_queue_add_request(struct request_queue *queue, struct item *request);
 
-void request_queue_remove_request(struct request_queue *queue, struct item *request, int render_time);
-void request_queue_clear_requests_by_fd(struct request_queue *queue, int fd);
+	void request_queue_remove_request(struct request_queue *queue, struct item *request, int render_time);
+	void request_queue_clear_requests_by_fd(struct request_queue *queue, int fd);
 
-int request_queue_no_requests_queued(struct request_queue *queue, enum protoCmd);
-void request_queue_copy_stats(struct request_queue *queue, stats_struct *stats);
+	int request_queue_no_requests_queued(struct request_queue *queue, enum protoCmd);
+	void request_queue_copy_stats(struct request_queue *queue, stats_struct *stats);
 
 #ifdef __cplusplus
 }

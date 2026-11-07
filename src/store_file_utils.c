@@ -115,8 +115,6 @@ int mkdirp(const char *path)
 	return 0;
 }
 
-
-
 /* File path hashing. Used by both mod_tile and render daemon
  * The two must both agree on the file layout for metatiling
  * to work
@@ -193,7 +191,8 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 
 #endif
 
-	for (i = 0; base_prefix[i] && base_prefix[i] == path[i]; ++i);
+	for (i = 0; base_prefix[i] && base_prefix[i] == path[i]; ++i)
+		;
 
 	if (base_prefix[i]) {
 		g_logger(G_LOG_LEVEL_ERROR, "Tile path does not match settings (%s): %s", base_prefix, path);

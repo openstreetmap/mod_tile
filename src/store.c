@@ -38,12 +38,12 @@
 /*
  * In Apache 2.4, we call the init_storage_backend once per thread, and therefore each thread has its own storage context to work with.
  */
-struct storage_backend * init_storage_backend(const char * options)
+struct storage_backend *init_storage_backend(const char *options)
 {
 	struct stat st;
-	struct storage_backend * store = NULL;
+	struct storage_backend *store = NULL;
 
-	//Determine the correct storage backend based on the options string
+	// Determine the correct storage backend based on the options string
 	if (strlen(options) == 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_backend: Options string was empty");
 		return NULL;

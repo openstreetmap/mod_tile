@@ -24,7 +24,7 @@ extern "C" {
 
 #include "store.h"
 
-struct storage_backend *init_storage_file(const char *tile_dir);
+	struct storage_backend *init_storage_file(const char *tile_dir);
 
 #ifdef __cplusplus
 }

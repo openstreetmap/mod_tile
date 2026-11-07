@@ -26,58 +26,58 @@ extern "C" {
 #include "gen_tile.h"
 
 #ifndef HAVE_DAEMON
-int daemon(int nochdir, int noclose);
+	int daemon(int nochdir, int noclose);
 #endif
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
 #define RENDER_THREAD_STARTUP_TIMEOUT_SEC 20
 
-typedef struct {
-	const char *iphostname;
-	const char *mapnik_font_dir;
-	const char *mapnik_plugins_dir;
-	const char *name;
-	const char *pid_filename;
-	const char *socketname;
-	const char *stats_filename;
-	const char *tile_dir;
-	int ipport;
-	int mapnik_font_dir_recurse;
-	int num_threads;
-} renderd_config;
+	typedef struct {
+		const char *iphostname;
+		const char *mapnik_font_dir;
+		const char *mapnik_plugins_dir;
+		const char *name;
+		const char *pid_filename;
+		const char *socketname;
+		const char *stats_filename;
+		const char *tile_dir;
+		int ipport;
+		int mapnik_font_dir_recurse;
+		int num_threads;
+	} renderd_config;
 
-typedef struct {
-	const char *attribution;
-	const char *cors;
-	const char *description;
-	const char *file_extension;
-	const char *host;
-	const char *htcpip;
-	const char *mime_type;
-	const char *output_format;
-	const char *parameterization;
-	const char *server_alias;
-	const char *tile_dir;
-	const char *xmlfile;
-	const char *xmlname;
-	const char *xmluri;
-	double scale_factor;
-	int aspect_x;
-	int aspect_y;
-	int max_zoom;
-	int min_zoom;
-	int num_threads;
-	int tile_px_size;
-	int total_threads_ok;
-} xmlconfigitem;
+	typedef struct {
+		const char *attribution;
+		const char *cors;
+		const char *description;
+		const char *file_extension;
+		const char *host;
+		const char *htcpip;
+		const char *mime_type;
+		const char *output_format;
+		const char *parameterization;
+		const char *server_alias;
+		const char *tile_dir;
+		const char *xmlfile;
+		const char *xmlname;
+		const char *xmluri;
+		double scale_factor;
+		int aspect_x;
+		int aspect_y;
+		int max_zoom;
+		int min_zoom;
+		int num_threads;
+		int tile_px_size;
+		int total_threads_ok;
+	} xmlconfigitem;
 
-extern struct request_queue *render_request_queue;
+	extern struct request_queue *render_request_queue;
 
-void statsRenderFinish(int z, long time);
-void request_exit(void);
-void send_response(struct item *item, enum protoCmd rsp, int render_time);
-enum protoCmd rx_request(struct protocol *req, int fd);
+	void statsRenderFinish(int z, long time);
+	void request_exit(void);
+	void send_response(struct item *item, enum protoCmd rsp, int render_time);
+	enum protoCmd rx_request(struct protocol *req, int fd);
 
 #ifdef __cplusplus
 }
