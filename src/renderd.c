@@ -17,13 +17,12 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <getopt.h>
+#include <glib.h>
+#include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <pthread.h>
-#include <signal.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +33,14 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#ifndef MAIN_ALREADY_DEFINED
+#include <getopt.h>
+#include <signal.h>
+#include <time.h>
+
 #include "config.h"
+#endif
+
 #include "g_logger.h"
 #include "gen_tile.h"
 #include "protocol.h"

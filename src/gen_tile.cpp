@@ -15,12 +15,17 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <climits>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <dirent.h>
 #include <exception>
 #include <glib.h>
 #include <map>
 #include <mapnik/agg_renderer.hpp>
-#include <mapnik/coord.hpp>
+#include <mapnik/color.hpp>
 #include <mapnik/datasource.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/font_engine_freetype.hpp>
@@ -35,9 +40,6 @@
 #include <mapnik/pixel_types.hpp>
 #include <mapnik/version.hpp>
 #include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <sys/time.h>
 #include <unistd.h>

@@ -19,7 +19,9 @@
 #define G_LOG_USE_STRUCTURED 1
 
 #include <glib.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <syslog.h>
 
 int foreground = 0;

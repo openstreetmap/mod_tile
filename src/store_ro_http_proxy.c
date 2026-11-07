@@ -15,23 +15,22 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <glib.h>
+#include <stdio.h>
+
 #include "config.h"
 #include "g_logger.h"
+#include "store.h"
+#include "store_ro_http_proxy.h"
 
 //TODO: need to create an appropriate configure check.
 #ifdef HAVE_LIBCURL
 #include <curl/curl.h>
-#include <curl/easy.h>
 #include <limits.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "store.h"
-#include "store_ro_http_proxy.h"
+#include <time.h>
 
 static pthread_mutex_t ro_http_proxy_mutex;
 static int done_global_init = 0;

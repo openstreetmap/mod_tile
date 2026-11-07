@@ -22,9 +22,9 @@
 #include <apr.h>
 #include <apr_errno.h>
 #include <apr_file_info.h>
-#include <apr_general.h>
 #include <apr_global_mutex.h>
 #include <apr_hooks.h>
+#include <apr_pools.h>
 #include <apr_portable.h>
 #include <apr_proc_mutex.h>
 #include <apr_shm.h>
@@ -36,6 +36,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <httpd.h>
+
 #include <http_config.h>
 #include <http_log.h>
 #include <http_protocol.h>
@@ -55,6 +56,7 @@
 #include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <util_cfgtree.h>
 #include <util_md5.h>
 
 #include "config.h"

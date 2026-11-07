@@ -15,10 +15,10 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <climits>
+#include <cstdlib>
+#include <cstring>
 #include <glib.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <sys/types.h>
 
