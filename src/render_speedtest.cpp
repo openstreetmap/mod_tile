@@ -15,12 +15,12 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <getopt.h>
 #include <glib.h>
-#include <limits.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
