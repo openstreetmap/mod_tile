@@ -183,8 +183,25 @@ int path_to_xyz(const char *tilepath, const char *path, char *xmlconfig, int *px
 	}
 
 #else
-	int n;
-	n = sscanf(path, TILE_PATH "/%40[^/]/%d/%d/%d", xmlconfig, pz, px, py);
+	const char *base_prefix = tilepath;
+	int i, n;
+
+#ifdef TILE_PATH
+
+	if (TILE_PATH && TILE_PATH[0] != '\0') {
+		base_prefix = TILE_PATH;
+	}
+
+#endif
+
+	for (i = 0; base_prefix[i] && base_prefix[i] == path[i]; ++i);
+
+	if (base_prefix[i]) {
+		g_logger(G_LOG_LEVEL_ERROR, "Tile path does not match settings (%s): %s", base_prefix, path);
+		return 1;
+	}
+
+	n = sscanf(path + i, "/%40[^/]/%d/%d/%d", xmlconfig, pz, px, py);
 
 	if (n != 4) {
 		g_logger(G_LOG_LEVEL_ERROR, "Failed to parse tile path: %s", path);
