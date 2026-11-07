@@ -21,7 +21,7 @@ execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
 )
 
 find_package(UnixCommands REQUIRED)
-find_program(CAT_EXECUTABLE NAMES cat REQUIRED)
+find_program(CAT_EXECUTABLE NAMES gcat cat REQUIRED)
 find_program(CURL_EXECUTABLE NAMES curl REQUIRED)
 find_program(GREP_EXECUTABLE NAMES grep REQUIRED)
 find_program(HTTPD_EXECUTABLE NAMES ${HTTPD_PROGNAME} REQUIRED)
@@ -32,7 +32,7 @@ find_program(MEMCACHED_EXECUTABLE NAMES memcached)
 find_program(MKDIR_EXECUTABLE NAMES gmkdir mkdir REQUIRED)
 find_program(PS_EXECUTABLE NAMES ps REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
-find_program(SLEEP_EXECUTABLE NAMES sleep REQUIRED)
+find_program(SLEEP_EXECUTABLE NAMES gsleep sleep REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
 # Sets the host to be used for CTest test services
@@ -1098,7 +1098,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
             echo 'Request being rejected';
             exit 0;
           fi
-          sleep 0.25
+          ${SLEEP_EXECUTABLE} 0.25
         done
         echo 'Request was never rejected';
         exit 1;
