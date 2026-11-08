@@ -21,6 +21,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 ; Test Comment: CORS all (*) Map Section
 [@DEFAULT_MAP_NAME@_cors_all]
 CORS=*
+SERVER_ALIAS=http://alias
 TILEDIR=@TILE_DIR@
 URI=/tiles/cors_all/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml

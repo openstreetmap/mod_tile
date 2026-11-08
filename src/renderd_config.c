@@ -302,9 +302,9 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 			process_config_string(ini, section, "host", &maps_dest[map_section_num].host, "", PATH_MAX);
 			process_config_string(ini, section, "htcphost", &maps_dest[map_section_num].htcpip, "", PATH_MAX);
 			process_config_string(ini, section, "parameterize_style", &maps_dest[map_section_num].parameterization, "", PATH_MAX);
-			process_config_string(ini, section, "server_alias", &maps_dest[map_section_num].server_alias, "", PATH_MAX);
 			process_config_string(ini, section, "tiledir", &maps_dest[map_section_num].tile_dir, default_tile_dir, PATH_MAX);
 			process_config_string(ini, section, "xml", &maps_dest[map_section_num].xmlfile, "", PATH_MAX);
+			process_config_string_with_trailing_slash(ini, section, "server_alias", &maps_dest[map_section_num].server_alias, "", PATH_MAX);
 			process_config_string_with_trailing_slash(ini, section, "uri", &maps_dest[map_section_num].xmluri, "", PATH_MAX);
 
 			process_config_double(ini, section, "scale", &maps_dest[map_section_num].scale_factor, 1.0);

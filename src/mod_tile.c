@@ -39,6 +39,7 @@
 
 #include <http_config.h>
 #include <http_log.h>
+#include <http_main.h>
 #include <http_protocol.h>
 #include <http_request.h>
 #include <inttypes.h>
@@ -1449,7 +1450,7 @@ static int tile_handler_json(request_rec *r)
 	for (i = 0; i < tile_config->noHostnames; i++) {
 		strncat(buf, "\t\t\"", 8 * 1024 - strlen(buf) - 1);
 		strncat(buf, tile_config->hostnames[i], 8 * 1024 - strlen(buf) - 1);
-		strncat(buf, tile_config->baseuri, 8 * 1024 - strlen(buf) - 1);
+		strncat(buf, tile_config->baseuri + 1, 8 * 1024 - strlen(buf) - 1);
 		strncat(buf, "{z}/{x}/{y}.", 8 * 1024 - strlen(buf) - 1);
 		strncat(buf, tile_config->fileExtension, 8 * 1024 - strlen(buf) - 1);
 		strncat(buf, "\"", 8 * 1024 - strlen(buf) - 1);
@@ -2016,13 +2017,21 @@ static const char *_add_tile_config(cmd_parms *cmd,
 
 	char **hostnames = (char **)apr_pcalloc(cmd->pool, sizeof(char *) * hostnames_len);
 
-	// Set first hostname to server_hostname value (if set,) otherwise use localhost
-	if (cmd->server->server_hostname == NULL) {
-		hostnames[0] = apr_pstrdup(cmd->pool, "http://localhost");
+	// Check local server context (e.g. ServerName inside <VirtualHost>)
+	const char *effective_hostname = cmd->server->server_hostname;
+
+	// Fall back to the main Apache server configuration (global ServerName)
+	if (!effective_hostname && ap_server_conf) {
+		effective_hostname = ap_server_conf->server_hostname;
+	}
+
+	// Fall back to localhost if no ServerName has been defined anywhere yet
+	if (effective_hostname == NULL) {
+		hostnames[0] = apr_pstrdup(cmd->pool, "http://localhost/");
 		ap_log_perror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, cmd->pool,
 			      "Could not determine hostname of server to configure TileJSON request output for '%s', using '%s'.", name, hostnames[0]);
 	} else {
-		hostnames[0] = apr_pstrcat(cmd->pool, "http://", cmd->server->server_hostname, NULL);
+		hostnames[0] = apr_pstrcat(cmd->pool, "http://", effective_hostname, "/", NULL);
 	}
 
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool,
@@ -2030,12 +2039,7 @@ static const char *_add_tile_config(cmd_parms *cmd,
 
 	// Set second hostname to server_alias value (if set)
 	if (server_alias_len > 0) {
-		// Ensure second hostname string does not end with a trailing slash
-		if (server_alias[server_alias_len - 1] == '/') {
-			hostnames[1] = apr_pstrndup(cmd->pool, server_alias, server_alias_len - 1);
-		} else {
-			hostnames[1] = apr_pstrdup(cmd->pool, server_alias);
-		}
+		hostnames[1] = apr_pstrdup(cmd->pool, server_alias);
 
 		ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool,
 			      "Also using server hostname '%s' to configure TileJSON request output for '%s'.", hostnames[1], name);
