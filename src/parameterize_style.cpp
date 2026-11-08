@@ -25,6 +25,7 @@
 #include <mapnik/params.hpp>
 #include <mapnik/version.hpp>
 #include <string>
+#include <unordered_set>
 
 #if MAPNIK_MAJOR_VERSION < 4
 #include <boost/optional.hpp>
@@ -85,6 +86,33 @@ static void parameterize_map_language(mapnik::Map &m, char *parameter)
 	}
 }
 
+static void parameterize_map_disable_layer(mapnik::Map &m, char *parameter)
+{
+	if (!parameter || strlen(parameter) == 0) {
+		return;
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Disabling map layers with parameter: %s", parameter);
+
+	std::unordered_set<std::string> layers_to_disable;
+	char *data = strdup(parameter);
+	char *tok = strtok(data, ",");
+
+	while (tok) {
+		layers_to_disable.insert(tok);
+		tok = strtok(NULL, ",");
+	}
+	free(data);
+
+	for (std::size_t i = 0; i < m.layer_count(); ++i) {
+		mapnik::layer &l = m.get_layer(i);
+		if (layers_to_disable.count(l.name()) > 0) {
+			l.set_active(false);
+			g_logger(G_LOG_LEVEL_DEBUG, "Disabled layer: %s", l.name().c_str());
+		}
+	}
+}
+
 parameterize_function_ptr init_parameterization_function(const char *function_name)
 {
 
@@ -94,6 +122,9 @@ parameterize_function_ptr init_parameterization_function(const char *function_na
 	} else if (strcmp(function_name, "language") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Loading parameterization function for '%s'", function_name);
 		return parameterize_map_language;
+	} else if (strcmp(function_name, "disable_layer") == 0) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Loading parameterization function for '%s'", function_name);
+		return parameterize_map_disable_layer;
 	} else {
 		g_logger(G_LOG_LEVEL_WARNING, "unknown parameterization function for '%s'", function_name);
 		return NULL;
