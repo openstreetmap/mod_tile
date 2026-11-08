@@ -2452,35 +2452,35 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, p, "Running create_tile_config");
 	tile_server_conf *scfg = (tile_server_conf *)apr_pcalloc(p, sizeof(tile_server_conf));
 
-	scfg->cache_duration_dirty = 15 * 60;
-	scfg->cache_duration_last_modified_factor = 0.0;
-	scfg->cache_duration_low_zoom = 6 * 24 * 60 * 60;
-	scfg->cache_duration_max = 7 * 24 * 60 * 60;
-	scfg->cache_duration_medium_zoom = 1 * 24 * 60 * 60;
-	scfg->cache_duration_minimum = 3 * 60 * 60;
-	scfg->cache_extended_duration = 0;
-	scfg->cache_extended_hostname = "";
-	scfg->cache_level_low_zoom = 0;
-	scfg->cache_level_medium_zoom = 0;
+	scfg->cache_duration_dirty = -1;
+	scfg->cache_duration_last_modified_factor = -1.0;
+	scfg->cache_duration_low_zoom = -1;
+	scfg->cache_duration_max = -1;
+	scfg->cache_duration_medium_zoom = -1;
+	scfg->cache_duration_minimum = -1;
+	scfg->cache_extended_duration = -1;
+	scfg->cache_extended_hostname = NULL;
+	scfg->cache_level_low_zoom = -1;
+	scfg->cache_level_medium_zoom = -1;
 	scfg->configs = apr_array_make(p, 4, sizeof(tile_config_rec));
-	scfg->delaypool_render_rate = RENDER_TOPUP_RATE;
-	scfg->delaypool_render_size = AVAILABLE_RENDER_BUCKET_SIZE;
-	scfg->delaypool_tile_rate = TILE_TOPUP_RATE;
-	scfg->delaypool_tile_size = AVAILABLE_TILE_BUCKET_SIZE;
-	scfg->enable_bulk_mode = 0;
-	scfg->enable_dirty_url = 1;
-	scfg->enable_global_stats = 1;
-	scfg->enable_status_url = 1;
-	scfg->enable_tile_throttling = 0;
-	scfg->enable_tile_throttling_xforward = 0;
-	scfg->max_load_missing = MAX_LOAD_MISSING;
-	scfg->max_load_old = MAX_LOAD_OLD;
-	scfg->renderd_socket_name = apr_pstrndup(p, RENDERD_SOCKET, PATH_MAX);
-	scfg->renderd_socket_port = 0;
-	scfg->request_timeout = REQUEST_TIMEOUT;
-	scfg->request_timeout_priority = REQUEST_TIMEOUT;
-	scfg->tile_dir = apr_pstrndup(p, RENDERD_TILE_DIR, PATH_MAX);
-	scfg->very_old_threshold = VERYOLD_THRESHOLD;
+	scfg->delaypool_render_rate = -1;
+	scfg->delaypool_render_size = -1;
+	scfg->delaypool_tile_rate = -1;
+	scfg->delaypool_tile_size = -1;
+	scfg->enable_bulk_mode = -1;
+	scfg->enable_dirty_url = -1;
+	scfg->enable_global_stats = -1;
+	scfg->enable_status_url = -1;
+	scfg->enable_tile_throttling = -1;
+	scfg->enable_tile_throttling_xforward = -1;
+	scfg->max_load_missing = -1;
+	scfg->max_load_old = -1;
+	scfg->renderd_socket_name = NULL;
+	scfg->renderd_socket_port = -1;
+	scfg->request_timeout = -1;
+	scfg->request_timeout_priority = -1;
+	scfg->tile_dir = NULL;
+	scfg->very_old_threshold = -1;
 
 	return scfg;
 }
@@ -2492,35 +2492,50 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	tile_server_conf *scfg_base = (tile_server_conf *)basev;
 	tile_server_conf *scfg_over = (tile_server_conf *)overridesv;
 
-	scfg->cache_duration_dirty = scfg_over->cache_duration_dirty;
-	scfg->cache_duration_last_modified_factor = scfg_over->cache_duration_last_modified_factor;
-	scfg->cache_duration_low_zoom = scfg_over->cache_duration_low_zoom;
-	scfg->cache_duration_max = scfg_over->cache_duration_max;
-	scfg->cache_duration_medium_zoom = scfg_over->cache_duration_medium_zoom;
-	scfg->cache_duration_minimum = scfg_over->cache_duration_minimum;
-	scfg->cache_extended_duration = scfg_over->cache_extended_duration;
-	scfg->cache_extended_hostname = apr_pstrndup(p, scfg_over->cache_extended_hostname, PATH_MAX);
-	scfg->cache_level_low_zoom = scfg_over->cache_level_low_zoom;
-	scfg->cache_level_medium_zoom = scfg_over->cache_level_medium_zoom;
+#define MERGE_INT(field, default_val) \
+	scfg->field = (scfg_over->field != -1) ? scfg_over->field : ((scfg_base->field != -1) ? scfg_base->field : (default_val))
+
+#define MERGE_STR(field, default_val)                                           \
+	scfg->field = (scfg_over->field && strlen(scfg_over->field) > 0)        \
+			  ? apr_pstrndup(p, scfg_over->field, PATH_MAX)         \
+			  : ((scfg_base->field && strlen(scfg_base->field) > 0) \
+				 ? apr_pstrndup(p, scfg_base->field, PATH_MAX)  \
+				 : (default_val ? apr_pstrndup(p, default_val, PATH_MAX) : NULL))
+
+	MERGE_INT(cache_duration_dirty, 15 * 60);
+	scfg->cache_duration_last_modified_factor = (scfg_over->cache_duration_last_modified_factor >= 0.0) ? scfg_over->cache_duration_last_modified_factor : ((scfg_base->cache_duration_last_modified_factor >= 0.0) ? scfg_base->cache_duration_last_modified_factor : 0.0);
+	MERGE_INT(cache_duration_low_zoom, 6 * 24 * 60 * 60);
+	MERGE_INT(cache_duration_max, 7 * 24 * 60 * 60);
+	MERGE_INT(cache_duration_medium_zoom, 1 * 24 * 60 * 60);
+	MERGE_INT(cache_duration_minimum, 3 * 60 * 60);
+	MERGE_INT(cache_extended_duration, 0);
+	MERGE_STR(cache_extended_hostname, "");
+	MERGE_INT(cache_level_low_zoom, 0);
+	MERGE_INT(cache_level_medium_zoom, 0);
+
 	scfg->configs = apr_array_append(p, scfg_base->configs, scfg_over->configs);
-	scfg->delaypool_render_rate = scfg_over->delaypool_render_rate;
-	scfg->delaypool_render_size = scfg_over->delaypool_render_size;
-	scfg->delaypool_tile_rate = scfg_over->delaypool_tile_rate;
-	scfg->delaypool_tile_size = scfg_over->delaypool_tile_size;
-	scfg->enable_bulk_mode = scfg_over->enable_bulk_mode;
-	scfg->enable_dirty_url = scfg_over->enable_dirty_url;
-	scfg->enable_global_stats = scfg_over->enable_global_stats;
-	scfg->enable_status_url = scfg_over->enable_status_url;
-	scfg->enable_tile_throttling = scfg_over->enable_tile_throttling;
-	scfg->enable_tile_throttling_xforward = scfg_over->enable_tile_throttling_xforward;
-	scfg->max_load_missing = scfg_over->max_load_missing;
-	scfg->max_load_old = scfg_over->max_load_old;
-	scfg->renderd_socket_name = apr_pstrndup(p, scfg_over->renderd_socket_name, PATH_MAX);
-	scfg->renderd_socket_port = scfg_over->renderd_socket_port;
-	scfg->request_timeout = scfg_over->request_timeout;
-	scfg->request_timeout_priority = scfg_over->request_timeout_priority;
-	scfg->tile_dir = apr_pstrndup(p, scfg_over->tile_dir, PATH_MAX);
-	scfg->very_old_threshold = scfg_over->very_old_threshold;
+
+	MERGE_INT(delaypool_render_rate, RENDER_TOPUP_RATE);
+	MERGE_INT(delaypool_render_size, AVAILABLE_RENDER_BUCKET_SIZE);
+	MERGE_INT(delaypool_tile_rate, TILE_TOPUP_RATE);
+	MERGE_INT(delaypool_tile_size, AVAILABLE_TILE_BUCKET_SIZE);
+	MERGE_INT(enable_bulk_mode, 0);
+	MERGE_INT(enable_dirty_url, 1);
+	MERGE_INT(enable_global_stats, 1);
+	MERGE_INT(enable_status_url, 1);
+	MERGE_INT(enable_tile_throttling, 0);
+	MERGE_INT(enable_tile_throttling_xforward, 0);
+	MERGE_INT(max_load_missing, MAX_LOAD_MISSING);
+	MERGE_INT(max_load_old, MAX_LOAD_OLD);
+	MERGE_STR(renderd_socket_name, RENDERD_SOCKET);
+	MERGE_INT(renderd_socket_port, 0);
+	MERGE_INT(request_timeout, REQUEST_TIMEOUT);
+	MERGE_INT(request_timeout_priority, REQUEST_TIMEOUT);
+	MERGE_STR(tile_dir, RENDERD_TILE_DIR);
+	MERGE_INT(very_old_threshold, VERYOLD_THRESHOLD);
+
+#undef MERGE_INT
+#undef MERGE_STR
 
 	// Construct a table of minimum cache times per zoom level
 	for (int i = 0; i <= MAX_ZOOM_SERVER; i++) {
