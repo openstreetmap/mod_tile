@@ -32,44 +32,149 @@
 #include "parameterize_style.hpp"
 
 static void parameterize_map_language(mapnik::Map &m, char *parameter);
+static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter);
 
 TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 {
+	mapnik::datasource_cache::instance().register_datasources(MAPNIK_PLUGINS_DIR);
+	mapnik::Map map(256, 256);
+	mapnik::load_map(map, MAPNIK_XML);
+
+	// REQUIRE(map.layers() == 2);
+
+	mapnik::layer layer("Unnamed");
+
+	err_log_lines.clear();
+
 	SECTION("parameterize_map_language function")
 	{
-		mapnik::datasource_cache::instance().register_datasources(MAPNIK_PLUGINS_DIR);
-		mapnik::Map map(256, 256);
-		mapnik::load_map(map, MAPNIK_XML);
-		mapnik::layer layer = map.get_layer(0);
+		layer = map.get_layer(0);
 		map.remove_all();
 		mapnik::parameters parameters = layer.datasource()->params();
 		parameters["table"] = ",name";
 		layer.set_datasource(mapnik::datasource_cache::instance().create(parameters));
 		map.add_layer(layer);
 
-		err_log_lines.clear();
+		SECTION("parameterize_map_language with NULL parameter", "should return")
+		{
+			parameterize_map_language(map, NULL);
+
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter:"));
+		}
 
 		SECTION("parameterize_map_language with empty parameter", "should return")
 		{
-			const char *parameter = "";
-			parameterize_map_language(map, (char *)parameter);
+			std::string parameter = "";
+			parameterize_map_language(map, (char *)parameter.c_str());
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter: "));
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter:"));
 		}
 
 		SECTION("parameterize_map_language modifies 'table' parameter", "should return")
 		{
-			const char *parameter = "en,de,_";
+			std::string parameter = "en,de,_";
 			layer = map.get_layer(0);
 			REQUIRE(layer.datasource()->params().get<std::string>("table") == std::string(",name"));
 
-			parameterize_map_language(map, (char *)parameter);
+			parameterize_map_language(map, (char *)parameter.c_str());
 
 			layer = map.get_layer(0);
 			REQUIRE(layer.datasource()->params().get<std::string>("table") != std::string(",name"));
 
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter: en,de,_"));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Internationalizing map to language parameter: " + parameter));
 		}
+	}
+
+	SECTION("parameterize_map_toggle_layer function")
+	{
+		SECTION("parameterize_map_toggle_layer with NULL parameter", "should return")
+		{
+			parameterize_map_toggle_layer(map, NULL);
+
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter:"));
+		}
+
+		SECTION("parameterize_map_toggle_layer with empty parameter", "should return")
+		{
+			std::string parameter = "";
+			parameterize_map_toggle_layer(map, (char *)parameter.c_str());
+
+			REQUIRE_THAT(err_log_lines, !Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter:"));
+		}
+
+		SECTION("parameterize_map_toggle_layer with and without + or -", "should enable or disable layer and return")
+		{
+			std::string parameter = "world";
+			std::string parameter_minus = "-" + parameter;
+			std::string parameter_plus = "+" + parameter;
+
+			layer = map.get_layer(0);
+			REQUIRE(layer.active());
+
+			parameterize_map_toggle_layer(map, (char *)parameter.c_str());
+
+			layer = map.get_layer(0);
+			REQUIRE(!layer.active());
+
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Disabled layer: " + parameter));
+
+			err_log_lines.clear();
+
+			parameterize_map_toggle_layer(map, (char *)parameter_plus.c_str());
+
+			layer = map.get_layer(0);
+			REQUIRE(layer.active());
+
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_plus));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Enabled layer: " + parameter));
+
+			err_log_lines.clear();
+
+			parameterize_map_toggle_layer(map, (char *)parameter_minus.c_str());
+
+			layer = map.get_layer(0);
+			REQUIRE(!layer.active());
+
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_minus));
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Disabled layer: " + parameter));
+		}
+
+		// SECTION("parameterize_map_toggle_layer with grid-lines (disabled by default)", "should enable or disable layer")
+		// {
+		// 	std::string parameter = "grid-lines";
+		// 	std::string parameter_minus = "-" + parameter;
+		// 	std::string parameter_plus = "+" + parameter;
+
+		// 	layer = map.get_layer(1);
+		// 	// Initially disabled via status="off" in XML
+		// 	REQUIRE(!layer.active());
+
+		// 	// Standard name toggle (without + or -) toggles off state or disables depending on logic
+		// 	parameterize_map_toggle_layer(map, (char *)parameter.c_str());
+		// 	layer = map.get_layer(1);
+		// 	REQUIRE(!layer.active());
+
+		// 	err_log_lines.clear();
+
+		// 	// Enable disabled layer using +grid-lines
+		// 	parameterize_map_toggle_layer(map, (char *)parameter_plus.c_str());
+		// 	layer = map.get_layer(1);
+		// 	REQUIRE(layer.active());
+
+		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_plus));
+		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Enabled layer: " + parameter));
+
+		// 	err_log_lines.clear();
+
+		// 	// Disable layer using -grid-lines
+		// 	parameterize_map_toggle_layer(map, (char *)parameter_minus.c_str());
+		// 	layer = map.get_layer(1);
+		// 	REQUIRE(!layer.active());
+
+		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_minus));
+		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Disabled layer: " + parameter));
+		// }
 	}
 
 	SECTION("init_parameterization_function function")
@@ -92,7 +197,7 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Parameterize_style not specified (or empty string specified)"));
 		}
 
-		SECTION("init_parameterization_function with non-'language' function_name", "should return NULL")
+		SECTION("init_parameterization_function with non-'language/toggle_layer' function_name", "should return NULL")
 		{
 			parameterize_function_ptr response = init_parameterization_function("doesnotexist");
 
@@ -106,6 +211,14 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 
 			REQUIRE(response == parameterize_map_language);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Loading parameterization function for 'language'"));
+		}
+
+		SECTION("init_parameterization_function with 'toggle_layer' function_name", "should return parameterize_map_toggle_layer")
+		{
+			parameterize_function_ptr response = init_parameterization_function("toggle_layer");
+
+			REQUIRE(response == parameterize_map_toggle_layer);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Loading parameterization function for 'toggle_layer'"));
 		}
 	}
 }

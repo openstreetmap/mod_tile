@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2026-10-29" "mod_tile v0.9.0"
+.TH RENDERD.CONF 5 "2026-11-10" "mod_tile v0.9.0"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 renderd.conf \- Configuration file for the renderd tile rendering daemon
@@ -128,7 +128,7 @@ The default value is \fB'0'\fR. Must satisfy \fB0 <= minzoom <= maxzoom\fR.
 .B parameterize_style
 Specify the parameterization function (style) to be used for this section.
 When non-empty, enables parameterization options in \fBmod_tile\fR.
-Currently, the only supported parameterization function is \fB'language'\fR.
+Currently, the only supported parameterization functions are \fB'language'\fR &  \fB'toggle_layer'\fR.
 .TP
 .B server_alias
 Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
