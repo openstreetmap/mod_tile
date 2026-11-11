@@ -34,6 +34,7 @@ noinst_PROGRAMS = \
 	unit_tests
 
 man_MANS = \
+	docs/man/mod_tile.5 \
 	docs/man/renderd.1 \
 	docs/man/renderd.conf.5 \
 	docs/man/render_expired.1 \
