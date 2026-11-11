@@ -1021,8 +1021,8 @@ int main(int argc, char **argv)
 		}
 
 		if (total_maps_ok < num_maps) {
-			if (time(NULL) - start_time >= RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads) {
-				g_logger(G_LOG_LEVEL_CRITICAL, "Timed out after %d seconds waiting for render threads to initialise!", RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads);
+			if (time(NULL) - start_time >= RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads * num_maps) {
+				g_logger(G_LOG_LEVEL_CRITICAL, "Timed out after %d seconds waiting for render threads to initialise!", RENDER_THREAD_STARTUP_TIMEOUT_SEC * config->num_threads * num_maps);
 				return 7;
 			}
 
