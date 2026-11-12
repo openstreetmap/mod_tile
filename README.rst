@@ -72,6 +72,7 @@ distributions:
 * `Fedora </docs/build/building_on_fedora.md>`__
 * `FreeBSD </docs/build/building_on_freebsd.md>`__
 * `macOS </docs/build/building_on_macos.md>`__
+* `Nix </docs/build/building_on_nix.md>`__
 * `OpenBSD </docs/build/building_on_openbsd.md>`__
 * `openSUSE </docs/build/building_on_opensuse.md>`__
 * `Ubuntu </docs/build/building_on_ubuntu.md>`__

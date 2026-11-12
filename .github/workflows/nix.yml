@@ -1,0 +1,27 @@
+---
+name: Nix
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - master
+
+jobs:
+  Linux:
+    name: Nix (CMake)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31.11.5
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+      - name: Restore binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@v15
+      - name: Build and test
+        run: nix-build ./default.nix
+      - name: Load development shell
+        run: nix-shell ./shell.nix --run 'cmake --version'
