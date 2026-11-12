@@ -116,6 +116,7 @@ If you are developing `mod_tile` or running on a distribution without pre-built 
 - [Fedora](/docs/build/building_on_fedora.md)
 - [FreeBSD](/docs/build/building_on_freebsd.md)
 - [macOS](/docs/build/building_on_macos.md)
+- [Nix](/docs/build/building_on_nix.md)
 - [OpenBSD](/docs/build/building_on_openbsd.md)
 - [openSUSE](/docs/build/building_on_opensuse.md)
 - [Ubuntu](/docs/build/building_on_ubuntu.md)
