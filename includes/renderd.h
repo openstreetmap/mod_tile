@@ -31,7 +31,8 @@ extern "C" {
 
 #define INILINE_MAX 256
 #define MAX_SLAVES 5
-#define RENDER_THREAD_STARTUP_TIMEOUT_SEC 20
+/* Timeout allocated per render thread per configured map during startup */
+#define RENDER_THREAD_STARTUP_TIMEOUT_SEC 5
 
 	typedef struct {
 		const char *iphostname;
