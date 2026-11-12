@@ -258,6 +258,9 @@ extern "C" {
 
 	std::atomic<bool> exit_pthread{false};
 
+	bool fail_every_connect = false;
+	bool fail_every_socket = false;
+
 	bool fail_next_asprintf = false;
 	bool fail_next_calloc = false;
 	bool fail_next_connect = false;
@@ -379,7 +382,7 @@ extern "C" {
 
 	int mocked_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	{
-		if (fail_next_connect) {
+		if (fail_every_connect || fail_next_connect) {
 			fail_next_connect = false;
 			errno = (mock_errno != 0) ? mock_errno : EACCES;
 			return -1;
@@ -619,8 +622,9 @@ extern "C" {
 
 	int mocked_socket(int domain, int type, int protocol) noexcept
 	{
-		if (fail_next_socket) {
+		if (fail_every_socket || fail_next_socket) {
 			fail_next_socket = false;
+			errno = (mock_errno != 0) ? mock_errno : EACCES;
 			return -1;
 		}
 
