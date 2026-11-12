@@ -77,6 +77,9 @@ extern "C" {
 
 	extern std::atomic<bool> exit_pthread; // set by the test thread, read by worker threads
 
+	extern bool fail_all_connect_calls; // keep failing connect() until cleared
+	extern bool fail_all_socket_calls;  // keep failing socket() until cleared
+
 	extern bool fail_next_asprintf;
 	extern bool fail_next_calloc;
 	extern bool fail_next_connect;

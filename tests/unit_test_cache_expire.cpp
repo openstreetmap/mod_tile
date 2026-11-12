@@ -122,10 +122,16 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 		{
 			std::string htcphost("localhost");
 
-			fail_next_socket = true;
+			// fail every attempt: "localhost" may resolve to a single address,
+			// where a single failure already exhausts the address list
+			fail_all_socket_calls = true;
 
-			init_cache_expire((char *)htcphost.c_str());
-			REQUIRE(err_log_lines == "");
+			int sfd = init_cache_expire((char *)htcphost.c_str());
+
+			fail_all_socket_calls = false;
+
+			REQUIRE(sfd == -1);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create HTCP cache socket"));
 		}
 
 		SECTION("init_cache_expire with failed getaddrinfo", "should return")
@@ -156,10 +162,16 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 		{
 			std::string htcphost("localhost");
 
-			fail_next_connect = true;
+			// fail every attempt: "localhost" may resolve to a single address,
+			// where a single failure already exhausts the address list
+			fail_all_connect_calls = true;
 
-			init_cache_expire((char *)htcphost.c_str());
-			REQUIRE(err_log_lines == "");
+			int sfd = init_cache_expire((char *)htcphost.c_str());
+
+			fail_all_connect_calls = false;
+
+			REQUIRE(sfd == -1);
+			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create HTCP cache socket"));
 		}
 	}
 }
