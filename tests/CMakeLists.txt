@@ -20,7 +20,6 @@ execute_process(COMMAND ${APXS_EXECUTABLE} -q progname
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-find_package(UnixCommands REQUIRED)
 find_program(CAT_EXECUTABLE NAMES gcat cat REQUIRED)
 find_program(CURL_EXECUTABLE NAMES curl REQUIRED)
 find_program(GREP_EXECUTABLE NAMES grep REQUIRED)
@@ -31,7 +30,9 @@ find_program(KILL_EXECUTABLE NAMES gkill kill REQUIRED)
 find_program(MEMCACHED_EXECUTABLE NAMES memcached)
 find_program(MKDIR_EXECUTABLE NAMES gmkdir mkdir REQUIRED)
 find_program(PS_EXECUTABLE NAMES ps REQUIRED)
+find_program(RM_EXECUTABLE NAMES grm rm REQUIRED)
 find_program(SHA256SUM_EXECUTABLE NAMES gsha256sum sha256sum REQUIRED)
+find_program(SH_EXECUTABLE NAMES sh REQUIRED)
 find_program(SLEEP_EXECUTABLE NAMES gsleep sleep REQUIRED)
 find_program(TOUCH_EXECUTABLE NAMES gtouch touch REQUIRED)
 
@@ -118,16 +119,16 @@ math(EXPR STORAGE_BACKENDS_LENGTH "${STORAGE_BACKENDS_LENGTH} - 1")
 
 function(add_bad_tile_download_test TEST_NAME TEST_URL REQUIRED_FIXTURE_NAME)
   add_test(NAME bad_download_tile_${TEST_NAME}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       echo 'Downloading ${TEST_URL}'
       while true; do
         HTTP_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${TEST_URL})
         echo \"HTTP Code: '\${HTTP_CODE}'\"
-        if [ \"\${HTTP_CODE}\" == \"404\" ] || [ \"\${HTTP_CODE}\" == \"500\" ]; then
-          exit 0;
+        if [ \"\${HTTP_CODE}\" = \"404\" ] || [ \"\${HTTP_CODE}\" = \"500\" ]; then
+          exit 0
         fi
-        echo 'Sleeping 1s';
-        ${SLEEP_EXECUTABLE} 1;
+        echo 'Sleeping 1s'
+        ${SLEEP_EXECUTABLE} 1
       done
     "
     WORKING_DIRECTORY tests
@@ -140,11 +141,11 @@ endfunction()
 
 function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME REQUIRED_FIXTURE_NAME)
   add_test(NAME download_tile_${TEST_NAME}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       echo 'Downloading ${TEST_URL}'
-      until $(${CURL_CMD} ${TEST_URL} --output ${FILE_NAME}); do
-        echo 'Sleeping 1s';
-        ${SLEEP_EXECUTABLE} 1;
+      until ${CURL_CMD} ${TEST_URL} --output ${FILE_NAME}; do
+        echo 'Sleeping 1s'
+        ${SLEEP_EXECUTABLE} 1
       done
     "
     WORKING_DIRECTORY tests
@@ -155,28 +156,26 @@ function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME R
     TIMEOUT 10
   )
   add_test(NAME check_tile_${TEST_NAME}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       ${SHA256SUM_EXECUTABLE} ${FILE_NAME} &&
-      ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} ${FILE_NAME} | ${GREP_EXECUTABLE} -q OK
+      ${SHA256SUM_EXECUTABLE} -c tiles.sha256sum | ${GREP_EXECUTABLE} --fixed-strings \"${FILE_NAME}\" | ${GREP_EXECUTABLE} --quiet OK
     "
     WORKING_DIRECTORY tests
   )
   set_tests_properties(check_tile_${TEST_NAME} PROPERTIES
-    DEPENDS_ON download_tile_${TEST_NAME}
     FIXTURES_REQUIRED ${FIXTURE_NAME}
     REQUIRED_FILES ${FILE_NAME}
   )
   add_test(NAME remove_tile_${TEST_NAME}
-    COMMAND ${RM} -v ${FILE_NAME}
+    COMMAND ${RM_EXECUTABLE} -v ${FILE_NAME}
     WORKING_DIRECTORY tests
   )
   set_tests_properties(remove_tile_${TEST_NAME} PROPERTIES
-    DEPENDS_ON download_tile_${TEST_NAME}
     FIXTURES_CLEANUP ${FIXTURE_NAME}
     REQUIRED_FILES ${FILE_NAME}
   )
   add_test(NAME head_tile_${TEST_NAME}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       echo 'Submitting HEAD request for ${TEST_URL}'
       ${CURL_CMD} --head ${TEST_URL}
     "
@@ -185,6 +184,24 @@ function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME R
   set_tests_properties(head_tile_${TEST_NAME} PROPERTIES
     FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
     FIXTURES_SETUP ${FIXTURE_NAME}
+  )
+endfunction()
+
+function(add_good_tile_download_tests NAME_PREFIX TILE_URL_PATH STORAGE_BACKEND)
+  set(TILE_FILE_NAME "tile.${NAME_PREFIX}.${STORAGE_BACKEND}")
+  add_good_tile_download_test(
+    ${NAME_PREFIX}_${STORAGE_BACKEND}_0
+    "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}"
+    ${TILE_FILE_NAME}.0
+    tiles_downloaded_${STORAGE_BACKEND}
+    services_started_${STORAGE_BACKEND}
+  )
+  add_good_tile_download_test(
+    ${NAME_PREFIX}_${STORAGE_BACKEND}_1
+    "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}"
+    ${TILE_FILE_NAME}.1
+    tiles_downloaded_${STORAGE_BACKEND}
+    services_started_${STORAGE_BACKEND}
   )
 endfunction()
 
@@ -337,7 +354,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     # Get SERVICES_START_CMD from SERVICES_START_CMDS list
     list(GET SERVICES_START_CMDS ${SERVICES_START_CMDS_INDEX} SERVICES_START_CMD)
     add_test(NAME start_services_${STORAGE_BACKEND}_${SERVICES_START_CMDS_INDEX}
-      COMMAND ${BASH} -c "${SERVICES_START_CMD}"
+      COMMAND ${SH_EXECUTABLE} -c "${SERVICES_START_CMD}"
       WORKING_DIRECTORY tests
     )
     set_tests_properties(start_services_${STORAGE_BACKEND}_${SERVICES_START_CMDS_INDEX} PROPERTIES
@@ -357,8 +374,12 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     endif()
 
     add_test(NAME render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        printf '0/0/0\n%.0s' {0..100} | $<TARGET_FILE:render_expired> \
+      COMMAND ${SH_EXECUTABLE} -c "
+        i=0
+        while [ \${i} -le 100 ]; do
+          printf '0/0/0\n'
+          i=$((i + 1))
+        done | $<TARGET_FILE:render_expired> \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
           --min-zoom 0 \
@@ -375,7 +396,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         echo '100/100/100' | $<TARGET_FILE:render_expired> \
           --config ${RENDERD_CONF} \
           --no-progress
@@ -388,7 +409,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         echo '0/0/0' | $<TARGET_FILE:render_expired> \
           --delete-from 0 \
           --map ${DEFAULT_MAP_NAME} \
@@ -407,7 +428,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         echo '0/0/0' | $<TARGET_FILE:render_expired> \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
@@ -426,7 +447,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_list_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         $<TARGET_FILE:render_list> \
           --all \
           --force \
@@ -447,7 +468,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         $<TARGET_FILE:render_list> \
           --all \
           --config ${RENDERD_CONF} \
@@ -467,8 +488,12 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
-        printf '0 0 0\n%.0s' {0..10} | $<TARGET_FILE:render_list> \
+      COMMAND ${SH_EXECUTABLE} -c "
+        i=0
+        while [ \${i} -le 10 ]; do
+          printf '0 0 0\n'
+          i=$((i + 1))
+        done | $<TARGET_FILE:render_list> \
           --force \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 5 \
@@ -487,7 +512,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         echo '0 0 0' | $<TARGET_FILE:render_list> \
           --force \
           --config ${RENDERD_CONF} \
@@ -502,7 +527,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
         echo '0 0 0' | $<TARGET_FILE:render_list> \
           --config ${RENDERD_CONF} \
@@ -518,7 +543,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
         $<TARGET_FILE:render_old> \
           --config ${RENDERD_CONF} \
@@ -539,7 +564,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
         $<TARGET_FILE:render_old> \
           --config ${RENDERD_CONF}
@@ -553,7 +578,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         $<TARGET_FILE:render_old> \
           --config ${RENDERD_CONF} \
           --timestamp 01/01/2024
@@ -567,7 +592,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         $<TARGET_FILE:render_speedtest> \
           --map ${DEFAULT_MAP_NAME} \
           --max-zoom 10 \
@@ -582,7 +607,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 90
     )
     add_test(NAME render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         $<TARGET_FILE:render_speedtest> \
           --config ${RENDERD_CONF}
       "
@@ -593,20 +618,19 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 60
     )
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         CONFIG_NAME=\"bad_tile_config_${SOCKET_TYPE}\"
-        SEARCH_LINE=\$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
-        SEARCH_STRS=(
-          \" at /\${CONFIG_NAME}/ \"
-          \" extension .jpg \"
-          \" mime type image/jpeg$\"
-          \" tile directory ${TILE_DIR} \"
+        SEARCH_LINE=$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+        set -- \
+          \" at /\${CONFIG_NAME}/ \" \
+          \" extension .jpg \" \
+          \" mime type image/jpeg$\" \
+          \" tile directory ${TILE_DIR} \" \
           \" zooms 10 - 15 \"
-        )
-        echo \"Searching log line '\${SEARCH_LINE}'\"
-        for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
-          echo \"\tFor '\${SEARCH_STR}'\"
-          echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
+        printf \"Searching log line '%s'\n\" \"\${SEARCH_LINE}\"
+        for SEARCH_STR do
+          printf \"\tFor '%s'\n\" \"\${SEARCH_STR}\"
+          printf '%s\n' \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
         done
       "
       WORKING_DIRECTORY tests
@@ -615,32 +639,31 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
     add_test(NAME add_tile_mime_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         for SEARCH_CONFIG in js png; do
           CONFIG_NAME=\"bad_tile_mime_config_\${SEARCH_CONFIG}_${SOCKET_TYPE}\"
           MIME_TYPE=image/png
           if [ \"\${SEARCH_CONFIG}\" = \"js\" ]; then
             MIME_TYPE=text/javascript
           fi
-          SEARCH_LINE=\$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
-          SEARCH_STRS=(
-            \" at /\${CONFIG_NAME}/ \"
-            \" extension .\${SEARCH_CONFIG} \"
-            \" mime type \${MIME_TYPE}$\"
-            \" tile directory ${RENDERD_TILE_DIR} \"
+          SEARCH_LINE=$(${GREP_EXECUTABLE} -m1 \"Loading tile config \${CONFIG_NAME}\" ${HTTPD_LOG})
+          set -- \
+            \" at /\${CONFIG_NAME}/ \" \
+            \" extension .\${SEARCH_CONFIG} \" \
+            \" mime type \${MIME_TYPE}$\" \
+            \" tile directory ${RENDERD_TILE_DIR} \" \
             \" zooms 0 - 20 \"
-          )
-          echo \"Searching log line '\${SEARCH_LINE}'\"
-          for SEARCH_STR in \"\${SEARCH_STRS[@]}\"; do
-            echo \"\tFor '\${SEARCH_STR}'\"
-            echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
+          printf \"Searching log line '%s'\n\" \"\${SEARCH_LINE}\"
+          for SEARCH_STR do
+            printf \"\tFor '%s'\n\" \"\${SEARCH_STR}\"
+            printf '%s\n' \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
           done
-          SEARCH_LINE=\$(${GREP_EXECUTABLE} \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | \
+          SEARCH_LINE=$(${GREP_EXECUTABLE} \"AddTileMimeConfig will be deprecated\" ${HTTPD_LOG} | \
             ${GREP_EXECUTABLE} -m1 \"\${CONFIG_NAME}\")
-          echo \"Searching log line '\${SEARCH_LINE}'\"
+          printf \"Searching log line '%s'\n\" \"\${SEARCH_LINE}\"
           SEARCH_STR=\"AddTileConfig /\${CONFIG_NAME}/ \${CONFIG_NAME} mimetype=\${MIME_TYPE} extension=\${SEARCH_CONFIG}\"
-          echo \"\tFor '\${SEARCH_STR}'\"
-          echo \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
+          printf \"\tFor '%s'\n\" \"\${SEARCH_STR}\"
+          printf '%s\n' \"\${SEARCH_LINE}\" | ${GREP_EXECUTABLE} -q -e \"\${SEARCH_STR}\" || exit 1
         done
       "
       WORKING_DIRECTORY tests
@@ -679,8 +702,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     string(REGEX REPLACE "[0-9]+" "" EXTENSION ${MAP_NAME})
     # Set count for stats to 0
     set(STATS_COUNTER 0)
-    # Generate file and URL paths for tiles
-    set(TILE_FILE_NAME "tile.${MAP_NAME}.${STORAGE_BACKEND}")
+    # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/${MAP_NAME}/${TILE_ZXY}.${EXTENSION}")
     # Generate tile URLs
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
@@ -695,23 +717,10 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     ## Includes HEAD requests
     math(EXPR STATS_COUNTER "${STATS_COUNTER} + 2")
 
-    add_good_tile_download_test(
-      ${MAP_NAME}_${STORAGE_BACKEND}_0
-      ${HTTPD0_URL}
-      ${TILE_FILE_NAME}.0
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
-    add_good_tile_download_test(
-      ${MAP_NAME}_${STORAGE_BACKEND}_1
-      ${HTTPD1_URL}
-      ${TILE_FILE_NAME}.1
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
+    add_good_tile_download_tests(${MAP_NAME} ${TILE_URL_PATH} ${STORAGE_BACKEND})
 
     add_test(NAME dirty_and_status_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         TILE_DIRTY_ON_CMD=\"${CURL_CMD} ${DIRTY_ON_URL}\"
         TILE_STATUS_ON_CMD=\"${CURL_CMD} ${STATUS_ON_URL}\"
         TILE_LAST_RENDERED_AT_OLD=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
@@ -719,33 +728,33 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
         ${SLEEP_EXECUTABLE} 1
         TILE_DIRTY_ON_OUTPUT=$(\${TILE_DIRTY_ON_CMD})
         echo \"Dirty On Output: \${TILE_DIRTY_ON_OUTPUT}\"
-        until [ \"\${TILE_DIRTY_ON_OUTPUT}\" == \"Tile submitted for rendering\" ]; do
-          echo 'Sleeping 1s';
-          ${SLEEP_EXECUTABLE} 1;
+        until [ \"\${TILE_DIRTY_ON_OUTPUT}\" = \"Tile submitted for rendering\" ]; do
+          echo 'Sleeping 1s'
+          ${SLEEP_EXECUTABLE} 1
           TILE_DIRTY_ON_OUTPUT=$(\${TILE_DIRTY_ON_CMD})
           echo \"Dirty On Output: \${TILE_DIRTY_ON_OUTPUT}\"
         done
         TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
         echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\"
         until [ \"\${TILE_LAST_RENDERED_AT_OLD}\" != \"\${TILE_LAST_RENDERED_AT_NEW}\" ]; do
-          echo 'Sleeping 1s';
-          ${SLEEP_EXECUTABLE} 1;
-          TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.');
-          echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\";
+          echo 'Sleeping 1s'
+          ${SLEEP_EXECUTABLE} 1
+          TILE_LAST_RENDERED_AT_NEW=$(\${TILE_STATUS_ON_CMD} | ${GREP_EXECUTABLE} -o 'Last rendered at [^\\.]*.')
+          echo \"Tile Last Rendered At (New): \${TILE_LAST_RENDERED_AT_NEW}\"
         done
         TILE_DIRTY_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${DIRTY_OFF_URL})
         echo \"Dirty Off code: '\${TILE_DIRTY_OFF_CODE}'\"
-        until [ \"\${TILE_DIRTY_OFF_CODE}\" == \"404\" ]; do
-          echo 'Sleeping 1s';
-          ${SLEEP_EXECUTABLE} 1;
+        until [ \"\${TILE_DIRTY_OFF_CODE}\" = \"404\" ]; do
+          echo 'Sleeping 1s'
+          ${SLEEP_EXECUTABLE} 1
           TILE_DIRTY_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${DIRTY_OFF_URL})
           echo \"Dirty Off code: '\${TILE_DIRTY_OFF_CODE}'\"
         done
         TILE_STATUS_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${STATUS_OFF_URL})
         echo \"Status Off code: '\${TILE_STATUS_OFF_CODE}'\"
-        until [ \"\${TILE_STATUS_OFF_CODE}\" == \"404\" ]; do
-          echo 'Sleeping 1s';
-          ${SLEEP_EXECUTABLE} 1;
+        until [ \"\${TILE_STATUS_OFF_CODE}\" = \"404\" ]; do
+          echo 'Sleeping 1s'
+          ${SLEEP_EXECUTABLE} 1
           TILE_STATUS_OFF_CODE=$(${CURL_CMD} --write-out '%{http_code}' ${STATUS_OFF_URL})
           echo \"Status Off code: '\${TILE_STATUS_OFF_CODE}'\"
         done
@@ -757,33 +766,35 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       TIMEOUT 20
     )
     add_test(NAME stats_urls_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         METRICS_ON_CMD=\"${CURL_CMD} ${METRICS_ON_URL}\"
         METRICS_ON_OUTPUT=$(\${METRICS_ON_CMD})
         echo \"Metrics On output: \${METRICS_ON_OUTPUT}\"
         METRICS_200=\"modtile_layer_responses_total{layer=\\\"/tiles/${MAP_NAME}/\\\",status=\\\"200\\\"} ${STATS_COUNTER}\"
-        echo \"\${METRICS_200}\";
-        if [[ \"\${METRICS_ON_OUTPUT}\" != *\"\${METRICS_200}\"* ]]; then
-          exit 1;
-        fi
+        echo \"\${METRICS_200}\"
+        case \"\${METRICS_ON_OUTPUT}\" in
+          *\"\${METRICS_200}\"*) ;;
+          *) exit 1 ;;
+        esac
         METRICS_OFF_OUTPUT=$(${CURL_CMD} ${METRICS_OFF_URL})
-        echo \"Metrics Off output: '\${METRICS_OFF_OUTPUT}'\";
+        echo \"Metrics Off output: '\${METRICS_OFF_OUTPUT}'\"
         if [ \"\${METRICS_OFF_OUTPUT}\" != \"Stats are not enabled for this server\" ]; then
-          exit 1;
+          exit 1
         fi
 
         MOD_TILE_ON_CMD=\"${CURL_CMD} ${MOD_TILE_ON_URL}\"
         MOD_TILE_ON_OUTPUT=$(\${MOD_TILE_ON_CMD})
         echo \"Mod_tile On output: \${MOD_TILE_ON_OUTPUT}\"
         MOD_TILE_200=\"NoRes200Layer/tiles/${MAP_NAME}/: ${STATS_COUNTER}\"
-        echo \"\${MOD_TILE_200}\";
-        if [[ \"\${MOD_TILE_ON_OUTPUT}\" != *\"\${MOD_TILE_200}\"* ]]; then
-          exit 1;
-        fi
+        echo \"\${MOD_TILE_200}\"
+        case \"\${MOD_TILE_ON_OUTPUT}\" in
+          *\"\${MOD_TILE_200}\"*) ;;
+          *) exit 1 ;;
+        esac
         MOD_TILE_OFF_OUTPUT=$(${CURL_CMD} ${MOD_TILE_OFF_URL})
-        echo \"Mod_tile Off output: '\${MOD_TILE_OFF_OUTPUT}'\";
+        echo \"Mod_tile Off output: '\${MOD_TILE_OFF_OUTPUT}'\"
         if [ \"\${MOD_TILE_OFF_OUTPUT}\" != \"Stats are not enabled for this server\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -792,20 +803,20 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
     )
     add_test(NAME tile_expired_${MAP_NAME}_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
         if ! ${CURL_CMD} --output /dev/null ${HTTPD1_URL}; then
-          echo \"Past import: ${HTTPD1_URL}\";
+          echo \"Past import: ${HTTPD1_URL}\"
         fi
         if ! ${CURL_CMD} --output /dev/null ${HTTPD2_URL}; then
-          echo \"Past import: ${HTTPD2_URL}\";
+          echo \"Past import: ${HTTPD2_URL}\"
         fi
         ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
         if ! ${CURL_CMD} --output /dev/null ${HTTPD1_URL}; then
-          echo \"Future import: ${HTTPD1_URL}\";
+          echo \"Future import: ${HTTPD1_URL}\"
         fi
         if ! ${CURL_CMD} --output /dev/null ${HTTPD2_URL}; then
-          echo \"Future import: ${HTTPD2_URL}\";
+          echo \"Future import: ${HTTPD2_URL}\"
         fi
       "
       WORKING_DIRECTORY tests
@@ -816,39 +827,23 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
   endforeach()
 
-  # Generate file and URL paths for tiles
-  set(TILE_FILE_NAME "tile.add_tile_config.${STORAGE_BACKEND}")
+  # Generate URL path for tiles
   set(TILE_URL_PATH "/good_add_tile_config/${TILE_ZXY}.png")
-  # Generate tile URLs
-  set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-  set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-  add_good_tile_download_test(
-    add_tile_config_${STORAGE_BACKEND}_0
-    ${HTTPD0_URL}
-    ${TILE_FILE_NAME}.0
-    tiles_downloaded_${STORAGE_BACKEND}
-    services_started_${STORAGE_BACKEND}
-  )
-  add_good_tile_download_test(
-    add_tile_config_${STORAGE_BACKEND}_1
-    ${HTTPD1_URL}
-    ${TILE_FILE_NAME}.1
-    tiles_downloaded_${STORAGE_BACKEND}
-    services_started_${STORAGE_BACKEND}
-  )
+
+  add_good_tile_download_tests("add_tile_config" ${TILE_URL_PATH} ${STORAGE_BACKEND})
 
   if(NOT PROCESSOR_COUNT EQUAL 0)
     # Set CTEST_NUM_SLAVE_THREADS to 5 (renderd1 = 1, renderd2 = 4 [NUM_THREADS])
     set(CTEST_NUM_SLAVE_THREADS 5)
     add_test(NAME renderd_num_threads_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         if ! ${GREP_EXECUTABLE} -q \"renderd: num_threads = '${PROCESSOR_COUNT}'\" \"${RENDERD0_LOG}\"; then
           ${GREP_EXECUTABLE} \"renderd: num_threads = \" \"${RENDERD0_LOG}\"
-          exit 1;
+          exit 1
         fi
         if ! ${GREP_EXECUTABLE} -q \"renderd: num_slave_threads = '${CTEST_NUM_SLAVE_THREADS}'\" \"${RENDERD0_LOG}\"; then
           ${GREP_EXECUTABLE} \"renderd: num_slave_threads = \" \"${RENDERD0_LOG}\"
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -859,11 +854,11 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     )
   endif()
   add_test(NAME stop_services_${STORAGE_BACKEND}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       for SERVICE_PID_FILE in ${TEST_RUN_DIR}/*.pid; do
-        ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} \${SERVICE_PID_FILE});
-        ${RM} \${SERVICE_PID_FILE};
-        ${SLEEP_EXECUTABLE} 1;
+        ${KILL_EXECUTABLE} $(${CAT_EXECUTABLE} \${SERVICE_PID_FILE})
+        ${RM_EXECUTABLE} \${SERVICE_PID_FILE}
+        ${SLEEP_EXECUTABLE} 1
       done
     "
     WORKING_DIRECTORY tests
@@ -872,8 +867,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     FIXTURES_CLEANUP services_started_${STORAGE_BACKEND}
   )
   add_test(NAME clear_dirs_${STORAGE_BACKEND}
-    COMMAND ${BASH} -c "
-      ${RM} -f -r -v \
+    COMMAND ${SH_EXECUTABLE} -c "
+      ${RM_EXECUTABLE} -f -r -v \
         ${TEST_LOGS_DIR}/* \
         ${TEST_RUN_DIR}/* \
         ${TEST_TILES_DIR}/*
@@ -887,47 +882,15 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   )
 
   if(STORAGE_BACKEND STREQUAL file)
-    # Generate file and URL paths for tiles
-    set(TILE_FILE_NAME "tile.parameterization.${STORAGE_BACKEND}")
+    # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/parameterization/en,de,_/${TILE_ZXY}.png")
-    # Generate tile URLs
-    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-    add_good_tile_download_test(
-      parameterization_${STORAGE_BACKEND}_0
-      ${HTTPD0_URL}
-      ${TILE_FILE_NAME}.0
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
-    add_good_tile_download_test(
-      parameterization_${STORAGE_BACKEND}_1
-      ${HTTPD1_URL}
-      ${TILE_FILE_NAME}.1
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
 
-    # Generate file and URL paths for tiles
-    set(TILE_FILE_NAME "tile.htcp.${STORAGE_BACKEND}")
+    add_good_tile_download_tests("parameterization" ${TILE_URL_PATH} ${STORAGE_BACKEND})
+
+    # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/htcp/${TILE_ZXY}.png")
-    # Generate tile URLs
-    set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
-    set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
-    add_good_tile_download_test(
-      htcp_${STORAGE_BACKEND}_0
-      ${HTTPD0_URL}
-      ${TILE_FILE_NAME}.0
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
-    add_good_tile_download_test(
-      htcp_${STORAGE_BACKEND}_1
-      ${HTTPD1_URL}
-      ${TILE_FILE_NAME}.1
-      tiles_downloaded_${STORAGE_BACKEND}
-      services_started_${STORAGE_BACKEND}
-    )
+
+    add_good_tile_download_tests("htcp" ${TILE_URL_PATH} ${STORAGE_BACKEND})
 
     # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/${DEFAULT_MAP_NAME}/5/5/5.png")
@@ -935,27 +898,27 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
     add_test(NAME cors_empty_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code} --output /dev/null\"
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -970,27 +933,27 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
     add_test(NAME cors_empty_${STORAGE_BACKEND}_add_tile_config
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code} --output /dev/null\"
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -1005,27 +968,27 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
     add_test(NAME cors_all_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code} --output /dev/null\"
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: example.com\" ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"200\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -1040,27 +1003,27 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     set(HTTPD0_URL "http://${HTTPD0_HOST}:${HTTPD0_PORT}${TILE_URL_PATH}")
     set(HTTPD1_URL "http://${HTTPD1_HOST}:${HTTPD1_PORT}${TILE_URL_PATH}")
     add_test(NAME cors_localhost_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: notlocalhost\" ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"403\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: notlocalhost\" ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"403\" ]; then
-          exit 1;
+          exit 1
         fi
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: localhost\" ${HTTPD0_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" = \"403\" ]; then
-          exit 1;
+          exit 1
         fi
-        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: localhost\"  ${HTTPD1_URL})
+        RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"Origin: localhost\" ${HTTPD1_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" = \"403\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -1074,12 +1037,12 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
     # Generate tile URL
     set(HTTPD2_URL "http://${HTTPD2_HOST}:${HTTPD2_PORT}${TILE_URL_PATH}")
     add_test(NAME max_load_missing_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
         RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} ${HTTPD2_URL})
         echo \"Response code: '\${RESPONSE_CODE}'\"
         if [ \"\${RESPONSE_CODE}\" != \"404\" ]; then
-          exit 1;
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -1088,22 +1051,26 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
     )
     add_test(NAME throttling_xforward_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         RESPONSE_CODE_CMD=\"${CURL_CMD} --write-out %{http_code}\"
-        for i in {0..5}; do
-          for z in {0..20}; do
+        i=0
+        while [ \${i} -le 5 ]; do
+          z=0
+          while [ \${z} -le 20 ]; do
             RESPONSE_CODE=$(\${RESPONSE_CODE_CMD} --header \"X-Forwarded-For: ${CTEST_SERVER_HOST}, ${CTEST_CLIENT_HOST}\" \
-              http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\$z/0/0.webp)
+              http://${HTTPD2_HOST}:${HTTPD2_PORT}/tiles/webp/\${z}/0/0.webp)
             echo \"Response code: '\${RESPONSE_CODE}'\"
             if [ \"\${RESPONSE_CODE}\" = \"503\" ]; then
-              echo 'Request being rejected';
-              exit 0;
+              echo 'Request being rejected'
+              exit 0
             fi
             ${SLEEP_EXECUTABLE} 0.05
+            z=$((z + 1))
           done
+          i=$((i + 1))
         done
-        echo 'Request was never rejected';
-        exit 1;
+        echo 'Request was never rejected'
+        exit 1
       "
       WORKING_DIRECTORY tests
     )
@@ -1114,82 +1081,83 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   endif()
 
   if(JQ_EXECUTABLE)
+    string(REPLACE "${DEFAULT_MAP_NAME}" "cors_all" TILE_CORS_ALL_TILEJSON_URL "${TILE_DEFAULT_TILEJSON_URL}")
+
     add_test(NAME tilejson_url_${STORAGE_BACKEND}
-      COMMAND ${BASH} -c "
+      COMMAND ${SH_EXECUTABLE} -c "
         TILE_DEFAULT_TILEJSON_CMD=\"${CURL_CMD} ${TILE_DEFAULT_TILEJSON_URL}\"
         TILE_DEFAULT_TILEJSON_OUTPUT=$(\${TILE_DEFAULT_TILEJSON_CMD})
 
-        TILE_DEFAULT_TILEJSON_ATTRIBUTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
+        TILE_DEFAULT_TILEJSON_ATTRIBUTION=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
         TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED=\"Attribution for '${DEFAULT_MAP_NAME}' &copy;\"
         if [ \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\" != \"\${TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED}\" ]; then
-          echo \"Error in .attribution\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED}\";
-          exit 1;
+          echo \"Error in .attribution\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_ATTRIBUTION}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_ATTRIBUTION_EXPECTED}\"
+          exit 1
         fi
-        TILE_DEFAULT_TILEJSON_DESCRIPTION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
+        TILE_DEFAULT_TILEJSON_DESCRIPTION=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
         TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED=\"Description for '${DEFAULT_MAP_NAME}' &copy;\"
         if [ \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION}\" != \"\${TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED}\" ]; then
-          echo \"Error in .description\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_DESCRIPTION}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED}\";
-          exit 1;
+          echo \"Error in .description\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_DESCRIPTION}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_DESCRIPTION_EXPECTED}\"
+          exit 1
         fi
-        TILE_DEFAULT_TILEJSON_NAME=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .name)
+        TILE_DEFAULT_TILEJSON_NAME=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .name)
         TILE_DEFAULT_TILEJSON_NAME_EXPECTED=\"${DEFAULT_MAP_NAME}\"
         if [ \"\${TILE_DEFAULT_TILEJSON_NAME}\" != \"\${TILE_DEFAULT_TILEJSON_NAME_EXPECTED}\" ]; then
-          echo \"Error in .name\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_NAME}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_NAME_EXPECTED}\";
-          exit 1;
+          echo \"Error in .name\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_NAME}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_NAME_EXPECTED}\"
+          exit 1
         fi
-        TILE_DEFAULT_TILEJSON_VERSION=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tilejson)
+        TILE_DEFAULT_TILEJSON_VERSION=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tilejson)
         TILE_DEFAULT_TILEJSON_VERSION_EXPECTED=\"2.0.0\"
         if [ \"\${TILE_DEFAULT_TILEJSON_VERSION}\" != \"\${TILE_DEFAULT_TILEJSON_VERSION_EXPECTED}\" ]; then
-          echo \"Error in .tilejson\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_VERSION}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_VERSION_EXPECTED}\";
-          exit 1;
+          echo \"Error in .tilejson\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_VERSION}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_VERSION_EXPECTED}\"
+          exit 1
         fi
-        TILE_DEFAULT_TILEJSON_TILES_0=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[0])
+        TILE_DEFAULT_TILEJSON_TILES_0=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[0])
         TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED=\"http://localhost/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\"
         if [ \"\${TILE_DEFAULT_TILEJSON_TILES_0}\" != \"\${TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED}\" ]; then
-          echo \"Error in .tiles[0]\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_0}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED}\";
-          exit 1;
+          echo \"Error in .tiles[0]\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_0}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_0_EXPECTED}\"
+          exit 1
         fi
-        TILE_DEFAULT_TILEJSON_TILES_1=$(echo \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[1])
+        TILE_DEFAULT_TILEJSON_TILES_1=$(printf '%s\n' \"\${TILE_DEFAULT_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .tiles[1])
         TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED=\"http://alias/tiles/${DEFAULT_MAP_NAME}/{z}/{x}/{y}.png\"
         if [ \"\${TILE_DEFAULT_TILEJSON_TILES_1}\" != \"\${TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED}\" ]; then
-          echo \"Error in .tiles[1]\";
-          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_1}\";
-          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED}\";
-          exit 1;
+          echo \"Error in .tiles[1]\"
+          echo \"Found:    \${TILE_DEFAULT_TILEJSON_TILES_1}\"
+          echo \"Expected: \${TILE_DEFAULT_TILEJSON_TILES_1_EXPECTED}\"
+          exit 1
         fi
 
-        TILE_TILEJSON_URL=\"${TILE_DEFAULT_TILEJSON_URL}\"
-        TILE_CORS_ALL_TILEJSON_CMD=\"${CURL_CMD} \${TILE_TILEJSON_URL/${DEFAULT_MAP_NAME}/cors_all}\"
+        TILE_CORS_ALL_TILEJSON_CMD=\"${CURL_CMD} ${TILE_CORS_ALL_TILEJSON_URL}\"
         TILE_CORS_ALL_TILEJSON_OUTPUT=$(\${TILE_CORS_ALL_TILEJSON_CMD})
 
-        TILE_CORS_ALL_TILEJSON_ATTRIBUTION=$(echo \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION=$(printf '%s\n' \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .attribution)
         TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED=\"&copy;<a href='http://www.openstreetmap.org/'>OpenStreetMap</a> and \"
-        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"<a href='http://wiki.openstreetmap.org/wiki/Contributors'>\"
-        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"contributors</a>, \"
-        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED+=\"<a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>\"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED=\"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}<a href='http://wiki.openstreetmap.org/wiki/Contributors'>\"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED=\"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}contributors</a>, \"
+        TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED=\"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}<a href='http://opendatacommons.org/licenses/odbl/'>(ODbL)</a>\"
         if [ \"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION}\" != \"\${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}\" ]; then
-          echo \"Error in .attribution\";
-          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION}\";
-          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}\";
-          exit 1;
+          echo \"Error in .attribution\"
+          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION}\"
+          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_ATTRIBUTION_EXPECTED}\"
+          exit 1
         fi
-        TILE_CORS_ALL_TILEJSON_DESCRIPTION=$(echo \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
+        TILE_CORS_ALL_TILEJSON_DESCRIPTION=$(printf '%s\n' \"\${TILE_CORS_ALL_TILEJSON_OUTPUT}\" | ${JQ_EXECUTABLE} -r .description)
         TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED=\"\"
         if [ \"\${TILE_CORS_ALL_TILEJSON_DESCRIPTION}\" != \"\${TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED}\" ]; then
-          echo \"Error in .description\";
-          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_DESCRIPTION}\";
-          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED}\";
-          exit 1;
+          echo \"Error in .description\"
+          echo \"Found:    \${TILE_CORS_ALL_TILEJSON_DESCRIPTION}\"
+          echo \"Expected: \${TILE_CORS_ALL_TILEJSON_DESCRIPTION_EXPECTED}\"
+          exit 1
         fi
       "
       WORKING_DIRECTORY tests
@@ -1283,18 +1251,18 @@ foreach(DIRECTIVE_INDEX RANGE ${DIRECTIVES_LENGTH})
   configure_file(httpd.conf.in ${HTTPD_CONF})
 
   add_test(NAME bad_httpd_config_${DIRECTIVE_INDEX}
-    COMMAND ${BASH} -c "
+    COMMAND ${SH_EXECUTABLE} -c "
       HTTPD_OUTPUT=$(${HTTPD_EXECUTABLE} -e debug -f ${HTTPD_CONF} -t 2>&1)
-      if [ \"\${?}\" -eq \"0\" ]; then
+      if [ $? -eq 0 ]; then
         echo \"Unexpected success.\"
         echo \"\${HTTPD_OUTPUT}\"
-        exit 1;
+        exit 1
       fi
       if echo \"\${HTTPD_OUTPUT}\" | ${GREP_EXECUTABLE} -q \"${DIRECTIVE_ERROR}\"; then
-        exit 0;
+        exit 0
       else
         echo \"\${HTTPD_OUTPUT}\"
-        exit 1;
+        exit 1
       fi
     "
     WORKING_DIRECTORY tests
