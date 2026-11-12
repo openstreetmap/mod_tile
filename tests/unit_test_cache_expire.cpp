@@ -124,11 +124,11 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 
 			// fail every attempt: "localhost" may resolve to a single address,
 			// where a single failure already exhausts the address list
-			fail_all_socket_calls = true;
+			fail_every_socket = true;
 
 			int sfd = init_cache_expire((char *)htcphost.c_str());
 
-			fail_all_socket_calls = false;
+			fail_every_socket = false;
 
 			REQUIRE(sfd == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create HTCP cache socket"));
@@ -164,11 +164,11 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 
 			// fail every attempt: "localhost" may resolve to a single address,
 			// where a single failure already exhausts the address list
-			fail_all_connect_calls = true;
+			fail_every_connect = true;
 
 			int sfd = init_cache_expire((char *)htcphost.c_str());
 
-			fail_all_connect_calls = false;
+			fail_every_connect = false;
 
 			REQUIRE(sfd == -1);
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to create HTCP cache socket"));
