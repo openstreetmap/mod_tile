@@ -105,7 +105,7 @@ set(STORAGE_BACKENDS file)
 
 if(MEMCACHED_EXECUTABLE AND LIBMEMCACHED_FOUND)
   # Add MemcacheD storage backend
-  list(APPEND STORAGE_BACKENDS memcached_custom memcached_default)
+  list(APPEND STORAGE_BACKENDS memcached)
 endif()
 
 list(LENGTH STORAGE_BACKENDS STORAGE_BACKENDS_LENGTH)
@@ -256,10 +256,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR HTTPD2_PORT "${HTTPD2_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  if(STORAGE_BACKEND STREQUAL memcached_custom)
+  if(STORAGE_BACKEND STREQUAL memcached)
     math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_default)
-    set(MEMCACHED_PORT "11211")
   endif()
 
   # Set STORAGE_BACKEND-level directory names
@@ -297,18 +295,15 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   if(STORAGE_BACKEND STREQUAL file)
     # Use TEST_TILES_DIR for file backend
     set(TILE_DIR "${TEST_TILES_DIR}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_custom)
-    # MemcacheD backend "custom" host:port
+  elseif(STORAGE_BACKEND STREQUAL memcached)
+    # MemcacheD backend host:port connection string
     set(TILE_DIR "memcached://${MEMCACHED_HOST}:${MEMCACHED_PORT}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_default)
-    # MemcacheD backend "default"
-    set(TILE_DIR "memcached://")
   endif()
 
   # Generate renderd.conf file
   configure_file(renderd.conf.in ${RENDERD_CONF})
 
-  # Generate httpd.conf filelogs
+  # Generate httpd.conf file
   configure_file(httpd.conf.in ${HTTPD_CONF})
 
   # Set list of service start commands
@@ -328,7 +323,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   )
 
   # Conditionally append memcached start commands to SERVICES_START_CMDS based on STORAGE_BACKEND value
-  if(STORAGE_BACKEND MATCHES "memcached_.+")
+  if(STORAGE_BACKEND STREQUAL memcached)
     list(APPEND SERVICES_START_CMDS
       "${MEMCACHED_EXECUTABLE} -l ${MEMCACHED_HOST} -p ${MEMCACHED_PORT} -u ${USER_NAME} -vvv > ${MEMCACHED_LOG} 2>&1 &
         PID=\${!}\;
