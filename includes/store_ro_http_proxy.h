@@ -40,6 +40,7 @@ extern "C" {
 	struct ro_http_proxy_ctx {
 		CURL *ctx;
 		char *baseurl;
+		char *extension;
 		struct ro_http_proxy_tile_cache cache;
 	};
 

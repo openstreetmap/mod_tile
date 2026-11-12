@@ -60,7 +60,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 # Test Comment: JPEG Map Section
 ; Test Comment: JPEG Map Section
 [jpg]
-TILEDIR=@TILE_DIR@
+TILEDIR=@TILE_DIR_JPG@
 TYPE=jpg image/jpeg jpeg
 URI=/tiles/jpg/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
@@ -68,7 +68,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 # Test Comment: PNG8/PNG256 Map Section
 ; Test Comment: PNG8/PNG256 Map Section
 [png256]
-TILEDIR=@TILE_DIR@
+TILEDIR=@TILE_DIR_PNG256@
 TYPE=png image/png png256
 URI=/tiles/png256/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
@@ -76,7 +76,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 # Test Comment: PNG32 Map Section
 ; Test Comment: PNG32 Map Section
 [png32]
-TILEDIR=@TILE_DIR@
+TILEDIR=@TILE_DIR_PNG32@
 TYPE=png image/png png32
 URI=/tiles/png32/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
@@ -84,7 +84,7 @@ XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 # Test Comment: WEBP Map Section
 ; Test Comment: WEBP Map Section
 [webp]
-TILEDIR=@TILE_DIR@
+TILEDIR=@TILE_DIR_WEBP@
 TYPE=webp  image/webp   webp # Test extra spaces
 URI=/tiles/webp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml

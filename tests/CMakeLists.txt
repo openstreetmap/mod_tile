@@ -103,9 +103,14 @@ execute_process(COMMAND ${ID_EXECUTABLE} -un
 # Storage backend name (for test display and configuration only)
 set(STORAGE_BACKENDS file)
 
-if(MEMCACHED_EXECUTABLE AND LIBMEMCACHED_FOUND)
-  # Add MemcacheD storage backend
-  list(APPEND STORAGE_BACKENDS memcached_custom memcached_default)
+# Add MemcacheD storage backend
+if(MEMCACHED_EXECUTABLE AND HAVE_LIBMEMCACHED)
+  list(APPEND STORAGE_BACKENDS memcached)
+endif()
+
+# Add RO HTTP Proxy storage backend
+if(HAVE_LIBCURL)
+  list(APPEND STORAGE_BACKENDS ro_http_proxy)
 endif()
 
 list(LENGTH STORAGE_BACKENDS STORAGE_BACKENDS_LENGTH)
@@ -256,10 +261,8 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   math(EXPR HTTPD1_PORT "${HTTPD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR HTTPD2_PORT "${HTTPD2_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
   math(EXPR RENDERD1_PORT "${RENDERD1_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  if(STORAGE_BACKEND STREQUAL memcached_custom)
+  if(STORAGE_BACKEND STREQUAL memcached)
     math(EXPR MEMCACHED_PORT "${MEMCACHED_PORT_BASE} + ${STORAGE_BACKEND_INDEX}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_default)
-    set(MEMCACHED_PORT "11211")
   endif()
 
   # Set STORAGE_BACKEND-level directory names
@@ -297,12 +300,25 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   if(STORAGE_BACKEND STREQUAL file)
     # Use TEST_TILES_DIR for file backend
     set(TILE_DIR "${TEST_TILES_DIR}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_custom)
-    # MemcacheD backend "custom" host:port
+  elseif(STORAGE_BACKEND STREQUAL memcached)
+    # MemcacheD backend host:port
     set(TILE_DIR "memcached://${MEMCACHED_HOST}:${MEMCACHED_PORT}")
-  elseif(STORAGE_BACKEND STREQUAL memcached_default)
-    # MemcacheD backend "default"
-    set(TILE_DIR "memcached://")
+  elseif(STORAGE_BACKEND STREQUAL ro_http_proxy)
+    # RO HTTP Proxy
+    set(TILE_DIR "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/${DEFAULT_MAP_NAME}")
+  endif()
+
+  if(STORAGE_BACKEND STREQUAL ro_http_proxy)
+    set(TILE_DIR "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/${DEFAULT_MAP_NAME}")
+    set(TILE_DIR_JPG "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/jpg?extension=jpg")
+    set(TILE_DIR_PNG256 "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/png256?extension=png")
+    set(TILE_DIR_PNG32 "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/png32?extension=png")
+    set(TILE_DIR_WEBP "ro_http_proxy://${HTTPD0_HOST}:${HTTPD0_PORT_BASE}/tiles/webp?extension=webp")
+  else()
+    set(TILE_DIR_JPG "${TILE_DIR}")
+    set(TILE_DIR_PNG256 "${TILE_DIR}")
+    set(TILE_DIR_PNG32 "${TILE_DIR}")
+    set(TILE_DIR_WEBP "${TILE_DIR}")
   endif()
 
   # Generate renderd.conf file
@@ -328,7 +344,7 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
   )
 
   # Conditionally append memcached start commands to SERVICES_START_CMDS based on STORAGE_BACKEND value
-  if(STORAGE_BACKEND MATCHES "memcached_.+")
+  if(STORAGE_BACKEND STREQUAL memcached)
     list(APPEND SERVICES_START_CMDS
       "${MEMCACHED_EXECUTABLE} -l ${MEMCACHED_HOST} -p ${MEMCACHED_PORT} -u ${USER_NAME} -vvv > ${MEMCACHED_LOG} 2>&1 &
         PID=\${!}\;
@@ -345,9 +361,16 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       ${TEST_TILES_DIR}
     WORKING_DIRECTORY tests
   )
-  set_tests_properties(create_dirs_${STORAGE_BACKEND} PROPERTIES
-    FIXTURES_SETUP services_started_${STORAGE_BACKEND}
-  )
+  if(STORAGE_BACKEND STREQUAL ro_http_proxy)
+    set_tests_properties(create_dirs_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_REQUIRED "services_started_file;tiles_downloaded_file"
+      FIXTURES_SETUP services_started_${STORAGE_BACKEND}
+    )
+  else()
+    set_tests_properties(create_dirs_${STORAGE_BACKEND} PROPERTIES
+      FIXTURES_SETUP services_started_${STORAGE_BACKEND}
+    )
+  endif()
 
   list(LENGTH SERVICES_START_CMDS SERVICES_START_CMDS_LENGTH)
   math(EXPR SERVICES_START_CMDS_LENGTH "${SERVICES_START_CMDS_LENGTH} - 1")
@@ -359,10 +382,18 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       COMMAND ${SH_EXECUTABLE} -c "${SERVICES_START_CMD}"
       WORKING_DIRECTORY tests
     )
-    set_tests_properties(start_services_${STORAGE_BACKEND}_${SERVICES_START_CMDS_INDEX} PROPERTIES
-      DEPENDS create_dirs_${STORAGE_BACKEND}
-      FIXTURES_SETUP services_started_${STORAGE_BACKEND}
-    )
+    if(STORAGE_BACKEND STREQUAL ro_http_proxy)
+      set_tests_properties(start_services_${STORAGE_BACKEND}_${SERVICES_START_CMDS_INDEX} PROPERTIES
+        DEPENDS create_dirs_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED "services_started_file;tiles_downloaded_file"
+        FIXTURES_SETUP services_started_${STORAGE_BACKEND}
+      )
+    else()
+      set_tests_properties(start_services_${STORAGE_BACKEND}_${SERVICES_START_CMDS_INDEX} PROPERTIES
+        DEPENDS create_dirs_${STORAGE_BACKEND}
+        FIXTURES_SETUP services_started_${STORAGE_BACKEND}
+      )
+    endif()
   endforeach()
 
   foreach(SOCKET_TYPE sock tcp)
@@ -375,250 +406,253 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
       set(SOCKET ${RENDERD1_HOST}:${RENDERD1_PORT})
     endif()
 
-    add_test(NAME render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        i=0
-        while [ \${i} -le 100 ]; do
-          printf '0/0/0\n'
-          i=$((i + 1))
-        done | $<TARGET_FILE:render_expired> \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 90
-    )
-    add_test(NAME render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        echo '100/100/100' | $<TARGET_FILE:render_expired> \
-          --config ${RENDERD_CONF} \
-          --no-progress
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 60
-    )
-    add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        echo '0/0/0' | $<TARGET_FILE:render_expired> \
-          --delete-from 0 \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 90
-    )
-    add_test(NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        echo '0/0/0' | $<TARGET_FILE:render_expired> \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --touch-from 0 \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      TIMEOUT 90
-    )
-    add_test(NAME render_list_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        $<TARGET_FILE:render_list> \
-          --all \
-          --force \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_list_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "\t24 in [0-9.]+ seconds"
-      TIMEOUT 90
-    )
-    add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        $<TARGET_FILE:render_list> \
-          --all \
-          --config ${RENDERD_CONF} \
-          --max-lat 49.4 \
-          --max-lon -66.9 \
-          --max-zoom 8 \
-          --min-lat 24.4 \
-          --min-lon -125.0 \
-          --min-zoom 0
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "\t47 in [0-9.]+ seconds"
-      TIMEOUT 90
-    )
-    add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        i=0
-        while [ \${i} -le 10 ]; do
-          printf '0 0 0\n'
-          i=$((i + 1))
-        done | $<TARGET_FILE:render_list> \
-          --force \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "\t10 in [0-9.]+ seconds"
-      TIMEOUT 90
-    )
-    add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        echo '0 0 0' | $<TARGET_FILE:render_list> \
-          --force \
-          --config ${RENDERD_CONF} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "\t1 in [0-9.]+ seconds"
-      TIMEOUT 60
-    )
-    add_test(NAME render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
-        echo '0 0 0' | $<TARGET_FILE:render_list> \
-          --config ${RENDERD_CONF} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "Tile .+/0/0/0.meta is clean, ignoring"
-      RUN_SERIAL TRUE
-      TIMEOUT 60
-    )
-    add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
-        $<TARGET_FILE:render_old> \
-          --config ${RENDERD_CONF} \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 5 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET} \
-          --tile-dir ${TILE_DIR} \
-          --verbose
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_old_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      RUN_SERIAL TRUE
-      TIMEOUT 90
-    )
-    add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
-        $<TARGET_FILE:render_old> \
-          --config ${RENDERD_CONF}
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      RUN_SERIAL TRUE
-      TIMEOUT 60
-    )
-    add_test(NAME render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        $<TARGET_FILE:render_old> \
-          --config ${RENDERD_CONF} \
-          --timestamp 01/01/2024
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
-      PASS_REGULAR_EXPRESSION "Overwriting planet file update to Mon Jan  1 00:00:00 2024"
-      TIMEOUT 60
-    )
-    add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        $<TARGET_FILE:render_speedtest> \
-          --map ${DEFAULT_MAP_NAME} \
-          --max-zoom 10 \
-          --min-zoom 0 \
-          --num-threads 1 \
-          --socket ${SOCKET}
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
-      TIMEOUT 90
-    )
-    add_test(NAME render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
-      COMMAND ${SH_EXECUTABLE} -c "
-        $<TARGET_FILE:render_speedtest> \
-          --config ${RENDERD_CONF}
-      "
-      WORKING_DIRECTORY tests
-    )
-    set_tests_properties(render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
-      FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
-      TIMEOUT 60
-    )
+    if(NOT STORAGE_BACKEND STREQUAL ro_http_proxy)
+      add_test(NAME render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          i=0
+          while [ \${i} -le 100 ]; do
+            printf '0/0/0\n'
+            i=$((i + 1))
+          done | $<TARGET_FILE:render_expired> \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_expired_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        TIMEOUT 90
+      )
+      add_test(NAME render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          echo '100/100/100' | $<TARGET_FILE:render_expired> \
+            --config ${RENDERD_CONF} \
+            --no-progress
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_expired_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        TIMEOUT 60
+      )
+      add_test(NAME render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          echo '0/0/0' | $<TARGET_FILE:render_expired> \
+            --delete-from 0 \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_expired_delete_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        TIMEOUT 90
+      )
+      add_test(NAME render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          echo '0/0/0' | $<TARGET_FILE:render_expired> \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --touch-from 0 \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_expired_touch_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        TIMEOUT 90
+      )
+      add_test(NAME render_list_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          $<TARGET_FILE:render_list> \
+            --all \
+            --force \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_list_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "\t24 in [0-9.]+ seconds"
+        TIMEOUT 90
+      )
+      add_test(NAME render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          $<TARGET_FILE:render_list> \
+            --all \
+            --config ${RENDERD_CONF} \
+            --max-lat 49.4 \
+            --max-lon -66.9 \
+            --max-zoom 8 \
+            --min-lat 24.4 \
+            --min-lon -125.0 \
+            --min-zoom 0
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_list_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "\t47 in [0-9.]+ seconds"
+        TIMEOUT 90
+      )
+      add_test(NAME render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          i=0
+          while [ \${i} -le 10 ]; do
+            printf '0 0 0\n'
+            i=$((i + 1))
+          done | $<TARGET_FILE:render_list> \
+            --force \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_list_stdin_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "\t10 in [0-9.]+ seconds"
+        TIMEOUT 90
+      )
+      add_test(NAME render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          echo '0 0 0' | $<TARGET_FILE:render_list> \
+            --force \
+            --config ${RENDERD_CONF} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "\t1 in [0-9.]+ seconds"
+        TIMEOUT 60
+      )
+      add_test(NAME render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          ${TOUCH_EXECUTABLE} -d '-1 month' ${TEST_TILES_DIR}/planet-import-complete
+          echo '0 0 0' | $<TARGET_FILE:render_list> \
+            --config ${RENDERD_CONF} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_list_ignore_clean_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_list_stdin_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "Tile .+/0/0/0.(meta|png) is clean, ignoring"
+        RUN_SERIAL TRUE
+        TIMEOUT 60
+      )
+      add_test(NAME render_old_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
+          $<TARGET_FILE:render_old> \
+            --config ${RENDERD_CONF} \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 5 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET} \
+            --tile-dir ${TILE_DIR} \
+            --verbose
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_old_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        RUN_SERIAL TRUE
+        TIMEOUT 90
+      )
+      add_test(NAME render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          ${TOUCH_EXECUTABLE} -d '+1 month' ${TEST_TILES_DIR}/planet-import-complete
+          $<TARGET_FILE:render_old> \
+            --config ${RENDERD_CONF}
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_old_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        RUN_SERIAL TRUE
+        TIMEOUT 60
+      )
+      add_test(NAME render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          $<TARGET_FILE:render_old> \
+            --config ${RENDERD_CONF} \
+            --timestamp 01/01/2024
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_old_config_timestamp_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        DEPENDS render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        FIXTURES_REQUIRED services_started_${STORAGE_BACKEND}
+        PASS_REGULAR_EXPRESSION "Overwriting planet file update to Mon Jan  1 00:00:00 2024"
+        TIMEOUT 60
+      )
+      add_test(NAME render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          $<TARGET_FILE:render_speedtest> \
+            --map ${DEFAULT_MAP_NAME} \
+            --max-zoom 10 \
+            --min-zoom 0 \
+            --num-threads 1 \
+            --socket ${SOCKET}
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_speedtest_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
+        TIMEOUT 90
+      )
+      add_test(NAME render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
+        COMMAND ${SH_EXECUTABLE} -c "
+          $<TARGET_FILE:render_speedtest> \
+            --config ${RENDERD_CONF}
+        "
+        WORKING_DIRECTORY tests
+      )
+      set_tests_properties(render_speedtest_config_${SOCKET_TYPE}_${STORAGE_BACKEND} PROPERTIES
+        FIXTURES_REQUIRED "services_started_${STORAGE_BACKEND};tiles_downloaded_${STORAGE_BACKEND}"
+        TIMEOUT 60
+      )
+    endif()
+
     add_test(NAME add_tile_config_${SOCKET_TYPE}_${STORAGE_BACKEND}
       COMMAND ${SH_EXECUTABLE} -c "
         CONFIG_NAME=\"bad_tile_config_${SOCKET_TYPE}\"

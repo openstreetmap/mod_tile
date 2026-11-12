@@ -56,7 +56,8 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
 
 static char *ro_http_proxy_xyz_to_storagekey(struct storage_backend *store, int x, int y, int z, char *key)
 {
-	snprintf(key, PATH_MAX - 1, "http://%s/%i/%i/%i.png", ((struct ro_http_proxy_ctx *)(store->storage_ctx))->baseurl, z, x, y);
+	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
+	snprintf(key, PATH_MAX - 1, "http://%s/%i/%i/%i.%s", ctx->baseurl, z, x, y, ctx->extension);
 	return key;
 }
 
@@ -237,6 +238,7 @@ static int ro_http_proxy_close_storage(struct storage_backend *store)
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
 
 	free(ctx->baseurl);
+	free(ctx->extension);
 
 	if (ctx->cache.tile) {
 		free(ctx->cache.tile);
@@ -283,7 +285,30 @@ struct storage_backend *init_storage_ro_http_proxy(const char *connection_string
 	ctx->cache.tile = NULL;
 	ctx->cache.xmlname[0] = 0;
 
-	ctx->baseurl = strdup(&(connection_string[strlen("ro_http_proxy://")]));
+	const char *raw_url = &(connection_string[strlen("ro_http_proxy://")]);
+	const char *query = strchr(raw_url, '?');
+	ctx->extension = strdup("png");
+
+	if (query != NULL) {
+		ctx->baseurl = strndup(raw_url, query - raw_url);
+
+		if (strncmp(query, "?extension=", strlen("?extension=")) == 0 && query[strlen("?extension=")] != '\0') {
+			free(ctx->extension);
+			ctx->extension = strdup(query + strlen("?extension="));
+		}
+	} else {
+		ctx->baseurl = strdup(raw_url);
+	}
+
+	if (!ctx->baseurl || !ctx->extension) {
+		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to allocate memory for baseurl or extension");
+		free(ctx->baseurl);
+		free(ctx->extension);
+		free(ctx);
+		free(store);
+		return NULL;
+	}
+
 	pthread_mutex_lock(&ro_http_proxy_mutex);
 
 	if (!done_global_init) {
@@ -299,6 +324,7 @@ struct storage_backend *init_storage_ro_http_proxy(const char *connection_string
 	if (res != CURLE_OK) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise global curl: %s", curl_easy_strerror(res));
 		free(ctx->baseurl);
+		free(ctx->extension);
 		free(ctx);
 		free(store);
 		return NULL;
@@ -309,6 +335,7 @@ struct storage_backend *init_storage_ro_http_proxy(const char *connection_string
 	if (!ctx->ctx) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: failed to initialise curl");
 		free(ctx->baseurl);
+		free(ctx->extension);
 		free(ctx);
 		free(store);
 		return NULL;
