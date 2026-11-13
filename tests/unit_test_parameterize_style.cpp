@@ -40,8 +40,6 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 	mapnik::Map map(256, 256);
 	mapnik::load_map(map, MAPNIK_XML);
 
-	// REQUIRE(map.layers() == 2);
-
 	mapnik::layer layer("Unnamed");
 
 	err_log_lines.clear();
@@ -139,42 +137,6 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_minus));
 			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Disabled layer: " + parameter));
 		}
-
-		// SECTION("parameterize_map_toggle_layer with grid-lines (disabled by default)", "should enable or disable layer")
-		// {
-		// 	std::string parameter = "grid-lines";
-		// 	std::string parameter_minus = "-" + parameter;
-		// 	std::string parameter_plus = "+" + parameter;
-
-		// 	layer = map.get_layer(1);
-		// 	// Initially disabled via status="off" in XML
-		// 	REQUIRE(!layer.active());
-
-		// 	// Standard name toggle (without + or -) toggles off state or disables depending on logic
-		// 	parameterize_map_toggle_layer(map, (char *)parameter.c_str());
-		// 	layer = map.get_layer(1);
-		// 	REQUIRE(!layer.active());
-
-		// 	err_log_lines.clear();
-
-		// 	// Enable disabled layer using +grid-lines
-		// 	parameterize_map_toggle_layer(map, (char *)parameter_plus.c_str());
-		// 	layer = map.get_layer(1);
-		// 	REQUIRE(layer.active());
-
-		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_plus));
-		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Enabled layer: " + parameter));
-
-		// 	err_log_lines.clear();
-
-		// 	// Disable layer using -grid-lines
-		// 	parameterize_map_toggle_layer(map, (char *)parameter_minus.c_str());
-		// 	layer = map.get_layer(1);
-		// 	REQUIRE(!layer.active());
-
-		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Toggling map layer visibility with parameter: " + parameter_minus));
-		// 	REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Disabled layer: " + parameter));
-		// }
 	}
 
 	SECTION("init_parameterization_function function")
