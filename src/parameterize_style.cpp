@@ -25,6 +25,7 @@
 #include <mapnik/params.hpp>
 #include <mapnik/version.hpp>
 #include <string>
+#include <unordered_map>
 
 #if MAPNIK_MAJOR_VERSION < 4
 #include <boost/optional.hpp>
@@ -35,19 +36,17 @@
 
 static void parameterize_map_language(mapnik::Map &m, char *parameter)
 {
-	unsigned int i;
+	if (!parameter || !*parameter) {
+		return;
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Internationalizing map to language parameter: %s", parameter);
+
 	char *data = strdup(parameter);
-	char *tok;
+	char *tok = strtok(data, ",");
 	char name_replace[256];
 
 	name_replace[0] = 0;
-	g_logger(G_LOG_LEVEL_DEBUG, "Internationalizing map to language parameter: %s", parameter);
-	tok = strtok(data, ",");
-
-	if (!tok) {
-		free(data);
-		return; // No parameterization given
-	}
 
 	strncat(name_replace, ", coalesce(", 255);
 
@@ -67,9 +66,9 @@ static void parameterize_map_language(mapnik::Map &m, char *parameter)
 	name_replace[strlen(name_replace) - 1] = 0;
 	strncat(name_replace, ") as name", 255);
 
-	for (i = 0; i < m.layer_count(); i++) {
-		mapnik::layer &l = m.get_layer(i);
-		mapnik::parameters params = l.datasource()->params();
+	for (std::size_t i = 0; i < m.layer_count(); ++i) {
+		mapnik::layer &layer = m.get_layer(i);
+		mapnik::parameters params = layer.datasource()->params();
 
 		if (params.find("table") != params.end()) {
 			auto table = params.get<std::string>("table");
@@ -79,7 +78,46 @@ static void parameterize_map_language(mapnik::Map &m, char *parameter)
 				size_t pos = str.find(",name");
 				str.replace(pos, 5, name_replace);
 				params["table"] = str;
-				l.set_datasource(mapnik::datasource_cache::instance().create(params));
+				layer.set_datasource(mapnik::datasource_cache::instance().create(params));
+			}
+		}
+	}
+}
+
+static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter)
+{
+	if (!parameter || !*parameter) {
+		return;
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Toggling map layer visibility with parameter: %s", parameter);
+
+	std::unordered_map<std::string, bool> layer_actions;
+	char *data = strdup(parameter);
+	char *tok = strtok(data, ",");
+
+	while (tok) {
+		if (tok[0] == '+') {
+			layer_actions[tok + 1] = true;
+		} else if (tok[0] == '-') {
+			layer_actions[tok + 1] = false;
+		} else {
+			// Default to disabling if no prefix is supplied
+			layer_actions[tok] = false;
+		}
+		tok = strtok(NULL, ",");
+	}
+
+	free(data);
+
+	for (std::size_t i = 0; i < m.layer_count(); ++i) {
+		mapnik::layer &layer = m.get_layer(i);
+		auto it = layer_actions.find(layer.name());
+
+		if (it != layer_actions.end()) {
+			if (layer.active() != it->second) {
+				layer.set_active(it->second);
+				g_logger(G_LOG_LEVEL_DEBUG, "%s layer: %s", it->second ? "Enabled" : "Disabled", layer.name().c_str());
 			}
 		}
 	}
@@ -94,6 +132,9 @@ parameterize_function_ptr init_parameterization_function(const char *function_na
 	} else if (strcmp(function_name, "language") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Loading parameterization function for '%s'", function_name);
 		return parameterize_map_language;
+	} else if (strcmp(function_name, "toggle_layer") == 0) {
+		g_logger(G_LOG_LEVEL_DEBUG, "Loading parameterization function for '%s'", function_name);
+		return parameterize_map_toggle_layer;
 	} else {
 		g_logger(G_LOG_LEVEL_WARNING, "unknown parameterization function for '%s'", function_name);
 		return NULL;
