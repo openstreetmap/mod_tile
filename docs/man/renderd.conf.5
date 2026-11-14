@@ -127,8 +127,14 @@ The default value is \fB'0'\fR. Must satisfy \fB0 <= minzoom <= maxzoom\fR.
 .TP
 .B parameterize_style
 Specify the parameterization function (style) to be used for this section.
-When non-empty, enables parameterization options in \fBmod_tile\fR.
-Currently, the only supported parameterization functions are \fB'language'\fR &  \fB'toggle_layer'\fR.
+When non-empty, enables parameterization options in \fBmod_tile\fR via an additional URL path segment immediately preceding \fB/{z}/{x}/{y}.{ext}\fR.
+Currently, the supported parameterization functions are:
+.RS
+.IP \(bu 2
+\fB'language'\fR \- Replaces \fB,name\fR in datasource \fBtable\fR queries with a \fBcoalesce(...)\fR expression built from comma-separated OpenStreetMap language tags (using \fBtags->'name:<lang>'\fR, or \fBname\fR when \fB_\fR is specified; e.g., \fB{URI}/en,de,_/0/0/0.png\fR).
+.IP \(bu 2
+\fB'toggle_layer'\fR \- Enables or disables Mapnik layers dynamically using comma-separated layer names prefixed with \fB+\fR to enable or \fB-\fR (or no prefix) to disable (e.g., \fB{URI}/+grid,-labels/0/0/0.png\fR).
+.RE
 .TP
 .B server_alias
 Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).

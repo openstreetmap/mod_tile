@@ -15,7 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#include <cstdlib>
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <glib.h>
 #include <mapnik/datasource.hpp>
@@ -24,6 +25,7 @@
 #include <mapnik/map.hpp>
 #include <mapnik/params.hpp>
 #include <mapnik/version.hpp>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -34,42 +36,68 @@
 #include "g_logger.h"
 #include "parameterize_style.hpp"
 
+static bool is_valid_osm_lang_tag(const std::string &tok)
+{
+	// Covers "_" fallback, 2/3-letter ISO 639 codes, and IETF BCP 47 subtags
+	if (tok.empty() || tok.size() > 32) {
+		return false;
+	}
+	return std::all_of(tok.begin(), tok.end(), [](unsigned char c) {
+		return std::isalnum(c) || c == '_' || c == '-';
+	});
+}
+
 static void parameterize_map_language(mapnik::Map &m, char *parameter)
 {
 	if (!parameter || !*parameter) {
 		return;
 	}
 
-	g_logger(G_LOG_LEVEL_DEBUG, "Internationalizing map to language parameter: %s", parameter);
-
-	char *data = strdup(parameter);
-	char *tok = strtok(data, ",");
-	char name_replace[256];
-
-	name_replace[0] = 0;
-
-	strncat(name_replace, ", coalesce(", 255);
-
-	while (tok) {
-		if (strcmp(tok, "_") == 0) {
-			strncat(name_replace, "name,", 255);
-		} else {
-			strncat(name_replace, "tags->'name:", 255);
-			strncat(name_replace, tok, 255);
-			strncat(name_replace, "',", 255);
-		}
-
-		tok = strtok(NULL, ",");
+	std::string param_str(parameter);
+	if (param_str.size() > 256) {
+		g_logger(G_LOG_LEVEL_WARNING, "Language parameter exceeds maximum allowed length");
+		return;
 	}
 
-	free(data);
-	name_replace[strlen(name_replace) - 1] = 0;
-	strncat(name_replace, ") as name", 255);
+	g_logger(G_LOG_LEVEL_DEBUG, "Internationalizing map to language parameter: %s", param_str.c_str());
+
+	std::string name_replace = ", coalesce(";
+	std::stringstream ss(param_str);
+	std::string tok;
+	bool has_valid_tokens = false;
+
+	while (std::getline(ss, tok, ',')) {
+		if (!is_valid_osm_lang_tag(tok)) {
+			g_logger(G_LOG_LEVEL_WARNING, "Ignoring invalid language token in parameter");
+			continue;
+		}
+
+		if (has_valid_tokens) {
+			name_replace += ",";
+		}
+
+		if (tok == "_") {
+			name_replace += "name";
+		} else {
+			name_replace += "tags->'name:" + tok + "'";
+		}
+		has_valid_tokens = true;
+	}
+
+	if (!has_valid_tokens) {
+		return;
+	}
+
+	name_replace += ") as name";
 
 	for (std::size_t i = 0; i < m.layer_count(); ++i) {
 		mapnik::layer &layer = m.get_layer(i);
-		mapnik::parameters params = layer.datasource()->params();
+		auto ds = layer.datasource();
+		if (!ds) {
+			continue;
+		}
 
+		mapnik::parameters params = ds->params();
 		if (params.find("table") != params.end()) {
 			auto table = params.get<std::string>("table");
 
@@ -90,25 +118,35 @@ static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter)
 		return;
 	}
 
-	g_logger(G_LOG_LEVEL_DEBUG, "Toggling map layer visibility with parameter: %s", parameter);
+	std::string param_str(parameter);
+	if (param_str.size() > 1024) {
+		g_logger(G_LOG_LEVEL_WARNING, "Toggle layer parameter exceeds maximum allowed length");
+		return;
+	}
+
+	g_logger(G_LOG_LEVEL_DEBUG, "Toggling map layer visibility with parameter: %s", param_str.c_str());
 
 	std::unordered_map<std::string, bool> layer_actions;
-	char *data = strdup(parameter);
-	char *tok = strtok(data, ",");
+	std::stringstream ss(param_str);
+	std::string tok;
 
-	while (tok) {
+	while (std::getline(ss, tok, ',')) {
+		if (tok.empty()) {
+			continue;
+		}
 		if (tok[0] == '+') {
-			layer_actions[tok + 1] = true;
+			if (tok.size() > 1) {
+				layer_actions[tok.substr(1)] = true;
+			}
 		} else if (tok[0] == '-') {
-			layer_actions[tok + 1] = false;
+			if (tok.size() > 1) {
+				layer_actions[tok.substr(1)] = false;
+			}
 		} else {
 			// Default to disabling if no prefix is supplied
 			layer_actions[tok] = false;
 		}
-		tok = strtok(NULL, ",");
 	}
-
-	free(data);
 
 	for (std::size_t i = 0; i < m.layer_count(); ++i) {
 		mapnik::layer &layer = m.get_layer(i);
@@ -125,7 +163,6 @@ static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter)
 
 parameterize_function_ptr init_parameterization_function(const char *function_name)
 {
-
 	if (!function_name || strcmp(function_name, "") == 0) {
 		g_logger(G_LOG_LEVEL_DEBUG, "Parameterize_style not specified (or empty string specified)");
 		return NULL;

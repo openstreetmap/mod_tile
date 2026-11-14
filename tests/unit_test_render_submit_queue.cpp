@@ -40,6 +40,7 @@ extern struct speed_stats performance_stats;
 extern unsigned int qLen;
 extern unsigned int qMaxLen;
 
+static int process(struct protocol *cmd, int fd);
 static struct protocol *fetch(void);
 
 // pthread_create() needs a void *(*)(void *); calling fetch() through a cast
@@ -49,7 +50,6 @@ static void *fetch_thread(void *arg)
 	(void)arg;
 	return fetch();
 }
-static int process(struct protocol *cmd, int fd);
 
 // Queue items are malloc()ed and free()d by render_submit_queue.c, so the tests
 // must allocate them the same way (not with new/delete)
