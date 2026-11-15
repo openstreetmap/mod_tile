@@ -119,7 +119,7 @@ TEST_CASE("parameterize_style.cpp", "[parameterize_style]")
 
 		SECTION("parameterize_map_language skips layers with null datasource", "should not crash")
 		{
-			mapnik::layer empty_layer("EmptyLayer");
+			mapnik::layer empty_layer("EmptyLayer", map.srs());
 			map.add_layer(empty_layer);
 
 			std::string parameter = "en";
