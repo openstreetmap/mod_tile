@@ -33,21 +33,50 @@
 #include "renderd_config.h"
 #include "store.h"
 
-// Set of metatiles already requested, so each is only queued once.
-// Keys are (z, x, y) packed into a gint64, so memory is only used for tiles actually seen.
+/**
+ * @brief Deduplication set of already-processed metatile coordinates (`gint64` packed keys).
+ *
+ * Ensures each metatile is stat'ed, deleted, touched, or queued for re-rendering at most once
+ * even when multiple input `z/x/y` coordinates expand to overlapping ancestor metatiles.
+ */
 static GHashTable *tile_requested;
 
+/**
+ * @brief Pack metatile zoom and grid coordinates `(z, x, y)` into a 64-bit hash key.
+ *
+ * @param z Metatile-adjusted zoom level (`z - excess_zoomlevels`).
+ * @param x Metatile X index (`x >> excess_zoomlevels`, masked to 24 bits).
+ * @param y Metatile Y index (`y >> excess_zoomlevels`, masked to 24 bits).
+ * @return Packed 64-bit integer key suitable for `g_int64_hash`.
+ */
 static gint64 tile_key(int z, int x, int y)
 {
 	return ((gint64)z << 48) | ((gint64)(x & 0xFFFFFF) << 24) | (gint64)(y & 0xFFFFFF);
 }
 
+/**
+ * @brief Check whether a metatile has already been seen and processed during this run.
+ *
+ * @param z Metatile-adjusted zoom level.
+ * @param x Metatile X index.
+ * @param y Metatile Y index.
+ * @return Non-zero (`TRUE`) if `(z, x, y)` is present in `tile_requested`, `0` (`FALSE`) otherwise.
+ */
 static int tile_is_requested(int z, int x, int y)
 {
 	gint64 key = tile_key(z, x, y);
 	return g_hash_table_contains(tile_requested, &key);
 }
 
+/**
+ * @brief Record a metatile in `tile_requested` so subsequent ancestor traversals skip it.
+ *
+ * Allocates a heap `gint64` key owned and freed by `tile_requested`.
+ *
+ * @param z Metatile-adjusted zoom level.
+ * @param x Metatile X index.
+ * @param y Metatile Y index.
+ */
 static void set_tile_requested(int z, int x, int y)
 {
 	gint64 *key = g_new(gint64, 1);
@@ -55,6 +84,19 @@ static void set_tile_requested(int z, int x, int y)
 	g_hash_table_add(tile_requested, key);
 }
 
+/**
+ * @brief Entry point for the `render_expired` tile expiration and re-rendering CLI utility.
+ *
+ * Reads expired tile coordinates (`z/x/y`) from `stdin`, normalizes each coordinate to
+ * `max_zoom`, walks upward through ancestor zoom levels down to `min_zoom`, deduplicates
+ * metatiles via `tile_requested`, checks cache existence via the configured storage backend,
+ * and deletes (`--delete-from`), marks expired (`--touch-from`), or enqueues re-render jobs
+ * to `renderd` accordingly.
+ *
+ * @param argc Command-line argument count.
+ * @param argv Command-line argument vector.
+ * @return `0` on completion, or `1` on invalid options, missing config/map, or storage init failure.
+ */
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

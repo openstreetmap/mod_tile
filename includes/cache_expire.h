@@ -15,14 +15,16 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef CACHEEXPIRE_H
-#define CACHEEXPIRE_H
+#ifndef CACHE_EXPIRE_H
+#define CACHE_EXPIRE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** @brief Feature flag enabling HTCP (Hyper Text Caching Protocol) tile cache purging. */
 #define HTCP_EXPIRE_CACHE 1
+/** @brief Default UDP destination port string for HTCP cache purge (`CLR`) requests. */
 #define HTCP_EXPIRE_CACHE_PORT "4827"
 
 	void cache_expire(int sock, const char *host, const char *uri, int x, int y, int z);
@@ -30,7 +32,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-
 #endif
 
-#endif
+#endif /* CACHE_EXPIRE_H */

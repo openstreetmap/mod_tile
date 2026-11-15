@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef STOREFILE_H
-#define STOREFILE_H
+#ifndef STORE_FILE_H
+#define STORE_FILE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +28,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
 
-#endif
-#endif
+#endif /* STORE_FILE_H */

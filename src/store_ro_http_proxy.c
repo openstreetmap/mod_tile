@@ -15,6 +15,13 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
+/* Read-only HTTP proxy tile storage backend:
+ * Fetches individual PNG tiles on demand from an upstream XYZ HTTP tile server
+ * via libcurl and caches the most recently fetched tile (or 404 negative result)
+ * per backend context so paired `tile_stat()` and `tile_read()` calls only issue
+ * one HTTP GET request. Write, delete, and expire operations are unsupported
+ * and always return an error. */
+
 #include <glib.h>
 #include <stdio.h>
 
@@ -23,7 +30,7 @@
 #include "store.h"
 #include "store_ro_http_proxy.h"
 
-// TODO: need to create an appropriate configure check.
+/* TODO: need to create an appropriate configure check. */
 #ifdef HAVE_LIBCURL
 #include <curl/curl.h>
 #include <limits.h>
@@ -32,12 +39,27 @@
 #include <string.h>
 #include <time.h>
 
+/** @brief Mutex serializing one-time `curl_global_init()` across worker threads. */
 static pthread_mutex_t ro_http_proxy_mutex;
+/** @brief Process-wide flag indicating whether `curl_global_init()` has already run. */
 static int done_global_init = 0;
 
+/**
+ * @brief libcurl `CURLOPT_WRITEFUNCTION` callback appending response bytes into a `MemoryStruct`.
+ *
+ * Dynamically grows `chunk->memory` via `realloc()` / `malloc()` as HTTP response chunks arrive.
+ *
+ * @param contents Pointer to the incoming data chunk delivered by libcurl.
+ * @param size     Size of each element in bytes.
+ * @param nmemb    Number of elements in `contents`.
+ * @param userp    Pointer to a `struct MemoryStruct` accumulating the response body.
+ * @return Total number of bytes handled (`size * nmemb`).
+ */
 static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp)
 {
+	/* Byte length of the incoming chunk delivered by libcurl */
 	size_t realsize = size * nmemb;
+	/* Accumulator buffer tracking heap pointer and current byte offset */
 	struct MemoryStruct *chunk = (struct MemoryStruct *)userp;
 
 	if (chunk->memory) {
@@ -54,21 +76,56 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
 	return realsize;
 }
 
+/**
+ * @brief Format the upstream HTTP URL for tile `(x, y, z)`.
+ *
+ * Formats `key` as `"http://<baseurl>/<z>/<x>/<y>.png"`.
+ *
+ * @param store Initialized HTTP proxy `storage_backend` (`storage_ctx` holds `struct ro_http_proxy_ctx *`).
+ * @param x     Tile X coordinate.
+ * @param y     Tile Y coordinate.
+ * @param z     Tile zoom level.
+ * @param key   Caller-supplied output buffer (`PATH_MAX` bytes) receiving the formatted URL.
+ * @return Pointer to `key`.
+ */
 static char *ro_http_proxy_xyz_to_storagekey(struct storage_backend *store, int x, int y, int z, char *key)
 {
 	snprintf(key, PATH_MAX - 1, "http://%s/%i/%i/%i.png", ((struct ro_http_proxy_ctx *)(store->storage_ctx))->baseurl, z, x, y);
 	return key;
 }
 
+/**
+ * @brief Fetch a tile over HTTP from the upstream server or serve it from the single-tile cache.
+ *
+ * Checks whether `(xmlconfig, x, y, z)` matches `ctx->cache`. On a cache hit, returns `1`
+ * immediately without performing network I/O. On a cache miss, issues an HTTP GET via
+ * `curl_easy_perform()` and updates `ctx->cache`:
+ *   - HTTP `200`: Stores the downloaded PNG bytes, byte size, and `Last-Modified` timestamp (`st_mtime`).
+ *   - HTTP `404`: Caches a negative lookup (`st_stat.size = -1`) so the subsequent `tile_read()` avoids a duplicate request.
+ *   - Other status codes or curl errors: Invalidates `ctx->cache` coordinates and returns `-1`.
+ *
+ * @param store     Initialized HTTP proxy `storage_backend`.
+ * @param xmlconfig Logical map style name used as part of the single-tile cache key.
+ * @param options   Style parameterization options string (currently unused).
+ * @param x         Tile X coordinate.
+ * @param y         Tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return `1` if the tile result (HTTP 200 or cached 404) is ready in `ctx->cache`, or `-1` on network/HTTP error.
+ */
 static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
+	/* HTTP proxy backend context holding the CURL handle, base URL, and single-tile cache */
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
+	/* Heap-allocated buffer for formatting the upstream tile URL */
 	char *path;
+	/* libcurl operation status code */
 	CURLcode res;
+	/* Dynamic memory buffer accumulating the HTTP response body */
 	struct MemoryStruct chunk;
+	/* HTTP response status code retrieved via CURLINFO_RESPONSE_CODE */
 	long httpCode;
 
-	// TODO: Deal with options
+	/* TODO: Deal with options */
 	if ((ctx->cache.x == x) && (ctx->cache.y == y) && (ctx->cache.z == z) && (strcmp(ctx->cache.xmlname, xmlconfig) == 0)) {
 		g_logger(G_LOG_LEVEL_DEBUG, "ro_http_proxy_tile_fetch: Got a cached tile");
 		return 1;
@@ -120,6 +177,7 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char
 				free(ctx->cache.tile);
 			}
 
+			/* Remote Last-Modified timestamp reported by libcurl (-1 if absent) */
 			long filemtime = -1;
 			ctx->cache.tile = chunk.memory;
 			ctx->cache.st_stat.size = chunk.size;
@@ -148,8 +206,8 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char
 		}
 
 		default: {
-			// Do not cache anything for unexpected responses, otherwise the previously
-			// cached tile would be served for these coordinates
+			/* Do not cache anything for unexpected responses, otherwise the previously
+			 * cached tile would be served for these coordinates */
 			g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_tile_fetch: unexpected HTTP response code %li", httpCode);
 			free(chunk.memory);
 			ctx->cache.x = -1;
@@ -167,13 +225,32 @@ static int ro_http_proxy_tile_retrieve(struct storage_backend *store, const char
 	}
 }
 
+/**
+ * @brief Retrieve a PNG tile from the upstream HTTP proxy into caller buffer `buf`.
+ *
+ * Ensures the tile is loaded into `ctx->cache` via ro_http_proxy_tile_retrieve() and
+ * copies the cached bytes into `buf` if present and within capacity `sz`.
+ *
+ * @param store      Initialized HTTP proxy `storage_backend`.
+ * @param xmlconfig  Logical map style name.
+ * @param options    Style parameterization options string.
+ * @param x          Tile X coordinate.
+ * @param y          Tile Y coordinate.
+ * @param z          Tile zoom level.
+ * @param buf        Caller-supplied output buffer receiving the tile PNG bytes.
+ * @param sz         Maximum capacity of `buf` in bytes.
+ * @param compressed Compression flag output pointer (unused; raw PNG is returned).
+ * @param log_msg    Caller-supplied error message buffer (unused; errors go to `g_logger`).
+ * @return Number of bytes copied into `buf` (`>= 0`) on success, or `-1` on 404, buffer overrun, or HTTP error.
+ */
 static int ro_http_proxy_tile_read(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int *compressed, char *log_msg)
 {
+	/* HTTP proxy backend context holding the single-tile cache */
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
 
 	if (ro_http_proxy_tile_retrieve(store, xmlconfig, options, x, y, z) > 0) {
 		if (ctx->cache.st_stat.size < 0) {
-			// Cached 404
+			/* Cached 404 response */
 			return -1;
 		}
 
@@ -190,9 +267,25 @@ static int ro_http_proxy_tile_read(struct storage_backend *store, const char *xm
 	}
 }
 
+/**
+ * @brief Retrieve metadata and `Last-Modified` timestamp for a tile from the HTTP proxy.
+ *
+ * Fetches (or hits cache for) the tile via ro_http_proxy_tile_retrieve() and returns
+ * `ctx->cache.st_stat` (`size = -1` on HTTP 404 or fetch error).
+ *
+ * @param store     Initialized HTTP proxy `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string.
+ * @param x         Tile X coordinate.
+ * @param y         Tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return Populated `struct stat_info` (`size < 0` indicates missing tile or HTTP error).
+ */
 static struct stat_info ro_http_proxy_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
+	/* Fallback empty stat result returned when HTTP retrieval fails */
 	struct stat_info tile_stat;
+	/* HTTP proxy backend context holding the single-tile cache */
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
 
 	if (ro_http_proxy_tile_retrieve(store, xmlconfig, options, x, y, z) > 0) {
@@ -207,33 +300,83 @@ static struct stat_info ro_http_proxy_tile_stat(struct storage_backend *store, c
 	}
 }
 
+/**
+ * @brief Format the upstream `"http://<baseurl>/<z>/<x>/<y>.png"` URL as the tile storage ID.
+ *
+ * @param store     Initialized HTTP proxy `storage_backend`.
+ * @param xmlconfig Logical map style name (unused).
+ * @param options   Style parameterization options string (unused).
+ * @param x         Tile X coordinate.
+ * @param y         Tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @param string    Caller-supplied output buffer (`PATH_MAX` bytes) receiving the formatted URL.
+ * @return Pointer to `string`.
+ */
 static char *ro_http_proxy_tile_storage_id(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *string)
 {
-
 	return ro_http_proxy_xyz_to_storagekey(store, x, y, z, string);
 }
 
+/**
+ * @brief Reject metatile write attempts on the read-only HTTP proxy backend.
+ *
+ * @param store     HTTP proxy `storage_backend` (unused).
+ * @param xmlconfig Logical map style name (unused).
+ * @param options   Style parameterization options string (unused).
+ * @param x         Tile X coordinate (unused).
+ * @param y         Tile Y coordinate (unused).
+ * @param z         Tile zoom level (unused).
+ * @param buf       Serialized metatile buffer (unused).
+ * @param sz        Byte length of `buf` (unused).
+ * @return Always returns `-1`.
+ */
 static int ro_http_proxy_metatile_write(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
 	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_write: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
+/**
+ * @brief Reject metatile delete attempts on the read-only HTTP proxy backend.
+ *
+ * @param store     HTTP proxy `storage_backend` (unused).
+ * @param xmlconfig Logical map style name (unused).
+ * @param x         Tile X coordinate (unused).
+ * @param y         Tile Y coordinate (unused).
+ * @param z         Tile zoom level (unused).
+ * @return Always returns `-1`.
+ */
 static int ro_http_proxy_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
 	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_delete: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
+/**
+ * @brief Reject metatile expiry attempts on the read-only HTTP proxy backend.
+ *
+ * @param store     HTTP proxy `storage_backend` (unused).
+ * @param xmlconfig Logical map style name (unused).
+ * @param x         Tile X coordinate (unused).
+ * @param y         Tile Y coordinate (unused).
+ * @param z         Tile zoom level (unused).
+ * @return Always returns `-1`.
+ */
 static int ro_http_proxy_metatile_expire(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
-
 	g_logger(G_LOG_LEVEL_ERROR, "ro_http_proxy_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
+/**
+ * @brief Free the base URL, cached tile buffer, `CURL` easy handle, and `ro_http_proxy_ctx`.
+ *
+ * @param store HTTP proxy `storage_backend` instance to close.
+ * @return Always returns `0`.
+ */
 static int ro_http_proxy_close_storage(struct storage_backend *store)
 {
+	/* HTTP proxy backend context owning the base URL, tile cache, and CURL easy handle */
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)(store->storage_ctx);
 
 	free(ctx->baseurl);
@@ -248,17 +391,31 @@ static int ro_http_proxy_close_storage(struct storage_backend *store)
 	return 0;
 }
 
-#endif // Have curl
+#endif /* HAVE_LIBCURL */
 
+/**
+ * @brief Allocate and initialize a read-only HTTP proxy `storage_backend`.
+ *
+ * Strips the `"ro_http_proxy://"` prefix from `connection_string` to obtain the upstream
+ * base host/path, performs thread-safe one-time `curl_global_init()` under `ro_http_proxy_mutex`,
+ * configures a `CURL` easy handle with `CURLOPT_NOSIGNAL`, `CURLOPT_FOLLOWLOCATION`,
+ * `CURLOPT_USERAGENT`, and `CURLOPT_FILETIME`, and wires all backend operation function pointers.
+ * Returns `NULL` if compiled without `HAVE_LIBCURL` or if initialization fails.
+ *
+ * @param connection_string Backend URI of the form `"ro_http_proxy://<host[:port][/prefix]>"`.
+ * @return Newly allocated `struct storage_backend` pointer, or `NULL` on failure or if unsupported.
+ */
 struct storage_backend *init_storage_ro_http_proxy(const char *connection_string)
 {
-
 #ifndef HAVE_LIBCURL
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_ro_http_proxy: Support for http proxy storage has not been compiled into this program");
 	return NULL;
-#else
+#else  /* HAVE_LIBCURL */
+	/* Newly allocated storage_backend vtable and context */
 	struct storage_backend *store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	/* Per-backend HTTP proxy context holding the CURL handle, base URL, and tile cache */
 	struct ro_http_proxy_ctx *ctx = (struct ro_http_proxy_ctx *)malloc(sizeof(struct ro_http_proxy_ctx));
+	/* libcurl initialization status code */
 	CURLcode res;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_ro_http_proxy: initialising proxy storage backend for %s", connection_string);
@@ -277,12 +434,14 @@ struct storage_backend *init_storage_ro_http_proxy(const char *connection_string
 		return NULL;
 	}
 
+	/* Mark single-tile cache invalid until first HTTP fetch */
 	ctx->cache.x = -1;
 	ctx->cache.y = -1;
 	ctx->cache.z = -1;
 	ctx->cache.tile = NULL;
 	ctx->cache.xmlname[0] = 0;
 
+	/* Strip "ro_http_proxy://" prefix to extract upstream base host/path */
 	ctx->baseurl = strdup(&(connection_string[strlen("ro_http_proxy://")]));
 	pthread_mutex_lock(&ro_http_proxy_mutex);
 
@@ -330,5 +489,5 @@ struct storage_backend *init_storage_ro_http_proxy(const char *connection_string
 	store->close_storage = &ro_http_proxy_close_storage;
 
 	return store;
-#endif
+#endif /* HAVE_LIBCURL */
 }

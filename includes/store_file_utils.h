@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef DIR_UTILS_H
-#define DIR_UTILS_H
+#ifndef STORE_FILE_UTILS_H
+#define STORE_FILE_UTILS_H
 
 #include <sys/types.h>
 
@@ -46,7 +46,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-
 #endif
 
-#endif
+#endif /* STORE_FILE_UTILS_H */

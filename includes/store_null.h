@@ -26,7 +26,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-
 #endif
 
 #endif /* STORE_NULL_H */

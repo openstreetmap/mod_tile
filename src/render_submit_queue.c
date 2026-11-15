@@ -37,24 +37,46 @@
 #include "render_submit_queue.h"
 #include "sys_utils.h"
 
+/** @brief Mutex protecting the submission queue (`qHead`, `qTail`, `qLen`, and `work_complete`). */
 static pthread_mutex_t qLock;
+/** @brief Mutex protecting aggregate per-zoom render timing statistics (`performance_stats`). */
 static pthread_mutex_t qStatsLock;
+/** @brief Condition variable signaled when an item is enqueued or `work_complete` is set. */
 static pthread_cond_t qCondNotEmpty;
+/** @brief Condition variable signaled whenever a worker dequeues an item (reducing `qLen`). */
 static pthread_cond_t qCondNotFull;
 
+/** @brief System 1-minute load average threshold above which workers pause submitting requests. */
 static int maxLoad = 0;
 
+/** @brief Maximum capacity of the bounded submission queue (initialized to `no_workers`). */
 static unsigned int qMaxLen;
+/** @brief Current number of queued items waiting between `qHead` and `qTail`. */
 static unsigned int qLen;
 
+/** @brief Global per-zoom-level render count and latency statistics. */
 struct speed_stats performance_stats;
 
+/** @brief Head (dequeue end) and tail (enqueue end) pointers of the FIFO work queue. */
 static struct qItem *qHead, *qTail;
 
+/** @brief Number of active worker threads spawned by spawn_workers(). */
 static int no_workers;
+/** @brief Dynamically allocated array of worker `pthread_t` handles. */
 static pthread_t *workers;
+/** @brief Shutdown flag set by finish_workers() to wake idle workers and terminate them once drained. */
 static int work_complete;
 
+/**
+ * @brief Pop the next tile render request from the bounded queue and build a protocol command.
+ *
+ * Blocks on `qCondNotEmpty` while the queue is empty. Returns `NULL` once `work_complete`
+ * is signaled and no items remain. Otherwise dequeues the head `qItem`, signals
+ * `qCondNotFull`, frees the queue node, and returns a heap-allocated protocol v2
+ * `cmdRenderBulk` message.
+ *
+ * @return Heap-allocated `struct protocol` command (caller owns memory), or `NULL` when shutting down.
+ */
 static struct protocol *fetch(void)
 {
 	pthread_mutex_lock(&qLock);
@@ -68,12 +90,13 @@ static struct protocol *fetch(void)
 		pthread_cond_wait(&qCondNotEmpty, &qLock);
 	}
 
-	// Fetch item from queue
+	/* Dequeue head item from FIFO list */
 	if (!qHead) {
 		g_logger(G_LOG_LEVEL_CRITICAL, "Queue failure, null qHead with %d items in list", qLen);
 		exit(1);
 	}
 
+	/* Dequeued node being removed from the front of the list */
 	struct qItem *e = qHead;
 
 	if (--qLen == 0) {
@@ -86,6 +109,7 @@ static struct protocol *fetch(void)
 	pthread_cond_signal(&qCondNotFull);
 	pthread_mutex_unlock(&qLock);
 
+	/* Heap-allocated renderd wire command populated from the dequeued node */
 	struct protocol *cmd = (struct protocol *)malloc(sizeof(struct protocol));
 
 	cmd->ver = 2;
@@ -101,12 +125,29 @@ static struct protocol *fetch(void)
 	return cmd;
 }
 
+/**
+ * @brief Send a single render command to `renderd` and wait synchronously for its reply.
+ *
+ * Measures round-trip wall-clock latency in milliseconds. If `renderd` replies with
+ * `cmdDone`, updates `performance_stats` for `cmd->z` under `qStatsLock`. If `renderd`
+ * replies with any non-`cmdDone` status (e.g., busy/retry), sleeps 1 second before returning.
+ *
+ * @param cmd Pointer to the protocol command to send.
+ * @param fd  Connected socket file descriptor to `renderd`.
+ * @return Positive byte count returned by recv_cmd() if a response was received,
+ *         or `0` if reading the response failed (indicating a lost connection).
+ */
 static int process(struct protocol *cmd, int fd)
 {
+	/* Wall-clock timestamp struct used to measure round-trip render duration */
 	struct timeval tim;
+	/* Start timestamp in milliseconds (later reused to hold elapsed duration `t2 - t1`) */
 	time_t t1;
+	/* Completion timestamp in milliseconds */
 	time_t t2;
+	/* Byte count returned by recv_cmd(), or 0 on read failure */
 	int ret = 0;
+	/* Response protocol message read back from renderd */
 	struct protocol rsp;
 
 	gettimeofday(&tim, NULL);
@@ -116,7 +157,7 @@ static int process(struct protocol *cmd, int fd)
 
 	if (send_cmd(cmd, fd) < 1) {
 		g_logger(G_LOG_LEVEL_ERROR, "send error: %s", strerror(errno));
-	};
+	}
 
 	bzero(&rsp, sizeof(rsp));
 
@@ -131,6 +172,7 @@ static int process(struct protocol *cmd, int fd)
 	g_logger(G_LOG_LEVEL_DEBUG, "Got response %i", rsp.cmd);
 
 	if (rsp.cmd != cmdDone) {
+		/* Backoff delay in seconds when renderd does not complete the request */
 		int seconds = 1;
 		g_logger(G_LOG_LEVEL_DEBUG, "Rendering not done with command %i, sleeping %is", rsp.cmd, seconds);
 		sleep(seconds);
@@ -156,12 +198,26 @@ static int process(struct protocol *cmd, int fd)
 	return ret;
 }
 
+/**
+ * @brief Open a stream connection to `renderd` over a Unix domain socket or TCP/IP socket.
+ *
+ * Interprets `spath` based on its leading character:
+ *   - Leading `'/'`: Connects to an `AF_UNIX` stream socket at filesystem path `spath`.
+ *     Returns `FD_INVALID` if `connect()` fails.
+ *   - Otherwise: Parses `<host>[:<port>]` (defaulting host to `RENDERD_HOST` and port to
+ *     `RENDERD_PORT`), resolves addresses via `getaddrinfo()`, and connects over TCP.
+ *     Terminates the process with `exit(2)` on unrecoverable socket/DNS/connect errors.
+ *
+ * @param spath Socket path (starting with `'/'`) or TCP `host[:port]` specification.
+ * @return Connected socket file descriptor, or `FD_INVALID` if a Unix socket connection failed.
+ */
 int make_connection(const char *spath)
 {
+	/* Connected socket file descriptor, or FD_INVALID on failure */
 	int fd = FD_INVALID;
 
 	if (spath[0] == '/') {
-		// Create a Unix socket
+		/* Unix domain socket address structure */
 		struct sockaddr_un addr;
 
 		fd = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -181,11 +237,15 @@ int make_connection(const char *spath)
 		}
 
 	} else {
-		// Create a network socket
+		/* Optional ':' separator pointing to the port portion of spath */
 		const char *d = strchr(spath, ':');
+		/* Heap-allocated target hostname string */
 		char *hostname;
+		/* Numeric TCP port (defaults to RENDERD_PORT) */
 		u_int16_t port = RENDERD_PORT;
+		/* Decimal string representation of `port` for getaddrinfo() */
 		char port_s[6];
+		/* Total length of spath and byte length of the hostname prefix */
 		size_t spath_len = strlen(spath);
 		size_t hostname_len = d ? (size_t)(d - spath) : spath_len;
 
@@ -208,6 +268,7 @@ int make_connection(const char *spath)
 
 		g_logger(G_LOG_LEVEL_DEBUG, "Connecting to %s, port %u/tcp", hostname, port);
 
+		/* Protocol entry used to look up the TCP protocol number */
 		struct protoent *protocol = getprotobyname("tcp");
 
 		if (!protocol) {
@@ -215,26 +276,21 @@ int make_connection(const char *spath)
 			exit(2);
 		}
 
+		/* Address resolution criteria and head of resolved addrinfo linked list */
 		struct addrinfo hints;
-
 		struct addrinfo *result;
 
 		memset(&hints, 0, sizeof(hints));
 
 		hints.ai_family = AF_UNSPEC;
-
 		hints.ai_socktype = SOCK_STREAM;
-
 		hints.ai_flags = 0;
-
 		hints.ai_protocol = protocol->p_proto;
-
 		hints.ai_canonname = NULL;
-
 		hints.ai_addr = NULL;
-
 		hints.ai_next = NULL;
 
+		/* Return status from getaddrinfo() */
 		int ai = getaddrinfo(hostname, port_s, &hints, &result);
 
 		if (ai != 0) {
@@ -242,6 +298,7 @@ int make_connection(const char *spath)
 			exit(2);
 		}
 
+		/* Iterator pointer traversing resolved socket addresses */
 		struct addrinfo *rp;
 
 		for (rp = result; rp != NULL; rp = rp->ai_next) {
@@ -251,6 +308,7 @@ int make_connection(const char *spath)
 				continue;
 			}
 
+			/* Numeric host and service strings formatted for debug logging */
 			char resolved_addr[NI_MAXHOST];
 			char resolved_port[NI_MAXSERV];
 			int name_info = getnameinfo(rp->ai_addr, rp->ai_addrlen, resolved_addr, sizeof(resolved_addr), resolved_port, sizeof(resolved_port), NI_NUMERICHOST | NI_NUMERICSERV);
@@ -281,11 +339,19 @@ int make_connection(const char *spath)
 	return fd;
 }
 
+/**
+ * @brief Throttle worker submission while the system 1-minute load average meets or exceeds `maxLoad`.
+ *
+ * Polls `get_load_avg()` in a loop and sleeps 5 seconds per iteration until system load
+ * drops below `maxLoad`.
+ */
 void check_load(void)
 {
+	/* Current 1-minute system load average */
 	double avg = get_load_avg();
 
 	while (avg >= maxLoad) {
+		/* Polling interval in seconds while waiting for load to drop */
 		int seconds = 5;
 		g_logger(G_LOG_LEVEL_DEBUG, "Load average %.2f, sleeping %is", avg, seconds);
 		sleep(seconds);
@@ -293,9 +359,18 @@ void check_load(void)
 	}
 }
 
+/**
+ * @brief Log the elapsed time and average throughput (tiles/sec) for a batch of rendered tiles.
+ *
+ * @param start Timestamp captured at the start of the batch.
+ * @param end   Timestamp captured at the end of the batch.
+ * @param num   Total number of tiles/metatiles processed during the interval.
+ */
 void display_rate(struct timeval start, struct timeval end, int num)
 {
+	/* Whole seconds and microseconds deltas between `start` and `end` */
 	int d_s, d_us;
+	/* Total elapsed duration in fractional seconds */
 	float sec;
 
 	d_s = end.tv_sec - start.tv_sec;
@@ -306,11 +381,22 @@ void display_rate(struct timeval start, struct timeval end, int num)
 	g_logger(G_LOG_LEVEL_MESSAGE, "\t%d in %.2f seconds (%.2f/s)", num, sec, num / sec);
 }
 
+/**
+ * @brief Enqueue a metatile render request onto the bounded worker submission queue.
+ *
+ * Allocates a `qItem` node, blocks on `qCondNotFull` if the queue has reached `qMaxLen`,
+ * appends the node to the FIFO list, and signals `qCondNotEmpty` to wake a waiting worker.
+ *
+ * @param xmlname Logical map style name (duplicated onto the heap).
+ * @param x       Top-left tile X coordinate of the metatile.
+ * @param y       Top-left tile Y coordinate of the metatile.
+ * @param z       Tile zoom level.
+ */
 void enqueue(const char *xmlname, int x, int y, int z)
 {
 	g_logger(G_LOG_LEVEL_DEBUG, "Enqueueing tile (xmlname=%s x=%i y=%i z=%i)", xmlname, x, y, z);
 
-	// Add this path in the local render queue
+	/* Newly allocated queue node for this tile request */
 	struct qItem *e = (struct qItem *)malloc(sizeof(struct qItem));
 
 	if (!e) {
@@ -332,6 +418,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 
 	pthread_mutex_lock(&qLock);
 
+	/* Wait until a worker consumes an item and frees queue capacity */
 	while (qLen == qMaxLen) {
 		int ret = pthread_cond_wait(&qCondNotFull, &qLock);
 
@@ -340,7 +427,7 @@ void enqueue(const char *xmlname, int x, int y, int z)
 		}
 	}
 
-	// Append item to end of queue
+	/* Append item to tail of FIFO queue */
 	if (qTail) {
 		qTail->next = e;
 	} else {
@@ -354,6 +441,12 @@ void enqueue(const char *xmlname, int x, int y, int z)
 	pthread_mutex_unlock(&qLock);
 }
 
+/**
+ * @brief Signal all worker threads to finish remaining queued items and join them.
+ *
+ * Sets `work_complete = 1`, broadcasts `qCondNotEmpty` so idle workers exit `fetch()`,
+ * joins every worker thread via `pthread_join()`, and frees the `workers` handle array.
+ */
 void finish_workers(void)
 {
 	g_logger(G_LOG_LEVEL_MESSAGE, "Waiting for rendering threads to finish");
@@ -371,8 +464,15 @@ void finish_workers(void)
 	workers = NULL;
 }
 
+/**
+ * @brief Log per-zoom-level minimum, average, maximum, and cumulative render times.
+ *
+ * Iterates from zoom `0` through `MAX_ZOOM`, skipping any zoom levels with zero rendered
+ * requests, and formats millisecond timings from `performance_stats` as seconds.
+ */
 void print_statistics(void)
 {
+	/* Zoom level loop counter */
 	int i;
 	g_logger(G_LOG_LEVEL_MESSAGE, "*****************************************************");
 
@@ -389,13 +489,25 @@ void print_statistics(void)
 	g_logger(G_LOG_LEVEL_MESSAGE, "*****************************************************");
 }
 
+/**
+ * @brief Initialize synchronization primitives and spawn the pool of render-client worker threads.
+ *
+ * Configures the bounded queue capacity (`qMaxLen = num`) and system load ceiling (`maxLoad`),
+ * initializes `qLock`, `qStatsLock`, `qCondNotEmpty`, and `qCondNotFull`, and launches `num`
+ * threads running thread_main().
+ *
+ * @param num      Number of worker threads to spawn.
+ * @param spath    Socket path or `host[:port]` string passed to each worker thread.
+ * @param max_load Maximum system 1-minute load average allowed before throttling workers.
+ */
 void spawn_workers(int num, const char *spath, int max_load)
 {
+	/* Worker creation loop counter */
 	int i;
 	no_workers = num;
 	maxLoad = max_load;
 
-	// Setup request queue
+	/* Initialize request queue synchronization primitives */
 	pthread_mutex_init(&qLock, NULL);
 	pthread_mutex_init(&qStatsLock, NULL);
 	pthread_cond_init(&qCondNotEmpty, NULL);
@@ -412,6 +524,7 @@ void spawn_workers(int num, const char *spath, int max_load)
 	}
 
 	for (i = 0; i < no_workers; i++) {
+		/* Error code returned by pthread_create() (0 on success) */
 		int errnum = pthread_create(&workers[i], NULL, thread_main, (void *)spath);
 
 		if (errnum) {
@@ -421,9 +534,22 @@ void spawn_workers(int num, const char *spath, int max_load)
 	}
 }
 
+/**
+ * @brief Worker thread main loop that fetches queued requests and submits them to `renderd`.
+ *
+ * Opens a dedicated connection to `renderd` via make_connection(), then repeatedly checks
+ * system load, pops the next command via fetch(), and submits it via process(). If the
+ * connection drops mid-flight, retries connecting every 30 seconds and re-submits the
+ * interrupted command until it succeeds.
+ *
+ * @param arg `const char *` socket path or `host[:port]` string forwarded to make_connection().
+ * @return Always returns `NULL` once the queue is drained and `work_complete` is set.
+ */
 void *thread_main(void *arg)
 {
+	/* Target renderd socket path or host:port passed via pthread_create() */
 	const char *spath = (const char *)arg;
+	/* Dedicated client socket descriptor to renderd for this worker */
 	int fd = make_connection(spath);
 
 	if (fd < 0) {
@@ -432,6 +558,7 @@ void *thread_main(void *arg)
 	}
 
 	while (1) {
+		/* Next dequeued render command to submit */
 		struct protocol *cmd;
 		check_load();
 
@@ -439,12 +566,14 @@ void *thread_main(void *arg)
 			break;
 		}
 
+		/* Submit command; if the connection drops, reconnect in a loop and retry */
 		while (process(cmd, fd) < 1) {
 			g_logger(G_LOG_LEVEL_ERROR, "connection to renderd lost");
 			close(fd);
 			fd = FD_INVALID;
 
 			while (fd < 0) {
+				/* Retry delay in seconds between reconnection attempts */
 				int seconds = 30;
 				g_logger(G_LOG_LEVEL_WARNING, "sleeping for %i seconds", seconds);
 				sleep(30);
@@ -461,9 +590,15 @@ void *thread_main(void *arg)
 	return NULL;
 }
 
+/**
+ * @brief Block the calling thread until all currently queued items have been popped by workers.
+ *
+ * Waits on `qCondNotFull` (which is signaled every time fetch() decrements `qLen`) until
+ * `qLen` reaches `0`. Note that the final popped items may still be in flight inside
+ * process() when this function returns; call finish_workers() to wait for completion.
+ */
 void wait_for_empty_queue()
 {
-
 	pthread_mutex_lock(&qLock);
 
 	while (qLen > 0) {

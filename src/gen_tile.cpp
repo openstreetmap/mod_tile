@@ -63,58 +63,112 @@
 #include "store.h"
 
 #ifndef DEG_TO_RAD
+/** @brief Conversion factor from degrees to radians. */
 #define DEG_TO_RAD (M_PI / 180)
 #endif
+
 #ifndef RAD_TO_DEG
+/** @brief Conversion factor from radians to degrees. */
 #define RAD_TO_DEG (180 / M_PI)
 #endif
 
+/** @brief Default initial pixel dimension (width and height) for a loaded Mapnik Map. */
 #define RENDER_SIZE (256 * (METATILE + 1))
 
 using namespace mapnik;
 
+/** @brief Compatibility alias mapping legacy Mapnik 2 image_data_32 to Mapnik 3+ image_rgba8. */
 #define image_data_32 image_rgba8
+/** @brief Compatibility alias mapping legacy Mapnik 2 image_32 to Mapnik 3+ image_rgba8. */
 #define image_32 image_rgba8
 
+/**
+ * @brief Mutex serializing Mapnik XML stylesheet loading and font registration across render threads.
+ *
+ * Prevents thread-safety issues inside Mapnik/libxml2 and FreeType during concurrent startup initialization.
+ */
 static pthread_mutex_t map_load_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * @brief Spatial reference system (SRS) bounds and grid aspect ratio for a map projection.
+ */
 struct projectionconfig {
+	/** @brief Minimum X (left/west) coordinate in projected map units. */
 	double bound_x0;
+	/** @brief Minimum Y (bottom/south) coordinate in projected map units. */
 	double bound_y0;
+	/** @brief Maximum X (right/east) coordinate in projected map units. */
 	double bound_x1;
+	/** @brief Maximum Y (top/north) coordinate in projected map units. */
 	double bound_y1;
+	/** @brief Horizontal tile grid multiplier at zoom 0 (e.g., 1 for Web Mercator, 2 for Plate Carree). */
 	int aspect_x;
+	/** @brief Vertical tile grid multiplier at zoom 0 (e.g., 1 for Web Mercator, 2 for British National Grid). */
 	int aspect_y;
 };
 
+/**
+ * @brief Per-thread runtime configuration and Mapnik state for a single configured map style.
+ */
 struct xmlmapconfig {
+	/** @brief Base Mapnik Map instance loaded from the stylesheet XML. */
 	Map map;
-	/* Cache of parameterized Map copies keyed by the options string.
+	/**
+	 * @brief Cache of parameterized Map copies keyed by the options string.
+	 *
 	 * Avoids recreating PostGIS datasource objects (and their connection
 	 * pools) on every render, which would accumulate in Mapnik's global
-	 * ConnectionManager and exhaust memory under sustained load. */
+	 * ConnectionManager and exhaust memory under sustained load.
+	 */
 	std::map<std::string, mapnik::Map> parameterized_map_cache;
+	/** @brief Public HTTP hostname used when constructing HTCP cache expiry URLs. */
 	const char *host;
+	/** @brief Hostname or IP address of the HTCP caching proxy to send purge packets to. */
 	const char *htcphost;
+	/** @brief Image encoding format passed to Mapnik (e.g., "png256", "jpeg", "webp"). */
 	const char *output_format;
+	/** @brief Filesystem path to the Mapnik XML stylesheet. */
 	const char *xmlfile;
+	/** @brief Logical map style name used in render protocol requests. */
 	const char *xmlname;
+	/** @brief Base URI path prefix for the tileset (used for HTCP cache expiry). */
 	const char *xmluri;
+	/** @brief Mapnik rendering scale factor (e.g., 1.0 for standard DPI, 2.0 for @2x retina tiles). */
 	double scale;
+	/** @brief Connected UDP socket descriptor for HTCP cache purges, or -1 if disabled/unconnected. */
 	int htcpsock;
+	/** @brief Maximum allowed zoom level for this map style. */
 	int maxzoom;
+	/** @brief Minimum allowed zoom level for this map style. */
 	int minzoom;
+	/** @brief Initialization status flag: 1 if map and storage backend loaded cleanly, 0 otherwise. */
 	int ok;
+	/** @brief Width and height of a single output tile in pixels (typically 256 or 512). */
 	int tilesize;
+	/** @brief Optional style parameterization callback, or NULL if parameterization is disabled. */
 	parameterize_function_ptr parameterize_function;
+	/** @brief Projected coordinate bounds and grid aspect ratios derived from the map's SRS. */
 	struct projectionconfig *prj;
+	/** @brief Storage backend handle used to stat and persist rendered metatiles. */
 	struct storage_backend *store;
 
+	/** @brief Construct an xmlmapconfig with a default 256x256 Mapnik Map canvas. */
 	xmlmapconfig() : map(256, 256) {}
 };
 
+/**
+ * @brief Determine projected world bounds and grid aspect ratios from a PROJ/SRS string.
+ *
+ * Recognizes Web Mercator (`+proj=merc +a=6378137 +b=6378137`), Plate Carree
+ * (`+proj=eqc ...`), and British National Grid (`+proj=tmerc ... OSGB36`).
+ * Falls back to Web Mercator bounds with a warning if the SRS string is unrecognized.
+ *
+ * @param srs Mapnik spatial reference system (PROJ) string.
+ * @return Heap-allocated `projectionconfig` struct (caller owns memory).
+ */
 struct projectionconfig *get_projection(const char *srs)
 {
+	/* Heap-allocated projection configuration to populate and return */
 	struct projectionconfig *prj;
 
 	if (strstr(srs, "+proj=merc +a=6378137 +b=6378137") != NULL) {
@@ -158,8 +212,19 @@ struct projectionconfig *get_projection(const char *srs)
 	return prj;
 }
 
+/**
+ * @brief Register FreeType font files from a directory with Mapnik's font engine.
+ *
+ * Verifies that `font_dir` can be opened, registers all discovered font faces
+ * (optionally recursing into subdirectories), and logs each registered face name
+ * and source file path at `G_LOG_LEVEL_DEBUG`.
+ *
+ * @param font_dir Filesystem path to the directory containing font files.
+ * @param recurse  Non-zero to search subdirectories recursively, 0 for top-level only.
+ */
 static void load_fonts(const char *font_dir, int recurse)
 {
+	/* Directory handle used to validate existence and readability of font_dir */
 	DIR *fonts = opendir(font_dir);
 
 	if (!fonts) {
@@ -173,8 +238,10 @@ static void load_fonts(const char *font_dir, int recurse)
 
 	freetype_engine::register_fonts(font_dir, recurse);
 
+	/* Snapshot of all font face -> file path mappings currently registered in Mapnik */
 	freetype_engine::font_file_mapping_type face_name_mappings = freetype_engine::get_mapping();
 
+	/* Iterator over registered font face mappings for debug logging */
 	freetype_engine::font_file_mapping_type::iterator face_name_mappings_iterator = face_name_mappings.begin();
 
 	while (face_name_mappings_iterator != face_name_mappings.end()) {
@@ -186,12 +253,20 @@ static void load_fonts(const char *font_dir, int recurse)
 }
 
 /**
- * Set the connection pool size of mapnik's datasources  to correspond to the number of
- * rendering threads used in renderd
- **/
+ * @brief Scale Mapnik layer datasource connection pools to match the configured thread count.
+ *
+ * Iterates through every layer in `m`; if a datasource does not already specify
+ * `max_size`, sets `max_size` to `num_threads + 2` and recreates the datasource
+ * instance so concurrent render threads do not starve waiting for database connections.
+ *
+ * @param m           Mapnik Map instance whose layer datasources will be updated.
+ * @param num_threads Number of active rendering threads configured for this map.
+ */
 static void parameterize_map_max_connections(Map &m, int num_threads)
 {
+	/* Layer index loop counter */
 	unsigned int i;
+	/* Scratch buffer for formatting integer connection pool size strings */
 	char *tmp = static_cast<char *>(malloc(20));
 
 	for (i = 0; i < m.layer_count(); i++) {
@@ -209,15 +284,30 @@ static void parameterize_map_max_connections(Map &m, int num_threads)
 	free(tmp);
 }
 
+/**
+ * @brief Validate whether tile coordinates `(x, y, z)` fall within valid bounds for `map`.
+ *
+ * Checks that `z` is within `[map->minzoom, map->maxzoom]` and that `x` and `y` lie
+ * within `[0, (2^z * aspect) - 1]`. Logs an informational message if out of bounds.
+ *
+ * @param x   Tile X coordinate.
+ * @param y   Tile Y coordinate.
+ * @param z   Tile zoom level.
+ * @param map Map configuration containing zoom limits and projection aspect ratios.
+ * @return Non-zero (1) if coordinates are valid, 0 if out of bounds.
+ */
 static int check_xyz(int x, int y, int z, struct xmlmapconfig *map)
 {
-	int oob, limit;
+	/* Out-of-bounds flag (non-zero if any coordinate is invalid) */
+	int oob;
+	/* Base number of tiles per axis at zoom z before applying projection aspect ratio */
+	int limit;
 
-	// Validate tile coordinates
+	/* Validate zoom level bounds */
 	oob = (z < map->minzoom || z > map->maxzoom);
 
 	if (!oob) {
-		// valid x/y for tiles are 0 ... 2^zoom-1
+		/* Valid x/y indices for tiles are 0 ... (2^zoom * aspect) - 1 */
 		limit = (1 << z);
 		oob = (x < 0 || x > (limit * map->prj->aspect_x - 1) || y < 0 || y > (limit * map->prj->aspect_y - 1));
 	}
@@ -229,12 +319,27 @@ static int check_xyz(int x, int y, int z, struct xmlmapconfig *map)
 	return !oob;
 }
 
+/**
+ * @brief Compute the projected bounding box for a metatile anchored at `(x, y, z)`.
+ *
+ * Converts top-left-origin slippy map tile coordinates into bottom-left-origin
+ * projected coordinates (`box2d<double>`). Automatically clamps the metatile span
+ * to the world grid dimensions at very low zoom levels where `2^z < METATILE`.
+ *
+ * @param prj Projection bounds and aspect ratio configuration.
+ * @param x   Top-left tile X coordinate of the metatile.
+ * @param y   Top-left tile Y coordinate of the metatile.
+ * @param z   Tile zoom level.
+ * @return Projected bounding box covering the metatile area.
+ */
 mapnik::box2d<double> tile2prjbounds(struct projectionconfig *prj, int x, int y, int z)
 {
-
+	/* Number of tiles spanned horizontally/vertically in this metatile (clamped at low zooms) */
 	int render_size_tx = MIN(METATILE, prj->aspect_x * (1 << z));
 	int render_size_ty = MIN(METATILE, prj->aspect_y * (1 << z));
 
+	/* Projected bounding box corners: (p0x, p0y) = bottom-left, (p1x, p1y) = top-right.
+	 * Note that tile Y increases downward while projected Y increases upward. */
 	double p0x = prj->bound_x0 + (prj->bound_x1 - prj->bound_x0) * ((double)x / (double)(prj->aspect_x * 1 << z));
 	double p0y = (prj->bound_y1 - (prj->bound_y1 - prj->bound_y0) * (((double)y + render_size_ty) / (double)(prj->aspect_y * 1 << z)));
 	double p1x = prj->bound_x0 + (prj->bound_x1 - prj->bound_x0) * (((double)x + render_size_tx) / (double)(prj->aspect_x * 1 << z));
@@ -246,12 +351,28 @@ mapnik::box2d<double> tile2prjbounds(struct projectionconfig *prj, int x, int y,
 	return bbox;
 }
 
+/**
+ * @brief Render a metatile using Mapnik and slice it into individual encoded tiles.
+ *
+ * Selects either the base Mapnik Map or a cached parameterized Map variant, renders
+ * the full metatile extent into an RGBA buffer via `mapnik::agg_renderer`, and
+ * extracts each sub-tile view into `tiles` encoded in `map->output_format`.
+ *
+ * @param map     Map style configuration and Mapnik state for this worker thread.
+ * @param x       Top-left tile X coordinate of the metatile.
+ * @param y       Top-left tile Y coordinate of the metatile.
+ * @param z       Tile zoom level.
+ * @param options Style parameterization options string (used when `parameterize_function` is set).
+ * @param tiles   Output `metaTile` container populated with encoded sub-tile images.
+ * @return `cmdDone` on successful render and encoding, or `cmdNotDone` if Mapnik throws an exception.
+ */
 static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char *options, metaTile &tiles)
 {
+	/* Actual metatile width and height in tiles (clamped when world grid < METATILE) */
 	unsigned int render_size_tx = MIN(METATILE, map->prj->aspect_x * (1 << z));
 	unsigned int render_size_ty = MIN(METATILE, map->prj->aspect_y * (1 << z));
 
-	/* Select the map to render with: a cached parameterized copy, or the base map. */
+	/* Pointer to the Mapnik Map instance used for rendering (either cached parameterized copy or base map) */
 	mapnik::Map *render_map;
 
 	if (map->parameterize_function) {
@@ -278,11 +399,12 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 	render_map->resize(render_size_tx * map->tilesize, render_size_ty * map->tilesize);
 	render_map->zoom_to_box(tile2prjbounds(map->prj, x, y, z));
 
-	if (render_map->buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
+	if (render_map->buffer_size() == 0) {
+		/* Apply default half-tile render buffer only if the XML stylesheet did not set buffer-size */
 		render_map->set_buffer_size((map->tilesize >> 1) * map->scale);
 	}
 
-	// Zeroing is only needed without a background color, which the renderer fills the whole image with
+	/* Offscreen RGBA framebuffer; zero-initialization is skipped when a solid background color fills the canvas */
 	mapnik::image_32 buf(render_size_tx * map->tilesize, render_size_ty * map->tilesize, !render_map->background());
 
 	try {
@@ -294,7 +416,7 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 		return cmdNotDone;
 	}
 
-	// Split the metatile into an NxN grid of tiles
+	/* Slice the rendered metatile buffer into an render_size_tx x render_size_ty grid of encoded tiles */
 	unsigned int xx, yy;
 
 	for (yy = 0; yy < render_size_ty; yy++) {
@@ -305,9 +427,18 @@ static enum protoCmd render(struct xmlmapconfig *map, int x, int y, int z, char 
 		}
 	}
 
-	return cmdDone; // OK
+	return cmdDone; /* OK */
 }
 
+/**
+ * @brief Initialize global Mapnik datasource plugins and FreeType fonts.
+ *
+ * Must be called once during `renderd` startup before spawning worker threads.
+ *
+ * @param plugins_dir      Directory path containing Mapnik input datasource plugins (`.input`).
+ * @param font_dir         Directory path containing font files for Mapnik's FreeType engine.
+ * @param font_dir_recurse Non-zero to recursively load fonts from subdirectories of `font_dir`.
+ */
 void render_init(const char *plugins_dir, const char *font_dir, int font_dir_recurse)
 {
 	g_logger(G_LOG_LEVEL_INFO, "Renderd is using mapnik version %i.%i.%i", MAPNIK_MAJOR_VERSION, MAPNIK_MINOR_VERSION, MAPNIK_PATCH_VERSION);
@@ -315,11 +446,29 @@ void render_init(const char *plugins_dir, const char *font_dir, int font_dir_rec
 	load_fonts(font_dir, font_dir_recurse);
 }
 
+/**
+ * @brief Worker thread entry point that initializes per-thread Mapnik instances and processes render requests.
+ *
+ * Each worker thread maintains its own `xmlmapconfig` array (because `mapnik::Map` is not
+ * safe for concurrent rendering across threads). After loading all configured XML stylesheets
+ * and storage backends, the thread loops indefinitely pulling items from `render_request_queue`,
+ * rendering metatiles, saving them to storage, optionally sending HTCP cache purges, and
+ * replying to the requesting client.
+ *
+ * @param arg Pointer to the shared array of `xmlconfigitem` definitions (`XMLCONFIGS_MAX` elements).
+ * @return Always returns `NULL` (runs until process termination).
+ */
 void *render_thread(void *arg)
 {
+	/* Shared master configuration array passed from renderd main thread */
 	xmlconfigitem *parentxmlconfig = (xmlconfigitem *)arg;
+	/* Thread-local Mapnik map instances and storage handles for each configured style */
 	xmlmapconfig maps[XMLCONFIGS_MAX];
-	int i, iMaxConfigs;
+	/* Loop index over configured map styles */
+	int i;
+	/* Count of active map configurations loaded into maps[] */
+	int iMaxConfigs;
+	/* Elapsed wall-clock render duration in milliseconds (-1 if not rendered) */
 	int render_time;
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Starting rendering thread: %lu", (unsigned long)pthread_self());
@@ -391,34 +540,39 @@ void *render_thread(void *arg)
 				maps[iMaxConfigs].htcpsock = -1;
 			}
 
-#endif // HTCP_EXPIRE_CACHE
+#endif /* HTCP_EXPIRE_CACHE */
 		} else {
 			maps[iMaxConfigs].ok = 0;
 		}
 	}
 
 	while (1) {
+		/* Protocol response status code sent back to the requesting client */
 		enum protoCmd ret;
+		/* Next queued render request item (NULL if queue is currently empty) */
 		struct item *item = request_queue_fetch_request(render_request_queue);
 		render_time = -1;
 
 		if (item) {
+			/* Wire protocol request payload inside the queue item */
 			struct protocol *req = &item->req;
 
-			// At very low zoom the whole world may be smaller than METATILE
+			/* At very low zoom levels the whole world may be smaller than METATILE */
 			unsigned int size = MIN(METATILE, 1 << req->z);
 
 			for (i = 0; i < iMaxConfigs; ++i) {
 				if (!strcmp(maps[i].xmlname, req->xmlname)) {
 					if (maps[i].ok) {
 						if (check_xyz(item->mx, item->my, req->z, &(maps[i]))) {
-
+							/* Container accumulating rendered sub-tiles for this metatile */
 							metaTile tiles(req->xmlname, req->options, item->mx, item->my, req->z);
 
+							/* Timestamp structs and millisecond counters for measuring render duration */
 							timeval tim;
 							gettimeofday(&tim, NULL);
 							long t1 = tim.tv_sec * 1000 + (tim.tv_usec / 1000);
 
+							/* Existing metatile metadata from storage (size > 0 indicates re-render) */
 							struct stat_info sinfo = maps[i].store->tile_stat(maps[i].store, req->xmlname, req->options, item->mx, item->my, req->z);
 
 							if (sinfo.size > 0)
@@ -444,13 +598,13 @@ void *render_thread(void *arg)
 									tiles.save(maps[i].store);
 #ifdef HTCP_EXPIRE_CACHE
 									tiles.expire_tiles(maps[i].htcpsock, maps[i].host, maps[i].xmluri);
-#endif // HTCP_EXPIRE_CACHE
+#endif
 
 								} catch (std::exception const &ex) {
 									g_logger(G_LOG_LEVEL_ERROR, "Received exception when writing metatile to disk: %s", ex.what());
 									ret = cmdNotDone;
 								} catch (...) {
-									// Treat any error as fatal and request end of processing
+									/* Treat any unknown storage error as fatal and request daemon shutdown */
 									g_logger(G_LOG_LEVEL_CRITICAL, "Failed writing metatile to disk with unknown error, requesting exit.");
 									ret = cmdNotDone;
 									request_exit();
@@ -469,7 +623,7 @@ void *render_thread(void *arg)
 					send_response(item, ret, render_time);
 
 					if ((ret != cmdDone) && (ret != cmdIgnore)) {
-						sleep(10); // Something went wrong with rendering, delay next processing to allow temporary issues to fix them selves
+						sleep(10); /* Back off briefly after a render/storage error to allow transient issues to recover */
 					}
 
 					break;
@@ -478,13 +632,13 @@ void *render_thread(void *arg)
 
 			if (i == iMaxConfigs) {
 				g_logger(G_LOG_LEVEL_ERROR, "No map for: %s", req->xmlname);
-				// Reply and release the request, as for the other failures; otherwise
-				// the client waits for its full timeout and the request (and any later
-				// duplicates of it) stays on the render queue for good
+				/* Reply and release the request, as for the other failures; otherwise
+				 * the client waits for its full timeout and the request (and any later
+				 * duplicates of it) stays on the render queue for good */
 				send_response(item, cmdNotDone, -1);
 			}
 		} else {
-			sleep(1); // TODO: Use an event to indicate there are new requests
+			sleep(1); /* TODO: Use an event to indicate there are new requests */
 		}
 	}
 

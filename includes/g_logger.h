@@ -32,7 +32,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-
 #endif
 
-#endif
+#endif /* G_LOGGER_H */

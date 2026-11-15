@@ -26,17 +26,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 set(CMAKE_INSTALL_MODULESDIR CACHE PATH "Apache HTTP Server module installation directory")
+option(ENABLE_DOXYGEN "Build doxygen pages" OFF)
 option(ENABLE_MAN "Build man pages" ON)
+set(ENABLE_SANITIZERS "" CACHE STRING "Comma-separated sanitizers to build with, e.g. 'address,undefined' or 'thread'")
 option(ENABLE_TESTS "Build test suite" OFF)
 option(ENABLE_WARNINGS "Compile with extra warnings (-Wall -Wextra)" OFF)
 option(ENABLE_WERROR "Treat compiler warnings as errors (requires ENABLE_WARNINGS)" OFF)
-set(ENABLE_SANITIZERS "" CACHE STRING "Comma-separated sanitizers to build with, e.g. 'address,undefined' or 'thread'")
+set(MALLOC_LIB "libc" CACHE STRING "Memory Management Library for `renderd`")
+set_property(CACHE MALLOC_LIB PROPERTY STRINGS "libc" "jemalloc" "mimalloc" "tcmalloc")
 option(USE_CAIRO "Add cairo support if available (for `store_ro_composite.c` backend)" ON)
 option(USE_CURL "Add curl support if available (for `store_ro_http_proxy.c` backend)" ON)
 option(USE_MEMCACHED "Add memcached support if available (for `store_memcached.c` backend)" ON)
 option(USE_RADOS "Add rados support if available (for `store_rados.c` backend)" ON)
-set(MALLOC_LIB "libc" CACHE STRING "Memory Management Library for `renderd`")
-set_property(CACHE MALLOC_LIB PROPERTY STRINGS "libc" "jemalloc" "mimalloc" "tcmalloc")
 
 #-----------------------------------------------------------------------------
 #
@@ -257,6 +258,39 @@ endif()
 
 add_subdirectory(src)
 
+# Doxygen doc files
+if(ENABLE_DOXYGEN)
+  find_package(Doxygen)
+
+  if(Doxygen_FOUND)
+    set(DOXYGEN_EXTRACT_ALL YES)
+    set(DOXYGEN_EXTRACT_STATIC YES)
+    set(DOXYGEN_MACRO_EXPANSION YES)
+    set(DOXYGEN_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/docs")
+    set(DOXYGEN_PREDEFINED
+      __cplusplus
+      AP_MODULE_DECLARE_DATA
+      DIRECTORY_HASH
+      HAVE_CAIRO
+      HAVE_LIBCURL
+      HAVE_LIBMEMCACHED
+      HAVE_LIBRADOS
+      INIPARSER_USES_CONST
+      module=module_rec
+    )
+    set(DOXYGEN_QUIET YES)
+    set(DOXYGEN_RECURSIVE YES)
+    set(DOXYGEN_USE_MATHJAX YES)
+
+    doxygen_add_docs(doxygen_docs
+      ALL
+      "${PROJECT_BINARY_DIR}/includes"
+      "${PROJECT_SOURCE_DIR}/includes"
+      "${PROJECT_SOURCE_DIR}/src"
+    )
+  endif()
+endif()
+
 #-----------------------------------------------------------------------------
 #
 #  Install
@@ -387,6 +421,7 @@ endif()
 
 add_feature_info(cairo CAIRO_FOUND "store_ro_composite backend")
 add_feature_info(curl CURL_FOUND "store_ro_http_proxy backend")
+add_feature_info(doxygen ENABLE_DOXYGEN "doxygen documentation")
 add_feature_info(memcached LIBMEMCACHED_FOUND "store_memcached backend")
 add_feature_info(rados LIBRADOS_FOUND "store_rados backend")
 add_feature_info(tests ENABLE_TESTS "Catch2 test suite")
