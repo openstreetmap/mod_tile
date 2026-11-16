@@ -26,8 +26,10 @@ sudo zypper --non-interactive install \
   gcc \
   gcc-c++ \
   gdal \
+  git \
   glib2-devel \
   harfbuzz-devel \
+  libboost_context-devel \
   libboost_regex-devel \
   libcurl-devel \
   libicu-devel \
@@ -37,13 +39,10 @@ sudo zypper --non-interactive install \
   librados-devel \
   libtiff-devel \
   libwebp-devel \
-  libxml2-devel \
   procps \
   proj-devel \
+  system-user-nobody \
   tar
-
-# Create `nobody` user and group
-sudo useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
 
 # Download, Build, Test & Install `mod_tile`
 export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
@@ -78,7 +77,7 @@ printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-exam
 printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
 
 # Enable `mod_access_compat`
-sudo sed -i 's/^APACHE_MODULES="actions/APACHE_MODULES="access_compat actions/g' /etc/sysconfig/apache2
+sudo a2enmod access_compat
 
 # Start services
 sudo apache2ctl start
