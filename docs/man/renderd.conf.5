@@ -1,4 +1,4 @@
-.TH RENDERD.CONF 5 "2026-10-29" "mod_tile v0.9.0"
+.TH RENDERD.CONF 5 "2026-11-10" "mod_tile v0.9.0"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 renderd.conf \- Configuration file for the renderd tile rendering daemon
@@ -127,8 +127,19 @@ The default value is \fB'0'\fR. Must satisfy \fB0 <= minzoom <= maxzoom\fR.
 .TP
 .B parameterize_style
 Specify the parameterization function (style) to be used for this section.
-When non-empty, enables parameterization options in \fBmod_tile\fR.
-Currently, the only supported parameterization function is \fB'language'\fR.
+When non-empty, enables parameterization options in \fBmod_tile\fR via an additional URL path segment immediately preceding \fB/{z}/{x}/{y}.{ext}\fR.
+Currently, the supported parameterization functions are:
+.RS
+.TP
+.B language
+Replaces \fB,name\fR in datasource \fBtable\fR queries with a \fBcoalesce(...)\fR expression built from comma-separated OpenStreetMap language tags (using \fBtags->'name:<lang>'\fR, or \fBname\fR when \fB_\fR is specified; e.g., \fB{URI}/en,de,_/0/0/0.png\fR).
+.TP
+.B toggle_layer
+Enables or disables Mapnik layers dynamically using comma-separated layer names prefixed with \fB+\fR to enable or \fB-\fR (or no prefix) to disable (e.g., \fB{URI}/-layer1,-layer2,+layer2/0/0/0.png\fR).
+.RS
+Note that although enabling layers via \fB+\fR is supported, it can only re-enable layers that were initially enabled in the Mapnik XML stylesheet and later disabled (for example, earlier in the parameter list or via custom code); layers configured with \fBstatus="off"\fR in the Mapnik XML stylesheet are skipped by Mapnik at parse time and cannot be enabled (see \fIhttps://github.com/mapnik/mapnik/commit/e26570dfdb9e2c98211e793138869b896d8f05d9\fR).
+.RE
+.RE
 .TP
 .B server_alias
 Specify a URL alias of this server to be provided by \fBmod_tile\fR as \fBTileJSON\fR (via \fB{URI}/tile-layer.json\fR).
@@ -156,7 +167,7 @@ Default value is \fB'png image/png png256'\fR. Must contain 2 or 3 space-separat
 Specify the URI prefix with which tiles can be accessed for this section. Trailing slash (\fI/\fP) is appended automatically if omitted.
 .TP
 .B xml
-Specify the file path of the Mapnik configuration XML file for this section.
+Specify the file path of the Mapnik XML stylesheet file for this section.
 Only used by \fBrenderd\fR.
 .SH SEE ALSO
 .BR renderd(1)

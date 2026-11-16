@@ -880,9 +880,24 @@ foreach(STORAGE_BACKEND_INDEX RANGE ${STORAGE_BACKENDS_LENGTH})
 
   if(STORAGE_BACKEND STREQUAL file)
     # Generate URL path for tiles
-    set(TILE_URL_PATH "/tiles/parameterization/en,de,_/${TILE_ZXY}.png")
+    set(TILE_URL_PATH "/tiles/parameterization_language/en,de,_/${TILE_ZXY}.png")
 
-    add_good_tile_download_tests("parameterization" ${TILE_URL_PATH} ${STORAGE_BACKEND})
+    add_good_tile_download_tests("parameterization_language_en_de__" ${TILE_URL_PATH} ${STORAGE_BACKEND})
+
+    # Generate URL path for tiles
+    set(TILE_URL_PATH "/tiles/parameterization_toggle_layer/world/${TILE_ZXY}.jpg")
+
+    add_good_tile_download_tests("parameterization_toggle_layer_world_off" ${TILE_URL_PATH} ${STORAGE_BACKEND})
+
+    # Generate URL path for tiles
+    set(TILE_URL_PATH "/tiles/parameterization_toggle_layer/-world/${TILE_ZXY}.jpg")
+
+    add_good_tile_download_tests("parameterization_toggle_layer_world_off_minus" ${TILE_URL_PATH} ${STORAGE_BACKEND})
+
+    # Generate URL path for tiles
+    set(TILE_URL_PATH "/tiles/parameterization_toggle_layer/+world/${TILE_ZXY}.jpg")
+
+    add_good_tile_download_tests("parameterization_toggle_layer_world_on_plus" ${TILE_URL_PATH} ${STORAGE_BACKEND})
 
     # Generate URL path for tiles
     set(TILE_URL_PATH "/tiles/htcp/${TILE_ZXY}.png")

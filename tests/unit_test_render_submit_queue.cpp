@@ -40,6 +40,7 @@ extern struct speed_stats performance_stats;
 extern unsigned int qLen;
 extern unsigned int qMaxLen;
 
+static int process(struct protocol *cmd, int fd);
 static struct protocol *fetch(void);
 
 // pthread_create() needs a void *(*)(void *); calling fetch() through a cast
@@ -49,7 +50,6 @@ static void *fetch_thread(void *arg)
 	(void)arg;
 	return fetch();
 }
-static int process(struct protocol *cmd, int fd);
 
 // Queue items are malloc()ed and free()d by render_submit_queue.c, so the tests
 // must allocate them the same way (not with new/delete)
@@ -63,6 +63,7 @@ static qItem *make_qitem(char *mapname, int x, int y, int z, qItem *next)
 
 TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 {
+	exit_pthread = false;
 	maxLoad = 999;
 
 	SECTION("fetch function")
@@ -257,7 +258,6 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 		err_log_lines.clear();
 		exit_status = 0;
 
-		exit_pthread = false;
 		pass_next_connect = false;
 		fail_next_next_recv_reponse_size = 0;
 		fail_next_next_recv_reponse_version = 0;
@@ -306,6 +306,8 @@ TEST_CASE("render_submit_queue.c", "[render_submit_queue]")
 			pthread_mutex_unlock(&qLock);
 
 			pthread_join(worker, &ret);
+
+			exit_pthread = false;
 
 			REQUIRE(qLen == 0);
 			REQUIRE(qHead == NULL);

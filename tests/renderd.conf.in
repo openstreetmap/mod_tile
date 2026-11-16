@@ -48,13 +48,22 @@ TILESIZE=256
 URI=/tiles/htcp/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
-# Test Comment: Parameterization Map Section
-; Test Comment: Parameterization Map Section
-[@DEFAULT_MAP_NAME@_parameterization]
+# Test Comment: Language Parameterization Map Section
+; Test Comment: Language Parameterization Map Section
+[@DEFAULT_MAP_NAME@_parameterization_language]
 PARAMETERIZE_STYLE=language
 TILEDIR=@TILE_DIR@
 TYPE=png image/png # Test two parts (rather than three)
-URI=/tiles/parameterization # Test no trailing slash
+URI=/tiles/parameterization_language # Test no trailing slash
+XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
+
+# Test Comment: Toggle Layer Parameterization Map Section
+; Test Comment: Toggle Layer Parameterization Map Section
+[@DEFAULT_MAP_NAME@_parameterization_toggle_layer]
+PARAMETERIZE_STYLE=toggle_layer
+TILEDIR=@TILE_DIR@
+TYPE=jpg image/jpeg jpeg
+URI=/tiles/parameterization_toggle_layer/
 XML=@PROJECT_SOURCE_DIR@/utils/example-map/mapnik.xml
 
 # Test Comment: JPEG Map Section
