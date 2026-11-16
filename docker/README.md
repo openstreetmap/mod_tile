@@ -6,6 +6,7 @@ For your convenience, we have provided a Docker-based building and testing metho
 
 - archlinux _(Arch Linux)_ [[Dockerfile](/docker/archlinux/Dockerfile)]
 - centos-stream-9 _(CentOS Stream 9)_ [[Dockerfile](/docker/centos/stream/Dockerfile)]
+- centos-stream-10 _(CentOS Stream 10)_ [[Dockerfile](/docker/centos/stream/Dockerfile)]
 - debian-11 _(Debian 11)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - debian-12 _(Debian 12)_ [[Dockerfile](/docker/debian/Dockerfile)]
 - debian-13 _(Debian 13)_ [[Dockerfile](/docker/debian/Dockerfile)]

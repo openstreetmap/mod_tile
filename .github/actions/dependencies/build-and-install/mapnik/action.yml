@@ -43,7 +43,8 @@ runs:
           -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
           -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
           -DCMAKE_BUILD_TYPE:STRING=Release \
-          -DCMAKE_INSTALL_PREFIX:PATH=/usr
+          -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+          -DUSE_LIBXML2:BOOL=OFF
         cmake --build mapnik-build
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: steps.cache-mapnik.outputs.cache-hit != 'true'

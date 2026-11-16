@@ -184,6 +184,7 @@ function(add_good_tile_download_test TEST_NAME TEST_URL FILE_NAME FIXTURE_NAME R
     WORKING_DIRECTORY tests
   )
   set_tests_properties(head_tile_${TEST_NAME} PROPERTIES
+    DEPENDS download_tile_${TEST_NAME}
     FIXTURES_REQUIRED ${REQUIRED_FIXTURE_NAME}
     FIXTURES_SETUP ${FIXTURE_NAME}
   )

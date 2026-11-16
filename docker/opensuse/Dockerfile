@@ -3,9 +3,9 @@
 ARG additional_packages
 ARG boost_version
 ARG gcc_version
-ARG mapnik_version=4.0.4
-ARG opensuse_release=leap
-ARG opensuse_version=15
+ARG mapnik_version=4.3.2
+ARG opensuse_release=tumbleweed
+ARG opensuse_version=latest
 
 # Base
 FROM opensuse/${opensuse_release}:${opensuse_version} AS base
@@ -48,7 +48,6 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         libpng16-devel \
         libtiff-devel \
         libwebp-devel \
-        libxml2-devel \
         postgresql-devel \
         proj-devel \
         sqlite3-devel \
@@ -85,7 +84,8 @@ RUN --mount=type=cache,id=opensuse/${opensuse_release}:${opensuse_version}-mapni
         -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
         -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_INSTALL_PREFIX:PATH=/usr && \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+        -DUSE_LIBXML2:BOOL=OFF && \
     cmake --build . && \
     cmake --install . --strip
 
@@ -102,6 +102,7 @@ ARG opensuse_version
 RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse_version}-/var/cache/zypp,target=/var/cache/zypp \
     zypper --non-interactive install ${additional_packages} \
         apache2-devel \
+        apache2-event \
         cairo-devel \
         cmake \
         curl \
@@ -120,17 +121,14 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         librados-devel \
         libtiff-devel \
         libwebp-devel \
-        libxml2-devel \
         procps \
         proj-devel \
-        tar
+        tar \
+        system-user-nobody
 
 ## Copy files from builder(s)
 ### Mapnik
 COPY --from=mapnik-builder /tmp/mapnik /
-
-## Create `nobody` user and group
-RUN id nobody || useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
 
 ## Build, Test & Install `mod_tile`
 COPY . /tmp/mod_tile_src
@@ -146,7 +144,7 @@ RUN CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)" && export CMAKE_BUILD_PARALLEL_LEVEL &
     cmake --build .
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN CTEST_PARALLEL_LEVEL="$(nproc)" && export CTEST_PARALLEL_LEVEL && \
-    if [[ "${additional_packages}" == *"apache2-prefork"* ]]; then ln -s /usr/lib64/apache2-prefork/* /usr/lib64/apache2/; fi && \
+    ln -sf /usr/lib64/apache2-event/* /usr/lib64/apache2/ && \
     ctest --output-on-failure
 RUN export DESTDIR=/tmp/mod_tile && \
     cmake --install . --strip
@@ -177,6 +175,7 @@ RUN --mount=type=cache,sharing=locked,id=opensuse/${opensuse_release}:${opensuse
         librados-devel \
         libtiff-devel \
         libwebp-devel \
+        postgresql-devel \
         proj
 
 ## Copy files from builder(s)
@@ -199,7 +198,7 @@ RUN printf '\n[example-map-png32]\nMAXZOOM=20\nMINZOOM=0\nTYPE=png image/png png
 RUN printf '\n[example-map-webp]\nMAXZOOM=20\nMINZOOM=0\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' >> /etc/renderd.conf
 
 ## Enable `mod_access_compat`
-RUN sed -i 's/^APACHE_MODULES="actions/APACHE_MODULES="access_compat actions/g' /etc/sysconfig/apache2
+RUN a2enmod access_compat
 
 ## Create directories `/srv/www/htdocs` & `/var/log/apache2`
 RUN mkdir --parents /srv/www/htdocs /var/log/apache2

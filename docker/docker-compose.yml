@@ -59,29 +59,16 @@ services:
     build:
       <<: *build_defaults_centos_stream
       args:
+        additional_packages: libpq
         centos_stream_version: "9"
         extra_repository: crb
-  centos-stream-9-autotools:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults_centos_stream
-      args:
-        centos_stream_version: "9"
-        extra_repository: crb
-      dockerfile: docker/centos/stream/Dockerfile.autotools
-  centos-stream-9-mapnik-latest:
-    <<: *service_defaults
-    build:
-      <<: *build_defaults_centos_stream
-      args:
-        centos_stream_version: "9"
-        extra_repository: crb
-      dockerfile: docker/centos/stream/Dockerfile.mapnik-latest
+        mapnik_version: 4.0.4
   centos-stream-10:
     <<: *service_defaults
     build:
       <<: *build_defaults_centos_stream
       args:
+        additional_packages: boost-context boost-url libavif-devel postgresql-private-libs
         centos_stream_version: "10"
         extra_repository: crb
   debian-10:
@@ -254,6 +241,7 @@ services:
       args:
         boost_version: "1_75_0"
         gcc_version: 15
+        mapnik_version: 4.0.4
         opensuse_release: leap
         opensuse_version: 15
   opensuse-leap-16:
@@ -263,6 +251,7 @@ services:
       args:
         boost_version: "1_86_0"
         gcc_version: 15
+        mapnik_version: 4.0.7
         opensuse_release: leap
         opensuse_version: "16.0"
   opensuse-tumbleweed:
@@ -270,8 +259,7 @@ services:
     build:
       <<: *build_defaults_opensuse
       args:
-        additional_packages: apache2-prefork libavif-devel libboost_url-devel
-        mapnik_version: 4.1.4
+        additional_packages: libavif-devel libboost_url-devel
         opensuse_release: tumbleweed
         opensuse_version: latest
   ubuntu-20.04:
