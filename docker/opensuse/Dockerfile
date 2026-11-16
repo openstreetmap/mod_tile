@@ -3,9 +3,9 @@
 ARG additional_packages
 ARG boost_version
 ARG gcc_version
-ARG mapnik_version=4.0.4
-ARG opensuse_release=leap
-ARG opensuse_version=15
+ARG mapnik_version=4.3.2
+ARG opensuse_release=tumbleweed
+ARG opensuse_version=latest
 
 # Base
 FROM opensuse/${opensuse_release}:${opensuse_version} AS base

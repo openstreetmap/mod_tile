@@ -1,8 +1,9 @@
 # hadolint global ignore=DL3025,DL3040,DL3041,DL3059
 # Arguments
-ARG centos_stream_version=9
+ARG additional_packages
+ARG centos_stream_version=10
 ARG extra_repository=crb
-ARG mapnik_version=4.0.3
+ARG mapnik_version=4.3.2
 
 # Base
 FROM quay.io/centos/centos:stream${centos_stream_version} AS base
@@ -24,19 +25,20 @@ RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/
 FROM base AS mapnik-builder
 
 ## Arguments
+ARG additional_packages
 ARG centos_stream_version
 ARG mapnik_version
 
 ## Install mapnik-builder dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
-    dnf --assumeyes install \
+    dnf --assumeyes install ${additional_packages} \
         boost-devel \
         cairo-devel \
         cmake \
         freetype-devel \
         gcc \
         gcc-c++ \
-        gdal-devel \
+        gdal3.4-devel \
         git \
         harfbuzz-devel \
         libicu-devel \
@@ -83,18 +85,19 @@ RUN --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-src:${map
 FROM base AS builder
 
 ## Arguments
+ARG additional_packages
 ARG centos_stream_version
 
 ## Install builder dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
-    dnf --assumeyes install \
+    dnf --assumeyes install ${additional_packages} \
         boost-devel \
         cairo-devel \
         cmake \
         freetype-devel \
         gcc \
         gcc-c++ \
-        gdal \
+        gdal3.4 \
         glib2-devel \
         harfbuzz-devel \
         httpd-devel \
@@ -137,14 +140,15 @@ RUN export DESTDIR=/tmp/mod_tile && \
 FROM base AS runner
 
 ## Arguments
+ARG additional_packages
 ARG centos_stream_version
 
 ## Install runner dependencies
 RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/var/cache/dnf,target=/var/cache/dnf \
-    dnf --assumeyes install \
+    dnf --assumeyes install ${additional_packages} \
         boost-regex \
         cairo \
-        gdal \
+        gdal3.4 \
         harfbuzz \
         httpd \
         iniparser \
