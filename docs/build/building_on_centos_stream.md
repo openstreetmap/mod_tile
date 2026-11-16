@@ -8,7 +8,7 @@ A Docker-based building & testing setup pipeline is also available [here](/docke
 
 _CentOS Stream does not provide a `mapnik`/`mapnik-devel` package, so it will first need to be built & installed, which is beyond the scope of this document, please visit the project's [installation document on GitHub](https://github.com/mapnik/mapnik/blob/master/INSTALL.md) or our [Continuous Integration script](/.github/actions/dependencies/build-and-install/mapnik/action.yml) for more information._
 
-## CentOS Stream 9
+## CentOS Stream 9/10
 
 ```shell
 #!/usr/bin/env bash
@@ -33,7 +33,7 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   cmake \
   gcc \
   gcc-c++ \
-  gdal \
+  gdal3.4 \
   git \
   glib2-devel \
   harfbuzz-devel \
@@ -47,6 +47,7 @@ sudo dnf --assumeyes --setopt=install_weak_deps=False install \
   libtiff \
   libwebp \
   make \
+  postgresql-devel \
   procps \
   proj
 

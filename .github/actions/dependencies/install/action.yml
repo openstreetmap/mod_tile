@@ -21,7 +21,7 @@ inputs:
       boost-devel
       cmake
       freetype-devel
-      gdal-devel
+      gdal3.4-devel
       git
       harfbuzz-devel
       libicu-devel
@@ -210,9 +210,9 @@ inputs:
       lcov
       memcached
   mapnik-build-version-centos-stream:
-    default: 4.0.3
+    default: 4.0.4
   mapnik-build-version-opensuse:
-    default: 4.0.3
+    default: 4.0.4
 
 runs:
   using: composite

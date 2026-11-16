@@ -32,6 +32,8 @@ jobs:
       matrix:
         service-name:
           - archlinux
+          - centos-stream-9
+          - centos-stream-10
           - debian-12
           - debian-13
           - fedora-44
@@ -40,10 +42,6 @@ jobs:
           - ubuntu-24.04
           - ubuntu-26.04
         include:
-          # - service-name: centos-stream-9
-          #   experimental: true
-          # - service-name: centos-stream-10
-          #   experimental: true
           - service-name: debian-unstable
             experimental: true
           - service-name: debian-unstable-autotools

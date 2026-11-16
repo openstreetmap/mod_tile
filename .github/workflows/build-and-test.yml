@@ -28,6 +28,8 @@ jobs:
           - "fedora:44"
           - "fedora:45"
           - "opensuse/leap:16"
+          - "quay.io/centos/centos:stream10"
+          - "quay.io/centos/centos:stream9"
           - "ubuntu:24.04"
         on_default_branch:
           - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
@@ -36,14 +38,6 @@ jobs:
             build_system: CMake
             compiler: GNU
             experimental: true
-          # - image: "quay.io/centos/centos:stream9"
-          #   build_system: CMake
-          #   compiler: GNU
-          #   experimental: true
-          # - image: "quay.io/centos/centos:stream10"
-          #   build_system: CMake
-          #   compiler: GNU
-          #   experimental: true
           - image: "fedora:rawhide"
             build_system: CMake
             compiler: GNU
