@@ -44,7 +44,6 @@ RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/
         libpng-devel \
         libtiff-devel \
         libwebp-devel \
-        libxml2-devel \
         make \
         postgresql-devel \
         proj-devel \
@@ -75,7 +74,8 @@ RUN --mount=type=cache,id=centos:stream${centos_stream_version}-mapnik-src:${map
         -DBUILD_UTILITY_SHAPEINDEX:BOOL=OFF \
         -DBUILD_UTILITY_SVG2PNG:BOOL=OFF \
         -DCMAKE_BUILD_TYPE:STRING=Release \
-        -DCMAKE_INSTALL_PREFIX:PATH=/usr && \
+        -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+        -DUSE_LIBXML2:BOOL=OFF && \
     cmake --build . && \
     cmake --install . --strip
 
@@ -107,7 +107,6 @@ RUN --mount=type=cache,sharing=locked,id=centos:stream${centos_stream_version}-/
         librados2-devel \
         libtiff-devel \
         libwebp-devel \
-        libxml2-devel \
         make \
         pkg-config \
         procps \

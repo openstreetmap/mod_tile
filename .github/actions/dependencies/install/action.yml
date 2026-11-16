@@ -29,7 +29,6 @@ inputs:
       libpng-devel
       libtiff-devel
       libwebp-devel
-      libxml2-devel
       postgresql-devel
       proj-devel
       sqlite-devel
@@ -61,7 +60,6 @@ inputs:
       libsqlite3-dev
       libtiff-dev
       libwebp-dev
-      libxml2-dev
       postgresql-server-dev-all
   debian-test-dependencies:
     default: >-
@@ -158,6 +156,7 @@ inputs:
       lcov
       memcached
       procps
+      system-user-nobody
   opensuse-mapnik-build-dependencies:
     default: >-
       cmake
@@ -171,7 +170,6 @@ inputs:
       libpng16-devel
       libtiff-devel
       libwebp-devel
-      libxml2-devel
       postgresql-devel
       proj-devel
       sqlite3-devel
@@ -203,7 +201,6 @@ inputs:
       libsqlite3-dev
       libtiff-dev
       libwebp-dev
-      libxml2-dev
       postgresql-server-dev-all
   ubuntu-test-dependencies:
     default: >-
@@ -316,12 +313,6 @@ runs:
         update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 40
       shell: bash --noprofile --norc -euxo pipefail {0}
       if: startsWith(matrix.image, 'opensuse/') && matrix.compiler == 'GNU'
-
-    - name: Add `nobody` user/group (openSUSE)
-      run: |
-        id nobody || useradd --home-dir / --no-create-home --shell /usr/sbin/nologin --system --user-group nobody
-      shell: bash --noprofile --norc -euxo pipefail {0}
-      if: startsWith(matrix.image, 'opensuse/')
 
     - name: Build & Install `mapnik` (CentOS Stream)
       uses: ./.github/actions/dependencies/build-and-install/mapnik
