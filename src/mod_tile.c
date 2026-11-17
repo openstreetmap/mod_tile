@@ -68,37 +68,64 @@
 #include "store.h"
 #include "sys_utils.h"
 
+/** @brief Apache HTTP Server module structure declaration for `mod_tile`. */
 module AP_MODULE_DECLARE_DATA tile_module;
 
 #if !defined(OS2) && !defined(WIN32) && !defined(BEOS) && !defined(NETWARE)
 #include <unixd.h>
+/** @brief Enable POSIX file-permission adjustment on APR global mutexes for Apache child processes. */
 #define MOD_TILE_SET_MUTEX_PERMS /* XXX Apache should define something */
 #endif
 
 APLOG_USE_MODULE(tile);
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__MACH__)) && !defined(s6_addr32)
+/** @brief Compatibility alias mapping `s6_addr32` to BSD/macOS `in6_addr` 32-bit union member. */
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
+/** @brief Shared-memory segment holding global and per-layer `stats_data` counters across worker processes. */
 apr_shm_t *stats_shm;
+/** @brief Shared-memory segment holding the per-client IP rate-limiting `delaypool` table. */
 apr_shm_t *delaypool_shm;
+/** @brief Cross-process mutex serializing reads and updates to `stats_shm`. */
 apr_global_mutex_t *stats_mutex;
+/** @brief Cross-process mutex serializing reads and updates to `delaypool_shm`. */
 apr_global_mutex_t *delaypool_mutex;
 
+/** @brief Filesystem lockfile path backing `stats_mutex`. */
 char *stats_mutexfilename;
+/** @brief Filesystem lockfile path backing `delaypool_mutex`. */
 char *delaypool_mutexfilename;
+/** @brief Total number of configured map layers registered across all virtual hosts. */
 int layerCount = 0;
+/** @brief Highest `maxzoom` configured across all registered map layers. */
 int global_max_zoom = 0;
 
+/**
+ * @brief Per-worker-thread array of initialized storage backend instances indexed by layer number.
+ */
 struct storage_backends {
+	/** @brief Array of lazily initialized `storage_backend` pointers (`NULL` until first access per layer). */
 	struct storage_backend **stores;
+	/** @brief Total number of slots allocated in `stores` (`scfg->configs->nelts`). */
 	int noBackends;
 };
 
 static int error_message(request_rec *r, const char *format, ...)
     __attribute__((format(printf, 2, 3)));
 
+/**
+ * @brief Send a formatted plain-text diagnostic response body with HTTP 200 status.
+ *
+ * Logs the formatted message at `APLOG_INFO` level and writes it to the response stream
+ * unless the incoming request is a `HEAD` request (`r->header_only`).
+ *
+ * @param r      Active Apache HTTP request record.
+ * @param format `printf`-style format string.
+ * @param ...    Format arguments.
+ * @return Always returns Apache `OK`.
+ */
 static int error_message(request_rec *r, const char *format, ...)
 {
 	va_list ap;
@@ -121,6 +148,17 @@ static int error_message(request_rec *r, const char *format, ...)
 	return OK;
 }
 
+/**
+ * @brief Attempt to acquire an APR cross-process global mutex with bounded spin-sleep retries.
+ *
+ * Polls `apr_global_mutex_trylock()` up to `MAXCAMP` times, sleeping `CAMPOUT` microseconds
+ * between attempts when contended (`APR_EBUSY`), or falling back to a blocking lock if
+ * `trylock` is unimplemented on the platform (`APR_ENOTIMPL`).
+ *
+ * @param r     Active Apache HTTP request record (used for request-scoped logging).
+ * @param mutex Global mutex to acquire.
+ * @return `1` if the lock was successfully acquired; `0` on timeout or error.
+ */
 static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
 {
 	apr_status_t rs;
@@ -153,6 +191,18 @@ static int get_global_lock(request_rec *r, apr_global_mutex_t *mutex)
 	return 0;
 }
 
+/**
+ * @brief Snapshot shared-memory statistics into request-pool memory under `stats_mutex`.
+ *
+ * Duplicates `stats_data` along with its trailing per-layer `noResp200Layer` and
+ * `noResp404Layer` arrays into `r->pool` so handlers can format responses without
+ * holding the global lock.
+ *
+ * @param r          Active Apache HTTP request record.
+ * @param scfg       Virtual host server configuration.
+ * @param stats_copy Output pointer receiving the pool-allocated `stats_data` copy.
+ * @return Apache `OK` on success (or after writing an error message if lock acquisition fails).
+ */
 static int get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **stats_copy)
 {
 	stats_data *stats;
@@ -175,6 +225,15 @@ static int get_stats_copy(request_rec *r, tile_server_conf *scfg, stats_data **s
 	return OK;
 }
 
+/**
+ * @brief Open and connect a stream socket to the `renderd` daemon over TCP or UNIX domain socket.
+ *
+ * Uses TCP (`getaddrinfo` + `connect`) when `scfg->renderd_socket_port > 0`, otherwise
+ * connects to the local `AF_UNIX` socket path specified in `scfg->renderd_socket_name`.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return Connected socket file descriptor on success, or `FD_INVALID` (`-1`) on failure.
+ */
 static int socket_init(request_rec *r)
 {
 	struct addrinfo hints;
@@ -271,6 +330,19 @@ static int socket_init(request_rec *r)
 	return fd;
 }
 
+/**
+ * @brief Submit a tile render or dirty invalidation request to `renderd` and optionally wait for completion.
+ *
+ * Maps `renderImmediately` to a wire protocol opcode (`0` -> `cmdDirty`, `1` -> `cmdRenderLow`,
+ * `2` -> `cmdRender`, `3` -> `cmdRenderPrio`, or `cmdRenderBulk` when bulk mode is active),
+ * sends the v2/v3 packet over a transient socket, and for non-zero priority waits via `poll()`
+ * up to `request_timeout` or `request_timeout_priority` seconds for a matching `cmdDone` reply.
+ *
+ * @param r                 Active Apache HTTP request record.
+ * @param cmd               Pre-populated wire protocol request packet (`ver`, `x`, `y`, `z`, `xmlname`, `options`).
+ * @param renderImmediately Priority level (`0` for fire-and-forget `cmdDirty`, `1..3` for synchronous render wait).
+ * @return `1` if `renderd` replied with `cmdDone` matching the requested tile; `0` on timeout, error, or `cmdDirty`.
+ */
 static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediately)
 {
 	int fd = FD_INVALID;
@@ -422,6 +494,12 @@ static int request_tile(request_rec *r, struct protocol *cmd, int renderImmediat
 	return 0;
 }
 
+/**
+ * @brief APR pool cleanup callback closing all per-thread storage backends when a worker thread exits.
+ *
+ * @param data Pointer to the thread's `struct storage_backends` container.
+ * @return Always returns `APR_SUCCESS`.
+ */
 static apr_status_t cleanup_storage_backend(void *data)
 {
 	struct storage_backends *stores = (struct storage_backends *)data;
@@ -437,6 +515,17 @@ static apr_status_t cleanup_storage_backend(void *data)
 	return APR_SUCCESS;
 }
 
+/**
+ * @brief Retrieve or lazily initialize the thread-local storage backend for a given map layer.
+ *
+ * Caches a `struct storage_backends` array in the Apache worker thread's lifecycle pool
+ * (`apr_thread_pool_get(r->connection->current_thread)`) so storage handles (such as file,
+ * memcached, RADOS, or curl connections) are reused safely without cross-thread locking.
+ *
+ * @param r          Active Apache HTTP request record.
+ * @param tile_layer Zero-based index of the target map layer in `scfg->configs`.
+ * @return Pointer to the initialized `struct storage_backend`, or `NULL` on initialization failure.
+ */
 static struct storage_backend *get_storage_backend(request_rec *r, int tile_layer)
 {
 	struct storage_backends *stores = NULL;
@@ -480,6 +569,16 @@ static struct storage_backend *get_storage_backend(request_rec *r, int tile_laye
 	return stores->stores[tile_layer];
 }
 
+/**
+ * @brief Query the storage backend to determine whether a tile is missing, current, old, or very old.
+ *
+ * Populates `r->finfo` timestamps (`mtime`, `atime`, `ctime` converted to microseconds)
+ * from `tile_stat()` and classifies expired tiles using `scfg->very_old_threshold`.
+ *
+ * @param r   Active Apache HTTP request record.
+ * @param cmd Wire protocol descriptor specifying `(xmlname, options, x, y, z)`.
+ * @return Classified freshness state (`tileMissing`, `tileOld`, `tileVeryOld`, or `tileCurrent`).
+ */
 static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(r->server->module_config, &tile_module);
@@ -512,8 +611,15 @@ static enum tileState tile_state(request_rec *r, struct protocol *cmd)
 }
 
 /**
- * Add CORS ( Cross-origin resource sharing ) headers. http://www.w3.org/TR/cors/
- * CORS allows requests that would otherwise be forbidden under the same origin policy.
+ * @brief Validate incoming `Origin` headers and attach Cross-Origin Resource Sharing (CORS) response headers.
+ *
+ * Handles both standard `GET`/`HEAD` requests and `OPTIONS` preflight requests against
+ * the configured CORS policy (`"*"` or allowed origin substring list).
+ *
+ * @param r    Active Apache HTTP request record.
+ * @param cors Configured CORS policy string (`"*"` or space/comma-separated origins).
+ * @return `DONE` when headers are added (or no `Origin` header is present), `OK` for a valid
+ *         `OPTIONS` preflight request, or `HTTP_FORBIDDEN` if the origin is disallowed.
  */
 static int add_cors(request_rec *r, const char *cors)
 {
@@ -559,6 +665,16 @@ static int add_cors(request_rec *r, const char *cors)
 	}
 }
 
+/**
+ * @brief Compute and attach HTTP `Cache-Control` (`max-age`) and `Expires` response headers.
+ *
+ * Selects `max-age` based on extended-cache hostname rules, stale/dirty tile status, or
+ * zoom-level minimum cache durations combined with last-modified age scaling, randomized
+ * jitter (to prevent synchronized cache stampedes), and `scfg->cache_duration_max`.
+ *
+ * @param r   Active Apache HTTP request record.
+ * @param cmd Wire protocol descriptor specifying the tile zoom level `z`.
+ */
 static void add_expiry(request_rec *r, struct protocol *cmd)
 {
 	apr_time_t holdoff;
@@ -633,6 +749,15 @@ static void add_expiry(request_rec *r, struct protocol *cmd)
 	apr_table_setn(t, "Expires", timestr);
 }
 
+/**
+ * @brief Increment shared-memory HTTP response status, zoom-level, and per-layer counters.
+ *
+ * @param resp        HTTP status code returned (`OK`, `HTTP_NOT_MODIFIED`, `HTTP_NOT_FOUND`, etc.).
+ * @param r           Active Apache HTTP request record.
+ * @param cmd         Optional wire protocol request descriptor (for zoom-level counters; may be `NULL`).
+ * @param layerNumber Zero-based index of the matched map layer.
+ * @return `1` if counters were updated (or stats collection is disabled); `0` if mutex acquisition failed.
+ */
 static int incRespCounter(int resp, request_rec *r, struct protocol *cmd, int layerNumber)
 {
 	stats_data *stats;
@@ -705,6 +830,13 @@ static int incRespCounter(int resp, request_rec *r, struct protocol *cmd, int la
 	}
 }
 
+/**
+ * @brief Increment shared-memory cache-hit vs. on-demand-render outcome counters.
+ *
+ * @param status Outcome code (`FRESH`, `FRESH_RENDER`, `OLD`, `VERYOLD`, `OLD_RENDER`, or `VERYOLD_RENDER`).
+ * @param r      Active Apache HTTP request record.
+ * @return `1` if counters were updated (or stats collection is disabled); `0` if mutex acquisition failed.
+ */
 static int incFreshCounter(int status, request_rec *r)
 {
 	stats_data *stats;
@@ -765,6 +897,14 @@ static int incFreshCounter(int status, request_rec *r)
 	}
 }
 
+/**
+ * @brief Record tile storage retrieval duration (in microseconds) in shared-memory timing statistics.
+ *
+ * @param duration Elapsed storage read time in microseconds.
+ * @param z        Tile zoom level (`0..MAX_ZOOM_SERVER`).
+ * @param r        Active Apache HTTP request record.
+ * @return `1` if counters were updated (or stats collection is disabled); `0` if mutex acquisition failed.
+ */
 static int incTimingCounter(apr_uint64_t duration, int z, request_rec *r)
 {
 	stats_data *stats;
@@ -796,6 +936,18 @@ static int incTimingCounter(apr_uint64_t duration, int z, request_rec *r)
 	}
 }
 
+/**
+ * @brief Enforce per-client IP token-bucket rate limits for tile and render requests.
+ *
+ * Extracts the client IP (honoring `X-Forwarded-For` when configured), checks the IPv4
+ * whitelist, and consumes one tile token (plus one render token if `state == tileMissing`)
+ * from the client's hash slot in `delaypool_shm`. When a bucket is depleted, refills all
+ * buckets based on elapsed time and sleeps `CLIENT_PENALTY` seconds before re-checking.
+ *
+ * @param r     Active Apache HTTP request record.
+ * @param state Current freshness state of the requested tile (`tileMissing` consumes a render token).
+ * @return `1` if the request is permitted; `0` if the client exceeded its rate limit.
+ */
 static int delay_allowed(request_rec *r, enum tileState state)
 {
 	delaypool *delayp;
@@ -951,6 +1103,18 @@ static int delay_allowed(request_rec *r, enum tileState state)
 	}
 }
 
+/**
+ * @brief Apache `map_to_storage` hook managing tile freshness checks, throttling, load shedding, and on-demand rendering.
+ *
+ * Bypasses filesystem mapping for `mod_tile` handlers, enforces delaypool throttling,
+ * checks system 1-minute load averages against `max_load_old` and `max_load_missing`,
+ * and triggers synchronous or background rendering via `request_tile()` as needed.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` when the request may proceed to the content handler, `DECLINED` for non-tile
+ *         requests, or an HTTP error status (`HTTP_SERVICE_UNAVAILABLE`, `HTTP_NOT_FOUND`,
+ *         `HTTP_INTERNAL_SERVER_ERROR`).
+ */
 static int tile_storage_hook(request_rec *r)
 {
 	//    char abs_path[PATH_MAX];
@@ -1096,6 +1260,13 @@ static int tile_storage_hook(request_rec *r)
 	return HTTP_NOT_FOUND;
 }
 
+/**
+ * @brief Parse a base-10 integer string strictly, rejecting empty or trailing non-numeric characters.
+ *
+ * @param str    Null-terminated numeric input string.
+ * @param result Output pointer receiving the parsed integer value.
+ * @return `APR_SUCCESS` on valid full-string parse, or `APR_EINVAL` otherwise.
+ */
 static apr_status_t safe_parse_int(const char *str, int *result)
 {
 	char *endptr;
@@ -1114,6 +1285,16 @@ static apr_status_t safe_parse_int(const char *str, int *result)
 	return APR_SUCCESS;
 }
 
+/**
+ * @brief Split a filename's trailing extension at the last `'.'` character in place.
+ *
+ * Copies the substring following the last `'.'` into `ext_dest` and truncates `filename`
+ * at the dot. Leaves both unchanged if no `'.'` is found.
+ *
+ * @param filename Mutable filename buffer (e.g., `"123.png"` -> `"123"`).
+ * @param ext_dest Destination buffer receiving the file extension without leading dot.
+ * @param dest_len Capacity of `ext_dest` in bytes.
+ */
 static void get_extension(char *filename, char *ext_dest, size_t dest_len)
 {
 	char *dot = strrchr(filename, '.');
@@ -1124,6 +1305,19 @@ static void get_extension(char *filename, char *ext_dest, size_t dest_len)
 	}
 }
 
+/**
+ * @brief Apache `translate_name` hook mapping incoming URIs to `mod_tile` handlers and tile coordinates.
+ *
+ * Matches global endpoints (`/mod_tile`, `/metrics`) as well as configured layer `baseuri` prefixes
+ * (`/tile-layer.json`, `/[options/]z/x/y.ext[/status|/dirty]`), validates zoom/coordinate bounds
+ * and file extensions, initializes the layer's thread-local storage backend, and stores a
+ * `struct tile_request_data` record on `r->request_config`.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` if handled by `mod_tile`, `DECLINED` if the URI does not match, or an HTTP
+ *         status code (`HTTP_NOT_FOUND` for out-of-bounds coordinates, `HTTP_INTERNAL_SERVER_ERROR`
+ *         if backend initialization fails).
+ */
 static int tile_translate(request_rec *r)
 {
 	int baseuri_len, i, limit, oob;
@@ -1314,6 +1508,16 @@ static int tile_translate(request_rec *r)
 	return DECLINED;
 }
 
+/**
+ * @brief Apache content handler for `.../dirty` tile invalidation URLs (`tile_dirty`).
+ *
+ * Submits a background `cmdDirty` request to `renderd` when `ModTileEnableDirtyURL` is
+ * enabled and bulk mode is inactive.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` with a confirmation message, `HTTP_NOT_FOUND` if `/dirty` URLs are disabled,
+ *         or `DECLINED` if `r->handler` is not `"tile_dirty"`.
+ */
 static int tile_handler_dirty(request_rec *r)
 {
 	tile_server_conf *scfg;
@@ -1347,6 +1551,17 @@ static int tile_handler_dirty(request_rec *r)
 	return error_message(r, "Tile submitted for rendering\n");
 }
 
+/**
+ * @brief Apache content handler for `.../status` tile diagnostic URLs (`tile_status`).
+ *
+ * Queries `tile_state()` and responds with a human-readable summary of the tile's
+ * cleanliness/expiry state, last render timestamp (`mtime`), last access timestamp (`atime`),
+ * and backend storage identifier.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` with diagnostic text, `HTTP_NOT_FOUND` if `/status` URLs are disabled or the
+ *         request lacks parsed tile coordinates, or `DECLINED` for other handlers.
+ */
 static int tile_handler_status(request_rec *r)
 {
 	tile_server_conf *scfg;
@@ -1395,8 +1610,15 @@ static int tile_handler_status(request_rec *r)
 }
 
 /**
- * Implement a tilejson description page for the tile layer.
- * This follows the tilejson specification of mapbox ( https://github.com/mapbox/tilejson-spec/tree/master/2.0.0 )
+ * @brief Apache content handler serving a TileJSON 2.0.0 metadata document (`tile_json`).
+ *
+ * Generates a JSON metadata payload conforming to the Mapbox TileJSON 2.0.0 specification
+ * (`https://github.com/mapbox/tilejson-spec/tree/master/2.0.0`) with layer name, description,
+ * attribution, zoom bounds, tile URL templates, MD5 `ETag`, and 1-week caching headers.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` after writing the TileJSON response, `HTTP_FORBIDDEN` if CORS rejects the origin,
+ *         or `DECLINED` if `r->handler` is not `"tile_json"`.
  */
 static int tile_handler_json(request_rec *r)
 {
@@ -1482,6 +1704,12 @@ static int tile_handler_json(request_rec *r)
 	return OK;
 }
 
+/**
+ * @brief Apache content handler rendering legacy plain-text `mod_tile` statistics at `/mod_tile`.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` after writing the key-value statistics report, or `DECLINED` if `r->handler` is not `"tile_mod_stats"`.
+ */
 static int tile_handler_mod_stats(request_rec *r)
 {
 	int i;
@@ -1540,6 +1768,12 @@ static int tile_handler_mod_stats(request_rec *r)
 	return OK;
 }
 
+/**
+ * @brief Apache content handler exporting Prometheus-formatted metrics at `/metrics`.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` after writing the Prometheus exposition payload, or `DECLINED` if `r->handler` is not `"tile_metrics"`.
+ */
 static int tile_handler_metrics(request_rec *r)
 {
 	int i;
@@ -1615,6 +1849,19 @@ static int tile_handler_metrics(request_rec *r)
 	return OK;
 }
 
+/**
+ * @brief Primary Apache content handler reading and serving tile payloads (`tile_serve`).
+ *
+ * Applies CORS headers, reads the tile bytes from the layer's storage backend, sets
+ * `Content-Encoding: gzip` when the stored tile is compressed, computes an MD5 `ETag`,
+ * attaches `Cache-Control`/`Expires` headers, evaluates conditional requests (`304 Not Modified`),
+ * and streams the tile payload to the client.
+ *
+ * @param r Active Apache HTTP request record.
+ * @return `OK` when the tile is served, `HTTP_NOT_MODIFIED` (or other conditional status)
+ *         when `ap_meets_conditions()` triggers, `HTTP_NOT_FOUND` / `HTTP_INTERNAL_SERVER_ERROR`
+ *         on error, or `DECLINED` if the tile could not be read or `r->handler` is not `"tile_serve"`.
+ */
 static int tile_handler_serve(request_rec *r)
 {
 	const int tile_max = MAX_SIZE;
@@ -1701,14 +1948,14 @@ static int tile_handler_serve(request_rec *r)
 		ap_update_mtime(r, r->finfo.mtime);
 		ap_set_last_modified(r);
 		ap_set_etag(r);
-#else
+#else /* 0 */
 		// Use MD5 hash as only cache attribute.
 		// If a tile is re-rendered and produces the same output
 		// then we can continue to use the previous cached copy
 		md5 = ap_md5_binary(r->pool, (unsigned char *)buf, len);
 		apr_table_setn(r->headers_out, "ETag",
 			       apr_psprintf(r->pool, "\"%s\"", md5));
-#endif
+#endif /* 0 */
 		ap_set_content_type(r, tile_configs[rdata->layerNumber].mimeType);
 		ap_set_content_length(r, len);
 		add_expiry(r, cmd);
@@ -1745,11 +1992,19 @@ static int tile_handler_serve(request_rec *r)
 	return DECLINED;
 }
 
-/*
- * This routine is called in the parent, so we'll set up the shared
- * memory segment and mutex here.
+/**
+ * @brief Apache `post_config` hook allocating shared-memory segments and cross-process mutexes in the parent process.
+ *
+ * Uses a process-pool sentinel (`"mod_tile_init_module"`) to skip Apache's initial config
+ * dry-run pass, then creates and zero-initializes `stats_shm`, `delaypool_shm`, `stats_mutex`,
+ * and `delaypool_mutex`.
+ *
+ * @param pconf Configuration memory pool.
+ * @param plog  Logging memory pool.
+ * @param ptemp Temporary configuration memory pool.
+ * @param s     Main Apache `server_rec`.
+ * @return `OK` on success, or `HTTP_INTERNAL_SERVER_ERROR` if shared memory or mutex creation fails.
  */
-
 static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 				apr_pool_t *ptemp, server_rec *s)
 {
@@ -1916,12 +2171,14 @@ static int mod_tile_post_config(apr_pool_t *pconf, apr_pool_t *plog,
 	return OK;
 }
 
-/*
- * This routine gets called when a child inits. We use it to attach
- * to the shared memory segment, and reinitialize the mutex and setup
- * connections to storage backends.
+/**
+ * @brief Apache `child_init` hook reopening the global statistics mutex in each forked worker process.
+ *
+ * Exits the child process with status `1` if `apr_global_mutex_child_init()` fails.
+ *
+ * @param p Child process memory pool.
+ * @param s Main Apache `server_rec`.
  */
-
 static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 {
 	apr_status_t rs;
@@ -1947,6 +2204,11 @@ static void mod_tile_child_init(apr_pool_t *p, server_rec *s)
 	}
 }
 
+/**
+ * @brief Register all `mod_tile` lifecycle, URI translation, storage mapping, and content hooks with Apache.
+ *
+ * @param p Pool passed by Apache during module registration (unused).
+ */
 static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 {
 	ap_hook_post_config(mod_tile_post_config, NULL, NULL, APR_HOOK_MIDDLE);
@@ -1961,6 +2223,30 @@ static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 	ap_hook_map_to_storage(tile_storage_hook, NULL, NULL, APR_HOOK_FIRST);
 }
 
+/**
+ * @brief Append and normalize a map layer configuration (`tile_config_rec`) on the target virtual host.
+ *
+ * Normalizes trailing slashes on `baseuri`, fills defaults for attribution and `tile_dir`,
+ * constructs TileJSON host URL arrays from `server_hostname` and `server_alias`, updates
+ * `global_max_zoom`, and increments `layerCount`.
+ *
+ * @param cmd           Apache configuration command parameters.
+ * @param baseuri       Base URI path prefix for this layer (e.g., `"/osm/"`).
+ * @param name          Target map style identifier (`xmlname`) in `renderd`.
+ * @param minzoom       Minimum allowed zoom level.
+ * @param maxzoom       Maximum allowed zoom level.
+ * @param aspect_x      Horizontal projection aspect ratio multiplier.
+ * @param aspect_y      Vertical projection aspect ratio multiplier.
+ * @param fileExtension Tile filename extension without leading dot (e.g., `"png"`).
+ * @param mimeType      HTTP `Content-Type` string (e.g., `"image/png"`).
+ * @param description   Human-readable layer description for TileJSON.
+ * @param attribution   Attribution HTML/text string (defaults to `DEFAULT_ATTRIBUTION` when empty).
+ * @param server_alias  Optional secondary TileJSON host URL.
+ * @param cors          Optional CORS policy string (`""` disables CORS).
+ * @param tile_dir      Optional per-layer storage URI/path (`""` inherits `scfg->tile_dir`).
+ * @param enableOptions Non-zero to enable style parameterization options in URLs.
+ * @return `NULL` on success (standard Apache directive handler convention).
+ */
 static const char *_add_tile_config(cmd_parms *cmd,
 				    const char *baseuri, const char *name, int minzoom, int maxzoom, int aspect_x, int aspect_y,
 				    const char *fileExtension, const char *mimeType, const char *description, const char *attribution,
@@ -2069,6 +2355,16 @@ static const char *_add_tile_config(cmd_parms *cmd,
 	return NULL;
 }
 
+/**
+ * @brief Apache directive handler for deprecated `AddTileMimeConfig <baseuri> <name> <extension>`.
+ *
+ * @param cmd           Apache configuration command parameters.
+ * @param mconfig       Per-directory configuration pointer (unused).
+ * @param baseuri       Base URI path prefix for the layer.
+ * @param name          Map style identifier (`xmlname`).
+ * @param fileExtension Tile filename extension without leading dot.
+ * @return `NULL` on success, or an error string on failure.
+ */
 static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const char *baseuri, const char *name, const char *fileExtension)
 {
 	char *cors = "";
@@ -2085,6 +2381,18 @@ static const char *add_tile_mime_config(cmd_parms *cmd, void *mconfig, const cha
 	return _add_tile_config(cmd, baseuri, name, 0, MAX_ZOOM, 1, 1, fileExtension, mimeType, "", "", "", cors, "", 0);
 }
 
+/**
+ * @brief Apache directive handler for `AddTileConfig <baseuri> <name> [key=value ...]`.
+ *
+ * Parses optional `minzoom`, `maxzoom`, `extension`, `mimetype`, and `tile_dir` key-value
+ * arguments and registers the layer via `_add_tile_config()`.
+ *
+ * @param cmd     Apache configuration command parameters.
+ * @param mconfig Per-directory configuration pointer (unused).
+ * @param argc    Number of directive arguments.
+ * @param argv    Array of directive argument strings.
+ * @return `NULL` on success, or an error message string if required arguments or zoom bounds are invalid.
+ */
 static const char *add_tile_config(cmd_parms *cmd, void *mconfig, int argc, char *const argv[])
 {
 	if (argc < 1) {
@@ -2130,6 +2438,14 @@ static const char *add_tile_config(cmd_parms *cmd, void *mconfig, int argc, char
 	return _add_tile_config(cmd, baseuri, name, minzoom, maxzoom, 1, 1, fileExtension, mimeType, "", "", "", "", tile_dir, 0);
 }
 
+/**
+ * @brief Apache directive handler for `LoadTileConfigFile <path>` importing map sections from `renderd.conf`.
+ *
+ * @param cmd              Apache configuration command parameters.
+ * @param mconfig          Per-directory configuration pointer (unused).
+ * @param config_file_name Filesystem path to the INI configuration file (`renderd.conf`).
+ * @return `NULL` on success, or an error message string if the file cannot be opened or a section fails.
+ */
 static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *config_file_name)
 {
 	struct stat buffer;
@@ -2163,6 +2479,15 @@ static const char *load_tile_config(cmd_parms *cmd, void *mconfig, const char *c
 	return NULL;
 }
 
+/**
+ * @brief Parse a directive argument as a 64-bit signed integer (`apr_int64_t`).
+ *
+ * @param cmd                   Apache configuration command parameters.
+ * @param buf                   Input argument string.
+ * @param dest                  Destination pointer receiving the parsed integer.
+ * @param config_directive_name Directive name used in error and debug messages.
+ * @return `NULL` on success, or an error message string if `buf` is not numeric.
+ */
 static const char *arg_to_apr_int64_t(cmd_parms *cmd, const char *buf, apr_int64_t *dest, const char *config_directive_name)
 {
 	char *end;
@@ -2177,6 +2502,15 @@ static const char *arg_to_apr_int64_t(cmd_parms *cmd, const char *buf, apr_int64
 	return NULL;
 }
 
+/**
+ * @brief Parse a directive argument as a floating-point `double`.
+ *
+ * @param cmd                   Apache configuration command parameters.
+ * @param buf                   Input argument string.
+ * @param dest                  Destination pointer receiving the parsed floating-point value.
+ * @param config_directive_name Directive name used in error and debug messages.
+ * @return `NULL` on success, or an error message string if `buf` is not a valid float.
+ */
 static const char *arg_to_double(cmd_parms *cmd, const char *buf, double *dest, const char *config_directive_name)
 {
 	char *end;
@@ -2191,6 +2525,15 @@ static const char *arg_to_double(cmd_parms *cmd, const char *buf, double *dest, 
 	return NULL;
 }
 
+/**
+ * @brief Parse a directive argument as a standard `int`.
+ *
+ * @param cmd                   Apache configuration command parameters.
+ * @param buf                   Input argument string.
+ * @param dest                  Destination pointer receiving the parsed integer.
+ * @param config_directive_name Directive name used in error and debug messages.
+ * @return `NULL` on success, or an error message string if `buf` is not numeric.
+ */
 static const char *arg_to_int(cmd_parms *cmd, const char *buf, int *dest, const char *config_directive_name)
 {
 	char *end;
@@ -2205,6 +2548,15 @@ static const char *arg_to_int(cmd_parms *cmd, const char *buf, int *dest, const 
 	return NULL;
 }
 
+/**
+ * @brief Duplicate a directive string argument into `cmd->pool` (bounded by `PATH_MAX`).
+ *
+ * @param cmd                   Apache configuration command parameters.
+ * @param buf                   Input argument string.
+ * @param dest                  Destination pointer receiving the pool-allocated string copy.
+ * @param config_directive_name Directive name used in debug logs.
+ * @return Always returns `NULL`.
+ */
 static const char *arg_to_string(cmd_parms *cmd, const char *buf, const char **dest, const char *config_directive_name)
 {
 	*dest = apr_pstrndup(cmd->pool, buf, PATH_MAX);
@@ -2212,42 +2564,99 @@ static const char *arg_to_string(cmd_parms *cmd, const char *buf, const char **d
 	return NULL;
 }
 
+/**
+ * @brief Apache directive handler for `ModTileRequestTimeout <seconds>`.
+ *
+ * @param cmd                    Apache configuration command parameters.
+ * @param mconfig                Per-directory configuration pointer (unused).
+ * @param request_timeout_string Timeout in seconds for non-missing tile render waits.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_request_timeout_config(cmd_parms *cmd, void *mconfig, const char *request_timeout_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, request_timeout_string, &scfg->request_timeout, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileMissingRequestTimeout <seconds>`.
+ *
+ * @param cmd                             Apache configuration command parameters.
+ * @param mconfig                         Per-directory configuration pointer (unused).
+ * @param request_timeout_priority_string Timeout in seconds for high-priority missing tile render waits.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_request_timeout_priority_config(cmd_parms *cmd, void *mconfig, const char *request_timeout_priority_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, request_timeout_priority_string, &scfg->request_timeout_priority, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileMaxLoadOld <load>`.
+ *
+ * @param cmd                 Apache configuration command parameters.
+ * @param mconfig             Per-directory configuration pointer (unused).
+ * @param max_load_old_string Maximum 1-minute load average before skipping re-renders of old tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_max_load_old_config(cmd_parms *cmd, void *mconfig, const char *max_load_old_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, max_load_old_string, &scfg->max_load_old, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileMaxLoadMissing <load>`.
+ *
+ * @param cmd                     Apache configuration command parameters.
+ * @param mconfig                 Per-directory configuration pointer (unused).
+ * @param max_load_missing_string Maximum 1-minute load average before returning 404 for missing tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_max_load_missing_config(cmd_parms *cmd, void *mconfig, const char *max_load_missing_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, max_load_missing_string, &scfg->max_load_missing, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileVeryOldThreshold <microseconds>`.
+ *
+ * @param cmd                       Apache configuration command parameters.
+ * @param mconfig                   Per-directory configuration pointer (unused).
+ * @param very_old_threshold_string Age threshold in microseconds classifying expired tiles as `tileVeryOld`.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_very_old_threshold_config(cmd_parms *cmd, void *mconfig, const char *very_old_threshold_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_apr_int64_t(cmd, very_old_threshold_string, &scfg->very_old_threshold, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileRenderdSocketName <path>`.
+ *
+ * @param cmd                        Apache configuration command parameters.
+ * @param mconfig                    Per-directory configuration pointer (unused).
+ * @param renderd_socket_name_string UNIX domain socket path for `renderd`.
+ * @return `NULL` on success.
+ */
 static const char *mod_tile_renderd_socket_name_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_name_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_string(cmd, renderd_socket_name_string, &scfg->renderd_socket_name, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileRenderdSocketAddr <host> <port>`.
+ *
+ * @param cmd                           Apache configuration command parameters.
+ * @param mconfig                       Per-directory configuration pointer (unused).
+ * @param renderd_socket_address_string Hostname or IP address of `renderd`.
+ * @param renderd_socket_port_string    TCP port number of `renderd`.
+ * @return `NULL` on success, or an error string if the port argument is invalid.
+ */
 static const char *mod_tile_renderd_socket_address_config(cmd_parms *cmd, void *mconfig, const char *renderd_socket_address_string, const char *renderd_socket_port_string)
 {
 	const char *renderd_socket_address_result;
@@ -2261,48 +2670,113 @@ static const char *mod_tile_renderd_socket_address_config(cmd_parms *cmd, void *
 	return arg_to_int(cmd, renderd_socket_port_string, &scfg->renderd_socket_port, "ModTileRenderdSocketAddr second");
 }
 
+/**
+ * @brief Apache directive handler for `ModTileTileDir <path_or_uri>`.
+ *
+ * @param cmd             Apache configuration command parameters.
+ * @param mconfig         Per-directory configuration pointer (unused).
+ * @param tile_dir_string Default tile directory path or storage backend connection URI.
+ * @return `NULL` on success.
+ */
 static const char *mod_tile_tile_dir_config(cmd_parms *cmd, void *mconfig, const char *tile_dir_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_string(cmd, tile_dir_string, &scfg->tile_dir, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheExtendedHostName <hostname>`.
+ *
+ * @param cmd                            Apache configuration command parameters.
+ * @param mconfig                        Per-directory configuration pointer (unused).
+ * @param cache_extended_hostname_string Hostname substring receiving `ModTileCacheExtendedDuration`.
+ * @return `NULL` on success.
+ */
 static const char *mod_tile_cache_extended_hostname_config(cmd_parms *cmd, void *mconfig, const char *cache_extended_hostname_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_string(cmd, cache_extended_hostname_string, &scfg->cache_extended_hostname, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheExtendedDuration <seconds>`.
+ *
+ * @param cmd                            Apache configuration command parameters.
+ * @param mconfig                        Per-directory configuration pointer (unused).
+ * @param cache_extended_duration_string `Cache-Control` `max-age` in seconds for extended-cache hosts.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_extended_duration_config(cmd_parms *cmd, void *mconfig, const char *cache_extended_duration_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, cache_extended_duration_string, &scfg->cache_extended_duration, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheLastModifiedFactor <factor>`.
+ *
+ * @param cmd                                        Apache configuration command parameters.
+ * @param mconfig                                    Per-directory configuration pointer (unused).
+ * @param cache_duration_last_modified_factor_string Floating-point multiplier applied to tile age since modification.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_last_modified_factor_config(cmd_parms *cmd, void *mconfig, const char *cache_duration_last_modified_factor_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_double(cmd, cache_duration_last_modified_factor_string, &scfg->cache_duration_last_modified_factor, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheDurationMax <seconds>`.
+ *
+ * @param cmd                       Apache configuration command parameters.
+ * @param mconfig                   Per-directory configuration pointer (unused).
+ * @param cache_duration_max_string Maximum HTTP `Cache-Control` `max-age` cap in seconds.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_max_config(cmd_parms *cmd, void *mconfig, const char *cache_duration_max_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, cache_duration_max_string, &scfg->cache_duration_max, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheDurationDirty <seconds>`.
+ *
+ * @param cmd                         Apache configuration command parameters.
+ * @param mconfig                     Per-directory configuration pointer (unused).
+ * @param cache_duration_dirty_string Base `Cache-Control` `max-age` in seconds when serving dirty/old tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_dirty_config(cmd_parms *cmd, void *mconfig, const char *cache_duration_dirty_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, cache_duration_dirty_string, &scfg->cache_duration_dirty, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheDurationMinimum <seconds>`.
+ *
+ * @param cmd                           Apache configuration command parameters.
+ * @param mconfig                       Per-directory configuration pointer (unused).
+ * @param cache_duration_minimum_string Default minimum `Cache-Control` `max-age` in seconds for high-zoom tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_minimum_config(cmd_parms *cmd, void *mconfig, const char *cache_duration_minimum_string)
 {
 	tile_server_conf *scfg = (tile_server_conf *)ap_get_module_config(cmd->server->module_config, &tile_module);
 	return arg_to_int(cmd, cache_duration_minimum_string, &scfg->cache_duration_minimum, cmd->directive->directive);
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheDurationLowZoom <max_zoom> <seconds>`.
+ *
+ * @param cmd                           Apache configuration command parameters.
+ * @param mconfig                       Per-directory configuration pointer (unused).
+ * @param cache_level_low_zoom_string   Upper zoom level cutoff for low-zoom cache duration.
+ * @param cache_duration_low_zoom_string Minimum `Cache-Control` `max-age` in seconds for low-zoom tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_low_config(cmd_parms *cmd, void *mconfig, const char *cache_level_low_zoom_string, const char *cache_duration_low_zoom_string)
 {
 	const char *cache_level_low_zoom_result;
@@ -2316,6 +2790,15 @@ static const char *mod_tile_cache_duration_low_config(cmd_parms *cmd, void *mcon
 	return arg_to_int(cmd, cache_duration_low_zoom_string, &scfg->cache_duration_low_zoom, "ModTileCacheDurationLowZoom second");
 }
 
+/**
+ * @brief Apache directive handler for `ModTileCacheDurationMediumZoom <max_zoom> <seconds>`.
+ *
+ * @param cmd                              Apache configuration command parameters.
+ * @param mconfig                          Per-directory configuration pointer (unused).
+ * @param cache_level_medium_zoom_string   Upper zoom level cutoff for medium-zoom cache duration.
+ * @param cache_duration_medium_zoom_string Minimum `Cache-Control` `max-age` in seconds for medium-zoom tiles.
+ * @return `NULL` on success, or an error string on invalid input.
+ */
 static const char *mod_tile_cache_duration_medium_config(cmd_parms *cmd, void *mconfig, const char *cache_level_medium_zoom_string, const char *cache_duration_medium_zoom_string)
 {
 	const char *cache_level_medium_zoom_result;
@@ -2329,6 +2812,14 @@ static const char *mod_tile_cache_duration_medium_config(cmd_parms *cmd, void *m
 	return arg_to_int(cmd, cache_duration_medium_zoom_string, &scfg->cache_duration_medium_zoom, "ModTileCacheDurationMediumZoom second");
 }
 
+/**
+ * @brief Apache flag directive handler for `ModTileEnableStats <On|Off>`.
+ *
+ * @param cmd                 Apache configuration command parameters.
+ * @param mconfig             Per-directory configuration pointer (unused).
+ * @param enable_global_stats Boolean flag (`1` for `On`, `0` for `Off`).
+ * @return Always returns `NULL`.
+ */
 static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enable_global_stats)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_global_stats ? "On" : "Off");
@@ -2337,6 +2828,14 @@ static const char *mod_tile_enable_stats(cmd_parms *cmd, void *mconfig, int enab
 	return NULL;
 }
 
+/**
+ * @brief Apache flag directive handler for `ModTileEnableTileThrottling <On|Off>`.
+ *
+ * @param cmd                    Apache configuration command parameters.
+ * @param mconfig                Per-directory configuration pointer (unused).
+ * @param enable_tile_throttling Boolean flag (`1` for `On`, `0` for `Off`).
+ * @return Always returns `NULL`.
+ */
 static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int enable_tile_throttling)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling ? "On" : "Off");
@@ -2345,6 +2844,14 @@ static const char *mod_tile_enable_throttling(cmd_parms *cmd, void *mconfig, int
 	return NULL;
 }
 
+/**
+ * @brief Apache directive handler for `ModTileEnableTileThrottlingXForward <0|1|2>`.
+ *
+ * @param cmd                                      Apache configuration command parameters.
+ * @param mconfig                                  Per-directory configuration pointer (unused).
+ * @param enable_tile_throttling_xforward_string Mode string (`"0"` off, `"1"` first hop, `"2"` last proxy hop).
+ * @return `NULL` on success, or an error string if the value is outside `[0, 2]`.
+ */
 static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mconfig, const char *enable_tile_throttling_xforward_string)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_tile_throttling_xforward_string);
@@ -2365,6 +2872,14 @@ static const char *mod_tile_enable_throttling_xforward(cmd_parms *cmd, void *mco
 	return NULL;
 }
 
+/**
+ * @brief Apache flag directive handler for `ModTileBulkMode <On|Off>`.
+ *
+ * @param cmd              Apache configuration command parameters.
+ * @param mconfig          Per-directory configuration pointer (unused).
+ * @param enable_bulk_mode Boolean flag (`1` for `On`, `0` for `Off`).
+ * @return Always returns `NULL`.
+ */
 static const char *mod_tile_enable_bulk_mode(cmd_parms *cmd, void *mconfig, int enable_bulk_mode)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_bulk_mode ? "On" : "Off");
@@ -2373,6 +2888,14 @@ static const char *mod_tile_enable_bulk_mode(cmd_parms *cmd, void *mconfig, int 
 	return NULL;
 }
 
+/**
+ * @brief Apache flag directive handler for `ModTileEnableStatusURL <On|Off>`.
+ *
+ * @param cmd               Apache configuration command parameters.
+ * @param mconfig           Per-directory configuration pointer (unused).
+ * @param enable_status_url Boolean flag (`1` for `On`, `0` for `Off`).
+ * @return Always returns `NULL`.
+ */
 static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int enable_status_url)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_status_url ? "On" : "Off");
@@ -2381,6 +2904,14 @@ static const char *mod_tile_enable_status_url(cmd_parms *cmd, void *mconfig, int
 	return NULL;
 }
 
+/**
+ * @brief Apache flag directive handler for `ModTileEnableDirtyURL <On|Off>`.
+ *
+ * @param cmd              Apache configuration command parameters.
+ * @param mconfig          Per-directory configuration pointer (unused).
+ * @param enable_dirty_url Boolean flag (`1` for `On`, `0` for `Off`).
+ * @return Always returns `NULL`.
+ */
 static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int enable_dirty_url)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, cmd->pool, "Setting %s argument to %s", cmd->directive->directive, enable_dirty_url ? "On" : "Off");
@@ -2389,6 +2920,18 @@ static const char *mod_tile_enable_dirty_url(cmd_parms *cmd, void *mconfig, int 
 	return NULL;
 }
 
+/**
+ * @brief Apache directive handler for `ModTileThrottlingTiles <bucket_size> <tiles_per_sec>`.
+ *
+ * Converts the top-up rate from tiles per second into microseconds per tile token
+ * (`APR_USEC_PER_SEC / top_up_tile_rate`).
+ *
+ * @param cmd                       Apache configuration command parameters.
+ * @param mconfig                   Per-directory configuration pointer (unused).
+ * @param delaypool_tile_size_string Maximum tile token bucket capacity per client IP.
+ * @param top_up_tile_rate_string   Tile token refill rate in tiles per second (`(0, 1000000]`).
+ * @return `NULL` on success, or an error string if arguments are out of range.
+ */
 static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig, const char *delaypool_tile_size_string, const char *top_up_tile_rate_string)
 {
 	const char *delaypool_tile_size_result, *top_up_tile_rate_result;
@@ -2418,6 +2961,18 @@ static const char *mod_tile_delaypool_tiles_config(cmd_parms *cmd, void *mconfig
 	return NULL;
 }
 
+/**
+ * @brief Apache directive handler for `ModTileThrottlingRenders <bucket_size> <renders_per_sec>`.
+ *
+ * Converts the top-up rate from renders per second into microseconds per render token
+ * (`APR_USEC_PER_SEC / top_up_render_rate`).
+ *
+ * @param cmd                         Apache configuration command parameters.
+ * @param mconfig                     Per-directory configuration pointer (unused).
+ * @param delaypool_render_size_string Maximum render token bucket capacity per client IP.
+ * @param top_up_render_rate_string   Render token refill rate in renders per second (`(0, 1000000]`).
+ * @return `NULL` on success, or an error string if arguments are out of range.
+ */
 static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfig, const char *delaypool_render_size_string, const char *top_up_render_rate_string)
 {
 	const char *delaypool_render_size_result, *top_up_render_rate_result;
@@ -2447,6 +3002,13 @@ static const char *mod_tile_delaypool_render_config(cmd_parms *cmd, void *mconfi
 	return NULL;
 }
 
+/**
+ * @brief Allocate and initialize default `tile_server_conf` settings for a server or virtual host.
+ *
+ * @param p Apache configuration memory pool.
+ * @param s Target Apache `server_rec`.
+ * @return Newly allocated and defaulted `tile_server_conf *`.
+ */
 static void *create_tile_config(apr_pool_t *p, server_rec *s)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, p, "Running create_tile_config");
@@ -2485,6 +3047,17 @@ static void *create_tile_config(apr_pool_t *p, server_rec *s)
 	return scfg;
 }
 
+/**
+ * @brief Merge base server and virtual-host `tile_server_conf` records and precompute `mincachetime[]`.
+ *
+ * Appends virtual-host layer definitions onto the base server's `configs` array and
+ * populates the per-zoom `mincachetime` lookup table (`0..MAX_ZOOM_SERVER`).
+ *
+ * @param p          Apache configuration memory pool.
+ * @param basev      Base `tile_server_conf *`.
+ * @param overridesv Virtual-host override `tile_server_conf *`.
+ * @return Merged `tile_server_conf *`.
+ */
 static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 {
 	ap_log_perror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, p, "Running merge_tile_config");
@@ -2536,6 +3109,7 @@ static void *merge_tile_config(apr_pool_t *p, void *basev, void *overridesv)
 	return scfg;
 }
 
+/** @brief Apache configuration directive dispatch table for `mod_tile`. */
 static const command_rec tile_cmds[] = {
     AP_INIT_FLAG("ModTileBulkMode", mod_tile_enable_bulk_mode, NULL, OR_OPTIONS, "On Off - Make all requests to renderd with bulk render priority, never mark tiles dirty"),
     AP_INIT_FLAG("ModTileEnableDirtyURL", mod_tile_enable_dirty_url, NULL, OR_OPTIONS, "On Off - Whether to handle .../dirty urls"),
@@ -2566,6 +3140,7 @@ static const command_rec tile_cmds[] = {
     AP_INIT_TAKE_ARGV("AddTileConfig", add_tile_config, NULL, OR_OPTIONS, "Set the path, name of renderd config and optional key-value pairs to use"),
     {0}};
 
+/** @brief Apache HTTP Server module registration record for `mod_tile`. */
 module AP_MODULE_DECLARE_DATA tile_module = {
     STANDARD20_MODULE_STUFF,
     NULL,		/* dir config creator */

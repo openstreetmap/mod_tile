@@ -79,8 +79,10 @@ TEST_CASE("cache_expire.c", "[cache_expire]")
 		{
 			int sock = 0;
 
+			fail_next_malloc = true;
+
 			cache_expire(sock, (char *)host.c_str(), (char *)uri.c_str(), x, y, z);
-			REQUIRE_THAT(err_log_lines, Catch::Matchers::ContainsSubstring("Failed to send HTCP purge for http://" + host + uri + std::to_string(z) + "/" + std::to_string(x) + "/" + std::to_string(y) + ".png"));
+			REQUIRE(err_log_lines == "");
 		}
 
 		SECTION("cache_expire handles negative sock", "should return")

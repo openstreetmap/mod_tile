@@ -15,13 +15,19 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef PARAMETERIZE_HPP
-#define PARAMETERIZE_HPP
+#ifndef PARAMETERIZE_STYLE_HPP
+#define PARAMETERIZE_STYLE_HPP
 
 #include <mapnik/map.hpp>
 
+/**
+ * @brief Callback signature for dynamic per-request Mapnik style parameterization.
+ *
+ * @param m         Active `mapnik::Map` instance to mutate prior to rendering.
+ * @param parameter Null-terminated style options string received in the tile request.
+ */
 typedef void (*parameterize_function_ptr)(mapnik::Map &m, char *parameter);
 
 parameterize_function_ptr init_parameterization_function(const char *function_name);
 
-#endif
+#endif /* PARAMETERIZE_STYLE_HPP */

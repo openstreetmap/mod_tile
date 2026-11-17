@@ -34,17 +34,44 @@
 #include "renderd_config.h"
 #include "store.h"
 
+/**
+ * @brief Convert a WGS84 longitude in degrees to a Slippy Map X tile coordinate at zoom `z`.
+ *
+ * @param lon Longitude in decimal degrees (`[-180.0, 180.0]`).
+ * @param z   Slippy Map zoom level (`0` to `MAX_ZOOM`).
+ * @return Zero-based X tile index at zoom `z` (note: returns `2^z` when `lon == 180.0`).
+ */
 int lon2tilex(double lon, int z)
 {
 	return (int)(floor((lon + 180.0) / 360.0 * pow(2.0, z)));
 }
 
+/**
+ * @brief Convert a WGS84 latitude in degrees to a Slippy Map Y tile coordinate at zoom `z` (Web Mercator).
+ *
+ * @param lat Latitude in decimal degrees (`[-85.0511, 85.0511]`).
+ * @param z   Slippy Map zoom level (`0` to `MAX_ZOOM`).
+ * @return Zero-based Y tile index at zoom `z` (increasing southward from the north Web Mercator limit).
+ */
 int lat2tiley(double lat, int z)
 {
 	double latrad = lat * M_PI / 180.0;
 	return (int)(floor((1.0 - log(tan(latrad) + (1.0 / cos(latrad))) / M_PI) / 2.0 * pow(2.0, z)));
 }
 
+/**
+ * @brief Entry point for the `render_list` bulk tile pre-rendering CLI utility.
+ *
+ * Parses command-line options and optional `renderd` INI configuration, initializes the
+ * storage backend and worker submission pool, and either iterates across all metatiles in a
+ * zoom/coordinate/lat-lon bounding box (`--all`) or reads whitespace-delimited `X Y Z` tile
+ * coordinates from `stdin`, enqueueing missing, expired, or forced (`--force`) metatiles
+ * to `renderd` and reporting throughput statistics upon completion.
+ *
+ * @param argc Command-line argument count.
+ * @param argv Command-line argument vector.
+ * @return `0` on completion, or `1` on invalid CLI arguments, missing config/map, or storage init failure.
+ */
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

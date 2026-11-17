@@ -23,11 +23,27 @@
 #include "g_logger.h"
 #include "protocol.h"
 
+/**
+ * @brief Serialize and transmit a renderd protocol command message over a socket.
+ *
+ * Validates the file descriptor and protocol version (`1`, `2`, or `3`), selects
+ * the wire structure size corresponding to `cmd->ver` (`protocol_v1`, `protocol_v2`,
+ * or full `protocol` v3), and sends the exact byte sequence via `send()`.
+ *
+ * @param cmd Pointer to the populated protocol command structure to transmit.
+ * @param fd  Connected socket file descriptor.
+ * @return Number of bytes sent (matching the version's struct size) on success,
+ *         or `-1` (or a short byte count) on validation or socket error.
+ */
 int send_cmd(struct protocol *cmd, int fd)
 {
+	/* Byte count returned by send(), or -1 on error */
 	int ret = -1;
+	/* Dummy output buffer used with getsockopt(SO_TYPE) to verify fd is a socket */
 	int socket_type;
+	/* Wire byte length corresponding to cmd->ver */
 	size_t expected_len = 0;
+	/* Option length parameter passed to getsockopt() */
 	socklen_t optlen = sizeof(socket_type);
 
 	if (fd < 0) {
@@ -42,6 +58,7 @@ int send_cmd(struct protocol *cmd, int fd)
 		return -1;
 	}
 
+	/* Verify that fd refers to a valid open socket before calling send() */
 	if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &socket_type, &optlen) < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "fd %d is not a valid socket: %s", fd, strerror(errno));
 		return -1;
@@ -71,10 +88,32 @@ int send_cmd(struct protocol *cmd, int fd)
 	return ret;
 }
 
+/**
+ * @brief Receive a renderd protocol command message from a socket.
+ *
+ * Performs a two-stage read to support backwards-compatible protocol versions:
+ *   1. Reads the common `struct protocol_v1` header prefix to determine `cmd->ver`.
+ *   2. For protocol versions `2` and `3`, reads the remaining version-specific
+ *      trailing fields directly into `cmd` immediately after the v1 prefix.
+ *
+ * @param cmd   Destination `struct protocol` buffer (zero-initialized before reading).
+ * @param fd    Connected socket file descriptor to read from.
+ * @param block Non-zero to block until the full message arrives (`MSG_WAITALL`),
+ *              or `0` for non-blocking I/O (`MSG_DONTWAIT`).
+ * @return Total bytes read (`sizeof(protocol_v1)`, `sizeof(protocol_v2)`, or
+ *         `sizeof(protocol)`) on success; `0` if an incomplete message was read;
+ *         `-1` on EOF, socket error, premature close, or unknown protocol version.
+ */
 int recv_cmd(struct protocol *cmd, int fd, int block)
 {
-	int ret, ret2 = 0;
+	/* Byte count from the initial v1 header recv() (and later combined total bytes read) */
+	int ret;
+	/* Byte count from the secondary recv() for v2/v3 extension fields */
+	int ret2 = 0;
+
 	memset(cmd, 0, sizeof(*cmd));
+
+	/* Stage 1: Read the base protocol_v1 header to inspect cmd->ver */
 	ret = recv(fd, cmd, sizeof(struct protocol_v1), block ? MSG_WAITALL : MSG_DONTWAIT);
 
 	if (ret < 1) {
@@ -92,6 +131,7 @@ int recv_cmd(struct protocol *cmd, int fd, int block)
 
 	g_logger(G_LOG_LEVEL_DEBUG, "Got incoming request with protocol version %i", cmd->ver);
 
+	/* Stage 2: Read version-specific trailing fields following the v1 prefix */
 	switch (cmd->ver) {
 	case 1:
 		ret2 = 0;

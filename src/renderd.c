@@ -50,21 +50,36 @@
 #include "renderd_config.h"
 #include "request_queue.h"
 
+/** @brief `pollfd` array index reserved for the incoming client listening socket. */
 #define PFD_LISTEN 0
+/** @brief `pollfd` array index reserved for the self-pipe read end signaling graceful daemon shutdown. */
 #define PFD_EXIT_PIPE 1
+/** @brief Number of fixed special descriptors preceding client connection slots in `pfd[]`. */
 #define PFD_SPECIAL_COUNT 2
 
 #ifndef MAIN_ALREADY_DEFINED
+/** @brief Array of local Mapnik worker thread handles (`config->num_threads` entries). */
 static pthread_t *render_threads;
+/** @brief Array of slave-dispatcher thread handles (`num_slave_threads` entries). */
 static pthread_t *slave_threads;
+/** @brief Signal handler configuration ignoring `SIGPIPE` on broken client/slave sockets. */
 static struct sigaction sigPipeAction, sigExitAction;
+/** @brief Background thread handle periodically flushing `renderd` statistics to disk. */
 static pthread_t stats_thread;
 #endif
 
+/** @brief Write end of the self-pipe written by `request_exit()` to wake `process_loop()`. */
 static int exit_pipe_fd;
 
+/** @brief Global thread-safe render request queue shared by network I/O, local workers, and slave threads. */
 struct request_queue *render_request_queue;
 
+/**
+ * @brief Convert a wire protocol command enum value into a human-readable label for logging.
+ *
+ * @param c Wire protocol command opcode.
+ * @return Static string name corresponding to `c` (or `"Unknown"` if unrecognized).
+ */
 static const char *cmdStr(enum protoCmd c)
 {
 	switch (c) {
@@ -97,6 +112,17 @@ static const char *cmdStr(enum protoCmd c)
 	}
 }
 
+/**
+ * @brief Complete a metatile render request, notify all waiting clients, and free its queue items.
+ *
+ * Removes `item` from `render_request_queue`, iterates through `item` and its coalesced
+ * `duplicates` chain, sends `rsp` (`cmdDone` or `cmdNotDone`) over each valid client socket
+ * awaiting a synchronous render, and frees every `struct item` node.
+ *
+ * @param item        Head of the completed metatile request (and duplicate subscriber) chain.
+ * @param rsp         Completion status opcode (`cmdDone` or `cmdNotDone`).
+ * @param render_time Elapsed metatile render duration in milliseconds (or `-1` if delegated/not rendered).
+ */
 void send_response(struct item *item, enum protoCmd rsp, int render_time)
 {
 	request_queue_remove_request(render_request_queue, item, render_time);
@@ -118,6 +144,18 @@ void send_response(struct item *item, enum protoCmd rsp, int render_time)
 	}
 }
 
+/**
+ * @brief Normalize, validate, and enqueue an incoming wire protocol render or dirty request.
+ *
+ * Upgrades protocol v1/v2 packets to v3 defaults, validates the command opcode, allocates a
+ * `struct item`, aligns `(x, y)` coordinates down to the `METATILE` grid origin `(mx, my)`,
+ * and inserts the item into `render_request_queue`.
+ *
+ * @param req Parsed wire protocol request received from a client socket.
+ * @param fd  Connected client socket descriptor (ignored/set to `FD_INVALID` for `cmdDirty`).
+ * @return Resulting queue status opcode (`cmdIgnore` when queued/coalesced, `cmdDone` if already
+ *         satisfied, or `cmdNotDone` on validation/allocation/queue-full error).
+ */
 enum protoCmd rx_request(struct protocol *req, int fd)
 {
 	struct item *item;
@@ -165,6 +203,12 @@ enum protoCmd rx_request(struct protocol *req, int fd)
 	return request_queue_add_request(render_request_queue, item);
 }
 
+/**
+ * @brief Async-signal-safe shutdown trigger waking the main `poll()` event loop via `exit_pipe_fd`.
+ *
+ * May be invoked safely from POSIX signal handlers (`SIGINT`, `SIGTERM`, `SIGHUP`) as well as
+ * worker threads encountering fatal startup errors.
+ */
 void request_exit(void)
 {
 	// Any write to the exit pipe will trigger a graceful exit.
@@ -177,6 +221,15 @@ void request_exit(void)
 	(void)ignored;
 }
 
+/**
+ * @brief Main single-threaded `poll()` event loop accepting client connections and dispatching requests.
+ *
+ * Monitors `listen_fd`, the shutdown self-pipe, and up to `MAX_CONNECTIONS` active client
+ * sockets; reads incoming protocol packets via `recv_cmd()`, enqueues valid requests through
+ * `rx_request()`, and cleans up disconnected client file descriptors.
+ *
+ * @param listen_fd Bound and listening server socket file descriptor.
+ */
 void process_loop(int listen_fd)
 {
 	int num_cslots = 0;
@@ -296,8 +349,13 @@ void process_loop(int listen_fd)
 }
 
 /**
- * Periodically write out current stats to a stats file. This information
- * can then be used to monitor performance of renderd e.g. with a munin plugin
+ * @brief Background thread entry point atomically writing queue and render statistics every 10 seconds.
+ *
+ * Snapshots `render_request_queue` metrics, writes them to `<stats_filename>.tmp`, and
+ * atomically renames the file over `config->stats_filename` for external monitoring tools (e.g., Munin).
+ *
+ * @param arg Unused thread argument (`NULL`).
+ * @return Always returns `NULL` if repeated file write/rename failures occur.
  */
 void *stats_writeout_thread(void *arg)
 {
@@ -384,6 +442,12 @@ void *stats_writeout_thread(void *arg)
 	return NULL;
 }
 
+/**
+ * @brief Open a client stream socket to a slave `renderd` instance over TCP or UNIX domain socket.
+ *
+ * @param sConfig Slave `renderd_config` specifying `iphostname`/`ipport` or `socketname`.
+ * @return Connected socket file descriptor on success, or `FD_INVALID` (`-1`) on failure.
+ */
 int client_socket_init(renderd_config *sConfig)
 {
 	int fd = FD_INVALID, s;
@@ -488,11 +552,14 @@ int client_socket_init(renderd_config *sConfig)
 }
 
 /**
- * Create a TCP listening socket bound to all local addresses on the given port.
+ * @brief Create and bind a dual-stack IPv6 (or fallback IPv4) TCP listening socket.
  *
- * An IPv6 socket with IPV6_V6ONLY disabled is preferred, as it accepts both
- * IPv6 and IPv4 (mapped) connections. If the host does not support IPv6
- * (e.g. it is disabled in the kernel or the container), fall back to IPv4.
+ * Attempts to open an `AF_INET6` socket with `IPV6_V6ONLY` disabled so both IPv6 and
+ * IPv4-mapped clients can connect; falls back to `AF_INET` if IPv6 is unavailable. Exits
+ * the daemon on fatal socket/bind errors.
+ *
+ * @param sConfig Active `renderd_config` specifying `iphostname` and `ipport`.
+ * @return Bound TCP server socket file descriptor.
  */
 static int server_socket_init_tcp(renderd_config *sConfig)
 {
@@ -570,6 +637,15 @@ static int server_socket_init_tcp(renderd_config *sConfig)
 	return fd;
 }
 
+/**
+ * @brief Create, bind, and start listening on the primary `renderd` TCP or UNIX domain server socket.
+ *
+ * When binding a UNIX domain socket, unlinks any stale socket file and temporarily sets
+ * `umask(0)` so Apache worker processes can connect to the daemon socket.
+ *
+ * @param sConfig Active `renderd_config` specifying TCP port or UNIX socket path.
+ * @return Listening server socket file descriptor.
+ */
 int server_socket_init(renderd_config *sConfig)
 {
 	struct sockaddr_un addrU;
@@ -620,13 +696,14 @@ int server_socket_init(renderd_config *sConfig)
 }
 
 /**
- * This function is used as a the start function for the slave renderer thread.
- * It pulls a request from the central queue of requests and dispatches it to
- * the slave renderer. It then blocks and waits for the response with no timeout.
- * As it only sends one request at a time (there are as many slave_thread threads as there
- * are rendering threads on the slaves) nothing gets queued on the slave and should get
- * rendered immediately. Thus overall, requests should be nicely load balanced between
- * all the rendering threads available both locally and in the slaves.
+ * @brief Worker thread entry point forwarding queued metatile jobs to a remote slave `renderd`.
+ *
+ * Spawned once per configured slave worker slot (`config_slaves[i].num_threads`), each thread
+ * fetches one request at a time from `render_request_queue`, sends a v3 `cmdRender` packet to
+ * its slave daemon, blocks for the reply, and relays the result back via `send_response()`.
+ *
+ * @param arg Pointer to the target slave's `renderd_config` entry.
+ * @return Always returns `NULL` on fatal allocation or unrecoverable socket send error.
  */
 void *slave_thread(void *arg)
 {
@@ -804,6 +881,18 @@ void *slave_thread(void *arg)
 }
 
 #ifndef MAIN_ALREADY_DEFINED
+/**
+ * @brief Entry point for the `renderd` Mapnik tile rendering daemon.
+ *
+ * Parses command-line flags (`-c/--config`, `-f/--foreground`, `-s/--slave`, `-h/--help`,
+ * `-V/--version`), loads INI configuration, initializes the request queue, listening socket,
+ * signal handlers, Mapnik environment, optional daemonization/PID file, stats writer thread,
+ * local render threads, and slave threads, waits for map initialization, and runs `process_loop()`.
+ *
+ * @param argc Command-line argument count.
+ * @param argv Command-line argument vector.
+ * @return `0` on graceful exit, or non-zero exit code on configuration or startup failure.
+ */
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;
@@ -1042,4 +1131,4 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-#endif
+#endif /* MAIN_ALREADY_DEFINED */

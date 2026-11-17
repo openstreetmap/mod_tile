@@ -19,8 +19,6 @@ sudo dnf --assumeyes install "dnf-command(config-manager)"
 # Enable CRB Repository
 sudo dnf config-manager --save --setopt=crb.enabled=1
 
-#!/usr/bin/env bash
-
 # Update installed packages
 sudo dnf --assumeyes update
 

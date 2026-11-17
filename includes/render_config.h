@@ -20,98 +20,135 @@
 
 #include "config.h"
 
+/** @brief Maximum supported map zoom level. */
 #define MAX_ZOOM 20
 
-// MAX_SIZE is the biggest file which we will return to the user
+/** @brief Maximum single tile payload size in bytes (`1 MiB`) served to a client. */
 #define MAX_SIZE (1 * 1024 * 1024)
 
-// With directory hashing enabled we rewrite the path so that tiles are really stored here instead
+/** @brief Enable directory-hashed path layout (`z/x4/x3/x2/x1/x0.meta`) for metatile storage. */
 #define DIRECTORY_HASH
+
+/**
+ * @brief Legacy flat filesystem root where OpenLayers fetches `z/x/y.png` tiles directly.
+ *
+ * Used only when `DIRECTORY_HASH` is undefined.
+ */
+#define TILE_PATH "/var/www/html/osm_tiles2"
+
 #ifndef RENDERD_TILE_DIR
+/** @brief Default root filesystem directory for cached tile and metatile storage. */
 #define RENDERD_TILE_DIR "/var/cache/renderd/tiles"
 #endif
 
-// TILE_PATH is where Openlayers with try to fetch the "z/x/y.png" tiles from
-// this is now only used if DIRECTORY_HASH is undefined
-// #define TILE_PATH "/var/www/html/osm_tiles2"
-
-// MAX_LOAD_OLD: if tile is out of date, don't re-render it if past this load threshold (users gets old tile)
-// (This is the default value. Can be overwritten in Apache config with ModTileMaxLoadOld.)
+/**
+ * @brief Default 1-minute load average threshold above which expired tiles are served stale without re-rendering.
+ *
+ * Overridable in Apache configuration via `ModTileMaxLoadOld`.
+ */
 #define MAX_LOAD_OLD 16
-// MAX_LOAD_MISSING: if tile is missing, don't render it if past this load threshold (user gets 404 error)
-// (This is the default value. Can be overwritten in Apache config with ModTileMaxLoadMissing.)
+
+/**
+ * @brief Default 1-minute load average threshold above which missing tiles return HTTP 404 instead of rendering.
+ *
+ * Overridable in Apache configuration via `ModTileMaxLoadMissing`.
+ */
 #define MAX_LOAD_MISSING 50
-// MAX_LOAD_ANY: give up serving any data if beyond this load (user gets 404 error)
+
+/** @brief Default 1-minute load average threshold above which all tile requests return HTTP 404. */
 #define MAX_LOAD_ANY 100
 
-// VERYOLD_THRESHOLD: defines how old a tile needs to be (in microseconds) to get rendering priority rather than renderingLow priority
-// 1000000*3600*24*365 = 31536000000000
+/**
+ * @brief Age threshold in microseconds (`365 days`) beyond which an expired tile is promoted from low to normal render priority.
+ *
+ * Computed as `1000000 * 3600 * 24 * 365 = 31536000000000`.
+ */
 #define VERYOLD_THRESHOLD 31536000000000
 
-// Location of osm.xml file
 #ifndef RENDERD_CONFIG
+/** @brief Default path to the `renderd` INI configuration file. */
 #define RENDERD_CONFIG "/etc/renderd.conf"
 #endif
-// The XML configuration used if one is not provided
+
 #ifndef XMLCONFIG_DEFAULT
+/** @brief Fallback map configuration name used when none is explicitly specified. */
 #define XMLCONFIG_DEFAULT "default"
 #endif
-// Maximum number of configurations that mod tile will allow
+
 #ifndef XMLCONFIGS_MAX
+/** @brief Maximum number of map style configurations supported simultaneously by `mod_tile`. */
 #define XMLCONFIGS_MAX 100
 #endif
-// Default PID file path
+
 #ifndef RENDERD_PIDFILE
+/** @brief Default PID file path written by the `renderd` daemon. */
 #define RENDERD_PIDFILE "/run/renderd/renderd.pid"
 #endif
 
-// Mapnik input plugins (will need to adjust for 32 bit libs)
 #ifndef MAPNIK_PLUGINS_DIR
+/** @brief Default directory path searched for Mapnik input datasource plugins. */
 #define MAPNIK_PLUGINS_DIR "/usr/local/lib64/mapnik/input"
 #endif
 
-// Default directory to search for fonts. Recursion can be enabled if desired.
 #ifndef MAPNIK_FONTS_DIR
+/** @brief Default directory path searched for Mapnik TrueType/OpenType fonts. */
 #define MAPNIK_FONTS_DIR "/usr/local/lib64/mapnik/fonts"
 #endif
+
 #ifndef MAPNIK_FONTS_DIR_RECURSE
+/** @brief Default flag controlling whether `MAPNIK_FONTS_DIR` is scanned recursively (`1`) or top-level only (`0`). */
 #define MAPNIK_FONTS_DIR_RECURSE 0
 #endif
 
-// Typical interval between planet imports, used as basis for tile expiry times
+/** @brief Typical interval in seconds (`7 days`) between planet database imports, used to estimate tile expiry. */
 #define PLANET_INTERVAL (7 * 24 * 60 * 60)
 
-// Planet import should touch this file when complete
+/** @brief Sentinel timestamp file path touched upon completion of a planet import. */
 #define PLANET_TIMESTAMP "/planet-import-complete"
 
-// Timeout before giving for a tile to be rendered
-// (This is the default value. Can be overwritten in Apache config with ModTileRequestTimeout.)
+/**
+ * @brief Default timeout in seconds to wait for `renderd` to finish rendering a requested tile.
+ *
+ * Overridable in Apache configuration via `ModTileRequestTimeout`.
+ */
 #define REQUEST_TIMEOUT (3)
+
+/** @brief Sentinel value representing an invalid or closed file/socket descriptor. */
 #define FD_INVALID (-1)
 
 #ifndef MIN
+/** @brief Return the lesser of `x` and `y`. */
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
 #ifndef MAX
+/** @brief Return the greater of `x` and `y`. */
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
+/** @brief Maximum number of concurrent client socket connections accepted by `renderd`. */
 #define MAX_CONNECTIONS (2048)
 
-// default for number of rendering threads
+/** @brief Default number of worker rendering threads spawned by `renderd`. */
 #define NUM_THREADS (4)
 
-// Metatiles will render NxN tiles at once
-// Note: This should be a power of 2 (2, 4, 8, 16 ...)
+/**
+ * @brief Width and height in tiles of a single rendered metatile (`METATILE x METATILE` tiles).
+ *
+ * Must be a power of 2 (e.g., `2`, `4`, `8`, `16`).
+ */
 #define METATILE (8)
 
-// Metatiles are much larger in size so we don't need big queues to handle large areas
+/** @brief Default maximum queue depth for interactive render queues. */
 #define QUEUE_MAX (64)
+
+/** @brief Maximum queue depth for standard/bulk interactive render requests. */
 #define REQ_LIMIT (256)
+
+/** @brief Maximum queue depth for background dirty-tile re-render requests. */
 #define DIRTY_LIMIT (8000)
 
-// Penalty for client making an invalid request (in seconds)
+/** @brief Penalty delay in seconds imposed on clients sending malformed protocol requests. */
 #define CLIENT_PENALTY (3)
 
-#endif
+#endif /* RENDER_CONFIG_H */

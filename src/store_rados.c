@@ -15,13 +15,12 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-/* Metatile optimised file storage
- *
- * Instead of storing each individual tile as a file,
- * bundle the 8x8 metatile into a special meta-file.
- * This reduces the Inode usage and more efficient
- * utilisation of disk space.
- */
+/* Ceph RADOS metatile storage backend:
+ * Stores each serialized METATILE x METATILE archive as a single RADOS object
+ * prefixed with a `struct stat_info` metadata header. Maintains a single-entry
+ * per-context header cache so consecutive `tile_stat()` and `tile_read()` calls
+ * for the same metatile reuse the already-fetched header without an extra
+ * round-trip. Supports full read, write, stat, delete, and expire operations. */
 
 #include <glib.h>
 #include <stdio.h>
@@ -44,23 +43,53 @@
 #include "protocol.h"
 #include "render_config.h"
 
+/** @brief Mutex serializing `rados_connect()` calls across worker threads during startup. */
 static pthread_mutex_t rados_mutex;
 
+/**
+ * @brief Single-entry cache holding the combined `stat_info` + `meta_layout` header
+ *        of the most recently accessed metatile in a RADOS context.
+ */
 struct metadata_cache {
+	/** @brief Heap buffer (`sizeof(stat_info) + sizeof(meta_layout) + METATILE^2 * sizeof(entry)` bytes). */
 	char *data;
+	/** @brief Metatile-aligned X, Y, and zoom coordinates of the cached header (`-1` when invalid). */
 	int x, y, z;
+	/** @brief Map style name (`xmlname`) corresponding to the cached header. */
 	char xmlname[XMLCONFIG_MAX];
 };
 
+/**
+ * @brief Per-backend Ceph RADOS cluster handle, pool I/O context, and metadata cache.
+ */
 struct rados_ctx {
+	/** @brief Heap-allocated RADOS pool name parsed from the connection URI. */
 	char *pool;
+	/** @brief Initialized librados cluster handle. */
 	rados_t cluster;
+	/** @brief Open librados I/O context bound to `pool`. */
 	rados_ioctx_t io;
+	/** @brief Single-entry header cache avoiding redundant metadata reads on `stat` + `read`. */
 	struct metadata_cache metadata_cache;
 };
 
+/**
+ * @brief Format the RADOS object key for a metatile given `(xmlconfig, options, x, y, z)`.
+ *
+ * Masks `x` and `y` down to the top-left `(0, 0)` corner of their `METATILE x METATILE`
+ * block and formats `key` as `"<xmlconfig>/<z>/<x>/<y>[.<options>].meta"`.
+ *
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string (omitted from key if empty).
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @param key       Caller-supplied output buffer (`PATH_MAX` bytes) receiving the formatted object key.
+ * @return Pointer to `key`.
+ */
 static char *rados_xyzo_to_storagekey(const char *xmlconfig, const char *options, int x, int y, int z, char *key)
 {
+	/* Bitmask used to align x and y to the top-left corner of the metatile */
 	int mask;
 
 	mask = METATILE - 1;
@@ -76,12 +105,34 @@ static char *rados_xyzo_to_storagekey(const char *xmlconfig, const char *options
 	return key;
 }
 
+/**
+ * @brief Fetch (or return cached) `stat_info` + `meta_layout` header bytes for a metatile.
+ *
+ * Aligns `(x, y)` to the metatile origin and checks `ctx->metadata_cache`. On a cache
+ * hit, returns `ctx->metadata_cache.data` immediately. On a cache miss, reads `header_len`
+ * bytes from offset `0` of the RADOS object into `ctx->metadata_cache.data`, updates the
+ * cache key, and returns the buffer (or invalidates the cache and returns `NULL` on error).
+ *
+ * @param store     Initialized RADOS `storage_backend` (`storage_ctx` holds `struct rados_ctx *`).
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string.
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return Pointer to `ctx->metadata_cache.data` containing `stat_info` followed by `meta_layout`,
+ *         or `NULL` if the RADOS object does not exist or cannot be read.
+ */
 static char *read_meta_data(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
+	/* Bitmask used to align x and y to the top-left corner of the metatile */
 	int mask;
+	/* Byte count or negative errno returned by rados_read() */
 	int err;
+	/* RADOS object key for the enclosing metatile */
 	char meta_path[PATH_MAX];
+	/* Backend RADOS context holding cluster/pool handles and the single-entry header cache */
 	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
+	/* Combined byte length of struct stat_info, struct meta_layout, and the sub-tile index table */
 	unsigned int header_len = sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry);
 
 	mask = METATILE - 1;
@@ -103,6 +154,7 @@ static char *read_meta_data(struct storage_backend *store, const char *xmlconfig
 				g_logger(G_LOG_LEVEL_ERROR, "cannot read data from rados pool %s: %s", ctx->pool, strerror(-err));
 			}
 
+			/* Invalidate cache coordinates on failed read */
 			ctx->metadata_cache.x = -1;
 			ctx->metadata_cache.y = -1;
 			ctx->metadata_cache.z = -1;
@@ -117,16 +169,47 @@ static char *read_meta_data(struct storage_backend *store, const char *xmlconfig
 	}
 }
 
+/**
+ * @brief Read a single sub-tile payload from a metatile object stored in Ceph RADOS.
+ *
+ * Retrieves the metatile header via read_meta_data(), validates the magic signature and
+ * sub-tile count, and performs a ranged `rados_read()` at `file_offset` (adjusted for the
+ * leading `struct stat_info`) for `tile_size` bytes into `buf`.
+ *
+ * @param store      Initialized RADOS `storage_backend`.
+ * @param xmlconfig  Logical map style name.
+ * @param options    Style parameterization options string.
+ * @param x          Global tile X coordinate.
+ * @param y          Global tile Y coordinate.
+ * @param z          Tile zoom level.
+ * @param buf        Caller-supplied output buffer receiving the sub-tile image bytes.
+ * @param sz         Maximum capacity of `buf` in bytes.
+ * @param compressed Output flag set to `1` if `META_MAGIC_COMPRESSED` is present, `0` otherwise.
+ * @param log_msg    Caller-supplied buffer receiving an error message on failure.
+ * @return Number of sub-tile bytes read into `buf` (`>= 0`) on success, or a negative error code:
+ *         - `-1`: Header allocation failure or `rados_read()` error reading sub-tile payload.
+ *         - `-3`: Metatile object missing or header metadata read failed.
+ *         - `-4`: Invalid metatile magic bytes.
+ *         - `-5`: Unexpected tile count (`m->count != METATILE * METATILE`).
+ *         - `-6`: Stored sub-tile size exceeds output buffer capacity `sz`.
+ */
 static int rados_tile_read(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *buf, size_t sz, int *compressed, char *log_msg)
 {
-
+	/* RADOS object key for the enclosing metatile */
 	char meta_path[PATH_MAX];
+	/* Linear sub-tile index within the metatile's entry table (0 .. METATILE^2 - 1) */
 	int meta_offset;
+	/* Byte size of struct meta_layout plus the sub-tile offset/size index table */
 	unsigned int header_len = sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry);
+	/* Heap-allocated aligned copy of the metatile header and index table */
 	struct meta_layout *m = (struct meta_layout *)malloc(header_len);
+	/* Byte offset within the RADOS object (including leading stat_info) and sub-tile byte length */
 	size_t file_offset, tile_size;
+	/* Bitmask extracting sub-tile offsets modulo METATILE */
 	int mask;
+	/* Byte count or negative errno returned by rados_read() */
 	int err;
+	/* Pointer to cached stat_info + meta_layout header returned by read_meta_data() */
 	char *buf_raw;
 
 	if (m == NULL) {
@@ -147,8 +230,10 @@ static int rados_tile_read(struct storage_backend *store, const char *xmlconfig,
 		return -3;
 	}
 
+	/* Skip the prepended struct stat_info to copy the metatile header and index table */
 	memcpy(m, buf_raw + sizeof(struct stat_info), header_len);
 
+	/* Verify magic signature and determine whether payload entries are compressed */
 	if (memcmp(m->magic, META_MAGIC, strlen(META_MAGIC))) {
 		if (memcmp(m->magic, META_MAGIC_COMPRESSED, strlen(META_MAGIC_COMPRESSED))) {
 			snprintf(log_msg, 1024, "Meta file header magic mismatch\n");
@@ -161,13 +246,14 @@ static int rados_tile_read(struct storage_backend *store, const char *xmlconfig,
 		*compressed = 0;
 	}
 
-	// Currently this code only works with fixed metatile sizes (due to xyz_to_meta above)
+	/* Currently only fixed METATILE x METATILE grids are supported */
 	if (m->count != (METATILE * METATILE)) {
 		snprintf(log_msg, 1024, "Meta file header bad count %d != %d\n", m->count, METATILE * METATILE);
 		free(m);
 		return -5;
 	}
 
+	/* Offset within the RADOS object includes the leading struct stat_info header */
 	file_offset = m->index[meta_offset].offset + sizeof(struct stat_info);
 	tile_size = m->index[meta_offset].size;
 
@@ -189,10 +275,28 @@ static int rados_tile_read(struct storage_backend *store, const char *xmlconfig,
 	return tile_size;
 }
 
+/**
+ * @brief Retrieve stored metadata, timestamps, and expiry status for a tile in Ceph RADOS.
+ *
+ * Reads (or hits cache for) the metatile's leading `struct stat_info` and index table via
+ * read_meta_data(), setting `tile_stat.size` to the individual sub-tile's byte size (or `-1`
+ * if the RADOS object is missing).
+ *
+ * @param store     Initialized RADOS `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string.
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return Populated `struct stat_info` (`size < 0` indicates missing object or read error).
+ */
 static struct stat_info rados_tile_stat(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z)
 {
+	/* Normalized backend-agnostic stat result returned to the caller */
 	struct stat_info tile_stat;
+	/* Pointer to cached stat_info + meta_layout header returned by read_meta_data() */
 	char *buf;
+	/* Sub-tile index within the metatile and METATILE - 1 bitmask */
 	int offset, mask;
 
 	mask = METATILE - 1;
@@ -215,8 +319,21 @@ static struct stat_info rados_tile_stat(struct storage_backend *store, const cha
 	return tile_stat;
 }
 
+/**
+ * @brief Format a human-readable `rados://<pool>/<key>` storage URI identifying `(x, y, z)`.
+ *
+ * @param store     Initialized RADOS `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string.
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @param string    Caller-supplied output buffer (`PATH_MAX` bytes) receiving the formatted URI.
+ * @return Pointer to `string`.
+ */
 static char *rados_tile_storage_id(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, char *string)
 {
+	/* RADOS object key for the enclosing metatile */
 	char meta_path[PATH_MAX];
 
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
@@ -224,13 +341,35 @@ static char *rados_tile_storage_id(struct storage_backend *store, const char *xm
 	return string;
 }
 
+/**
+ * @brief Atomically write a full serialized metatile object to Ceph RADOS prefixed with `stat_info`.
+ *
+ * Prepends a freshly initialized `struct stat_info` (`expired = 0`, current timestamps) ahead
+ * of `buf` and overwrites the entire RADOS object in a single `rados_write_full()` operation.
+ *
+ * @param store     Initialized RADOS `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param options   Style parameterization options string.
+ * @param x         Top-left tile X coordinate of the metatile.
+ * @param y         Top-left tile Y coordinate of the metatile.
+ * @param z         Tile zoom level.
+ * @param buf       Serialized metatile buffer (`meta_layout` + index table + tile payloads).
+ * @param sz        Total byte length of `buf`.
+ * @return `sz` on success, or `-1` on allocation, invalid I/O context, or `rados_write_full()` failure.
+ */
 static int rados_metatile_write(struct storage_backend *store, const char *xmlconfig, const char *options, int x, int y, int z, const char *buf, int sz)
 {
+	/* RADOS object key for the target metatile */
 	char meta_path[PATH_MAX];
+	/* Scratch buffer for formatting storage URI in log messages */
 	char tmp[PATH_MAX];
+	/* Metadata header prepended to the serialized metatile object */
 	struct stat_info tile_stat;
+	/* Combined byte length of struct stat_info + serialized metatile payload */
 	int sz2 = sz + sizeof(struct stat_info);
+	/* Heap buffer packing tile_stat followed by buf */
 	char *buf2 = (char *)malloc(sz2);
+	/* Negative errno status returned by rados_write_full() (0 on success) */
 	int err;
 
 	if (buf2 == NULL) {
@@ -250,6 +389,7 @@ static int rados_metatile_write(struct storage_backend *store, const char *xmlco
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to create and write a tile to %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
 
+	/* Backend RADOS context holding the open pool I/O handle */
 	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 
 	if (!ctx || !ctx->io) {
@@ -271,14 +411,28 @@ static int rados_metatile_write(struct storage_backend *store, const char *xmlco
 	return sz;
 }
 
+/**
+ * @brief Remove the metatile object containing `(x, y, z)` from the Ceph RADOS pool.
+ *
+ * @param store     Initialized RADOS `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return `0` on success, or `-1` on invalid I/O context or `rados_remove()` error.
+ */
 static int rados_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
+	/* Backend RADOS context holding the open pool I/O handle */
 	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
+	/* RADOS object key for the target metatile */
 	char meta_path[PATH_MAX];
+	/* Scratch buffer for formatting storage URI in log messages */
 	char tmp[PATH_MAX];
+	/* Negative errno status returned by rados_remove() (0 on success) */
 	int err;
 
-	// TODO: deal with options
+	/* TODO: deal with options */
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to delete a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
@@ -298,16 +452,35 @@ static int rados_metatile_delete(struct storage_backend *store, const char *xmlc
 	return 0;
 }
 
+/**
+ * @brief Mark a RADOS metatile object as expired by updating its leading `struct stat_info`.
+ *
+ * Reads the first `sizeof(struct stat_info)` bytes of the RADOS object, sets `expired = 1`,
+ * and writes those bytes back in place at offset `0` via `rados_write()` without rewriting
+ * the metatile image payloads.
+ *
+ * @param store     Initialized RADOS `storage_backend`.
+ * @param xmlconfig Logical map style name.
+ * @param x         Global tile X coordinate.
+ * @param y         Global tile Y coordinate.
+ * @param z         Tile zoom level.
+ * @return `0` on success, `-1` if invalid I/O context or object does not exist (`ENOENT`),
+ *         `-2` if reading `stat_info` failed, or `-3` if writing updated `stat_info` failed.
+ */
 static int rados_metatile_expire(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
-
+	/* Leading stat_info header read from offset 0 of the RADOS object and updated in place */
 	struct stat_info tile_stat;
+	/* Backend RADOS context holding the open pool I/O handle */
 	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
+	/* RADOS object key for the target metatile */
 	char meta_path[PATH_MAX];
+	/* Scratch buffer for formatting storage URI in log messages */
 	char tmp[PATH_MAX];
+	/* Byte count or negative errno status returned by rados_read() / rados_write() */
 	int err;
 
-	// TODO: deal with options
+	/* TODO: deal with options */
 	const char *options = "";
 	rados_xyzo_to_storagekey(xmlconfig, options, x, y, z, meta_path);
 	g_logger(G_LOG_LEVEL_DEBUG, "Trying to expire a tile at %s", rados_tile_storage_id(store, xmlconfig, options, x, y, z, tmp));
@@ -332,6 +505,7 @@ static int rados_metatile_expire(struct storage_backend *store, const char *xmlc
 
 	tile_stat.expired = 1;
 
+	/* Overwrite only the leading struct stat_info at byte offset 0 */
 	err = rados_write(ctx->io, meta_path, (char *)&tile_stat, sizeof(struct stat_info), 0);
 
 	if (err < 0) {
@@ -342,6 +516,12 @@ static int rados_metatile_expire(struct storage_backend *store, const char *xmlc
 	return 0;
 }
 
+/**
+ * @brief Tear down the Ceph RADOS I/O context, cluster connection, and metadata cache.
+ *
+ * @param store Storage backend instance to close.
+ * @return `0` on success, or `-1` if `store` or `store->storage_ctx` is `NULL`.
+ */
 static int rados_close_storage(struct storage_backend *store)
 {
 	if (!store || !store->storage_ctx) {
@@ -349,6 +529,7 @@ static int rados_close_storage(struct storage_backend *store)
 		return -1;
 	}
 
+	/* Backend RADOS context to destroy and free */
 	struct rados_ctx *ctx = (struct rados_ctx *)store->storage_ctx;
 
 	if (ctx->io) {
@@ -367,20 +548,37 @@ static int rados_close_storage(struct storage_backend *store)
 	return 0;
 }
 
-#endif // Have rados
+#endif /* HAVE_LIBRADOS */
 
+/**
+ * @brief Allocate and initialize a Ceph RADOS metatile `storage_backend`.
+ *
+ * Parses `connection_string` of the form `"rados://<pool>/<path/to/ceph.conf>"`, creates a
+ * `rados_t` cluster handle, loads the Ceph configuration file, connects to the cluster
+ * (serialized via `rados_mutex`), opens an I/O context to `<pool>`, allocates the
+ * single-entry `metadata_cache` buffer, and wires all backend operation function pointers.
+ * Returns `NULL` if compiled without `HAVE_LIBRADOS` or if any initialization step fails.
+ *
+ * @param connection_string Backend URI of the form `"rados://<pool>/<ceph_conf_path>"`.
+ * @return Newly allocated `struct storage_backend` pointer, or `NULL` on failure or if unsupported.
+ */
 struct storage_backend *init_storage_rados(const char *connection_string)
 {
-
 #ifndef HAVE_LIBRADOS
 	g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: Support for rados storage has not been compiled into this program");
 	return NULL;
-#else
+#else  /* HAVE_LIBRADOS */
+	/* Per-backend RADOS context holding cluster, pool I/O, and header cache */
 	struct rados_ctx *ctx = (struct rados_ctx *)malloc(sizeof(struct rados_ctx));
+	/* Newly allocated storage_backend vtable and context */
 	struct storage_backend *store = (struct storage_backend *)malloc(sizeof(struct storage_backend));
+	/* Heap-allocated path to the Ceph configuration file (e.g., "/etc/ceph/ceph.conf") */
 	char *conf = NULL;
+	/* Substring pointer positioned immediately after "rados://" */
 	const char *tmp;
+	/* Negative errno status returned by librados initialization calls */
 	int err;
+	/* Character index scanning for the '/' separating <pool> from <conf_path> */
 	int i;
 
 	if (ctx == NULL || store == NULL) {
@@ -441,6 +639,7 @@ struct storage_backend *init_storage_rados(const char *connection_string)
 
 	g_logger(G_LOG_LEVEL_DEBUG, "init_storage_rados: Initialised rados backend for pool %s with config %s", ctx->pool, conf);
 
+	/* Allocate single-entry header cache buffer (stat_info + meta_layout + METATILE^2 entries) */
 	ctx->metadata_cache.data = (char *)malloc(sizeof(struct stat_info) + sizeof(struct meta_layout) + METATILE * METATILE * sizeof(struct entry));
 
 	if (ctx->metadata_cache.data == NULL) {
@@ -453,6 +652,7 @@ struct storage_backend *init_storage_rados(const char *connection_string)
 
 	free(conf);
 
+	/* Mark metadata cache coordinates invalid until first read_meta_data() hit */
 	ctx->metadata_cache.x = -1;
 	ctx->metadata_cache.y = -1;
 	ctx->metadata_cache.z = -1;
@@ -469,5 +669,5 @@ struct storage_backend *init_storage_rados(const char *connection_string)
 	store->close_storage = &rados_close_storage;
 
 	return store;
-#endif
+#endif /* HAVE_LIBRADOS */
 }

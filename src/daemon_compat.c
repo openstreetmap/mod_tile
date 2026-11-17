@@ -104,4 +104,4 @@ int nochdir, noclose;
 	return (0);
 }
 
-#endif
+#endif /* HAVE_DAEMON */

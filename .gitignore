@@ -8,7 +8,6 @@
 aclocal.m4
 autom4te.cache/
 build
-!docs/build
 compile
 config.guess
 config.guess~
@@ -22,7 +21,6 @@ config.sub~
 configure
 configure~
 depcomp
-gen_tile_test
 install-sh
 libtool
 ltmain.sh
@@ -33,17 +31,33 @@ m4/ltsugar.m4
 m4/ltversion.m4
 Makefile*
 missing
-render_expired
-render_list
-render_old
-render_speedtest
-renderd
 renderd.sock
 renderd.stats
 stamp-h1
 stderr.out
 
+# Doxygen
+docs/doxygen
+
+# Binaries
+mod_tile.so
+render_expired
+render_list
+render_old
+render_speedtest
+renderd
+
+# Tests
+gen_tile_test
+render_expired_test
+render_list_test
+render_old_test
+render_speedtest_test
+renderd_test
+unit_tests
+
 # Do not ignore
-!Makefile.am
-!etc/renderd
 !.github/**/*
+!docs/build
+!etc/renderd
+!Makefile.am

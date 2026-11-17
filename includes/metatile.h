@@ -28,26 +28,50 @@
 extern "C" {
 #endif
 
+/** @brief 4-byte file header magic signature for uncompressed `.meta` archives. */
 #define META_MAGIC "META"
+/** @brief 4-byte file header magic signature for compressed `.meta` archives. */
 #define META_MAGIC_COMPRESSED "METZ"
 
+	/**
+	 * @brief Index table record locating a single sub-tile payload within a `.meta` archive.
+	 */
 	struct entry {
+		/** @brief Byte offset of the sub-tile payload measured from the start of the `.meta` archive. */
 		int offset;
+		/** @brief Byte length of the encoded sub-tile payload (`0` if empty). */
 		int size;
 	};
 
+	/**
+	 * @brief Binary on-disk and wire header layout for a serialized `METATILE x METATILE` archive.
+	 *
+	 * Immediately followed in memory/on disk by `count` `struct entry` records and the
+	 * concatenated raw tile payloads referenced by each entry's `offset` and `size`.
+	 */
 	struct meta_layout {
+		/** @brief 4-byte magic identifier (`META_MAGIC` or `META_MAGIC_COMPRESSED`). */
 		char magic[4];
-		int count;	      // METATILE ^ 2
-		int x, y, z;	      // lowest x,y of this metatile, plus z
-		struct entry index[]; // count entries
-				      // Followed by the tile data
-				      // The index offsets are measured from the start of the file
+		/** @brief Total number of sub-tile slots in `index[]` (always `METATILE * METATILE`). */
+		int count;
+		/** @brief Lowest (top-left) tile X and Y coordinates of this metatile, plus zoom level Z. */
+		int x, y, z;
+		/** @brief Flexible array of `count` sub-tile offset/size descriptors. */
+		struct entry index[];
 	};
 
 #ifdef __cplusplus
 }
+#endif
 
+#ifdef __cplusplus
+/**
+ * @brief In-memory builder and serializer for a `METATILE x METATILE` grid of rendered map tiles.
+ *
+ * Collects individual rendered tile payloads (`set()`), serializes them with a `meta_layout`
+ * header and offset index table into a storage backend (`save()`), and dispatches HTCP cache
+ * invalidation requests for all constituent tiles (`expire_tiles()`).
+ */
 class metaTile
 {
       public:
@@ -60,12 +84,17 @@ class metaTile
 	void expire_tiles(int sock, const char *host, const char *uri);
 
       private:
+	/** @brief Top-left (minimum) tile X, Y coordinates and zoom level Z of this metatile. */
 	int x_, y_, z_;
+	/** @brief Logical map style name (e.g., `"default"`). */
 	std::string xmlconfig_;
+	/** @brief Style parameterization options string (empty if unused). */
 	std::string options_;
+	/** @brief 2D grid of encoded image byte strings indexed by `[dx][dy]` in `0 .. METATILE - 1`. */
 	std::string tile[METATILE][METATILE];
+	/** @brief Fixed byte size of `struct meta_layout` plus `METATILE * METATILE` index entries. */
 	static const int header_size = sizeof(struct meta_layout) + (sizeof(struct entry) * (METATILE * METATILE));
 };
+#endif
 
-#endif
-#endif
+#endif /* METATILE_H */

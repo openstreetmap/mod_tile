@@ -35,10 +35,24 @@
 #include "renderd_config.h"
 #include "store_file_utils.h"
 
+/** @brief Total count of outdated `.meta` metatiles enqueued for re-rendering (`num_render`) and scanned (`num_all`). */
 static int num_render = 0, num_all = 0;
+/** @brief Cutoff UNIX timestamp (`planet-import-complete` mtime or `--timestamp` override); older metatiles are re-rendered. */
 static time_t planet_timestamp = 0;
+/** @brief Wall-clock timestamps marking the start and end of the tile scan and submission run. */
 static struct timeval start, end;
 
+/**
+ * @brief Recursively traverse a tile cache directory tree and enqueue outdated `.meta` metatiles.
+ *
+ * Walks subdirectories under `search`, throttles via `check_load()`, inspects the `st_mtime`
+ * of each `.meta` file against `planet_timestamp`, decodes its coordinates via `path_to_xyz()`,
+ * and submits stale metatiles to `renderd` via `enqueue()`.
+ *
+ * @param tile_dir Root tile cache directory path used to strip the prefix in `path_to_xyz()`.
+ * @param search   Current directory path being traversed.
+ * @param verbose  Non-zero to log directory open errors and progress messages.
+ */
 static void descend(const char *tile_dir, const char *search, int verbose)
 {
 	DIR *tiles = opendir(search);
@@ -93,6 +107,18 @@ static void descend(const char *tile_dir, const char *search, int verbose)
 	closedir(tiles);
 }
 
+/**
+ * @brief Scan and re-render outdated metatiles for a single map style across a zoom range.
+ *
+ * Iterates from `min_zoom` through `max_zoom` inclusive, constructing `<tile_dir>/<mapname>/<z>`
+ * for each zoom level and invoking `descend()` to find stale `.meta` files.
+ *
+ * @param tile_dir Root tile cache directory path.
+ * @param mapname  Configured map style name (`xmlname`).
+ * @param min_zoom Lowest zoom level to scan (inclusive).
+ * @param max_zoom Highest zoom level to scan (inclusive).
+ * @param verbose  Non-zero to log each zoom level as it is scanned.
+ */
 void render_layer(const char *tile_dir, const char *mapname, int min_zoom, int max_zoom, int verbose)
 {
 	for (int z = min_zoom; z <= max_zoom; z++) {
@@ -106,6 +132,20 @@ void render_layer(const char *tile_dir, const char *mapname, int min_zoom, int m
 	}
 }
 
+/**
+ * @brief Entry point for the `render_old` stale-metatile re-rendering CLI utility.
+ *
+ * Parses command-line options (`-c/--config`, `-m/--map`, `-l/--max-load`, `-Z/--max-zoom`,
+ * `-z/--min-zoom`, `-n/--num-threads`, `-s/--socket`, `-t/--tile-dir`, `-T/--timestamp`,
+ * `-v/--verbose`, `-h/--help`, `-V/--version`), loads `renderd` INI configuration, determines
+ * the planet import cutoff timestamp via `--timestamp` or `get_planet_time()`, spawns worker
+ * threads, scans all configured map layers (or the single `--map` style) via `render_layer()`,
+ * and prints throughput statistics upon completion.
+ *
+ * @param argc Command-line argument count.
+ * @param argv Command-line argument vector.
+ * @return `0` on completion, or `1` on invalid CLI options, missing config/map, or bad timestamp.
+ */
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

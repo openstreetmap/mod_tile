@@ -66,8 +66,8 @@ printf '\n[example-map-png32]\nTYPE=png image/png png32\nURI=/tiles/renderd-exam
 printf '\n[example-map-webp]\nTYPE=webp image/webp webp\nURI=/tiles/renderd-example-webp\nXML=/usr/share/renderd/example-map/mapnik.xml\n' | sudo tee -a /etc/renderd.conf
 
 # Enable configuration
-a2enmod tile
-a2ensite renderd-example-map
+sudo a2enmod tile
+sudo a2ensite renderd-example-map
 
 # Start services
 sudo apache2ctl start

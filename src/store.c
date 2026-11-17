@@ -15,7 +15,7 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-// wrapper for storage engines
+/* Dispatcher wrapper for pluggable tile storage backends */
 
 #include <errno.h>
 #include <glib.h>
@@ -35,20 +35,38 @@
 #include "store_ro_composite.h"
 #include "store_ro_http_proxy.h"
 
-/*
- * In Apache 2.4, we call the init_storage_backend once per thread, and therefore each thread has its own storage context to work with.
+/**
+ * @brief Instantiate and initialize a storage backend from a path or URI specification.
+ *
+ * Dispatches to the appropriate backend constructor based on the prefix of `options`:
+ *   - `"/..."`             : Local filesystem metatile directory (`init_storage_file()`)
+ *   - `"rados://..."`      : Ceph RADOS object store (`init_storage_rados()`)
+ *   - `"memcached://..."`  : Memcached in-memory cache (`init_storage_memcached()`)
+ *   - `"ro_http_proxy://"` : Read-only upstream HTTP tile proxy (`init_storage_ro_http_proxy()`)
+ *   - `"composite:{...}"`  : Read-only layered composite backend (`init_storage_ro_composite()`)
+ *   - `"null://..."`       : No-op / blackhole backend (`init_storage_null()`)
+ *
+ * In `mod_tile` (Apache HTTPD), this function is invoked once per worker thread so
+ * each thread owns an independent `storage_backend` context.
+ *
+ * @param options Filesystem directory path (starting with `'/'`) or backend URI string.
+ * @return Initialized `struct storage_backend` handle on success, or `NULL` if `options`
+ *         is empty, invalid, or backend initialization fails.
  */
 struct storage_backend *init_storage_backend(const char *options)
 {
+	/* File status buffer used to verify that a leading-'/' path exists and is a directory */
 	struct stat st;
+	/* Initialized storage backend handle returned to the caller (NULL on failure) */
 	struct storage_backend *store = NULL;
 
-	// Determine the correct storage backend based on the options string
+	/* Reject empty configuration strings before inspecting prefixes */
 	if (strlen(options) == 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_backend: Options string was empty");
 		return NULL;
 	}
 
+	/* Leading '/' indicates a local filesystem directory backend */
 	if (options[0] == '/') {
 		if (stat(options, &st) != 0) {
 			g_logger(G_LOG_LEVEL_ERROR, "init_storage_backend: Failed to stat %s with error: %s", options, strerror(errno));
@@ -65,30 +83,35 @@ struct storage_backend *init_storage_backend(const char *options)
 		}
 	}
 
+	/* Ceph RADOS storage backend */
 	if (strstr(options, "rados://") == options) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_backend: initialising rados storage backend at: %s", options);
 		store = init_storage_rados(options);
 		return store;
 	}
 
+	/* Memcached storage backend */
 	if (strstr(options, "memcached://") == options) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_backend: initialising memcached storage backend at: %s", options);
 		store = init_storage_memcached(options);
 		return store;
 	}
 
+	/* Read-only HTTP proxy storage backend */
 	if (strstr(options, "ro_http_proxy://") == options) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_backend: initialising ro_http_proxy storage backend at: %s", options);
 		store = init_storage_ro_http_proxy(options);
 		return store;
 	}
 
+	/* Read-only composite multi-backend wrapper */
 	if (strstr(options, "composite:{") == options) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_backend: initialising ro_composite storage backend at: %s", options);
 		store = init_storage_ro_composite(options);
 		return store;
 	}
 
+	/* No-op null storage backend (discards writes, misses on reads) */
 	if (strstr(options, "null://") == options) {
 		g_logger(G_LOG_LEVEL_DEBUG, "init_storage_backend: initialising null storage backend at: %s", options);
 		store = init_storage_null();

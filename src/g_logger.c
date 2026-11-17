@@ -24,8 +24,21 @@
 #include <stdlib.h>
 #include <syslog.h>
 
+/**
+ * @brief Execution mode flag indicating whether the daemon runs in the foreground.
+ *
+ * When set to 1, log output is directed to standard streams (stdout/stderr)
+ * via GLib writers rather than systemd-journald or syslog.
+ */
 int foreground = 0;
 
+/**
+ * @brief Convert a GLib log level flag into a human-readable uppercase label.
+ *
+ * @param log_level GLib log level (e.g., G_LOG_LEVEL_ERROR, G_LOG_LEVEL_INFO).
+ * @return Constant string representation of the log level, or "UNKNOWN" if
+ *         the level is not recognized.
+ */
 const char *g_logger_level_name(int log_level)
 {
 	switch (log_level) {
@@ -52,11 +65,29 @@ const char *g_logger_level_name(int log_level)
 	}
 }
 
+/**
+ * @brief Format and route a log message to stdout/stderr, systemd-journald, or syslog.
+ *
+ * Selects the logging backend automatically based on runtime environment:
+ *   1. Standard streams (`stdout`/`stderr`) when `foreground == 1`.
+ *   2. `systemd-journald` when `stderr` is connected to the journal socket.
+ *   3. Traditional `syslog` (up to `LOG_INFO` severity) as a fallback.
+ *
+ * Unlike default GLib fatal error handling, `G_LOG_LEVEL_ERROR` messages are
+ * logged without terminating the process, and `G_LOG_LEVEL_INFO` messages are
+ * emitted unconditionally without requiring `G_MESSAGES_DEBUG`.
+ *
+ * @param log_level GLib log severity level (`GLogLevelFlags`).
+ * @param format    `printf`-style format string.
+ * @param ...       Variadic arguments corresponding to `format`.
+ */
 void g_logger(int log_level, const char *format, ...)
 {
+	/* Byte length returned by vasprintf()/asprintf(), or -1 on allocation failure */
 	int size;
+	/* Heap-allocated formatted message body and level-prefixed syslog string */
 	char *log_message, *log_message_prefixed;
-
+	/* Variadic argument list for printf-style formatting */
 	va_list args;
 
 	va_start(args, format);
@@ -67,6 +98,7 @@ void g_logger(int log_level, const char *format, ...)
 		g_error("ERROR: vasprintf failed in g_logger");
 	}
 
+	/* Structured GLib log field array (length -1 indicates null-terminated string) */
 	const GLogField log_fields[] = {{"MESSAGE", log_message, -1}};
 
 	size = asprintf(&log_message_prefixed, "%s: %s", g_logger_level_name(log_level), log_message);
@@ -77,12 +109,12 @@ void g_logger(int log_level, const char *format, ...)
 
 	if (foreground == 1) {
 		switch (log_level) {
-		// Levels >= G_LOG_LEVEL_ERROR will terminate the program
+		/* Bypass g_log_writer_default() so G_LOG_LEVEL_ERROR does not abort the process */
 		case G_LOG_LEVEL_ERROR:
 			g_log_writer_standard_streams((GLogLevelFlags)log_level, log_fields, 1, NULL);
 			break;
 
-		// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
+		/* Bypass g_log_writer_default() so G_LOG_LEVEL_INFO prints even without G_MESSAGES_DEBUG */
 		case G_LOG_LEVEL_INFO:
 			g_log_writer_standard_streams((GLogLevelFlags)log_level, log_fields, 1, NULL);
 			break;
@@ -92,12 +124,12 @@ void g_logger(int log_level, const char *format, ...)
 		}
 	} else if (g_log_writer_is_journald(fileno(stderr))) {
 		switch (log_level) {
-		// Levels >= G_LOG_LEVEL_ERROR will terminate the program
+		/* Bypass g_log_writer_default() so G_LOG_LEVEL_ERROR does not abort the process */
 		case G_LOG_LEVEL_ERROR:
 			g_log_writer_journald((GLogLevelFlags)log_level, log_fields, 1, NULL);
 			break;
 
-		// Levels <= G_LOG_LEVEL_INFO will only show when using G_MESSAGES_DEBUG
+		/* Bypass g_log_writer_default() so G_LOG_LEVEL_INFO is sent even without G_MESSAGES_DEBUG */
 		case G_LOG_LEVEL_INFO:
 			g_log_writer_journald((GLogLevelFlags)log_level, log_fields, 1, NULL);
 			break;
@@ -106,6 +138,7 @@ void g_logger(int log_level, const char *format, ...)
 			g_log_writer_default((GLogLevelFlags)log_level, log_fields, 1, NULL);
 		}
 	} else {
+		/* Allow priorities from LOG_EMERG (0) through LOG_INFO (6), filtering out LOG_DEBUG (7) */
 		setlogmask(LOG_UPTO(LOG_INFO));
 
 		switch (log_level) {

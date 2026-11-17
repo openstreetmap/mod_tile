@@ -36,6 +36,16 @@
 #include "g_logger.h"
 #include "parameterize_style.hpp"
 
+/**
+ * @brief Validate that a language token is a safe OpenStreetMap `name:*` tag suffix.
+ *
+ * Accepts the `"_"` default fallback as well as non-empty alphanumeric, underscore,
+ * or hyphen strings up to 32 characters (covering ISO 639 codes and IETF BCP 47 subtags)
+ * to prevent SQL injection into PostGIS `tags->'name:...'` expressions.
+ *
+ * @param tok Candidate language token extracted from the comma-separated parameter string.
+ * @return `true` if `tok` contains only allowed characters and satisfies length bounds; `false` otherwise.
+ */
 static bool is_valid_osm_lang_tag(const std::string &tok)
 {
 	// Covers "_" fallback, 2/3-letter ISO 639 codes, and IETF BCP 47 subtags
@@ -47,6 +57,18 @@ static bool is_valid_osm_lang_tag(const std::string &tok)
 	});
 }
 
+/**
+ * @brief Rewrite Mapnik layer SQL queries to localize `name` columns using a fallback chain of language tags.
+ *
+ * Parses a comma-separated list of language codes (capped at 256 bytes, e.g., `"de,en,_"`),
+ * validates each token via `is_valid_osm_lang_tag()`, builds a SQL
+ * `, coalesce(tags->'name:de',tags->'name:en',name) as name` projection, and replaces
+ * the first `,name` occurrence in each datasource's `"table"` parameter.
+ *
+ * @param m         Mapnik `Map` instance whose layer datasources are updated in place.
+ * @param parameter Null-terminated comma-separated language fallback list (no-op if `NULL`, empty,
+ *                  over 256 bytes, or containing no valid tokens).
+ */
 static void parameterize_map_language(mapnik::Map &m, char *parameter)
 {
 	if (!parameter || !*parameter) {
@@ -112,6 +134,16 @@ static void parameterize_map_language(mapnik::Map &m, char *parameter)
 	}
 }
 
+/**
+ * @brief Enable or disable individual Mapnik layers by name based on a comma-separated directive list.
+ *
+ * Parses comma-separated layer tokens (capped at 1024 bytes): a leading `'+'` enables
+ * the named layer, a leading `'-'` disables it, and an unprefixed name defaults to
+ * disabling it. Later tokens for the same layer name override earlier ones.
+ *
+ * @param m         Mapnik `Map` instance whose layers are toggled in place.
+ * @param parameter Null-terminated comma-separated list of layer directives (e.g., `"+roads,-buildings,labels"`).
+ */
 static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter)
 {
 	if (!parameter || !*parameter) {
@@ -161,6 +193,15 @@ static void parameterize_map_toggle_layer(mapnik::Map &m, char *parameter)
 	}
 }
 
+/**
+ * @brief Look up the Mapnik style parameterization callback corresponding to a configuration name.
+ *
+ * Currently supports `"language"` (`parameterize_map_language`) and `"toggle_layer"`
+ * (`parameterize_map_toggle_layer`).
+ *
+ * @param function_name Name of the parameterization function from `renderd.conf` (may be `NULL` or empty).
+ * @return Matching `parameterize_function_ptr` callback, or `NULL` if unset or unrecognized.
+ */
 parameterize_function_ptr init_parameterization_function(const char *function_name)
 {
 	if (!function_name || strcmp(function_name, "") == 0) {

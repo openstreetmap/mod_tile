@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef STOREMEMCACHED_H
-#define STOREMEMCACHED_H
+#ifndef STORE_MEMCACHED_H
+#define STORE_MEMCACHED_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +28,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
 
-#endif
-#endif
+#endif /* STORE_MEMCACHED_H */

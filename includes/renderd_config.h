@@ -50,6 +50,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
 
-#endif
-#endif
+#endif /* RENDERD_CONFIG_H */

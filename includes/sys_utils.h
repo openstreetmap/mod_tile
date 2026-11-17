@@ -26,7 +26,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-
 #endif
 
-#endif
+#endif /* SYS_UTILS_H */

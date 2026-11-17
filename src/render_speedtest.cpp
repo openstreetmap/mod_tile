@@ -32,30 +32,46 @@
 #include "render_submit_queue.h"
 #include "renderd_config.h"
 
+/** @brief Conversion factor from degrees to radians (\f$\pi / 180\f$). */
 #define DEG_TO_RAD (M_PI / 180)
+/** @brief Conversion factor from radians to degrees (\f$180 / \pi\f$). */
 #define RAD_TO_DEG (180 / M_PI)
 
 #if 1
+/** @brief Western longitude bound (degrees) of the Greater London benchmark bounding box. */
 static double boundx0 = -0.5;
+/** @brief Southern latitude bound (degrees) of the Greater London benchmark bounding box. */
 static double boundy0 = 51.25;
+/** @brief Eastern longitude bound (degrees) of the Greater London benchmark bounding box. */
 static double boundx1 = 0.5;
+/** @brief Northern latitude bound (degrees) of the Greater London benchmark bounding box. */
 static double boundy1 = 51.75;
 #endif
+
 #if 0
-//    bbox = (-6.0, 50.0,3.0,58.0)
+/* Great Britain (England, Wales, and mainland Scotland) */
 static double boundx0 = -6.0;
 static double boundy0 = 50.0;
 static double boundx1 = 3.0;
 static double boundy1 = 58.0;
 #endif
+
 #if 0
-// UK: 49.7,-7.6, 58.8, 3.2
+/* United Kingdom (including Northern Ireland, Isles of Scilly, and northern Scottish islands) */
 static double boundx0 = -7.6;
 static double boundy0 = 49.7;
 static double boundx1 = 3.2;
 static double boundy1 = 58.8;
 #endif
 
+/**
+ * @brief Clamp a double-precision value `a` to the closed interval `[b, c]`.
+ *
+ * @param a Input value to clamp.
+ * @param b Lower bound.
+ * @param c Upper bound.
+ * @return `a` clamped between `b` and `c`.
+ */
 static double minmax(double a, double b, double c)
 {
 	a = MAX(a, b);
@@ -63,11 +79,20 @@ static double minmax(double a, double b, double c)
 	return a;
 }
 
+/**
+ * @brief Web Mercator (EPSG:3857 / Slippy Map) coordinate converter between WGS84 lat/lon and zoom-level pixels.
+ */
 class GoogleProjection
 {
+	/** @brief Per-zoom lookup tables for world width in pixels (`Ac`), pixels per degree (`Bc`), pixels per radian (`Cc`), and half-world pixel offset (`zc`). */
 	double *Ac, *Bc, *Cc, *zc;
 
       public:
+	/**
+	 * @brief Precompute Web Mercator projection lookup tables for zoom levels `0` through `levels - 1`.
+	 *
+	 * @param levels Number of zoom levels to allocate and precompute (default `18`).
+	 */
 	GoogleProjection(int levels = 18)
 	{
 		Ac = new double[levels];
@@ -86,6 +111,13 @@ class GoogleProjection
 		}
 	}
 
+	/**
+	 * @brief Project WGS84 `(longitude, latitude)` in-place to global pixel coordinates `(x, y)` at `zoom`.
+	 *
+	 * @param[in,out] x    Input longitude in degrees; overwritten with rounded X pixel coordinate.
+	 * @param[in,out] y    Input latitude in degrees; overwritten with rounded Y pixel coordinate.
+	 * @param[in]     zoom Target Slippy Map zoom level (`0 <= zoom < levels`).
+	 */
 	void fromLLtoPixel(double &x, double &y, int zoom)
 	{
 		double d = zc[zoom];
@@ -94,6 +126,13 @@ class GoogleProjection
 		y = round(d + 0.5 * log((1 + f) / (1 - f)) * -Cc[zoom]);
 	}
 
+	/**
+	 * @brief Inverse-project global pixel coordinates `(x, y)` at `zoom` in-place to WGS84 `(longitude, latitude)`.
+	 *
+	 * @param[in,out] x    Input X pixel coordinate; overwritten with longitude in degrees.
+	 * @param[in,out] y    Input Y pixel coordinate; overwritten with latitude in degrees.
+	 * @param[in]     zoom Source Slippy Map zoom level (`0 <= zoom < levels`).
+	 */
 	void fromPixelToLL(double &x, double &y, int zoom)
 	{
 		double e = zc[zoom];
@@ -103,6 +142,19 @@ class GoogleProjection
 	}
 };
 
+/**
+ * @brief Entry point for the `render_speedtest` rendering throughput benchmark utility.
+ *
+ * Parses command-line options (`-c/--config`, `-m/--map`, `-Z/--max-zoom`, `-z/--min-zoom`,
+ * `-n/--num-threads`, `-s/--socket`, `-h/--help`, `-V/--version`), optionally loads defaults
+ * from a `renderd` INI config file, warms up `renderd` with tile `0/0/0`, and enqueues all
+ * tiles within `[boundx0, boundy0, boundx1, boundy1]` across `min_zoom..max_zoom` while
+ * measuring and logging per-zoom and aggregate rendering throughput.
+ *
+ * @param argc Command-line argument count.
+ * @param argv Command-line argument vector.
+ * @return `0` on completion, or `1` on invalid CLI arguments or missing config/map.
+ */
 int main(int argc, char **argv)
 {
 	const char *config_file_name_default = RENDERD_CONFIG;

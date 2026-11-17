@@ -40,20 +40,39 @@
 #include <iniparser.h>
 #endif
 
+/* Compatibility macros for iniparser < 4.0 (non-const API) vs >= 4.0 (const-correct API) */
 #ifndef INIPARSER_USES_CONST
+/** @brief Cast a `const dictionary *` for legacy non-const iniparser functions. */
 #define INIPARSER_DICT_CAST(d) ((dictionary *)(d))
+/** @brief Cast a `const char *` for legacy non-const iniparser functions. */
 #define INIPARSER_STR_CAST(s) ((char *)(s))
 #else
+/** @brief Pass a `const dictionary *` directly to const-correct iniparser functions. */
 #define INIPARSER_DICT_CAST(d) (d)
+/** @brief Pass a `const char *` directly to const-correct iniparser functions. */
 #define INIPARSER_STR_CAST(s) (s)
 #endif
 
+/** @brief Total number of map style sections parsed into `maps[]`. */
 int num_maps = 0;
+/** @brief Sum of `num_threads` across all inactive (slave) `[renderdN]` sections. */
 int num_slave_threads = 0;
+/** @brief Pointer to the active `renderd_config` entry inside `config_slaves[]`. */
 renderd_config *config;
+/** @brief Array of parsed `[renderd]` / `[renderdN]` instance configurations indexed by section number. */
 renderd_config config_slaves[MAX_SLAVES];
+/** @brief Array of parsed map style configurations (`[default]`, etc.) up to `XMLCONFIGS_MAX`. */
 xmlconfigitem maps[XMLCONFIGS_MAX];
 
+/**
+ * @brief Duplicate up to `maxlen` bytes of `src` onto the heap and store in `*dest`.
+ *
+ * Logs a critical error and terminates with exit code `7` if `strndup()` fails.
+ *
+ * @param src    Source null-terminated string to copy.
+ * @param dest   Output pointer receiving the newly allocated string.
+ * @param maxlen Maximum number of characters to copy from `src`.
+ */
 static void copy_string(const char *src, const char **dest, size_t maxlen)
 {
 	*dest = strndup(src, strnlen(src, maxlen));
@@ -64,9 +83,21 @@ static void copy_string(const char *src, const char **dest, size_t maxlen)
 	}
 }
 
+/**
+ * @brief Format an iniparser lookup key as `"<section>:<name>"`.
+ *
+ * Allocates the combined key string on the heap (caller must `free()`). Exits with
+ * code `7` if `section` or `name` is `NULL` or if `asprintf()` fails.
+ *
+ * @param section INI section name (e.g., `"renderd"`).
+ * @param name    INI key name within the section (e.g., `"num_threads"`).
+ * @return Heap-allocated `"section:name"` key string.
+ */
 static char *name_with_section(const char *section, const char *name)
 {
+	/* Byte length returned by asprintf(), or -1 on allocation failure */
 	int len;
+	/* Heap-allocated formatted "section:name" lookup key */
 	char *key;
 
 	if (!section) {
@@ -89,9 +120,20 @@ static char *name_with_section(const char *section, const char *name)
 	return key;
 }
 
+/**
+ * @brief Read a boolean configuration value from an INI dictionary.
+ *
+ * @param ini      Parsed iniparser dictionary.
+ * @param section  INI section name.
+ * @param name     INI option name.
+ * @param dest     Output integer receiving `1` (true) or `0` (false).
+ * @param notfound Default boolean value returned if the key is absent.
+ */
 static void process_config_bool(const dictionary *ini, const char *section, const char *name, int *dest, int notfound)
 {
+	/* Formatted "section:name" iniparser lookup key */
 	char *key = name_with_section(section, name);
+	/* Parsed boolean result (1 or 0) */
 	int src = iniparser_getboolean(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src ? "true" : "false");
@@ -101,9 +143,20 @@ static void process_config_bool(const dictionary *ini, const char *section, cons
 	free(key);
 }
 
+/**
+ * @brief Read a floating-point (`double`) configuration value from an INI dictionary.
+ *
+ * @param ini      Parsed iniparser dictionary.
+ * @param section  INI section name.
+ * @param name     INI option name.
+ * @param dest     Output double receiving the parsed value.
+ * @param notfound Default double value returned if the key is absent.
+ */
 static void process_config_double(const dictionary *ini, const char *section, const char *name, double *dest, double notfound)
 {
+	/* Formatted "section:name" iniparser lookup key */
 	char *key = name_with_section(section, name);
+	/* Parsed double-precision value */
 	double src = iniparser_getdouble(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%lf'", key, src);
@@ -113,9 +166,20 @@ static void process_config_double(const dictionary *ini, const char *section, co
 	free(key);
 }
 
+/**
+ * @brief Read an integer configuration value from an INI dictionary.
+ *
+ * @param ini      Parsed iniparser dictionary.
+ * @param section  INI section name.
+ * @param name     INI option name.
+ * @param dest     Output integer receiving the parsed value.
+ * @param notfound Default integer value returned if the key is absent.
+ */
 static void process_config_int(const dictionary *ini, const char *section, const char *name, int *dest, int notfound)
 {
+	/* Formatted "section:name" iniparser lookup key */
 	char *key = name_with_section(section, name);
+	/* Parsed integer value */
 	int src = iniparser_getint(INIPARSER_DICT_CAST(ini), key, notfound);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%i'", key, src);
@@ -125,9 +189,21 @@ static void process_config_int(const dictionary *ini, const char *section, const
 	free(key);
 }
 
+/**
+ * @brief Read a string configuration value from an INI dictionary and duplicate it onto the heap.
+ *
+ * @param ini      Parsed iniparser dictionary.
+ * @param section  INI section name.
+ * @param name     INI option name.
+ * @param dest     Output pointer receiving the heap-allocated copy of the string.
+ * @param notfound Default fallback string if the key is absent.
+ * @param maxlen   Maximum byte length to copy via copy_string().
+ */
 static void process_config_string(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
 {
+	/* Formatted "section:name" iniparser lookup key */
 	char *key = name_with_section(section, name);
+	/* Raw string pointer owned by the iniparser dictionary */
 	const char *src = iniparser_getstring(INIPARSER_DICT_CAST(ini), key, INIPARSER_STR_CAST(notfound));
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
@@ -137,17 +213,36 @@ static void process_config_string(const dictionary *ini, const char *section, co
 	free(key);
 }
 
+/**
+ * @brief Read a string configuration value and guarantee it ends with a trailing `'/'`.
+ *
+ * Used for URI path prefixes (`uri`) so tile paths can be concatenated directly.
+ * If the configured value is empty or does not end with `'/'`, appends `'/'` before
+ * copying to `*dest`.
+ *
+ * @param ini      Parsed iniparser dictionary.
+ * @param section  INI section name.
+ * @param name     INI option name.
+ * @param dest     Output pointer receiving the heap-allocated slash-terminated string.
+ * @param notfound Default fallback string if the key is absent.
+ * @param maxlen   Maximum byte length to copy via copy_string().
+ */
 static void process_config_string_with_trailing_slash(const dictionary *ini, const char *section, const char *name, const char **dest, const char *notfound, size_t maxlen)
 {
+	/* Formatted "section:name" iniparser lookup key */
 	char *key = name_with_section(section, name);
+	/* Raw string pointer owned by the iniparser dictionary */
 	const char *src = iniparser_getstring(INIPARSER_DICT_CAST(ini), key, INIPARSER_STR_CAST(notfound));
+	/* Bounded byte length of src */
 	size_t src_strlen = strnlen(src, maxlen);
 
 	g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s: '%s'", key, src);
 
-	// (an empty value also gets a slash; checking src[src_len - 1] would read before the string)
+	/* An empty value also gets a slash; checking src[src_strlen - 1] directly would read out of bounds */
 	if (src_strlen == 0 || src[src_strlen - 1] != '/') {
+		/* Temporary buffer holding `src` with an appended '/' */
 		char *tempsrc;
+		/* Byte length returned by asprintf(), or -1 on error */
 		int len = asprintf(&tempsrc, "%s/", src);
 
 		if (len == -1) {
@@ -167,6 +262,11 @@ static void process_config_string_with_trailing_slash(const dictionary *ini, con
 	free(key);
 }
 
+/**
+ * @brief Free all heap-allocated string fields inside a single `xmlconfigitem` and zero the struct.
+ *
+ * @param map_section Pointer to the `xmlconfigitem` structure to release.
+ */
 void free_map_section(xmlconfigitem *map_section)
 {
 	free((void *)map_section->attribution);
@@ -186,6 +286,11 @@ void free_map_section(xmlconfigitem *map_section)
 	bzero(map_section, sizeof(xmlconfigitem));
 }
 
+/**
+ * @brief Free all populated entries in an array of `XMLCONFIGS_MAX` map configurations.
+ *
+ * @param map_sections Array of `xmlconfigitem` structures (`XMLCONFIGS_MAX` elements).
+ */
 void free_map_sections(xmlconfigitem *map_sections)
 {
 	for (int i = 0; i < XMLCONFIGS_MAX; i++) {
@@ -195,6 +300,11 @@ void free_map_sections(xmlconfigitem *map_sections)
 	}
 }
 
+/**
+ * @brief Free all heap-allocated string fields inside a single `renderd_config` and zero the struct.
+ *
+ * @param renderd_section Pointer to the `renderd_config` structure to release.
+ */
 void free_renderd_section(renderd_config *renderd_section)
 {
 	free((void *)renderd_section->iphostname);
@@ -208,6 +318,11 @@ void free_renderd_section(renderd_config *renderd_section)
 	bzero(renderd_section, sizeof(renderd_config));
 }
 
+/**
+ * @brief Free all populated entries in an array of `MAX_SLAVES` renderd instance configurations.
+ *
+ * @param renderd_sections Array of `renderd_config` structures (`MAX_SLAVES` elements).
+ */
 void free_renderd_sections(renderd_config *renderd_sections)
 {
 	for (int i = 0; i < MAX_SLAVES; i++) {
@@ -217,9 +332,23 @@ void free_renderd_sections(renderd_config *renderd_sections)
 	}
 }
 
+/**
+ * @brief Parse and validate a `double` command-line or config option against optional bounds.
+ *
+ * Terminates the process with `exit(1)` if `opt_arg` cannot be parsed as a floating-point
+ * number or violates `[minimum, maximum]` (where `-1` disables the corresponding bound check).
+ *
+ * @param opt_arg       Input string to parse as a `double`.
+ * @param opt_type_name Descriptive option name used in error log messages.
+ * @param minimum       Inclusive lower bound, or `-1` to skip lower-bound validation.
+ * @param maximum       Inclusive upper bound, or `-1` to skip upper-bound validation.
+ * @return Parsed and validated `double` value.
+ */
 double min_max_double_opt(const char *opt_arg, const char *opt_type_name, double minimum, double maximum)
 {
+	/* Pointer set by strtod() to the first unparsed character */
 	char *endptr;
+	/* Parsed floating-point option value */
 	double opt = strtod(opt_arg, &endptr);
 
 	if (endptr == opt_arg) {
@@ -236,10 +365,26 @@ double min_max_double_opt(const char *opt_arg, const char *opt_type_name, double
 	return opt;
 }
 
+/**
+ * @brief Parse and validate an `int` command-line or config option against optional bounds.
+ *
+ * Rejects non-numeric strings as well as fractional numbers (by comparing `strtol()` and
+ * `strtof()` results), and enforces `[minimum, maximum]` (where `-1` disables a bound check).
+ * Terminates with `exit(1)` on invalid input.
+ *
+ * @param opt_arg       Input string to parse as an `int`.
+ * @param opt_type_name Descriptive option name used in error log messages.
+ * @param minimum       Inclusive lower bound, or `-1` to skip lower-bound validation.
+ * @param maximum       Inclusive upper bound, or `-1` to skip upper-bound validation.
+ * @return Parsed and validated integer value.
+ */
 int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum, int maximum)
 {
+	/* End pointers for integer and float parses (used to detect non-numeric or fractional inputs) */
 	char *endptr, *endptr_float;
+	/* Parsed base-10 integer value */
 	int opt = strtol(opt_arg, &endptr, 10);
+	/* Float parse used to verify that opt_arg had no fractional component */
 	float opt_float = strtof(opt_arg, &endptr_float);
 
 	if (endptr == opt_arg || endptr_float == opt_arg || (float)opt != opt_float) {
@@ -256,9 +401,26 @@ int min_max_int_opt(const char *opt_arg, const char *opt_type_name, int minimum,
 	return opt;
 }
 
+/**
+ * @brief Parse all map style sections from a `renderd.conf` INI file into `maps_dest[]`.
+ *
+ * Treats every INI section whose name neither starts with `"renderd"` nor equals `"mapnik"`
+ * as a map configuration section. Parses tile dimensions, zoom range (`0..MAX_ZOOM`), scale
+ * factor (`0.1..8.0`), paths, HTCP settings, and space-delimited `type` (`<ext> <mime> [format]`),
+ * then verifies that at least one map exists and no earlier map's `xmluri` is a prefix of a
+ * later map's `xmluri`. Updates the global `num_maps` counter.
+ *
+ * @param ini              Pre-loaded iniparser dictionary, or `NULL` to load `config_file_name` locally.
+ * @param config_file_name Path to the configuration file (used for loading if `ini == NULL` and in logs).
+ * @param maps_dest        Destination array of `XMLCONFIGS_MAX` `xmlconfigitem` entries.
+ * @param default_tile_dir Fallback tile directory inherited from the active `[renderd]` section.
+ * @param num_threads      Active worker thread count propagated to each `xmlconfigitem`.
+ */
 void process_map_sections(const dictionary *ini, const char *config_file_name, xmlconfigitem *maps_dest, const char *default_tile_dir, int num_threads)
 {
+	/* Flag set to 1 if this function loaded `ini` itself and must free it before returning */
 	int ini_loaded_here = 0;
+	/* Zero-based index of the most recently parsed map section (-1 until first map is found) */
 	int map_section_num = -1;
 
 	if (!ini) {
@@ -276,11 +438,15 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing map config section(s)");
 
 	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		/* Current INI section name */
 		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 
-		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { // this is a map config section
+		if (strncmp(section, "renderd", 7) && strcmp(section, "mapnik")) { /* This is a map config section */
+			/* Mutable copy of `type` setting and strtok_r() state pointer */
 			char *ini_type_copy, *ini_type_context;
+			/* Raw `type` config string (e.g., "png image/png png256") and current space-delimited token */
 			const char *ini_type, *ini_type_part;
+			/* Maximum token length and token index (0=ext, 1=mime, 2=Mapnik format) */
 			int ini_type_part_maxlen = 64, ini_type_part_num = 0;
 
 			map_section_num++;
@@ -340,6 +506,7 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 			process_config_string(ini, section, "type", &ini_type, "png image/png png256", INILINE_MAX);
 			ini_type_copy = strndup(ini_type, INILINE_MAX);
 
+			/* Split "type" into up to 3 space-separated tokens: <file_extension> <mime_type> [output_format] */
 			for (ini_type_part = strtok_r(ini_type_copy, " ", &ini_type_context); ini_type_part; ini_type_part = strtok_r(NULL, " ", &ini_type_context)) {
 				switch (ini_type_part_num) {
 				case 0:
@@ -368,6 +535,7 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 			}
 
 			if (ini_type_part_num < 3) {
+				/* Default Mapnik output encoding format when omitted from `type` */
 				copy_string("png256", &maps_dest[map_section_num].output_format, ini_type_part_maxlen);
 			}
 
@@ -375,9 +543,7 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 			g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s:%s:mime_type: '%s'", section, "type", maps_dest[map_section_num].mime_type);
 			g_logger(G_LOG_LEVEL_DEBUG, "\tRead %s:%s:output_format: '%s'", section, "type", maps_dest[map_section_num].output_format);
 
-			/* Pass this information into the rendering threads,
-			 * as it is needed to configure mapniks number of connections
-			 */
+			/* Pass thread count into each map config so rendering threads can size Mapnik DB connection pools */
 			maps_dest[map_section_num].num_threads = num_threads;
 
 			free(ini_type_copy);
@@ -394,6 +560,7 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 		exit(1);
 	}
 
+	/* Ensure no earlier map's URI path is a prefix of a subsequent map's URI path (which would shadow it in Apache) */
 	if (map_section_num > 0) {
 		for (int x = 0; x < map_section_num; x++) {
 			for (int y = x + 1; y <= map_section_num; y++) {
@@ -408,9 +575,21 @@ void process_map_sections(const dictionary *ini, const char *config_file_name, x
 	num_maps = map_section_num + 1;
 }
 
+/**
+ * @brief Parse the `[mapnik]` section from a `renderd.conf` INI file into `config_dest`.
+ *
+ * Extracts `font_dir_recurse`, `font_dir`, and `plugins_dir`. Exits with code `1` if the
+ * `[mapnik]` section is missing.
+ *
+ * @param ini              Pre-loaded iniparser dictionary, or `NULL` to load `config_file_name` locally.
+ * @param config_file_name Path to the configuration file (used for loading if `ini == NULL` and in logs).
+ * @param config_dest      Destination `renderd_config` structure receiving the Mapnik paths.
+ */
 void process_mapnik_section(const dictionary *ini, const char *config_file_name, renderd_config *config_dest)
 {
+	/* Flag set to 1 if this function loaded `ini` itself and must free it before returning */
 	int ini_loaded_here = 0;
+	/* Index of the `[mapnik]` section in `ini`, or -1 if not found */
 	int mapnik_section_num = -1;
 
 	if (!ini) {
@@ -426,9 +605,10 @@ void process_mapnik_section(const dictionary *ini, const char *config_file_name,
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing mapnik config section");
 
 	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		/* Current INI section name */
 		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 
-		if (strcmp(section, "mapnik") == 0) { // this is a mapnik config section
+		if (strcmp(section, "mapnik") == 0) { /* This is the mapnik config section */
 			mapnik_section_num = section_num;
 			process_config_bool(ini, section, "font_dir_recurse", &config_dest->mapnik_font_dir_recurse, MAPNIK_FONTS_DIR_RECURSE);
 			process_config_string(ini, section, "font_dir", &config_dest->mapnik_font_dir, MAPNIK_FONTS_DIR, PATH_MAX);
@@ -447,10 +627,25 @@ void process_mapnik_section(const dictionary *ini, const char *config_file_name,
 	}
 }
 
+/**
+ * @brief Parse all `[renderd]` and `[renderdN]` sections from a `renderd.conf` INI file.
+ *
+ * Maps `[renderd]` and `[renderd0]` to index `0`, and `[renderdN]` (`1 <= N < MAX_SLAVES`)
+ * to index `N` in `configs_dest[]`. Resolves `num_threads = -1` to the online CPU core count
+ * (`sysconf(_SC_NPROCESSORS_ONLN)`), validates Unix socket path length against
+ * `sockaddr_un.sun_path`, and rejects duplicate or out-of-range section indices.
+ *
+ * @param ini              Pre-loaded iniparser dictionary, or `NULL` to load `config_file_name` locally.
+ * @param config_file_name Path to the configuration file (used for loading if `ini == NULL` and in logs).
+ * @param configs_dest     Destination array of `MAX_SLAVES` `renderd_config` entries.
+ */
 void process_renderd_sections(const dictionary *ini, const char *config_file_name, renderd_config *configs_dest)
 {
+	/* Flag set to 1 if this function loaded `ini` itself and must free it before returning */
 	int ini_loaded_here = 0;
+	/* Parsed slot index in `configs_dest[]` for the current `[renderd*]` section (-1 if none found) */
 	int renderd_section_num = -1;
+	/* Maximum byte buffer size of `sockaddr_un.sun_path` (socketname must be strictly shorter for NUL) */
 	size_t renderd_socketname_maxlen = sizeof(((struct sockaddr_un *)0)->sun_path);
 
 	if (!ini) {
@@ -468,13 +663,15 @@ void process_renderd_sections(const dictionary *ini, const char *config_file_nam
 	g_logger(G_LOG_LEVEL_DEBUG, "Parsing renderd config section(s)");
 
 	for (int section_num = 0; section_num < iniparser_getnsec(INIPARSER_DICT_CAST(ini)); section_num++) {
+		/* Current INI section name and prefix length of "renderd" */
 		const char *section = iniparser_getsecname(INIPARSER_DICT_CAST(ini), section_num);
 		int renderd_strlen = 7;
 
-		if (strncmp(section, "renderd", renderd_strlen) == 0) { // this is a renderd config section
+		if (strncmp(section, "renderd", renderd_strlen) == 0) { /* This is a renderd config section */
 			if (strcmp(section, "renderd") == 0 || strcmp(section, "renderd0") == 0) {
 				renderd_section_num = 0;
 			} else {
+				/* Pointer set by strtol() to verify a valid numeric suffix after "renderd" */
 				char *endptr;
 				renderd_section_num = strtol(&section[renderd_strlen], &endptr, 10);
 
@@ -507,6 +704,7 @@ void process_renderd_sections(const dictionary *ini, const char *config_file_nam
 			process_config_string(ini, section, "tile_dir", &configs_dest[renderd_section_num].tile_dir, RENDERD_TILE_DIR, PATH_MAX);
 
 			if (configs_dest[renderd_section_num].num_threads == -1) {
+				/* Auto-detect worker thread count from online logical CPU count */
 				configs_dest[renderd_section_num].num_threads = sysconf(_SC_NPROCESSORS_ONLN);
 			}
 
@@ -527,6 +725,19 @@ void process_renderd_sections(const dictionary *ini, const char *config_file_nam
 	}
 }
 
+/**
+ * @brief Load and parse a complete `renderd.conf` file and populate global configuration state.
+ *
+ * Orchestrates parsing of `[renderd*]` sections into `config_slaves[]`, selects
+ * `config = &config_slaves[active_renderd_section_num]`, parses `[mapnik]` into the
+ * active config, parses all map sections into `maps[]`, totals `num_slave_threads` across
+ * non-active instances, and logs the effective runtime configuration.
+ *
+ * @param config_file_name           Filesystem path to `renderd.conf`.
+ * @param active_renderd_section_num Index (`0 .. MAX_SLAVES - 1`) of the `[renderd*]` section
+ *                                   this process instance should run as.
+ * @param log_level                  GLib log level used to emit the parsed configuration summary.
+ */
 void process_config_file(const char *config_file_name, int active_renderd_section_num, int log_level)
 {
 	num_slave_threads = 0;
@@ -538,6 +749,7 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 
 	g_logger(log_level, "Parsing renderd config file '%s':", config_file_name);
 
+	/* Parsed iniparser dictionary shared across all section-parsing helpers */
 	const dictionary *ini = iniparser_load(config_file_name);
 
 	if (!ini) {
@@ -560,6 +772,7 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 
 	config = &config_slaves[active_renderd_section_num];
 
+	/* Log debug details for all configured renderd sections and sum slave thread counts */
 	for (int i = 0; i < MAX_SLAVES; i++) {
 		if (config_slaves[i].num_threads == 0) {
 			continue;
@@ -587,6 +800,7 @@ void process_config_file(const char *config_file_name, int active_renderd_sectio
 		g_logger(G_LOG_LEVEL_DEBUG, "\trenderd(%i): tile_dir = '%s'", i, config_slaves[i].tile_dir);
 	}
 
+	/* Log summary of the active renderd instance, Mapnik paths, and configured map styles */
 	if (config->ipport > 0) {
 		g_logger(log_level, "\trenderd: ip socket = '%s:%i'", config->iphostname, config->ipport);
 	} else {

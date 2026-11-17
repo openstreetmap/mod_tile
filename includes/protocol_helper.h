@@ -15,8 +15,8 @@
  * along with this program; If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef DAEMONHELPER_H
-#define DAEMONHELPER_H
+#ifndef PROTOCOL_HELPER_H
+#define PROTOCOL_HELPER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +29,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
 
-#endif
-#endif
+#endif /* PROTOCOL_HELPER_H */
