@@ -157,6 +157,46 @@ jobs:
       - name: Install `mod_tile`
         uses: ./.github/actions/install
 
+  Linux-Nix:
+    name: >-
+      ubuntu-latest
+      (Nix)
+      (CMake)
+      (GNU)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v23
+        with:
+          determinate: false
+
+      - name: Restore binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@v15
+
+      - name: Configure, build & test
+        run: |
+          nix-build - << 'EOF'
+          with import <nixpkgs> {};
+          apacheHttpdPackages.mod_tile.overrideAttrs (_: {
+            version =
+              let
+                versionLine = builtins.head (
+                  builtins.filter (
+                    line: builtins.match "[ ]*VERSION[ ]*[0-9]+\\.[0-9]+(\\.[0-9]+)?[ ]*" line != null
+                  ) (lib.splitString "\n" (builtins.readFile ./CMakeLists.txt))
+                );
+              in
+              builtins.elemAt (builtins.match "[ ]*VERSION[ ]*([0-9.]+)[ ]*" versionLine) 0;
+            src = lib.cleanSourceWith {
+              src = ./.;
+              filter = path: _type: baseNameOf path != ".git";
+            };
+          })
+          EOF
+
   macOS:
     env:
       CFLAGS: --coverage
