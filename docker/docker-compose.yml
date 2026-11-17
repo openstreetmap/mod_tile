@@ -234,6 +234,11 @@ services:
       <<: *build_defaults_fedora
       args:
         fedora_version: "rawhide"
+  nixos:
+    <<: *service_defaults
+    build:
+      <<: *build_defaults
+      dockerfile: docker/nixos/Dockerfile
   opensuse-leap-15:
     <<: *service_defaults
     build:
