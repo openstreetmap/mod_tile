@@ -4,9 +4,6 @@ name: Build & Test
 on:
   pull_request:
   push:
-    branches:
-      - develop
-      - master
 
 jobs:
   Linux:
@@ -32,7 +29,13 @@ jobs:
           - "quay.io/centos/centos:stream10"
           - "ubuntu:24.04"
         on_default_branch:
-          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+          - >-
+            ${{
+              github.event_name == 'pull_request' ||
+              github.ref_name == 'master' ||
+              github.ref_name == 'develop' ||
+              contains(github.ref_name, 'CI')
+            }}
         include:
           - image: "debian:unstable"
             build_system: CMake
@@ -220,7 +223,13 @@ jobs:
         compiler:
           - LLVM
         on_default_branch:
-          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+          - >-
+            ${{
+              github.event_name == 'pull_request' ||
+              github.ref_name == 'master' ||
+              github.ref_name == 'develop' ||
+              contains(github.ref_name, 'CI')
+            }}
         include:
           - os: macos-26
             build_system: CMake
@@ -283,7 +292,13 @@ jobs:
         compiler:
           - LLVM
         on_default_branch:
-          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+          - >-
+            ${{
+              github.event_name == 'pull_request' ||
+              github.ref_name == 'master' ||
+              github.ref_name == 'develop' ||
+              contains(github.ref_name, 'CI')
+            }}
         include:
           - freebsd_release: 15.1
             build_system: CMake
@@ -354,7 +369,13 @@ jobs:
         compiler:
           - LLVM
         on_default_branch:
-          - ${{ contains(github.ref, 'master') || contains(github.ref, 'develop') || contains(github.ref, 'CI') }}
+          - >-
+            ${{
+              github.event_name == 'pull_request' ||
+              github.ref_name == 'master' ||
+              github.ref_name == 'develop' ||
+              contains(github.ref_name, 'CI')
+            }}
         include:
           - openbsd_release: "8.0"
             build_system: CMake

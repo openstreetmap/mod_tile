@@ -4,6 +4,10 @@ name: Lint
 on:
   pull_request:
   push:
+    branches:
+      - develop
+      - master
+      - "*CI*"
 
 jobs:
   clang-format:
