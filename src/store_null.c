@@ -32,7 +32,7 @@
 /**
  * @brief Simulate a failed tile read from the no-op null storage backend.
  *
- * Always writes `"Cannot read from NULL storage."` into `err_msg` and returns `-1`.
+ * Always writes `"Cannot read from NULL storage."` into `log_msg` and returns `-1`.
  *
  * @param store      Null `storage_backend` instance (unused).
  * @param xmlconfig  Logical map style name (unused).
@@ -43,7 +43,7 @@
  * @param buf        Output buffer (untouched).
  * @param sz         Capacity of `buf` in bytes (unused).
  * @param compressed Compression flag output pointer (untouched).
- * @param err_msg    Caller-supplied buffer (`PATH_MAX` bytes) populated with an error message.
+ * @param log_msg    Caller-supplied buffer receiving an error message on failure.
  * @return Always returns `-1` (cache miss / unreadable).
  */
 static int tile_read(struct storage_backend *store,
@@ -51,9 +51,9 @@ static int tile_read(struct storage_backend *store,
 		     const char *options,
 		     int x, int y, int z,
 		     char *buf, size_t sz,
-		     int *compressed, char *err_msg)
+		     int *compressed, char *log_msg)
 {
-	snprintf(err_msg, PATH_MAX - 1, "Cannot read from NULL storage.");
+	snprintf(log_msg, PATH_MAX - 1, "Cannot read from NULL storage.");
 	return -1;
 }
 

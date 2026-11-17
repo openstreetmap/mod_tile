@@ -275,7 +275,7 @@ static int ro_composite_metatile_write(struct storage_backend *store, const char
  */
 static int ro_composite_metatile_delete(struct storage_backend *store, const char *xmlconfig, int x, int y, int z)
 {
-	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_expire: This is a readonly storage backend. Write functionality isn't implemented");
+	g_logger(G_LOG_LEVEL_ERROR, "ro_composite_metatile_delete: This is a readonly storage backend. Write functionality isn't implemented");
 	return -1;
 }
 
