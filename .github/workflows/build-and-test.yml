@@ -181,6 +181,7 @@ jobs:
           nix-build - << 'EOF'
           with import <nixpkgs> {};
           apacheHttpdPackages.mod_tile.overrideAttrs (_: {
+            enableParallelChecking = true;
             version =
               let
                 versionLine = builtins.head (

@@ -28,6 +28,7 @@ RUN nix-build --out-link /tmp/mod_tile_env - <<'EOF'
 with import <nixpkgs> {};
 let
   mod_tile = apacheHttpdPackages.mod_tile.overrideAttrs (_: {
+    enableParallelChecking = true;
     version =
       let
         versionLine = builtins.head (
