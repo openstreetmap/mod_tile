@@ -11,6 +11,7 @@ Rather than maintaining separate Nix packaging files in this repository, you can
 nix-build -E '
   with import <nixpkgs> {};
   apacheHttpdPackages.mod_tile.overrideAttrs (_: {
+    enableParallelChecking = true;
     version =
       let
         versionLine = builtins.head (
