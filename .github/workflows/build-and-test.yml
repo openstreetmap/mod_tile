@@ -159,11 +159,17 @@ jobs:
 
   Linux-Nix:
     name: >-
-      ubuntu-latest
+      ${{ matrix.os }}
       (Nix)
       (CMake)
       (GNU)
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
