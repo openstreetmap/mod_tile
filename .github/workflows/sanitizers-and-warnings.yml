@@ -7,6 +7,7 @@ on:
     branches:
       - develop
       - master
+      - "*CI*"
 
 jobs:
   Warnings:
@@ -63,7 +64,8 @@ jobs:
         include:
           - sanitizers: address,undefined
             name: ASan + UBSan
-            # Includes the Apache/renderd integration tests (the ASan runtime is preloaded into httpd)
+            # Includes the Apache/renderd integration tests (the ASan runtime is preloaded into httpd),
+            # excluding cleanup tests that would delete `build/tests/logs` before it can be checked below
             test_options: --exclude-regex 'clear_dirs_.+|remove_tile_.+' --output-on-failure
           - sanitizers: thread
             name: TSan
@@ -88,11 +90,6 @@ jobs:
 
       - name: Install dependencies
         uses: ./.github/actions/dependencies/install
-
-      # Unlike in containers, installing the packages on the host starts their system services,
-      # whose default ports (e.g. memcached on 11211) collide with the test services
-      - name: Stop system `apache2` & `memcached` services
-        run: sudo systemctl stop apache2 memcached || true
 
       - name: Build `mod_tile`
         uses: ./.github/actions/cmake/build
