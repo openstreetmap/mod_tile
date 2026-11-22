@@ -126,7 +126,7 @@ TEST_CASE("request_queue.c", "[request_queue]")
 
 			REQUIRE(queue != NULL);
 			REQUIRE(queue->item_hashidx != NULL);
-			REQUIRE(queue->hashidxSize == HASHIDX_SIZE);
+			REQUIRE(queue->hashidxSize == (4 * REQ_LIMIT + DIRTY_LIMIT));
 			REQUIRE(request_queue_no_requests_queued(queue, cmdRenderPrio) == 0);
 			REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 0);
 			REQUIRE(request_queue_no_requests_queued(queue, cmdRenderLow) == 0);
@@ -319,21 +319,23 @@ TEST_CASE("request_queue.c", "[request_queue]")
 			free(duplicate2);
 		}
 
-		SECTION("Dirty queue pending requests reject duplicates with cmdNotDone")
+		SECTION("Dirty queue pending requests are promoted by a waiting client")
 		{
 			struct item *dirtyItem = create_test_item(cmdDirty, XMLCONFIG_DEFAULT, 300, 400, 8, FD_INVALID);
-			struct item *dupDirty = create_test_item(cmdRender, XMLCONFIG_DEFAULT, 300, 400, 8, 20);
+			struct item *dupRender = create_test_item(cmdRender, XMLCONFIG_DEFAULT, 300, 400, 8, 20);
 
 			REQUIRE(request_queue_add_request(queue, dirtyItem) == cmdNotDone);
-
-			REQUIRE(request_queue_add_request(queue, dupDirty) == cmdNotDone);
-			REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 1);
+			REQUIRE(request_queue_add_request(queue, dupRender) == cmdIgnore);
+			REQUIRE(request_queue_no_requests_queued(queue, cmdDirty) == 0);
+			REQUIRE(request_queue_no_requests_queued(queue, cmdRender) == 1);
+			REQUIRE(dirtyItem->duplicates == dupRender);
 
 			struct item *fetched = request_queue_fetch_request(queue);
 			REQUIRE(fetched == dirtyItem);
 			request_queue_remove_request(queue, fetched, 0);
 
 			free(dirtyItem);
+			free(dupRender);
 		}
 
 		SECTION("Requests overflow from render queues to dirty queue when REQ_LIMIT reached")

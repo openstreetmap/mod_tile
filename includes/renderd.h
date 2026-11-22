@@ -56,12 +56,16 @@ extern "C" {
 		const char *stats_filename;
 		/** @brief Default root tile/metatile storage directory or backend connection string. */
 		const char *tile_dir;
+		/** @brief Maximum number of requests kept in the dirty queue. */
+		int dirty_queue_limit;
 		/** @brief TCP listen port number when `iphostname` is configured. */
 		int ipport;
 		/** @brief Non-zero to recursively scan subdirectories under `mapnik_font_dir`. */
 		int mapnik_font_dir_recurse;
 		/** @brief Number of worker rendering threads spawned for this daemon instance. */
 		int num_threads;
+		/** @brief Maximum number of requests kept in each time-critical request queue. */
+		int request_queue_limit;
 	} renderd_config;
 
 	/**

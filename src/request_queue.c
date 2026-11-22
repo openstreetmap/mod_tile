@@ -16,6 +16,7 @@
  */
 
 #include <glib.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -28,29 +29,97 @@
 #include "render_config.h"
 #include "request_queue.h"
 
+/** @brief Smallest number of hash buckets used for the duplicate-detection index. */
+#define MIN_HASHIDX_SIZE HASHIDX_SIZE
+
+/**
+ * @brief Size the duplicate-detection hash index from the configured queue limits.
+ *
+ * Keeps the index roughly proportional to the configured queue capacity, so that duplicate lookup
+ * stays cheap while large queues are backlogged.
+ *
+ * @param request_limit Maximum number of requests in each time-critical queue.
+ * @param dirty_limit   Maximum number of requests in the dirty queue.
+ * @return Number of hash buckets, at least `MIN_HASHIDX_SIZE`.
+ */
+static int request_queue_hash_size(int request_limit, int dirty_limit)
+{
+	size_t queue_capacity = (4 * (size_t)request_limit) + (size_t)dirty_limit;
+
+	if (queue_capacity > INT_MAX) {
+		return INT_MAX;
+	}
+
+	return MAX(MIN_HASHIDX_SIZE, (int)queue_capacity);
+}
+
+/**
+ * @brief Hash at most `max_len` bytes of a NUL-terminated string (djb2-style multiplier 33).
+ *
+ * @param value   String to hash.
+ * @param max_len Maximum number of bytes to read.
+ * @return 64-bit hash of the string.
+ */
+static uint64_t string_hash(const char *value, size_t max_len)
+{
+	uint64_t hash = 0;
+
+	for (size_t i = 0; (i < max_len) && (value[i] != 0); i++) {
+		hash = (hash * 33) + (unsigned char)value[i];
+	}
+
+	return hash;
+}
+
+/**
+ * @brief Check whether two request items address the same tile with the same style, mime type, and options.
+ *
+ * @param item First request item.
+ * @param test Second request item.
+ * @return Non-zero if both items identify the same render request.
+ */
+static int same_tile_request(struct item *item, struct item *test)
+{
+	return (item->mx == test->mx) &&
+	       (item->my == test->my) &&
+	       (item->req.z == test->req.z) &&
+	       (strncmp(item->req.xmlname, test->req.xmlname, sizeof(item->req.xmlname)) == 0) &&
+	       (strncmp(item->req.mimetype, test->req.mimetype, sizeof(item->req.mimetype)) == 0) &&
+	       (strncmp(item->req.options, test->req.options, sizeof(item->req.options)) == 0);
+}
+
 /**
  * @brief Compute a hash bucket index for a metatile render request item.
  *
- * Combines a byte-sum hash of `item->req.xmlname` (9 bits), zoom level `z` (4 bits),
- * metatile X coordinate `mx` (24 bits), and metatile Y coordinate `my` (24 bits)
- * into a 64-bit integer and reduces it modulo `queue->hashidxSize`.
+ * Combines hashes of `item->req.xmlname`, `item->req.mimetype`, and `item->req.options` with the zoom level `z`
+ * and metatile coordinates `mx`, `my` into a 64-bit key, mixes it, and reduces it modulo `queue->hashidxSize`.
  *
  * @param queue Request queue containing `hashidxSize`.
- * @param item  Render request item whose style name and `(mx, my, z)` are hashed.
+ * @param item  Render request item to hash.
  * @return Zero-based bucket index in `[0, queue->hashidxSize - 1]`.
  */
 static int calcHashKey(struct request_queue *queue, struct item *item)
 {
-	/* Additive byte checksum of the map style name */
-	uint64_t xmlnameHash = 0;
-	/* 64-bit composite key packing xmlnameHash, z, mx, and my */
 	uint64_t key;
+	uint64_t name_hash = string_hash(item->req.xmlname, sizeof(item->req.xmlname));
+	uint64_t mimetype_hash = string_hash(item->req.mimetype, sizeof(item->req.mimetype));
+	uint64_t options_hash = string_hash(item->req.options, sizeof(item->req.options));
 
-	for (int i = 0; (i < (int)sizeof(item->req.xmlname)) && (item->req.xmlname[i] != 0); i++) {
-		xmlnameHash += item->req.xmlname[i];
-	}
-
-	key = ((uint64_t)(xmlnameHash & 0x1FF) << 52) + ((uint64_t)(item->req.z) << 48) + ((uint64_t)(item->mx & 0xFFFFFF) << 24) + (item->my & 0xFFFFFF);
+	key = ((name_hash & 0x1FF) << 52) +
+	      ((mimetype_hash & 0xFF) << 44) +
+	      ((options_hash & 0xFF) << 36) +
+	      ((uint64_t)(item->req.z) << 32) +
+	      ((uint64_t)(item->mx & 0xFFFF) << 16) +
+	      (item->my & 0xFFFF);
+	/* Avalanche every identity field into the low bits. Configurable
+	 * capacities can yield a power-of-two index size, where the modulo
+	 * keeps only the low bits; without mixing, same-row metatiles would
+	 * all land in one bucket and chain scans would turn quadratic. */
+	key ^= key >> 33;
+	key *= 0xff51afd7ed558ccdULL;
+	key ^= key >> 33;
+	key *= 0xc4ceb9fe1a85ec53ULL;
+	key ^= key >> 33;
 	return key % queue->hashidxSize;
 }
 
@@ -80,7 +149,7 @@ static struct item *lookup_item_idx(struct request_queue *queue, struct item *it
 		while (nextItem != NULL) {
 			test = nextItem->item;
 
-			if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
+			if (same_tile_request(item, test)) {
 				return test;
 			} else {
 				nextItem = nextItem->next;
@@ -157,7 +226,7 @@ static void remove_item_idx(struct request_queue *queue, struct item *item)
 	while (nextItem != NULL) {
 		test = nextItem->item;
 
-		if ((item->mx == test->mx) && (item->my == test->my) && (item->req.z == test->req.z) && (!strcmp(item->req.xmlname, test->req.xmlname))) {
+		if (same_tile_request(item, test)) {
 			/* Found matching item; unlink it from the bucket chain */
 			nextItem->item = NULL;
 
@@ -188,6 +257,212 @@ static void remove_item_idx(struct request_queue *queue, struct item *item)
 }
 
 /**
+ * @brief Return the counter tracking the number of items in the given queue type, or `NULL` for unknown types.
+ */
+static int *request_queue_counter(struct request_queue *queue, enum queueEnum queue_type)
+{
+	switch (queue_type) {
+	case queueRequestPrio:
+		return &(queue->reqPrioNum);
+
+	case queueRequest:
+		return &(queue->reqNum);
+
+	case queueRequestLow:
+		return &(queue->reqLowNum);
+
+	case queueDirty:
+		return &(queue->dirtyNum);
+
+	case queueRequestBulk:
+		return &(queue->reqBulkNum);
+
+	default:
+		return NULL;
+	}
+}
+
+/**
+ * @brief Return the configured maximum number of items for the given queue type.
+ */
+static int request_queue_limit(struct request_queue *queue, enum queueEnum queue_type)
+{
+	return (queue_type == queueDirty) ? queue->dirtyLimit : queue->requestLimit;
+}
+
+/**
+ * @brief Return the position of a queue type in the pending order (0 is served first), or `INT_MAX` if it is not pending.
+ */
+static int request_queue_rank(enum queueEnum queue_type)
+{
+	switch (queue_type) {
+	case queueRequestPrio:
+		return 0;
+
+	case queueRequest:
+		return 1;
+
+	case queueRequestLow:
+		return 2;
+
+	case queueDirty:
+		return 3;
+
+	case queueRequestBulk:
+		return 4;
+
+	default:
+		return INT_MAX;
+	}
+}
+
+/**
+ * @brief Map a render command to its queue type; returns 0 if the command is not queued.
+ */
+static int request_queue_for_cmd(enum protoCmd cmd, enum queueEnum *queue_type)
+{
+	switch (cmd) {
+	case cmdRenderPrio:
+		*queue_type = queueRequestPrio;
+		return 1;
+
+	case cmdRender:
+		*queue_type = queueRequest;
+		return 1;
+
+	case cmdRenderLow:
+		*queue_type = queueRequestLow;
+		return 1;
+
+	case cmdDirty:
+		*queue_type = queueDirty;
+		return 1;
+
+	case cmdRenderBulk:
+		*queue_type = queueRequestBulk;
+		return 1;
+
+	default:
+		return 0;
+	}
+}
+
+/**
+ * @brief Attach `duplicate` to the `duplicates` list of `item` so it receives a response when `item` completes.
+ */
+static void request_queue_attach_duplicate(struct item *item, struct item *duplicate)
+{
+	duplicate->duplicates = item->duplicates;
+	item->duplicates = duplicate;
+	duplicate->inQueue = queueDuplicate;
+}
+
+/**
+ * @brief Remove `item` from the circular list it is linked in.
+ */
+static void request_queue_unlink_item(struct item *item)
+{
+	item->next->prev = item->prev;
+	item->prev->next = item->next;
+}
+
+/**
+ * @brief Remove `item` from the pending list and keep the per-rank tail pointers consistent. Caller must hold `queue->qLock`.
+ */
+static void request_queue_unlink_pending(struct request_queue *queue, struct item *item)
+{
+	int rank = request_queue_rank(item->inQueue);
+
+	if (rank < PENDING_QUEUE_RANKS && queue->pendingTail[rank] == item) {
+		if ((item->prev != &(queue->pendingHead)) && (request_queue_rank(item->prev->inQueue) == rank)) {
+			queue->pendingTail[rank] = item->prev;
+		} else {
+			queue->pendingTail[rank] = &(queue->pendingHead);
+		}
+	}
+
+	request_queue_unlink_item(item);
+}
+
+/**
+ * @brief Insert `item` at the end of its rank in the pending list. Caller must hold `queue->qLock`.
+ */
+static void request_queue_insert_pending(struct request_queue *queue, struct item *item)
+{
+	struct item *pos;
+	int rank = request_queue_rank(item->inQueue);
+
+	if (rank >= PENDING_QUEUE_RANKS) {
+		return;
+	}
+
+	pos = &(queue->pendingHead);
+
+	for (int i = rank; i >= 0; i--) {
+		if (queue->pendingTail[i] != &(queue->pendingHead)) {
+			pos = queue->pendingTail[i];
+			break;
+		}
+	}
+
+	item->next = pos->next;
+	item->prev = pos;
+	item->prev->next = item;
+	item->next->prev = item;
+	queue->pendingTail[rank] = item;
+}
+
+/**
+ * @brief Move a pending `item` to the higher-ranked queue requested by `duplicate`, if that queue has room.
+ *
+ * The duplicate is attached to `item`, so its client still receives the response.
+ * Caller must hold `queue->qLock`.
+ *
+ * @return 1 if `item` was promoted and `duplicate` attached, 0 otherwise.
+ */
+static int request_queue_promote_pending(struct request_queue *queue, struct item *item, struct item *duplicate)
+{
+	enum queueEnum target_queue;
+	int *current_count;
+	int *target_count;
+
+	if (!request_queue_for_cmd(duplicate->req.cmd, &target_queue)) {
+		return 0;
+	}
+
+	if (target_queue == queueDirty) {
+		return 0;
+	}
+
+	if (request_queue_rank(target_queue) >= request_queue_rank(item->inQueue)) {
+		return 0;
+	}
+
+	target_count = request_queue_counter(queue, target_queue);
+	current_count = request_queue_counter(queue, item->inQueue);
+
+	if (target_count == NULL || current_count == NULL) {
+		return 0;
+	}
+
+	if (*target_count >= request_queue_limit(queue, target_queue)) {
+		return 0;
+	}
+
+	request_queue_unlink_pending(queue, item);
+	(*current_count)--;
+
+	item->inQueue = target_queue;
+	item->originatedQueue = target_queue;
+	request_queue_insert_pending(queue, item);
+	(*target_count)++;
+	request_queue_attach_duplicate(item, duplicate);
+	pthread_cond_signal(&queue->qCond);
+
+	return 1;
+}
+
+/**
  * @brief Check whether a matching metatile request is already queued or being rendered.
  *
  * If an identical request is actively rendering (`queueRender`) or waiting in an
@@ -212,11 +487,12 @@ static enum protoCmd pending(struct request_queue *queue, struct item *test)
 	item = lookup_item_idx(queue, test);
 
 	if (item != NULL) {
+		if (request_queue_promote_pending(queue, item, test)) {
+			return cmdIgnore;
+		}
+
 		if ((item->inQueue == queueRender) || (item->inQueue == queueRequest) || (item->inQueue == queueRequestPrio) || (item->inQueue == queueRequestLow)) {
-			/* Prepend `test` to the existing item's duplicate chain so it receives a reply on completion */
-			test->duplicates = item->duplicates;
-			item->duplicates = test;
-			test->inQueue = queueDuplicate;
+			request_queue_attach_duplicate(item, test);
 			return cmdIgnore;
 		} else if ((item->inQueue == queueDirty) || (item->inQueue == queueRequestBulk)) {
 			return cmdNotDone;
@@ -254,32 +530,45 @@ struct item *request_queue_fetch_request(struct request_queue *queue)
 		pthread_cond_wait(&(queue->qCond), &(queue->qLock));
 	}
 
-	if (queue->reqPrioNum) {
-		item = queue->reqPrioHead.next;
-		queue->reqPrioNum--;
-		queue->stats.noReqPrioRender++;
-	} else if (queue->reqNum) {
-		item = queue->reqHead.next;
-		queue->reqNum--;
-		queue->stats.noReqRender++;
-	} else if (queue->reqLowNum) {
-		item = queue->reqLowHead.next;
-		queue->reqLowNum--;
-		queue->stats.noReqLowRender++;
-	} else if (queue->dirtyNum) {
-		item = queue->dirtyHead.next;
-		queue->dirtyNum--;
-		queue->stats.noDirtyRender++;
-	} else if (queue->reqBulkNum) {
-		item = queue->reqBulkHead.next;
-		queue->reqBulkNum--;
-		queue->stats.noReqBulkRender++;
-	}
+	item = queue->pendingHead.next;
 
 	if (item) {
-		/* Unlink item from its source priority queue */
-		item->next->prev = item->prev;
-		item->prev->next = item->next;
+		switch (item->inQueue) {
+		case queueRequestPrio: {
+			queue->reqPrioNum--;
+			queue->stats.noReqPrioRender++;
+			break;
+		}
+
+		case queueRequest: {
+			queue->reqNum--;
+			queue->stats.noReqRender++;
+			break;
+		}
+
+		case queueRequestLow: {
+			queue->reqLowNum--;
+			queue->stats.noReqLowRender++;
+			break;
+		}
+
+		case queueDirty: {
+			queue->dirtyNum--;
+			queue->stats.noDirtyRender++;
+			break;
+		}
+
+		case queueRequestBulk: {
+			queue->reqBulkNum--;
+			queue->stats.noReqBulkRender++;
+			break;
+		}
+
+		default:
+			break;
+		}
+
+		request_queue_unlink_pending(queue, item);
 
 		/* Insert item at the head of the active render list */
 		item->prev = &(queue->renderHead);
@@ -310,13 +599,16 @@ void request_queue_clear_requests_by_fd(struct request_queue *queue, int fd)
 	/* Current queue list item, duplicate-chain iterator, and current circular sentinel head */
 	struct item *item, *dupes, *queueHead;
 
-	/* Only need to scan the interactive/render queues; items on dirtyHead already have FD_INVALID */
+	/**Only need to scan the pending priority queue and render queue.
+	 * Most dirty queue entries have FD_INVALID, but promoted duplicates may
+	 * carry a client fd while the primary item still represents the same tile.
+	 */
 	pthread_mutex_lock(&(queue->qLock));
 
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 2; i++) {
 		switch (i) {
 		case 0: {
-			queueHead = &(queue->reqHead);
+			queueHead = &(queue->pendingHead);
 			break;
 		}
 
@@ -324,26 +616,18 @@ void request_queue_clear_requests_by_fd(struct request_queue *queue, int fd)
 			queueHead = &(queue->renderHead);
 			break;
 		}
-
-		case 2: {
-			queueHead = &(queue->reqPrioHead);
-			break;
-		}
-
-		case 3: {
-			queueHead = &(queue->reqBulkHead);
-			break;
-		}
-
-		case 4: {
-			queueHead = &(queue->reqLowHead);
-			break;
-		}
 		}
 
 		item = queueHead->next;
 
 		while (item != queueHead) {
+			if (queueHead == &(queue->pendingHead) && item->inQueue == queueDirty) {
+				int rank = request_queue_rank(queueDirty);
+
+				item = queue->pendingTail[rank]->next;
+				continue;
+			}
+
 			if (item->fd == fd) {
 				item->fd = FD_INVALID;
 			}
@@ -384,8 +668,8 @@ enum protoCmd request_queue_add_request(struct request_queue *queue, struct item
 	enum protoCmd status;
 	/* Pointer to the wire protocol payload inside `item` */
 	const struct protocol *req;
-	/* Sentinel head of the target circular doubly-linked queue */
-	struct item *list = NULL;
+	enum protoCmd add_status = cmdIgnore;
+	int item_added = 0;
 	req = &(item->req);
 
 	if (queue == NULL) {
@@ -411,33 +695,34 @@ enum protoCmd request_queue_add_request(struct request_queue *queue, struct item
 		return cmdIgnore;
 	}
 
-	/* New unique request: route to the priority queue matching req->cmd, or fall back to dirtyHead */
-	if ((req->cmd == cmdRender) && (queue->reqNum < REQ_LIMIT)) {
-		list = &(queue->reqHead);
+	// New request, add it to render or dirty queue
+	if ((req->cmd == cmdRender) && (queue->reqNum < queue->requestLimit)) {
 		item->inQueue = queueRequest;
 		item->originatedQueue = queueRequest;
 		queue->reqNum++;
-	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < REQ_LIMIT)) {
-		list = &(queue->reqPrioHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderPrio) && (queue->reqPrioNum < queue->requestLimit)) {
 		item->inQueue = queueRequestPrio;
 		item->originatedQueue = queueRequestPrio;
 		queue->reqPrioNum++;
-	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < REQ_LIMIT)) {
-		list = &(queue->reqLowHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderLow) && (queue->reqLowNum < queue->requestLimit)) {
 		item->inQueue = queueRequestLow;
 		item->originatedQueue = queueRequestLow;
 		queue->reqLowNum++;
-	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < REQ_LIMIT)) {
-		list = &(queue->reqBulkHead);
+		item_added = 1;
+	} else if ((req->cmd == cmdRenderBulk) && (queue->reqBulkNum < queue->requestLimit)) {
 		item->inQueue = queueRequestBulk;
 		item->originatedQueue = queueRequestBulk;
 		queue->reqBulkNum++;
-	} else if (queue->dirtyNum < DIRTY_LIMIT) {
-		list = &(queue->dirtyHead);
+		item_added = 1;
+	} else if (queue->dirtyNum < queue->dirtyLimit) {
 		item->inQueue = queueDirty;
 		item->originatedQueue = queueDirty;
 		queue->dirtyNum++;
-		item->fd = FD_INVALID; /* Background dirty render sends no client response */
+		item->fd = FD_INVALID; // No response after render
+		add_status = cmdNotDone;
+		item_added = 1;
 	} else {
 		/* All queues are saturated; drop the request */
 		queue->stats.noReqDroped++;
@@ -446,13 +731,11 @@ enum protoCmd request_queue_add_request(struct request_queue *queue, struct item
 		return cmdNotDone;
 	}
 
-	if (list) {
-		/* Append item to tail of circular list (immediately before sentinel `list`) */
-		item->next = list;
-		item->prev = list->prev;
-		item->prev->next = item;
-		list->prev = item;
-		/* Register item in the hash table index for O(1) duplicate detection */
+	if (item_added) {
+		request_queue_insert_pending(queue, item);
+		/* In addition to the linked list, add item to a hash table index
+		 * for faster lookup of pending requests.
+		 */
 		insert_item_idx(queue, item);
 
 		pthread_cond_signal(&queue->qCond);
@@ -465,7 +748,7 @@ enum protoCmd request_queue_add_request(struct request_queue *queue, struct item
 
 	pthread_mutex_unlock(&queue->qLock);
 
-	return (list == &(queue->dirtyHead)) ? cmdNotDone : cmdIgnore;
+	return add_status;
 }
 
 /**
@@ -522,8 +805,7 @@ void request_queue_remove_request(struct request_queue *queue, struct item *requ
 		queue->stats.timeZoomRender[request->req.z] += render_time;
 	}
 
-	request->next->prev = request->prev;
-	request->prev->next = request->next;
+	request_queue_unlink_item(request);
 	remove_item_idx(queue, request);
 	pthread_mutex_unlock(&(queue->qLock));
 }
@@ -585,15 +867,17 @@ void request_queue_copy_stats(struct request_queue *queue, stats_struct *stats)
 }
 
 /**
- * @brief Allocate and initialize a new `request_queue` with empty circular queues and hash index.
+ * @brief Allocate and initialize a new `request_queue` with empty queues and a hash index sized from the queue limits.
  *
- * Initializes `qLock`, `qCond`, all six circular doubly-linked list sentinel heads
- * (`reqHead`, `reqPrioHead`, `reqLowHead`, `reqBulkHead`, `dirtyHead`, `renderHead`),
- * zeroed statistics counters, and the `HASHIDX_SIZE`-bucket hash table.
+ * Initializes `qLock`, `qCond`, the circular doubly-linked pending and render list sentinel heads,
+ * zeroed statistics counters, and the hash table.
  *
- * @return Newly allocated `struct request_queue`, or `NULL` if memory or pthread initialization fails.
+ * @param request_limit Maximum number of requests in each time-critical queue (must be at least 1).
+ * @param dirty_limit   Maximum number of requests in the dirty queue (must not be negative).
+ * @return Newly allocated `struct request_queue`, or `NULL` if the limits are invalid or memory or pthread initialization fails.
  */
-struct request_queue *request_queue_init()
+struct request_queue *request_queue_init_with_limits(int request_limit, int dirty_limit)
+
 {
 	/* Return code from pthread synchronization primitive initialization */
 	int res;
@@ -603,6 +887,15 @@ struct request_queue *request_queue_init()
 	if (queue == NULL) {
 		return NULL;
 	}
+
+	if (request_limit < 1 || dirty_limit < 0) {
+		g_logger(G_LOG_LEVEL_ERROR, "Invalid request queue limits: request_queue_limit=%i dirty_queue_limit=%i", request_limit, dirty_limit);
+		free(queue);
+		return NULL;
+	}
+
+	queue->requestLimit = request_limit;
+	queue->dirtyLimit = dirty_limit;
 
 	res = pthread_mutex_init(&(queue->qLock), NULL);
 
@@ -629,13 +922,14 @@ struct request_queue *request_queue_init()
 	queue->stats.noReqBulkRender = 0;
 
 	/* Initialize all circular doubly-linked list sentinels to point to themselves */
-	queue->reqHead.next = queue->reqHead.prev = &(queue->reqHead);
-	queue->reqPrioHead.next = queue->reqPrioHead.prev = &(queue->reqPrioHead);
-	queue->reqLowHead.next = queue->reqLowHead.prev = &(queue->reqLowHead);
-	queue->reqBulkHead.next = queue->reqBulkHead.prev = &(queue->reqBulkHead);
-	queue->dirtyHead.next = queue->dirtyHead.prev = &(queue->dirtyHead);
+	queue->pendingHead.next = queue->pendingHead.prev = &(queue->pendingHead);
 	queue->renderHead.next = queue->renderHead.prev = &(queue->renderHead);
-	queue->hashidxSize = HASHIDX_SIZE;
+
+	for (int i = 0; i < PENDING_QUEUE_RANKS; i++) {
+		queue->pendingTail[i] = &(queue->pendingHead);
+	}
+
+	queue->hashidxSize = request_queue_hash_size(request_limit, dirty_limit);
 	queue->item_hashidx = (struct item_idx *)malloc(sizeof(struct item_idx) * queue->hashidxSize);
 
 	if (queue->item_hashidx == NULL) {
@@ -649,6 +943,16 @@ struct request_queue *request_queue_init()
 	bzero(queue->item_hashidx, sizeof(struct item_idx) * queue->hashidxSize);
 
 	return queue;
+}
+
+/**
+ * @brief Allocate and initialize a new `request_queue` with the default queue limits (`REQ_LIMIT`, `DIRTY_LIMIT`).
+ *
+ * @return Newly allocated `struct request_queue`, or `NULL` if memory or pthread initialization fails.
+ */
+struct request_queue *request_queue_init()
+{
+	return request_queue_init_with_limits(REQ_LIMIT, DIRTY_LIMIT);
 }
 
 /**
