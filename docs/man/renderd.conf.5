@@ -41,6 +41,19 @@ Specify the number of threads to be used for \fBrenderd\fR.
 A value of \fB'-1'\fR will configure \fBnum_threads\fR to the number of cores on the system.
 The default value is \fB'4'\fR (macro definition \fB'NUM_THREADS'\fR).
 .TP
+.B request_queue_limit
+Specify the maximum number of requests kept in each time-critical request queue: priority, normal, low priority, and bulk.
+When one of these queues is full, new requests overflow into the dirty queue if space is available.
+The default value is \fB'256'\fR (macro definition \fB'REQ_LIMIT'\fR).
+
+.TP
+.B dirty_queue_limit
+Specify the maximum number of requests kept in the dirty queue.
+The dirty queue is the background queue for expired or overflowed tiles where no client is waiting for the response.
+Larger values can preserve more expired work for quiet periods, but they can also increase memory use and make it easier for important overflowed tiles to sit behind lower-priority background work.
+The default value is \fB'8000'\fR (macro definition \fB'DIRTY_LIMIT'\fR).
+
+.TP
 .B pid_file
 Specify the file path into which the PID will be written by \fBrenderd\fR.
 It is only written to when \fBrenderd\fR is not running in \fBforeground\fR mode (e.g. without \fB'--foreground'\fR / \fB'-f')\fR.
@@ -171,6 +184,10 @@ Specify the file path of the Mapnik XML stylesheet file for this section.
 Only used by \fBrenderd\fR.
 .SH SEE ALSO
 .BR renderd(1)
+.PP
+See \fBdocs/renderd-queue-tuning.md\fR in the source tree for queue tuning and rollout guidance.
+.BR
+
 .SH AUTHOR
 renderd was written by Jon Burgess, and other OpenStreetMap project members.
 .PP

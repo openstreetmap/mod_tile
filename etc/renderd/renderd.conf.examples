@@ -6,12 +6,16 @@ stats_file=/run/renderd/renderd.stats
 socketname=/run/renderd/renderd.sock
 num_threads=4
 tile_dir=/var/cache/renderd/tiles
+;request_queue_limit=256
+;dirty_queue_limit=8000
 
 ;[renderd]
 ;iphostname=::1
 ;ipport=7654
 ;num_threads=4
 ;tile_dir=rados://tiles/etc/ceph/ceph.conf
+;request_queue_limit=256
+;dirty_queue_limit=8000
 ;pid_file=/run/renderd/renderd_rados.pid
 ;stats_file=/run/renderd/renderd.stats
 

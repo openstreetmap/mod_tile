@@ -28,6 +28,7 @@ extern "C" {
 
 /** @brief Prime bucket count for the hash table indexing queued and in-flight metatile render requests. */
 #define HASHIDX_SIZE 2213
+#define PENDING_QUEUE_RANKS 5
 
 	/**
 	 * @brief Cumulative render request counts and elapsed render durations tracked by `request_queue`.
@@ -75,11 +76,17 @@ extern "C" {
 	 * @brief Thread-safe multi-priority metatile render queue with hash-based duplicate coalescing.
 	 */
 	struct request_queue {
-		/** @brief Number of buckets allocated in `item_hashidx` (typically `HASHIDX_SIZE`). */
+		/** @brief Maximum number of requests kept in the dirty queue. */
+		int dirtyLimit;
+		/** @brief Number of buckets allocated in `item_hashidx`, sized from the queue limits (at least `HASHIDX_SIZE`). */
 		int hashidxSize;
-		/** @brief Sentinel list heads for the standard, high-prio, low-prio, bulk, dirty, and active-render queues. */
-		struct item reqHead, reqPrioHead, reqLowHead, reqBulkHead, dirtyHead, renderHead;
-		/** @brief Array of `hashidxSize` bucket heads indexing all queued and in-flight requests by `(xmlname, mx, my, z)`. */
+		/** @brief Maximum number of requests kept in each of the standard, high-prio, low-prio, and bulk queues. */
+		int requestLimit;
+		/** @brief Sentinel head of the single pending list ordered by queue rank, and of the active-render list. */
+		struct item pendingHead, renderHead;
+		/** @brief Last pending item of each queue rank (`PENDING_QUEUE_RANKS`), or `&pendingHead` when the rank is empty. */
+		struct item *pendingTail[PENDING_QUEUE_RANKS];
+		/** @brief Array of `hashidxSize` bucket heads indexing all queued and in-flight requests by `(xmlname, mimetype, options, mx, my, z)`. */
 		struct item_idx *item_hashidx;
 		/** @brief Current item counts in the standard, high-prio, low-prio, bulk, and dirty queues. */
 		int reqNum, reqPrioNum, reqLowNum, reqBulkNum, dirtyNum;
@@ -92,6 +99,7 @@ extern "C" {
 	};
 
 	struct request_queue *request_queue_init();
+	struct request_queue *request_queue_init_with_limits(int request_limit, int dirty_limit);
 	void request_queue_close(struct request_queue *queue);
 
 	struct item *request_queue_fetch_request(struct request_queue *queue);
