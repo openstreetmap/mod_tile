@@ -598,7 +598,7 @@ struct storage_backend *init_storage_rados(const char *connection_string)
 	memcpy(ctx->pool, tmp, i * sizeof(char));
 	conf = strdup(&(tmp[i]));
 
-	err = rados_create(&(ctx->cluster), NULL);
+	err = rados_create(&(ctx->cluster), getenv("CEPH_ID"));
 
 	if (err < 0) {
 		g_logger(G_LOG_LEVEL_ERROR, "init_storage_rados: cannot create a cluster handle: %s", strerror(-err));

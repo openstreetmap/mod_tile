@@ -37,6 +37,13 @@ Print out a help text for renderd
 .TP
 .BR \-V ", " \-\^\-version
 Print out the version number for renderd
+.SH ENVIRONMENT
+.TP
+.B CEPH_ID
+Ceph client id used to connect to the cluster when a tile directory is a RADOS store
+(\fB'rados://<pool>/<path to ceph.conf>'\fR), e.g. \fB'tiles'\fR for the \fBclient.tiles\fR user.
+It is read by every component using the RADOS backend (\fBrenderd\fR, \fBmod_tile\fR and the
+\fBrender_*\fR tools). If unset, the librados default (\fBclient.admin\fR) is used.
 .SH SEE ALSO
 .BR renderd.conf(5)
 .SH AUTHOR
